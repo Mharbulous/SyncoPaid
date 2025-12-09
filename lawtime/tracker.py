@@ -94,12 +94,17 @@ def get_active_window() -> Dict[str, Optional[str]]:
         hwnd = win32gui.GetForegroundWindow()
         title = win32gui.GetWindowText(hwnd)
         _, pid = win32process.GetWindowThreadProcessId(hwnd)
-        
+
+        # Handle signed/unsigned integer overflow from Windows API
+        # Windows returns unsigned 32-bit PID, but Python may interpret as signed
+        if pid < 0:
+            pid = pid & 0xFFFFFFFF  # Convert to unsigned
+
         try:
             process = psutil.Process(pid).name()
-        except psutil.NoSuchProcess:
+        except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError):
             process = None
-        
+
         return {"app": process, "title": title, "pid": pid}
     
     except Exception as e:

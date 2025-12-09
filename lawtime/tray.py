@@ -75,20 +75,20 @@ class TrayIcon:
     def create_icon_image(self, color: str = "green") -> Optional[Image.Image]:
         """
         Create a simple colored circle icon.
-        
+
         Args:
             color: Icon color - "green" (tracking), "yellow" (paused), "red" (error)
-            
+
         Returns:
             PIL Image object for the icon
         """
         if not TRAY_AVAILABLE:
             return None
-        
+
         size = 64
         image = Image.new('RGBA', (size, size), (0, 0, 0, 0))
         draw = ImageDraw.Draw(image)
-        
+
         # Color mapping
         colors = {
             "green": (34, 197, 94),    # Tracking active
@@ -96,14 +96,13 @@ class TrayIcon:
             "red": (239, 68, 68)       # Error/stopped
         }
         fill = colors.get(color, colors["green"])
-        
+
         # Draw circle
         draw.ellipse([4, 4, size-4, size-4], fill=fill)
-        
+
         # Add small "L" text for "LawTime"
-        font_size = 32
         draw.text((size//2 - 8, size//2 - 12), "L", fill=(255, 255, 255))
-        
+
         return image
     
     def update_icon_status(self, is_tracking: bool):
