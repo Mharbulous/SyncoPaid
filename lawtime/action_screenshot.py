@@ -143,20 +143,27 @@ class ActionScreenshotWorker:
             logging.warning("Windows APIs not available, cannot start action screenshot listeners")
             return
 
-        # Start mouse listener
-        self.mouse_listener = mouse.Listener(
-            on_click=self._on_mouse_click,
-            on_move=self._on_mouse_move
-        )
-        self.mouse_listener.start()
+        try:
+            # Start mouse listener
+            self.mouse_listener = mouse.Listener(
+                on_click=self._on_mouse_click,
+                on_move=self._on_mouse_move
+            )
+            self.mouse_listener.start()
 
-        # Start keyboard listener
-        self.keyboard_listener = keyboard.Listener(
-            on_press=self._on_key_press
-        )
-        self.keyboard_listener.start()
+            # Start keyboard listener
+            self.keyboard_listener = keyboard.Listener(
+                on_press=self._on_key_press
+            )
+            self.keyboard_listener.start()
 
-        logging.info("Action screenshot listeners started")
+            logging.info(
+                f"Action screenshot listeners started. "
+                f"Screenshot dir: {self.screenshot_dir}, "
+                f"throttle: {self.throttle_seconds}s"
+            )
+        except Exception as e:
+            logging.error(f"Failed to start action screenshot listeners: {e}", exc_info=True)
 
     def stop(self):
         """Stop listening for user actions."""
@@ -179,23 +186,28 @@ class ActionScreenshotWorker:
             button: Mouse button (left, right, middle)
             pressed: True if pressed, False if released
         """
-        if pressed:
-            # Mouse button down - track for potential drag detection
-            self.drag_start_button = button
-            self.drag_start_pos = (x, y)
-        else:
-            # Mouse button up - either click or drop
-            if self.is_dragging:
-                # This is a drag end (drop)
-                self.is_dragging = False
-                self.drag_start_button = None
-                self.drag_start_pos = None
-                self._capture_action_screenshot('drop')
+        try:
+            if pressed:
+                # Mouse button down - track for potential drag detection
+                self.drag_start_button = button
+                self.drag_start_pos = (x, y)
             else:
-                # Regular click
-                self.drag_start_button = None
-                self.drag_start_pos = None
-                self._capture_action_screenshot('click')
+                # Mouse button up - either click or drop
+                if self.is_dragging:
+                    # This is a drag end (drop)
+                    self.is_dragging = False
+                    self.drag_start_button = None
+                    self.drag_start_pos = None
+                    logging.info("Action screenshot: drop detected")
+                    self._capture_action_screenshot('drop')
+                else:
+                    # Regular click
+                    self.drag_start_button = None
+                    self.drag_start_pos = None
+                    logging.info("Action screenshot: click detected")
+                    self._capture_action_screenshot('click')
+        except Exception as e:
+            logging.error(f"Error in mouse click handler: {e}", exc_info=True)
 
     def _on_mouse_move(self, x, y):
         """
@@ -240,7 +252,7 @@ class ActionScreenshotWorker:
             action: The action type ('click', 'enter', 'drag', 'drop')
         """
         if not WINDOWS_APIS_AVAILABLE:
-            logging.debug("Windows APIs not available, skipping action screenshot")
+            logging.warning("Windows APIs not available, skipping action screenshot")
             return
 
         # CRITICAL: Capture hwnd immediately in the callback thread, not in the worker thread
@@ -248,10 +260,11 @@ class ActionScreenshotWorker:
         try:
             hwnd = win32gui.GetForegroundWindow()
             if not hwnd:
-                logging.debug(f"No foreground window for {action} screenshot")
+                logging.warning(f"No foreground window for {action} screenshot")
                 return
+            logging.info(f"Action screenshot: captured hwnd={hwnd} for {action}")
         except Exception as e:
-            logging.warning(f"Failed to get foreground window for {action}: {e}")
+            logging.error(f"Failed to get foreground window for {action}: {e}", exc_info=True)
             return
 
         # Check throttling
@@ -261,7 +274,7 @@ class ActionScreenshotWorker:
 
             if time_since_last < self.throttle_seconds:
                 self.total_throttled += 1
-                logging.debug(f"Throttled {action} screenshot ({time_since_last:.2f}s since last)")
+                logging.info(f"Throttled {action} screenshot ({time_since_last:.2f}s since last)")
                 return
 
             self.last_capture_time = current_time
@@ -277,8 +290,8 @@ class ActionScreenshotWorker:
             self.total_drag_end_captures += 1
 
         # Submit to thread pool with hwnd captured now
+        logging.info(f"Submitting {action} screenshot capture for hwnd {hwnd}")
         self.executor.submit(self._capture_and_save, action, hwnd)
-        logging.debug(f"Submitted {action} screenshot capture for hwnd {hwnd}")
 
     def _capture_and_save(self, action: str, hwnd: int):
         """
@@ -320,19 +333,22 @@ class ActionScreenshotWorker:
             # Capture the screenshot
             img = self._capture_window(hwnd)
             if img is None:
-                logging.debug(f"Screenshot capture failed for {action} action")
+                logging.warning(f"Screenshot capture failed for {action} action (hwnd={hwnd})")
                 return
+
+            logging.info(f"Action screenshot: captured image {img.size[0]}x{img.size[1]} for {action}")
 
             # Resize if needed
             img = self._resize_if_needed(img)
 
-            # Generate timestamp
-            timestamp = datetime.now(timezone.utc).isoformat()
+            # Generate timestamp (use local timezone, consistent with periodic screenshots)
+            timestamp = datetime.now().astimezone().isoformat()
 
             # Generate file path
             file_path = self._get_screenshot_path(timestamp, action)
 
             # Save image as JPEG
+            logging.info(f"Saving {action} screenshot to: {file_path}")
             img.save(str(file_path), 'JPEG', quality=self.quality, optimize=True)
 
             # Insert into database
@@ -347,7 +363,7 @@ class ActionScreenshotWorker:
             logging.info(f"Saved {action} screenshot: {file_path.name}")
 
         except Exception as e:
-            logging.error(f"Error capturing {action} screenshot: {e}")
+            logging.error(f"Error capturing {action} screenshot: {e}", exc_info=True)
 
     def _capture_window(self, hwnd: int) -> Optional[Image.Image]:
         """
