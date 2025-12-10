@@ -173,9 +173,11 @@ class TrayIcon:
     def _handle_quit(self, icon, item):
         """Handle Quit menu item."""
         logging.info("User quit from tray menu")
-        self.on_quit()
+        # Stop the tray icon first to release the event loop
         if self.icon:
             self.icon.stop()
+        # Then run cleanup callback (which may call sys.exit)
+        self.on_quit()
     
     def run(self):
         """

@@ -18,12 +18,52 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from pathlib import Path
 from datetime import datetime, date
+import ctypes
 
 from .config import ConfigManager, print_config
 from .database import Database, format_duration
 from .tracker import TrackerLoop
 from .exporter import Exporter
 from .tray import TrayIcon
+
+
+# Single-instance enforcement using Windows mutex
+_MUTEX_NAME = "LawTimeTracker_SingleInstance_Mutex"
+_mutex_handle = None
+
+
+def acquire_single_instance():
+    """
+    Acquire a Windows mutex to ensure only one instance runs.
+
+    Returns:
+        True if this is the only instance, False if another instance is running.
+    """
+    global _mutex_handle
+
+    kernel32 = ctypes.windll.kernel32
+    ERROR_ALREADY_EXISTS = 183
+
+    # Create named mutex
+    _mutex_handle = kernel32.CreateMutexW(None, True, _MUTEX_NAME)
+
+    # Check if mutex already existed
+    if kernel32.GetLastError() == ERROR_ALREADY_EXISTS:
+        if _mutex_handle:
+            kernel32.CloseHandle(_mutex_handle)
+            _mutex_handle = None
+        return False
+
+    return True
+
+
+def release_single_instance():
+    """Release the Windows mutex."""
+    global _mutex_handle
+    if _mutex_handle:
+        ctypes.windll.kernel32.ReleaseMutex(_mutex_handle)
+        ctypes.windll.kernel32.CloseHandle(_mutex_handle)
+        _mutex_handle = None
 
 
 class LawTimeApp:
@@ -213,14 +253,17 @@ class LawTimeApp:
     def quit_app(self):
         """Clean shutdown of the application."""
         logging.info("Application shutting down...")
-        
+
         # Stop tracking
         if self.is_tracking:
             self.pause_tracking()
-        
+
         # Show final statistics
         self.show_statistics()
-        
+
+        # Release single-instance mutex
+        release_single_instance()
+
         logging.info("Goodbye!")
         sys.exit(0)
     
@@ -266,17 +309,25 @@ def main():
             # logging.FileHandler('lawtime.log')
         ]
     )
-    
+
+    # Enforce single instance
+    if not acquire_single_instance():
+        print("LawTime Tracker is already running.")
+        print("Check your system tray for the existing instance.")
+        sys.exit(0)
+
     try:
         app = LawTimeApp()
         app.run()
-    
+
     except KeyboardInterrupt:
         logging.info("Interrupted by user")
+        release_single_instance()
         sys.exit(0)
-    
+
     except Exception as e:
         logging.error(f"Fatal error: {e}", exc_info=True)
+        release_single_instance()
         sys.exit(1)
 
 
