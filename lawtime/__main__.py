@@ -366,22 +366,53 @@ class LawTimeApp:
                 scrollbar = ttk.Scrollbar(root, orient=tk.VERTICAL, command=tree.yview)
                 tree.configure(yscrollcommand=scrollbar.set)
 
-                # Function to open screenshot directory
-                def open_screenshot_folder():
-                    """Open the screenshot directory in Windows Explorer."""
+                # Function to handle command execution
+                def execute_command(event=None):
+                    """Execute command entered in the text field."""
+                    command = command_entry.get().strip().lower()
+
+                    if not command:
+                        return
+
                     try:
-                        # Get the parent screenshots directory (not the periodic subfolder)
-                        screenshot_dir = get_screenshot_directory().parent
+                        # Determine which directory to open based on command
+                        if command == "screenshots":
+                            # Main screenshots directory
+                            target_dir = get_screenshot_directory().parent
+                        elif command == "periodic":
+                            # Periodic screenshots subdirectory
+                            target_dir = get_screenshot_directory()
+                        elif command == "actions":
+                            # Actions screenshots subdirectory
+                            target_dir = get_action_screenshot_directory()
+                        else:
+                            # Unknown command
+                            messagebox.showwarning(
+                                "Unknown Command",
+                                f"Unknown command: '{command}'\n\n"
+                                f"Available commands:\n"
+                                f"  • screenshots - Open main screenshots folder\n"
+                                f"  • periodic - Open periodic screenshots folder\n"
+                                f"  • actions - Open action screenshots folder",
+                                parent=root
+                            )
+                            return
+
                         # Ensure the directory exists
-                        screenshot_dir.mkdir(parents=True, exist_ok=True)
+                        target_dir.mkdir(parents=True, exist_ok=True)
+
                         # Open in Windows Explorer
-                        os.startfile(str(screenshot_dir))
-                        logging.info(f"Opened screenshot directory: {screenshot_dir}")
+                        os.startfile(str(target_dir))
+                        logging.info(f"Opened directory: {target_dir}")
+
+                        # Clear the command entry
+                        command_entry.delete(0, tk.END)
+
                     except Exception as e:
-                        logging.error(f"Error opening screenshot directory: {e}")
+                        logging.error(f"Error executing command '{command}': {e}")
                         messagebox.showerror(
                             "Error",
-                            f"Could not open screenshot directory:\n{str(e)}",
+                            f"Could not open directory:\n{str(e)}",
                             parent=root
                         )
 
@@ -389,12 +420,29 @@ class LawTimeApp:
                 btn_frame = tk.Frame(root, pady=5)
                 btn_frame.pack(fill=tk.X, side=tk.TOP)
 
-                tk.Button(
+                # Command label
+                tk.Label(
                     btn_frame,
-                    text="View Captured Images",
-                    command=open_screenshot_folder,
-                    width=20
-                ).pack(side=tk.LEFT, padx=10)
+                    text="Command:",
+                    font=('Segoe UI', 9)
+                ).pack(side=tk.LEFT, padx=(10, 5))
+
+                # Command entry field
+                command_entry = tk.Entry(
+                    btn_frame,
+                    width=30,
+                    font=('Segoe UI', 9)
+                )
+                command_entry.pack(side=tk.LEFT, padx=5)
+                command_entry.bind('<Return>', execute_command)
+
+                # Help text
+                tk.Label(
+                    btn_frame,
+                    text="(screenshots | periodic | actions)",
+                    font=('Segoe UI', 8),
+                    foreground='gray'
+                ).pack(side=tk.LEFT, padx=5)
 
                 tk.Button(
                     btn_frame,
