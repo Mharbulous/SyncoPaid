@@ -223,9 +223,22 @@ class TrackerLoop:
                 }
 
                 # Submit screenshot if enabled and interval elapsed
-                if self.screenshot_worker and WINDOWS_APIS_AVAILABLE:
+                # Note: We only check if screenshot_worker exists. The worker itself
+                # handles platform-specific checks (WINDOWS_APIS_AVAILABLE) internally.
+                if self.screenshot_worker:
                     current_time = time.time()
-                    if current_time - self.last_screenshot_time >= self.screenshot_interval:
+                    time_since_last = current_time - self.last_screenshot_time
+
+                    # Log diagnostic info on first screenshot attempt
+                    if not hasattr(self, '_screenshot_diagnostic_logged'):
+                        logging.info(
+                            f"Screenshot capture enabled: interval={self.screenshot_interval}s, "
+                            f"tracker_apis_available={WINDOWS_APIS_AVAILABLE}"
+                        )
+                        self._screenshot_diagnostic_logged = True
+
+                    if time_since_last >= self.screenshot_interval:
+                        logging.debug(f"Triggering screenshot capture (elapsed: {time_since_last:.1f}s)")
                         self._submit_screenshot(window, idle_seconds)
                         self.last_screenshot_time = current_time
 
@@ -329,6 +342,13 @@ class TrackerLoop:
             idle_seconds: Current idle time
         """
         if not WINDOWS_APIS_AVAILABLE:
+            # Log this once per session to inform user why screenshots aren't working
+            if not hasattr(self, '_screenshot_platform_warning_logged'):
+                logging.warning(
+                    "Cannot capture screenshots: Windows APIs not available. "
+                    "This is expected on non-Windows platforms or if pywin32/psutil are not installed."
+                )
+                self._screenshot_platform_warning_logged = True
             return
 
         try:
@@ -337,6 +357,7 @@ class TrackerLoop:
             timestamp = datetime.now(timezone.utc).isoformat()
 
             # Submit to worker (non-blocking)
+            logging.debug(f"Submitting screenshot for {window['app']}")
             self.screenshot_worker.submit(
                 hwnd=hwnd,
                 timestamp=timestamp,
@@ -346,7 +367,7 @@ class TrackerLoop:
             )
 
         except Exception as e:
-            logging.error(f"Error submitting screenshot: {e}")
+            logging.error(f"Error submitting screenshot: {e}", exc_info=True)
 
 
 # ============================================================================
