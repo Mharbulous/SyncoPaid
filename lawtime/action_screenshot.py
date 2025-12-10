@@ -6,6 +6,7 @@ Captures screenshots when user performs specific actions:
 - Enter/Return key presses
 - Drag start operations
 - Drag end (drop) operations
+- Window focus changes (Alt+Tab, taskbar clicks, etc.)
 
 Screenshots are saved to screenshots/actions/ with format:
 YYYY-MM-DD_HH-mm-dd_UTC_{action}.jpg
@@ -116,11 +117,18 @@ class ActionScreenshotWorker:
         self.total_enter_captures = 0
         self.total_drag_start_captures = 0
         self.total_drag_end_captures = 0
+        self.total_focus_captures = 0
         self.total_throttled = 0
 
         # Event listeners (will be set by start())
         self.mouse_listener = None
         self.keyboard_listener = None
+
+        # Focus change monitoring
+        self.last_focus_hwnd: Optional[int] = None
+        self.focus_monitor_thread: Optional[threading.Thread] = None
+        self.focus_monitor_running = False
+        self.focus_poll_interval = 0.5  # Poll every 500ms
 
         # Ensure screenshot directory exists
         if self.enabled:
@@ -156,6 +164,15 @@ class ActionScreenshotWorker:
                 on_press=self._on_key_press
             )
             self.keyboard_listener.start()
+
+            # Start focus change monitor
+            self.focus_monitor_running = True
+            self.focus_monitor_thread = threading.Thread(
+                target=self._monitor_focus_changes,
+                daemon=True,
+                name='focus_monitor'
+            )
+            self.focus_monitor_thread.start()
 
             logging.info(
                 f"Action screenshot listeners started. "
