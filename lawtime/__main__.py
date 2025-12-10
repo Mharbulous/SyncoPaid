@@ -330,7 +330,8 @@ class LawTimeApp:
                 def open_screenshot_folder():
                     """Open the screenshot directory in Windows Explorer."""
                     try:
-                        screenshot_dir = get_screenshot_directory()
+                        # Get the parent screenshots directory (not the periodic subfolder)
+                        screenshot_dir = get_screenshot_directory().parent
                         # Ensure the directory exists
                         screenshot_dir.mkdir(parents=True, exist_ok=True)
                         # Open in Windows Explorer
