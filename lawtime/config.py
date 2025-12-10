@@ -25,6 +25,8 @@ DEFAULT_CONFIG = {
     "screenshot_interval_seconds": 10,
     "screenshot_threshold_identical": 0.92,
     "screenshot_threshold_significant": 0.70,
+    "screenshot_threshold_identical_same_window": 0.90,
+    "screenshot_threshold_identical_different_window": 0.99,
     "screenshot_quality": 65,
     "screenshot_max_dimension": 1920
 }
@@ -46,6 +48,8 @@ class Config:
         screenshot_interval_seconds: Seconds between screenshot attempts (default: 10)
         screenshot_threshold_identical: Similarity threshold to overwrite (≥0.92)
         screenshot_threshold_significant: Similarity threshold for new save (<0.70)
+        screenshot_threshold_identical_same_window: Threshold when active window unchanged (default: 0.90)
+        screenshot_threshold_identical_different_window: Threshold when active window changed (default: 0.99)
         screenshot_quality: JPEG quality 1-100 (default: 65)
         screenshot_max_dimension: Max width/height in pixels (default: 1920)
     """
@@ -60,6 +64,8 @@ class Config:
     screenshot_interval_seconds: float = 10.0
     screenshot_threshold_identical: float = 0.92
     screenshot_threshold_significant: float = 0.70
+    screenshot_threshold_identical_same_window: float = 0.90
+    screenshot_threshold_identical_different_window: float = 0.99
     screenshot_quality: int = 65
     screenshot_max_dimension: int = 1920
     
