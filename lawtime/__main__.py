@@ -301,18 +301,6 @@ class LawTimeApp:
                 scrollbar = ttk.Scrollbar(root, orient=tk.VERTICAL, command=tree.yview)
                 tree.configure(yscrollcommand=scrollbar.set)
 
-                # Pack treeview and scrollbar
-                tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-                scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-                # Insert events
-                for event in events:
-                    ts = event['timestamp'][:19].replace('T', ' ')
-                    dur = format_duration(event['duration_seconds'])
-                    app = event['app'] or ''
-                    title = event['title'] or ''
-                    tree.insert('', tk.END, values=(ts, dur, app, title))
-
                 # Function to open screenshot directory
                 def open_screenshot_folder():
                     """Open the screenshot directory in Windows Explorer."""
@@ -331,7 +319,7 @@ class LawTimeApp:
                             parent=root
                         )
 
-                # Button frame with View Images and Close buttons
+                # Button frame - pack BEFORE treeview so it reserves space at bottom
                 btn_frame = tk.Frame(root, pady=10)
                 btn_frame.pack(fill=tk.X, side=tk.BOTTOM)
 
@@ -348,6 +336,18 @@ class LawTimeApp:
                     command=root.destroy,
                     width=10
                 ).pack(side=tk.RIGHT, padx=10)
+
+                # Pack treeview and scrollbar AFTER button frame
+                tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+                # Insert events
+                for event in events:
+                    ts = event['timestamp'][:19].replace('T', ' ')
+                    dur = format_duration(event['duration_seconds'])
+                    app = event['app'] or ''
+                    title = event['title'] or ''
+                    tree.insert('', tk.END, values=(ts, dur, app, title))
 
                 root.mainloop()
 
