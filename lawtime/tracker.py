@@ -354,7 +354,7 @@ class TrackerLoop:
         try:
             # Get window handle
             hwnd = win32gui.GetForegroundWindow()
-            timestamp = datetime.now(timezone.utc).isoformat()
+            timestamp = datetime.now().astimezone().isoformat()
 
             # Submit to worker (non-blocking)
             logging.debug(f"Submitting screenshot for {window['app']}")
