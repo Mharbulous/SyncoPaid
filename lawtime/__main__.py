@@ -380,6 +380,10 @@ class LawTimeApp:
                             root.destroy()
                             # Quit the application
                             logging.info("Quit command received from command field")
+                            # Stop the tray icon first to release the main thread event loop
+                            if self.tray and self.tray.icon:
+                                self.tray.icon.stop()
+                            # Then run cleanup
                             self.quit_app()
                             return
 
