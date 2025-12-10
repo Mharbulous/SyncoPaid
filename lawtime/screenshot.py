@@ -38,11 +38,11 @@ except ImportError as e:
 if WINDOWS:
     try:
         import win32gui
-        from PIL import ImageGrab
+        import mss
         WINDOWS_APIS_AVAILABLE = PIL_AVAILABLE and True
     except ImportError:
         WINDOWS_APIS_AVAILABLE = False
-        logging.warning("Screenshot APIs not available. Install pywin32, Pillow, and imagehash.")
+        logging.warning("Screenshot APIs not available. Install pywin32, Pillow, imagehash, and mss.")
 else:
     WINDOWS_APIS_AVAILABLE = False
 
@@ -318,28 +318,24 @@ class ScreenshotWorker:
                 logging.debug("Window completely off-screen")
                 return None
 
-            # Capture the screenshot using all_screens=True for multi-monitor support
-            # This captures the entire virtual screen space, then we crop to the window
-            img = ImageGrab.grab(all_screens=True)
+            # Capture screenshot using MSS library (fixes secondary monitor black screenshots)
+            # MSS handles multi-monitor coordinate systems correctly, unlike PIL's ImageGrab
+            # which has known bugs with secondary monitors (Pillow #1547, #7898)
+            with mss.mss() as sct:
+                # Define the capture region using MSS's monitor dict format
+                monitor = {
+                    "left": x1,
+                    "top": y1,
+                    "width": width,
+                    "height": height
+                }
 
-            # Get the virtual screen bounds to calculate crop coordinates
-            # ImageGrab.grab(all_screens=True) returns an image where (0,0) is the
-            # top-left of the virtual screen (which may have negative coordinates)
-            from ctypes import windll
+                # Capture the screenshot
+                screenshot = sct.grab(monitor)
 
-            # Get virtual screen bounds
-            virtual_screen_left = windll.user32.GetSystemMetrics(76)  # SM_XVIRTUALSCREEN
-            virtual_screen_top = windll.user32.GetSystemMetrics(77)   # SM_YVIRTUALSCREEN
-
-            # Convert window coordinates to image coordinates
-            # Window coords are in virtual screen space, image coords start at (0,0)
-            crop_left = x1 - virtual_screen_left
-            crop_top = y1 - virtual_screen_top
-            crop_right = x2 - virtual_screen_left
-            crop_bottom = y2 - virtual_screen_top
-
-            # Crop to the window region
-            img = img.crop((crop_left, crop_top, crop_right, crop_bottom))
+                # Convert MSS screenshot to PIL Image
+                # MSS returns BGRA format, convert to RGB for PIL
+                img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
 
             return img
 

@@ -15,6 +15,9 @@ Pillow>=10.0.0
 # Perceptual hashing for screenshot deduplication
 imagehash>=4.3.1
 
+# Multi-monitor screenshot capture (fixes secondary monitor black screenshots)
+mss>=9.0.0
+
 # Keyboard and mouse event listeners for action-based screenshots
 pynput>=1.7.6
 

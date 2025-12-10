@@ -39,11 +39,11 @@ except ImportError as e:
 if WINDOWS:
     try:
         import win32gui
-        from PIL import ImageGrab
+        import mss
         WINDOWS_APIS_AVAILABLE = PIL_AVAILABLE and True
     except ImportError:
         WINDOWS_APIS_AVAILABLE = False
-        logging.warning("Screenshot APIs not available. Install pywin32, Pillow.")
+        logging.warning("Screenshot APIs not available. Install pywin32, Pillow, and mss.")
 else:
     WINDOWS_APIS_AVAILABLE = False
 
@@ -446,8 +446,24 @@ class ActionScreenshotWorker:
             if x2 < 0 or y2 < 0:
                 return None
 
-            # Capture the screenshot
-            img = ImageGrab.grab(bbox=(x1, y1, x2, y2))
+            # Capture screenshot using MSS library (fixes secondary monitor black screenshots)
+            # MSS handles multi-monitor coordinate systems correctly, unlike PIL's ImageGrab
+            # which has known bugs with secondary monitors (Pillow #1547, #7898)
+            with mss.mss() as sct:
+                # Define the capture region using MSS's monitor dict format
+                monitor = {
+                    "left": x1,
+                    "top": y1,
+                    "width": width,
+                    "height": height
+                }
+
+                # Capture the screenshot
+                screenshot = sct.grab(monitor)
+
+                # Convert MSS screenshot to PIL Image
+                # MSS returns BGRA format, convert to RGB for PIL
+                img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
 
             return img
 
