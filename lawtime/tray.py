@@ -36,7 +36,7 @@ class TrayIcon:
     
     Menu options:
     - Start/Pause Tracking
-    - Export Data...
+    - View Time...
     - Settings...
     - About
     - Quit
@@ -46,23 +46,23 @@ class TrayIcon:
         self,
         on_start: Optional[Callable] = None,
         on_pause: Optional[Callable] = None,
-        on_export: Optional[Callable] = None,
+        on_view_time: Optional[Callable] = None,
         on_settings: Optional[Callable] = None,
         on_quit: Optional[Callable] = None
     ):
         """
         Initialize system tray icon.
-        
+
         Args:
             on_start: Callback for "Start Tracking" menu item
             on_pause: Callback for "Pause Tracking" menu item
-            on_export: Callback for "Export Data" menu item
+            on_view_time: Callback for "View Time" menu item
             on_settings: Callback for "Settings" menu item
             on_quit: Callback for "Quit" menu item
         """
         self.on_start = on_start or (lambda: None)
         self.on_pause = on_pause or (lambda: None)
-        self.on_export = on_export or (lambda: None)
+        self.on_view_time = on_view_time or (lambda: None)
         self.on_settings = on_settings or (lambda: None)
         self.on_quit = on_quit or (lambda: None)
         
@@ -130,7 +130,7 @@ class TrayIcon:
                 self._toggle_tracking,
                 default=True
             ),
-            pystray.MenuItem("📤 Export Data...", self._handle_export),
+            pystray.MenuItem("📊 View Time...", self._handle_view_time),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("⚙ Settings...", self._handle_settings),
             pystray.MenuItem("ℹ About", self._handle_about),
@@ -151,10 +151,10 @@ class TrayIcon:
         self.is_tracking = not self.is_tracking
         self.update_icon_status(self.is_tracking)
     
-    def _handle_export(self, icon, item):
-        """Handle Export Data menu item."""
-        logging.info("User clicked Export Data from tray menu")
-        self.on_export()
+    def _handle_view_time(self, icon, item):
+        """Handle View Time menu item."""
+        logging.info("User clicked View Time from tray menu")
+        self.on_view_time()
     
     def _handle_settings(self, icon, item):
         """Handle Settings menu item."""
@@ -215,7 +215,7 @@ class TrayIcon:
         print("\nCommands:")
         print("  start  - Start tracking")
         print("  pause  - Pause tracking")
-        print("  export - Export data")
+        print("  view   - View time (last 24h)")
         print("  quit   - Quit application")
         print("\n")
         
@@ -233,9 +233,9 @@ class TrayIcon:
                     self.is_tracking = False
                     self.on_pause()
                 
-                elif cmd == "export":
-                    print("📤 Exporting data...")
-                    self.on_export()
+                elif cmd == "view":
+                    print("📊 View time...")
+                    self.on_view_time()
                 
                 elif cmd == "quit" or cmd == "exit":
                     print("❌ Quitting...")
@@ -278,9 +278,9 @@ if __name__ == "__main__":
     def on_pause():
         print("✓ Pause callback triggered")
     
-    def on_export():
-        print("✓ Export callback triggered")
-        print("  (In real app: would open export dialog)")
+    def on_view_time():
+        print("✓ View Time callback triggered")
+        print("  (In real app: would open view time window)")
     
     def on_settings():
         print("✓ Settings callback triggered")
@@ -294,7 +294,7 @@ if __name__ == "__main__":
     tray = TrayIcon(
         on_start=on_start,
         on_pause=on_pause,
-        on_export=on_export,
+        on_view_time=on_view_time,
         on_settings=on_settings,
         on_quit=on_quit
     )

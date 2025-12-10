@@ -15,9 +15,9 @@ import sys
 import logging
 import threading
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import ctypes
 
 from .config import ConfigManager, print_config
@@ -102,7 +102,7 @@ class LawTimeApp:
         self.tray = TrayIcon(
             on_start=self.start_tracking,
             on_pause=self.pause_tracking,
-            on_export=self.show_export_dialog,
+            on_view_time=self.show_view_time_window,
             on_settings=self.show_settings_dialog,
             on_quit=self.quit_app
         )
@@ -221,7 +221,94 @@ class LawTimeApp:
         # Run in thread to avoid blocking pystray
         dialog_thread = threading.Thread(target=run_dialog, daemon=True)
         dialog_thread.start()
-    
+
+    def show_view_time_window(self):
+        """Show window displaying activity from the past 24 hours."""
+        def run_window():
+            try:
+                # Query events from the past 24 hours
+                cutoff = datetime.now() - timedelta(hours=24)
+                cutoff_iso = cutoff.isoformat()
+
+                # Get events directly with timestamp comparison
+                events = []
+                with self.database._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        """SELECT * FROM events
+                           WHERE timestamp >= ? AND is_idle = 0
+                           ORDER BY timestamp DESC""",
+                        (cutoff_iso,)
+                    )
+                    for row in cursor.fetchall():
+                        events.append({
+                            'timestamp': row['timestamp'],
+                            'duration_seconds': row['duration_seconds'],
+                            'app': row['app'],
+                            'title': row['title'],
+                        })
+
+                # Create window
+                root = tk.Tk()
+                root.title("LawTime - Last 24 Hours")
+                root.geometry("800x500")
+                root.attributes('-topmost', True)
+
+                # Header frame
+                header = tk.Frame(root, pady=10)
+                header.pack(fill=tk.X)
+
+                # Calculate totals
+                total_seconds = sum(e['duration_seconds'] for e in events)
+                tk.Label(
+                    header,
+                    text=f"Activity: {format_duration(total_seconds)} ({len(events)} events)",
+                    font=('Segoe UI', 12, 'bold')
+                ).pack()
+
+                # Treeview for events
+                columns = ('time', 'duration', 'app', 'title')
+                tree = ttk.Treeview(root, columns=columns, show='headings')
+                tree.heading('time', text='Time')
+                tree.heading('duration', text='Duration')
+                tree.heading('app', text='Application')
+                tree.heading('title', text='Window Title')
+
+                tree.column('time', width=140, minwidth=100)
+                tree.column('duration', width=70, minwidth=50)
+                tree.column('app', width=120, minwidth=80)
+                tree.column('title', width=450, minwidth=200)
+
+                # Scrollbar
+                scrollbar = ttk.Scrollbar(root, orient=tk.VERTICAL, command=tree.yview)
+                tree.configure(yscrollcommand=scrollbar.set)
+
+                # Pack treeview and scrollbar
+                tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+                scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+                # Insert events
+                for event in events:
+                    ts = event['timestamp'][:19].replace('T', ' ')
+                    dur = format_duration(event['duration_seconds'])
+                    app = event['app'] or ''
+                    title = event['title'] or ''
+                    tree.insert('', tk.END, values=(ts, dur, app, title))
+
+                # Close button
+                btn_frame = tk.Frame(root, pady=10)
+                btn_frame.pack(fill=tk.X, side=tk.BOTTOM)
+                tk.Button(btn_frame, text="Close", command=root.destroy, width=10).pack()
+
+                root.mainloop()
+
+            except Exception as e:
+                logging.error(f"Error showing view time window: {e}", exc_info=True)
+
+        # Run in thread to avoid blocking pystray
+        window_thread = threading.Thread(target=run_window, daemon=True)
+        window_thread.start()
+
     def show_settings_dialog(self):
         """Show settings dialog."""
         # For MVP, just print current settings to console
