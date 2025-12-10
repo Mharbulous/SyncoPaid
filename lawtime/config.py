@@ -19,7 +19,14 @@ DEFAULT_CONFIG = {
     "merge_threshold_seconds": 2.0,
     "database_path": None,  # Will be set to default location if None
     "start_on_boot": False,
-    "start_tracking_on_launch": True
+    "start_tracking_on_launch": True,
+    # Screenshot settings
+    "screenshot_enabled": True,
+    "screenshot_interval_seconds": 10,
+    "screenshot_threshold_identical": 0.92,
+    "screenshot_threshold_significant": 0.70,
+    "screenshot_quality": 65,
+    "screenshot_max_dimension": 1920
 }
 
 
@@ -27,7 +34,7 @@ DEFAULT_CONFIG = {
 class Config:
     """
     Application configuration settings.
-    
+
     Attributes:
         poll_interval_seconds: How often to check the active window (default: 1.0)
         idle_threshold_seconds: Seconds before marking as idle (default: 180)
@@ -35,6 +42,12 @@ class Config:
         database_path: Path to SQLite database file (default: auto-detected)
         start_on_boot: Launch automatically on Windows startup (default: False)
         start_tracking_on_launch: Begin tracking when app starts (default: True)
+        screenshot_enabled: Enable periodic screenshot capture (default: True)
+        screenshot_interval_seconds: Seconds between screenshot attempts (default: 10)
+        screenshot_threshold_identical: Similarity threshold to overwrite (≥0.92)
+        screenshot_threshold_significant: Similarity threshold for new save (<0.70)
+        screenshot_quality: JPEG quality 1-100 (default: 65)
+        screenshot_max_dimension: Max width/height in pixels (default: 1920)
     """
     poll_interval_seconds: float = 1.0
     idle_threshold_seconds: float = 180.0
@@ -42,6 +55,13 @@ class Config:
     database_path: Optional[str] = None
     start_on_boot: bool = False
     start_tracking_on_launch: bool = True
+    # Screenshot settings
+    screenshot_enabled: bool = True
+    screenshot_interval_seconds: float = 10.0
+    screenshot_threshold_identical: float = 0.92
+    screenshot_threshold_significant: float = 0.70
+    screenshot_quality: int = 65
+    screenshot_max_dimension: int = 1920
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary."""
@@ -249,6 +269,9 @@ def print_config(config: Config):
     print(f"  Database path: {config.database_path}")
     print(f"  Start on boot: {config.start_on_boot}")
     print(f"  Start tracking on launch: {config.start_tracking_on_launch}")
+    print(f"  Screenshot enabled: {config.screenshot_enabled}")
+    print(f"  Screenshot interval: {config.screenshot_interval_seconds}s")
+    print(f"  Screenshot quality: {config.screenshot_quality}")
     print("=" * 50)
 
 
