@@ -123,7 +123,7 @@ class TrayIcon:
         if self.icon:
             color = "green" if is_tracking else "yellow"
             self.icon.icon = self.create_icon_image(color)
-            self.icon.title = f"TimeLogger v{__product_version__}"
+            self.icon.title = f"TimeLawg v{__product_version__}"
     
     def _create_menu(self):
         """Create the right-click menu."""
@@ -172,7 +172,7 @@ class TrayIcon:
         logging.info("User clicked About from tray menu")
         # TODO: Show about dialog
         print("\n" + "="*50)
-        print(f"TimeLogger v{__product_version__}")
+        print(f"TimeLawg v{__product_version__}")
         print("Windows 11 automatic time tracking for lawyers")
         print("="*50 + "\n")
     
@@ -201,7 +201,7 @@ class TrayIcon:
         self.icon = pystray.Icon(
             "lawtime_tracker",
             self.create_icon_image("green"),
-            f"TimeLogger v{__product_version__}",
+            f"TimeLawg v{__product_version__}",
             menu=self._create_menu()
         )
         

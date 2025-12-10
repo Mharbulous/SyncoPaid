@@ -326,8 +326,8 @@ class LawTimeApp:
                         commit_id = "dev"
 
                     messagebox.showinfo(
-                        "About TimeLogger",
-                        f"TimeLogger\n\n"
+                        "About TimeLawg",
+                        f"TimeLawg\n\n"
                         f"Version: {__product_version__}\n"
                         f"Build: {commit_id}\n\n"
                         f"Automatic time tracking for lawyers.\n"
@@ -487,7 +487,7 @@ class LawTimeApp:
         
         # Show welcome message
         print("\n" + "="*60)
-        print(f"TimeLogger v{__product_version__}")
+        print(f"TimeLawg v{__product_version__}")
         print("Windows 11 automatic time tracking for lawyers")
         print("="*60)
         print(f"\nDatabase: {self.config_manager.get_database_path()}")

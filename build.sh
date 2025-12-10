@@ -1,9 +1,9 @@
 #!/bin/bash
-# TimeLogger Build Script (Git Bash / Linux)
-# Compiles the Python application into TimeLogger.exe
+# TimeLawg Build Script (Git Bash / Linux)
+# Compiles the Python application into TimeLawg.exe
 
 echo "================================================"
-echo "TimeLogger Build Script"
+echo "TimeLawg Build Script"
 echo "================================================"
 echo ""
 
@@ -29,7 +29,7 @@ fi
 
 # Clean previous build artifacts
 echo "Cleaning previous build artifacts..."
-rm -rf build dist TimeLogger.spec.bak
+rm -rf build dist TimeLawg.spec.bak
 
 # Generate version information
 echo ""
@@ -44,9 +44,9 @@ fi
 
 # Build the executable
 echo ""
-echo "Building TimeLogger.exe..."
+echo "Building TimeLawg.exe..."
 echo ""
-pyinstaller TimeLogger.spec
+pyinstaller TimeLawg.spec
 
 if [ $? -ne 0 ]; then
     echo ""
@@ -62,11 +62,11 @@ echo "================================================"
 echo "BUILD SUCCESSFUL!"
 echo "================================================"
 echo ""
-echo "Executable location: dist/TimeLogger.exe"
+echo "Executable location: dist/TimeLawg.exe"
 echo ""
 echo "To test the executable:"
 echo "  1. Navigate to dist/ folder"
-echo "  2. Run TimeLogger.exe"
+echo "  2. Run TimeLawg.exe"
 echo "  3. Check system tray for the icon"
 echo ""
 read -p "Press Enter to exit..."

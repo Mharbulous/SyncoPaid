@@ -25,8 +25,8 @@ LawTime Tracker runs silently in the background, capturing your window activity 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/timelogger.git
-cd timelogger
+git clone https://github.com/yourusername/timelawg.git
+cd timelawg
 ```
 
 ### 2. Create a virtual environment
@@ -68,8 +68,8 @@ python -m lawtime
 ```
 
 This will:
-1. Create the database at `%LOCALAPPDATA%\TimeLogger\lawtime.db`
-2. Create config file at `%LOCALAPPDATA%\TimeLogger\config.json`
+1. Create the database at `%LOCALAPPDATA%\TimeLawg\lawtime.db`
+2. Create config file at `%LOCALAPPDATA%\TimeLawg\config.json`
 3. Start tracking automatically (if `start_tracking_on_launch` is true)
 4. Show a system tray icon (green = tracking, yellow = paused)
 
@@ -115,7 +115,7 @@ The exported JSON can be fed to Claude or GPT for automatic categorization:
 
 ## Configuration
 
-Settings are stored in `%LOCALAPPDATA%\TimeLogger\config.json`:
+Settings are stored in `%LOCALAPPDATA%\TimeLawg\config.json`:
 
 ```json
 {
@@ -145,7 +145,7 @@ Edit the config file and restart the app to apply changes.
 
 Activity data is stored in a local SQLite database at:
 ```
-%LOCALAPPDATA%\TimeLogger\lawtime.db
+%LOCALAPPDATA%\TimeLawg\lawtime.db
 ```
 
 ### Schema
@@ -167,7 +167,7 @@ CREATE TABLE events (
 You can query the database directly if needed:
 
 ```bash
-sqlite3 "%LOCALAPPDATA%\TimeLogger\lawtime.db"
+sqlite3 "%LOCALAPPDATA%\TimeLawg\lawtime.db"
 ```
 
 ```sql
@@ -241,7 +241,7 @@ python -m pywin32_postinstall -install
 
 Windows 11 hides overflow icons by default. Click the "^" arrow in the system tray to see hidden icons. To keep it visible:
 1. Right-click taskbar → Taskbar settings
-2. Other system tray icons → Turn on TimeLogger
+2. Other system tray icons → Turn on TimeLawg
 
 ### Permission errors accessing windows
 
@@ -252,7 +252,7 @@ Some admin-level applications may not report window titles to non-admin processe
 ### Project Structure
 
 ```
-timelogger/
+timelawg/
 ├── lawtime/
 │   ├── __init__.py      # Package initialization
 │   ├── __main__.py      # Main entry point
@@ -340,7 +340,7 @@ MIT License - See LICENSE file for details
 ## Support
 
 For issues, questions, or contributions:
-- GitHub: https://github.com/yourusername/timelogger
+- GitHub: https://github.com/yourusername/timelawg
 - Email: your.email@example.com
 
 ## Credits

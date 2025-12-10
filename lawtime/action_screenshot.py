@@ -569,9 +569,9 @@ def get_action_screenshot_directory() -> Path:
             appdata = Path.home() / 'AppData' / 'Local'
         else:
             appdata = Path(appdata)
-        screenshot_dir = appdata / 'TimeLogger' / 'screenshots' / 'actions'
+        screenshot_dir = appdata / 'TimeLawg' / 'screenshots' / 'actions'
     else:
-        screenshot_dir = Path.home() / '.local' / 'share' / 'timelogger' / 'screenshots' / 'actions'
+        screenshot_dir = Path.home() / '.local' / 'share' / 'timelawg' / 'screenshots' / 'actions'
 
     screenshot_dir.mkdir(parents=True, exist_ok=True)
     return screenshot_dir

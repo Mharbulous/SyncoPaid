@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 When working via Claude Code on the Web, Windows-specific APIs (pywin32, win32gui) will NOT be available since the sandbox runs Linux. The application must be tested on the actual Windows 11 machine to verify Windows-specific functionality like screenshot capture and window tracking.
 
-**User Data Path**: `C:\Users\Brahm\AppData\Local\TimeLogger\`
+**User Data Path**: `C:\Users\Brahm\AppData\Local\TimeLawg\`
 
 ## Project Overview
 
@@ -53,7 +53,7 @@ lawtime/
 ├── screenshot.py  # ScreenshotWorker: async screenshot capture with perceptual hashing
 ├── database.py    # SQLite operations (insert, query, delete, statistics)
 ├── exporter.py    # JSON export with date filtering
-├── config.py      # ConfigManager: loads/saves %LOCALAPPDATA%\TimeLogger\config.json
+├── config.py      # ConfigManager: loads/saves %LOCALAPPDATA%\TimeLawg\config.json
 └── tray.py        # TrayIcon: pystray-based system tray with menu
 ```
 
@@ -86,9 +86,9 @@ lawtime/
 
 ## File Locations
 
-- **Database**: `%LOCALAPPDATA%\TimeLogger\lawtime.db`
-- **Config**: `%LOCALAPPDATA%\TimeLogger\config.json`
-- **Screenshots**: `%LOCALAPPDATA%\TimeLogger\screenshots\YYYY-MM-DD\HHMMSS_appname.jpg`
+- **Database**: `%LOCALAPPDATA%\TimeLawg\lawtime.db`
+- **Config**: `%LOCALAPPDATA%\TimeLawg\config.json`
+- **Screenshots**: `%LOCALAPPDATA%\TimeLawg\screenshots\YYYY-MM-DD\HHMMSS_appname.jpg`
 - **PRD/Docs**: `ai_docs/` directory
 
 ## Technology Stack

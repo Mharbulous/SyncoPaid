@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate version information for TimeLogger build.
+Generate version information for TimeLawg build.
 
 This script:
 1. Reads the product version from the VERSION file
@@ -169,12 +169,12 @@ VSVersionInfo(
       StringTable(
         u'040904B0',
         [StringStruct(u'CompanyName', u''),
-        StringStruct(u'FileDescription', u'TimeLogger - Automatic time tracking for lawyers'),
+        StringStruct(u'FileDescription', u'TimeLawg - Automatic time tracking for lawyers'),
         StringStruct(u'FileVersion', u'{file_version}'),
-        StringStruct(u'InternalName', u'TimeLogger'),
+        StringStruct(u'InternalName', u'TimeLawg'),
         StringStruct(u'LegalCopyright', u'Copyright (c) 2025 Brahm Dorst'),
-        StringStruct(u'OriginalFilename', u'TimeLogger.exe'),
-        StringStruct(u'ProductName', u'TimeLogger'),
+        StringStruct(u'OriginalFilename', u'TimeLawg.exe'),
+        StringStruct(u'ProductName', u'TimeLawg'),
         StringStruct(u'ProductVersion', u'{product_version}')])
       ]),
     VarFileInfo([VarStruct(u'Translation', [1033, 1200])])
@@ -215,7 +215,7 @@ __product_version__ = "{product_version}"
 def main():
     """Main entry point for version generation."""
     print("=" * 60)
-    print("TimeLogger Version Generator")
+    print("TimeLawg Version Generator")
     print("=" * 60)
     print()
 
