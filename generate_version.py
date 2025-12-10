@@ -19,7 +19,7 @@ Example:
     Product Version: 1.0.0
     Git Commit: 89e840f
     Git Commit Count: 50
-    File Version String: 1.0.0.89e840f (for detailed identification)
+    File Version String: 1.0.0+89e840f (semver build metadata format)
     File Version Tuple: (1, 0, 0, 50) (displayed in Windows Properties)
 """
 
@@ -126,7 +126,7 @@ def generate_version_info_txt(product_version, file_version, commit_count):
 
     Args:
         product_version: Product version (e.g., "1.0.0")
-        file_version: File version with commit hash (e.g., "1.0.0.89e840f")
+        file_version: File version with commit hash (e.g., "1.0.0+89e840f")
         commit_count: Git commit count for 4th component of filevers tuple
     """
     major, minor, patch = parse_version_parts(product_version)
@@ -195,7 +195,7 @@ def update_init_py(product_version, file_version):
 
     Args:
         product_version: Product version (e.g., "1.0.0")
-        file_version: File version with commit hash (e.g., "1.0.0.89e840f")
+        file_version: File version with commit hash (e.g., "1.0.0+89e840f")
     """
     init_path = Path(__file__).parent / 'lawtime' / '__init__.py'
 
@@ -254,8 +254,8 @@ def main():
     print(f"  Git Commit: {commit_hash}")
     print(f"  Commit Count (build number): {commit_count}")
 
-    # Construct file version string (includes commit hash for detailed identification)
-    file_version = f"{product_version}.{commit_hash}"
+    # Construct file version string (semver build metadata format with + separator)
+    file_version = f"{product_version}+{commit_hash}"
     print(f"  File Version String: {file_version}")
     print(f"  File Version Tuple: ({product_version.replace('.', ', ')}, {commit_count})")
     print()
