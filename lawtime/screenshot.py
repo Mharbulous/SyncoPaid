@@ -402,7 +402,9 @@ class ScreenshotWorker:
         Generate file path for screenshot.
 
         Format: {screenshot_dir}/YYYY-MM-DD/YYYY-MM-DD_HH-MM-SS_TZ_appname.jpg
-        (e.g., 2025-12-09/2025-12-09_23-25-05_PST_WindowsTerminal.jpg)
+        Examples:
+            - 2025-12-09/2025-12-09_23-25-05_PST_WindowsTerminal.jpg
+            - 2025-12-10/2025-12-10_00-23-21_UTC-08-00_chrome.jpg
 
         Args:
             timestamp: ISO timestamp with timezone information
@@ -420,7 +422,12 @@ class ScreenshotWorker:
         # Generate filename with date, time, and timezone abbreviation
         date_str = dt.strftime('%Y-%m-%d')
         time_str = dt.strftime('%H-%M-%S')
-        tz_abbr = dt.strftime('%Z')  # Gets "PST", "PDT", "EST", etc.
+        tz_abbr = dt.strftime('%Z')  # Gets "PST", "PDT", "EST", or "UTC-08:00", etc.
+
+        # Sanitize timezone for Windows filenames (remove colons)
+        # "UTC-08:00" -> "UTC-08-00", "PST" -> "PST"
+        tz_abbr = tz_abbr.replace(':', '-')
+
         app_name = window_app if window_app else 'unknown'
         # Sanitize app name for filename
         app_name = app_name.replace('.exe', '').replace('.', '_')[:20]
