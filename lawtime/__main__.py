@@ -27,6 +27,7 @@ from .tracker import TrackerLoop
 from .exporter import Exporter
 from .tray import TrayIcon
 from .screenshot import ScreenshotWorker, get_screenshot_directory
+from .action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
 
 
 # Single-instance enforcement using Windows mutex
@@ -105,6 +106,20 @@ class LawTimeApp:
             )
             logging.info("Screenshot worker initialized")
 
+        # Initialize action screenshot worker (if enabled)
+        self.action_screenshot_worker = None
+        if self.config.action_screenshot_enabled:
+            action_screenshot_dir = get_action_screenshot_directory()
+            self.action_screenshot_worker = ActionScreenshotWorker(
+                screenshot_dir=action_screenshot_dir,
+                db_insert_callback=self.database.insert_screenshot,
+                quality=self.config.action_screenshot_quality,
+                max_dimension=self.config.action_screenshot_max_dimension,
+                throttle_seconds=self.config.action_screenshot_throttle_seconds,
+                enabled=True
+            )
+            logging.info("Action screenshot worker initialized")
+
         # Initialize tracker loop
         self.tracker = TrackerLoop(
             poll_interval=self.config.poll_interval_seconds,
@@ -134,14 +149,18 @@ class LawTimeApp:
         if self.is_tracking:
             logging.warning("Tracking already running")
             return
-        
+
         self.is_tracking = True
         self.tracking_thread = threading.Thread(
             target=self._run_tracking_loop,
             daemon=True
         )
         self.tracking_thread.start()
-        
+
+        # Start action screenshot worker
+        if self.action_screenshot_worker:
+            self.action_screenshot_worker.start()
+
         logging.info("Tracking started")
         print("✓ Tracking started")
     
@@ -150,10 +169,14 @@ class LawTimeApp:
         if not self.is_tracking:
             logging.warning("Tracking not running")
             return
-        
+
         self.is_tracking = False
         self.tracker.stop()
-        
+
+        # Stop action screenshot worker
+        if self.action_screenshot_worker:
+            self.action_screenshot_worker.stop()
+
         logging.info("Tracking paused")
         print("⏸ Tracking paused")
     
@@ -399,6 +422,10 @@ class LawTimeApp:
         # Shutdown screenshot worker
         if self.screenshot_worker:
             self.screenshot_worker.shutdown(wait=True, timeout=5.0)
+
+        # Shutdown action screenshot worker
+        if self.action_screenshot_worker:
+            self.action_screenshot_worker.shutdown(wait=True, timeout=5.0)
 
         # Show final statistics
         self.show_statistics()

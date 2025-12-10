@@ -20,7 +20,7 @@ DEFAULT_CONFIG = {
     "database_path": None,  # Will be set to default location if None
     "start_on_boot": False,
     "start_tracking_on_launch": True,
-    # Screenshot settings
+    # Screenshot settings (periodic)
     "screenshot_enabled": True,
     "screenshot_interval_seconds": 10,
     "screenshot_threshold_identical": 0.92,
@@ -28,7 +28,12 @@ DEFAULT_CONFIG = {
     "screenshot_threshold_identical_same_window": 0.90,
     "screenshot_threshold_identical_different_window": 0.99,
     "screenshot_quality": 65,
-    "screenshot_max_dimension": 1920
+    "screenshot_max_dimension": 1920,
+    # Action screenshot settings
+    "action_screenshot_enabled": True,
+    "action_screenshot_throttle_seconds": 0.5,
+    "action_screenshot_quality": 65,
+    "action_screenshot_max_dimension": 1920
 }
 
 
@@ -52,6 +57,10 @@ class Config:
         screenshot_threshold_identical_different_window: Threshold when active window changed (default: 0.99)
         screenshot_quality: JPEG quality 1-100 (default: 65)
         screenshot_max_dimension: Max width/height in pixels (default: 1920)
+        action_screenshot_enabled: Enable action-based screenshot capture (default: True)
+        action_screenshot_throttle_seconds: Minimum seconds between action screenshots (default: 0.5)
+        action_screenshot_quality: JPEG quality for action screenshots (default: 65)
+        action_screenshot_max_dimension: Max dimension for action screenshots (default: 1920)
     """
     poll_interval_seconds: float = 1.0
     idle_threshold_seconds: float = 180.0
@@ -59,7 +68,7 @@ class Config:
     database_path: Optional[str] = None
     start_on_boot: bool = False
     start_tracking_on_launch: bool = True
-    # Screenshot settings
+    # Screenshot settings (periodic)
     screenshot_enabled: bool = True
     screenshot_interval_seconds: float = 10.0
     screenshot_threshold_identical: float = 0.92
@@ -68,6 +77,11 @@ class Config:
     screenshot_threshold_identical_different_window: float = 0.99
     screenshot_quality: int = 65
     screenshot_max_dimension: int = 1920
+    # Action screenshot settings
+    action_screenshot_enabled: bool = True
+    action_screenshot_throttle_seconds: float = 0.5
+    action_screenshot_quality: int = 65
+    action_screenshot_max_dimension: int = 1920
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary."""
