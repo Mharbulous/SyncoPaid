@@ -192,6 +192,12 @@ class ActionScreenshotWorker:
             self.keyboard_listener.stop()
             self.keyboard_listener = None
 
+        # Stop focus monitor thread
+        if self.focus_monitor_thread:
+            self.focus_monitor_running = False
+            self.focus_monitor_thread.join(timeout=2.0)
+            self.focus_monitor_thread = None
+
         logging.info("Action screenshot listeners stopped")
 
     def _on_mouse_click(self, x, y, button, pressed):
@@ -261,12 +267,27 @@ class ActionScreenshotWorker:
         except Exception as e:
             logging.error(f"Error in key press handler: {e}")
 
+    def _monitor_focus_changes(self):
+        """Background thread to detect window focus changes."""
+        while self.focus_monitor_running:
+            try:
+                current_hwnd = win32gui.GetForegroundWindow()
+                if current_hwnd and current_hwnd != self.last_focus_hwnd:
+                    if self.last_focus_hwnd is not None:
+                        # Focus changed - capture screenshot
+                        logging.info(f"Action screenshot: focus change detected ({self.last_focus_hwnd} -> {current_hwnd})")
+                        self._capture_action_screenshot('focus')
+                    self.last_focus_hwnd = current_hwnd
+            except Exception as e:
+                logging.debug(f"Error in focus monitor: {e}")
+            time.sleep(self.focus_poll_interval)
+
     def _capture_action_screenshot(self, action: str):
         """
         Capture a screenshot for the specified action.
 
         Args:
-            action: The action type ('click', 'enter', 'drag', 'drop')
+            action: The action type ('click', 'enter', 'drag', 'drop', 'focus')
         """
         if not WINDOWS_APIS_AVAILABLE:
             logging.warning("Windows APIs not available, skipping action screenshot")
@@ -305,6 +326,8 @@ class ActionScreenshotWorker:
             self.total_drag_start_captures += 1
         elif action == 'drop':
             self.total_drag_end_captures += 1
+        elif action == 'focus':
+            self.total_focus_captures += 1
 
         # Submit to thread pool with hwnd captured now
         logging.info(f"Submitting {action} screenshot capture for hwnd {hwnd}")
@@ -315,7 +338,7 @@ class ActionScreenshotWorker:
         Capture screenshot and save to disk (runs in worker thread).
 
         Args:
-            action: The action type ('click', 'enter', 'drag', 'drop')
+            action: The action type ('click', 'enter', 'drag', 'drop', 'focus')
             hwnd: Window handle captured at event time
         """
         try:
@@ -463,10 +486,11 @@ class ActionScreenshotWorker:
         Examples:
             - 2025-12-10/2025-12-10_00-33-30_UTC-08-00_click.jpg
             - 2025-12-10/2025-12-10_14-22-15_UTC-08-00_enter.jpg
+            - 2025-12-10/2025-12-10_14-22-15_UTC-08-00_focus.jpg
 
         Args:
             timestamp: ISO timestamp with timezone information
-            action: Action type ('click', 'enter', 'drag', 'drop')
+            action: Action type ('click', 'enter', 'drag', 'drop', 'focus')
 
         Returns:
             Path object for screenshot file
@@ -506,6 +530,7 @@ class ActionScreenshotWorker:
             f"enters={self.total_enter_captures}, "
             f"drag_starts={self.total_drag_start_captures}, "
             f"drag_ends={self.total_drag_end_captures}, "
+            f"focus={self.total_focus_captures}, "
             f"throttled={self.total_throttled}"
         )
 
@@ -519,6 +544,7 @@ class ActionScreenshotWorker:
             'enter_captures': self.total_enter_captures,
             'drag_start_captures': self.total_drag_start_captures,
             'drag_end_captures': self.total_drag_end_captures,
+            'focus_captures': self.total_focus_captures,
             'throttled': self.total_throttled
         }
 
