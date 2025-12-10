@@ -12,6 +12,7 @@ This is the file that runs when you execute: python -m lawtime
 """
 
 import sys
+import os
 import logging
 import threading
 import tkinter as tk
@@ -312,10 +313,41 @@ class LawTimeApp:
                     title = event['title'] or ''
                     tree.insert('', tk.END, values=(ts, dur, app, title))
 
-                # Close button
+                # Function to open screenshot directory
+                def open_screenshot_folder():
+                    """Open the screenshot directory in Windows Explorer."""
+                    try:
+                        screenshot_dir = get_screenshot_directory()
+                        # Ensure the directory exists
+                        screenshot_dir.mkdir(parents=True, exist_ok=True)
+                        # Open in Windows Explorer
+                        os.startfile(str(screenshot_dir))
+                        logging.info(f"Opened screenshot directory: {screenshot_dir}")
+                    except Exception as e:
+                        logging.error(f"Error opening screenshot directory: {e}")
+                        messagebox.showerror(
+                            "Error",
+                            f"Could not open screenshot directory:\n{str(e)}",
+                            parent=root
+                        )
+
+                # Button frame with View Images and Close buttons
                 btn_frame = tk.Frame(root, pady=10)
                 btn_frame.pack(fill=tk.X, side=tk.BOTTOM)
-                tk.Button(btn_frame, text="Close", command=root.destroy, width=10).pack()
+
+                tk.Button(
+                    btn_frame,
+                    text="View Captured Images",
+                    command=open_screenshot_folder,
+                    width=20
+                ).pack(side=tk.LEFT, padx=10)
+
+                tk.Button(
+                    btn_frame,
+                    text="Close",
+                    command=root.destroy,
+                    width=10
+                ).pack(side=tk.RIGHT, padx=10)
 
                 root.mainloop()
 
