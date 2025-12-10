@@ -98,6 +98,8 @@ class LawTimeApp:
                 db_insert_callback=self.database.insert_screenshot,
                 threshold_identical=self.config.screenshot_threshold_identical,
                 threshold_significant=self.config.screenshot_threshold_significant,
+                threshold_identical_same_window=self.config.screenshot_threshold_identical_same_window,
+                threshold_identical_different_window=self.config.screenshot_threshold_identical_different_window,
                 quality=self.config.screenshot_quality,
                 max_dimension=self.config.screenshot_max_dimension
             )

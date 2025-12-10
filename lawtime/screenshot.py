@@ -80,6 +80,8 @@ class ScreenshotWorker:
         db_insert_callback,
         threshold_identical: float = 0.92,
         threshold_significant: float = 0.70,
+        threshold_identical_same_window: float = 0.90,
+        threshold_identical_different_window: float = 0.99,
         quality: int = 65,
         max_dimension: int = 1920,
         idle_skip_seconds: int = 30
@@ -92,6 +94,8 @@ class ScreenshotWorker:
             db_insert_callback: Function to call for inserting screenshot records
             threshold_identical: Similarity >= this overwrites previous (default: 0.92)
             threshold_significant: Similarity < this saves new screenshot (default: 0.70)
+            threshold_identical_same_window: Threshold when window unchanged (default: 0.90)
+            threshold_identical_different_window: Threshold when window changed (default: 0.99)
             quality: JPEG quality 1-100 (default: 65)
             max_dimension: Max width/height in pixels (default: 1920)
             idle_skip_seconds: Skip screenshots if idle > this many seconds (default: 30)
@@ -100,6 +104,8 @@ class ScreenshotWorker:
         self.db_insert_callback = db_insert_callback
         self.threshold_identical = threshold_identical
         self.threshold_significant = threshold_significant
+        self.threshold_identical_same_window = threshold_identical_same_window
+        self.threshold_identical_different_window = threshold_identical_different_window
         self.quality = quality
         self.max_dimension = max_dimension
         self.idle_skip_seconds = idle_skip_seconds
@@ -213,9 +219,28 @@ class ScreenshotWorker:
                 hash_diff = current_hash - previous_hash
                 similarity = 1 - (hash_diff / 144.0)  # 12x12 = 144 bits
 
-                # Determine action based on similarity
-                if similarity >= self.threshold_identical:
-                    # Nearly identical, overwrite
+                # Detect if active window has changed
+                window_changed = window_app != self.last_metadata.window_app
+
+                # Select appropriate threshold based on window context
+                if window_changed:
+                    # Window changed: use stricter threshold (99%)
+                    # Only overwrite if nearly identical, handling edge cases where:
+                    # - User returns to same window (duplicate screenshot)
+                    # - User switches between identical content (same page in different tabs)
+                    threshold = self.threshold_identical_different_window
+                    logging.info(
+                        f"Window changed: {self.last_metadata.window_app} -> {window_app}. "
+                        f"Using strict threshold: {threshold}"
+                    )
+                else:
+                    # Same window: use more permissive threshold (90%)
+                    # Allow natural visual changes within same window
+                    threshold = self.threshold_identical_same_window
+
+                # Determine action based on similarity and threshold
+                if similarity >= threshold:
+                    # Meets threshold, overwrite
                     self._overwrite_screenshot(img, timestamp, current_hash)
                     return
 
