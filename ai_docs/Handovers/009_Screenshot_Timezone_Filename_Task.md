@@ -1,7 +1,7 @@
 # Screenshot Filename Timezone Fix - Handover
 
 ## Task
-Change screenshot filenames from UTC-based `HHMMSS_appname.jpg` to local-time with timezone: `YYYY-MM-DD-HH-MM-SS-PST_appname.jpg`
+Change screenshot filenames from UTC-based `HHMMSS_appname.jpg` to local-time with timezone: `YYYY-MM-DD_HH-MM-SS_PST_appname.jpg`
 
 ## Current State
 ✅ Screenshot capture is **working** (issue was missing `imagehash` dependency)
@@ -19,7 +19,7 @@ filename = f"{time_str}_{app_name}.jpg"
 
 User works in Pacific (UTC-8). Late night work (after 4 PM PST / midnight UTC) creates files in "next day" folders with confusing timestamps.
 
-**Requested format:** `2025-12-09-23-25-05-PST_WindowsTerminal.jpg`
+**Requested format:** `2025-12-09_23-25-05_PST_WindowsTerminal.jpg`
 
 ## Key Files to Modify
 
@@ -45,7 +45,7 @@ Currently:
 **Modify to:**
 - Extract timezone abbreviation (PST, PDT, EST, etc.)
 - Directory: `YYYY-MM-DD` (local date)
-- Filename: `YYYY-MM-DD-HH-MM-SS-{TZ}_appname.jpg`
+- Filename: `YYYY-MM-DD_HH-MM-SS_{TZ}_appname.jpg`
 
 **Getting timezone abbreviation:**
 ```python
@@ -192,7 +192,7 @@ app_name = app_name.replace('.exe', '').replace('.', '_')[:20]
 1. **Stop running app** (Ctrl+C in terminal)
 2. **Delete test screenshots:** `%LOCALAPPDATA%\TimeLogger\screenshots\`
 3. **Run app:** `python -m lawtime`
-4. **Verify new filename format** matches `YYYY-MM-DD-HH-MM-SS-PST_appname.jpg`
+4. **Verify new filename format** matches `YYYY-MM-DD_HH-MM-SS_PST_appname.jpg`
 5. **Check directory name** is local date, not UTC date
 6. **Test overnight** (before/after midnight local) to verify date boundaries
 
