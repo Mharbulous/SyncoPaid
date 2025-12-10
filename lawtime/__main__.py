@@ -21,13 +21,19 @@ from pathlib import Path
 from datetime import datetime, date, timedelta
 import ctypes
 
-from .config import ConfigManager, print_config
-from .database import Database, format_duration
-from .tracker import TrackerLoop
-from .exporter import Exporter
-from .tray import TrayIcon
-from .screenshot import ScreenshotWorker, get_screenshot_directory
-from .action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
+from lawtime.config import ConfigManager, print_config
+from lawtime.database import Database, format_duration
+from lawtime.tracker import TrackerLoop
+from lawtime.exporter import Exporter
+from lawtime.tray import TrayIcon
+from lawtime.screenshot import ScreenshotWorker, get_screenshot_directory
+from lawtime.action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
+
+# Version info
+try:
+    from lawtime import __product_version__
+except ImportError:
+    __product_version__ = "1.0.0"  # Fallback if not yet generated
 
 
 # Single-instance enforcement using Windows mutex
@@ -447,7 +453,7 @@ class LawTimeApp:
         
         # Show welcome message
         print("\n" + "="*60)
-        print("LawTime Tracker v0.1.0")
+        print(f"TimeLogger v{__product_version__}")
         print("Windows 11 automatic time tracking for lawyers")
         print("="*60)
         print(f"\nDatabase: {self.config_manager.get_database_path()}")

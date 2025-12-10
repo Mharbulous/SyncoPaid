@@ -16,6 +16,12 @@ from pathlib import Path
 import sys
 WINDOWS = sys.platform == 'win32'
 
+# Version info
+try:
+    from lawtime import __product_version__
+except ImportError:
+    __product_version__ = "1.0.0"  # Fallback if not yet generated
+
 try:
     import pystray
     from PIL import Image, ImageDraw
@@ -108,16 +114,16 @@ class TrayIcon:
     def update_icon_status(self, is_tracking: bool):
         """
         Update icon color based on tracking status.
-        
+
         Args:
             is_tracking: True if tracking, False if paused
         """
         self.is_tracking = is_tracking
-        
+
         if self.icon:
             color = "green" if is_tracking else "yellow"
             self.icon.icon = self.create_icon_image(color)
-            self.icon.title = f"LawTime - {'Tracking' if is_tracking else 'Paused'}"
+            self.icon.title = f"TimeLogger v{__product_version__}"
     
     def _create_menu(self):
         """Create the right-click menu."""
@@ -166,7 +172,7 @@ class TrayIcon:
         logging.info("User clicked About from tray menu")
         # TODO: Show about dialog
         print("\n" + "="*50)
-        print("LawTime Tracker v0.1.0")
+        print(f"TimeLogger v{__product_version__}")
         print("Windows 11 automatic time tracking for lawyers")
         print("="*50 + "\n")
     
@@ -195,7 +201,7 @@ class TrayIcon:
         self.icon = pystray.Icon(
             "lawtime_tracker",
             self.create_icon_image("green"),
-            "LawTime - Tracking",
+            f"TimeLogger v{__product_version__}",
             menu=self._create_menu()
         )
         
