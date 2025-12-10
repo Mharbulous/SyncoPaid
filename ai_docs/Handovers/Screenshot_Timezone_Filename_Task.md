@@ -78,6 +78,84 @@ Database stores `captured_at` timestamp. Should still use ISO format with timezo
 - screenshot.py also checked `WINDOWS_APIS_AVAILABLE` internally
 - **Fixed by:** Removing redundant check in tracker.py:228, letting worker handle it
 
+## Environment Gotchas & Debug History
+
+### Critical Dependency Issue
+**Problem:** Screenshots silently failed despite config showing `screenshot_enabled: true`
+
+**Root cause:** `imagehash` package not installed
+- `requirements.txt` includes it, but wasn't installed initially
+- Without imagehash, PIL import succeeds but `PIL_AVAILABLE = False` in screenshot.py
+- This cascades to `WINDOWS_APIS_AVAILABLE = False` in screenshot.py
+- Result: `_capture_window()` returns None, no screenshots saved
+
+**Diagnostic process:**
+1. Created `diagnose_screenshots.py` tool that revealed:
+   - ✓ PIL/Pillow installed
+   - ✗ imagehash missing
+   - WINDOWS_APIS_AVAILABLE: False
+2. Fixed by: `pip install -r requirements.txt` (installs imagehash + numpy, scipy, PyWavelets)
+
+### Two WINDOWS_APIS_AVAILABLE Variables (Confusing!)
+**tracker.py:28** checks: `win32gui`, `win32process`, `psutil`
+**screenshot.py:41** checks: `win32gui`, `PIL.ImageGrab`, AND `PIL_AVAILABLE` (which requires imagehash)
+
+These are DIFFERENT variables in different scopes. If tracker.py's check passes but screenshot.py's fails, screenshots won't work. The fix removed redundant check from tracker loop, letting worker handle it internally.
+
+### Environment Setup Issues
+
+**Git Bash on Windows (MINGW64):**
+- User runs commands via Git Bash, not PowerShell
+- Path separators: Use `/` not `\` (e.g., `venv/Scripts/activate`)
+- Activate venv: `source venv/Scripts/activate` (not `venv\Scripts\activate.ps1`)
+- After activation, prompt shows `(venv)`
+
+**Wrong directory errors:**
+```bash
+# ✗ WRONG - No module named lawtime
+python -m lawtime
+
+# ✓ CORRECT - Must be in project directory
+cd C:/Users/Brahm/Git/TimeLogger
+source venv/Scripts/activate
+python -m lawtime
+```
+
+**PowerShell alternative:**
+If using PowerShell instead of Git Bash:
+```powershell
+cd C:\Users\Brahm\Git\TimeLogger
+venv\Scripts\Activate.ps1  # Use backslashes
+python -m lawtime
+```
+
+### Dependency Installation Order Matters
+```bash
+# Must activate venv FIRST
+source venv/Scripts/activate
+pip install -r requirements.txt
+
+# If imagehash is missing, diagnostic shows:
+# ✗ Missing dependency: imagehash (or numpy, scipy)
+```
+
+### Python Version & Platform
+- **Python 3.13** (latest version, some syntax differences from 3.11)
+- **Windows 11** target platform
+- **Claude Code Web runs Linux** - can't test Windows APIs, must test on user's machine
+- User data path: `C:\Users\Brahm\AppData\Local\TimeLogger\`
+
+### Testing Screenshot Capture
+After fixing imagehash, logs showed success:
+```
+Screenshot capture enabled: interval=10.0s, tracker_apis_available=True
+Screenshot submitted #1 for WindowsTerminal.exe
+Screenshot captured #1 (1129x635)
+Saved new screenshot: C:\Users\Brahm\...\2025-12-10\072505_WindowsTerminal.jpg
+```
+
+If you DON'T see these logs, run `python diagnose_screenshots.py` to identify missing dependencies.
+
 ## Technical Context
 
 ### Timezone Handling in Python
