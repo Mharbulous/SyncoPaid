@@ -319,9 +319,9 @@ class LawTimeApp:
                             parent=root
                         )
 
-                # Button frame - pack BEFORE treeview so it reserves space at bottom
-                btn_frame = tk.Frame(root, pady=10)
-                btn_frame.pack(fill=tk.X, side=tk.BOTTOM)
+                # Button frame - pack BEFORE treeview so it reserves space at top
+                btn_frame = tk.Frame(root, pady=5)
+                btn_frame.pack(fill=tk.X, side=tk.TOP)
 
                 tk.Button(
                     btn_frame,
