@@ -25,6 +25,7 @@ from .database import Database, format_duration
 from .tracker import TrackerLoop
 from .exporter import Exporter
 from .tray import TrayIcon
+from .screenshot import ScreenshotWorker, get_screenshot_directory
 
 
 # Single-instance enforcement using Windows mutex
@@ -79,25 +80,41 @@ class LawTimeApp:
         # Load configuration
         self.config_manager = ConfigManager()
         self.config = self.config_manager.config
-        
+
         # Initialize database
         db_path = self.config_manager.get_database_path()
         self.database = Database(str(db_path))
-        
+
         # Initialize exporter
         self.exporter = Exporter(self.database)
-        
+
+        # Initialize screenshot worker (if enabled)
+        self.screenshot_worker = None
+        if self.config.screenshot_enabled:
+            screenshot_dir = get_screenshot_directory()
+            self.screenshot_worker = ScreenshotWorker(
+                screenshot_dir=screenshot_dir,
+                db_insert_callback=self.database.insert_screenshot,
+                threshold_identical=self.config.screenshot_threshold_identical,
+                threshold_significant=self.config.screenshot_threshold_significant,
+                quality=self.config.screenshot_quality,
+                max_dimension=self.config.screenshot_max_dimension
+            )
+            logging.info("Screenshot worker initialized")
+
         # Initialize tracker loop
         self.tracker = TrackerLoop(
             poll_interval=self.config.poll_interval_seconds,
             idle_threshold=self.config.idle_threshold_seconds,
-            merge_threshold=self.config.merge_threshold_seconds
+            merge_threshold=self.config.merge_threshold_seconds,
+            screenshot_worker=self.screenshot_worker,
+            screenshot_interval=self.config.screenshot_interval_seconds
         )
-        
+
         # Tracking state
         self.tracking_thread: threading.Thread = None
         self.is_tracking = False
-        
+
         # System tray
         self.tray = TrayIcon(
             on_start=self.start_tracking,
@@ -106,7 +123,7 @@ class LawTimeApp:
             on_settings=self.show_settings_dialog,
             on_quit=self.quit_app
         )
-        
+
         logging.info("LawTime application initialized")
     
     def start_tracking(self):
@@ -344,6 +361,10 @@ class LawTimeApp:
         # Stop tracking
         if self.is_tracking:
             self.pause_tracking()
+
+        # Shutdown screenshot worker
+        if self.screenshot_worker:
+            self.screenshot_worker.shutdown(wait=True, timeout=5.0)
 
         # Show final statistics
         self.show_statistics()

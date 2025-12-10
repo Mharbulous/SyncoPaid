@@ -12,5 +12,8 @@ pystray>=0.19.0
 # Image manipulation for tray icons
 Pillow>=10.0.0
 
+# Perceptual hashing for screenshot deduplication
+imagehash>=4.3.1
+
 # Note: tkinter comes with Python standard library on Windows
 # If missing, install separately via python.org installer
