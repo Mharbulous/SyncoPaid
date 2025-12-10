@@ -5,6 +5,11 @@ This package provides passive background capture of window activity, idle detect
 and data export for LLM-powered billing categorization.
 """
 
-__version__ = "1.0.0.a989938"
-__product_version__ = "1.0.0"
+# Version info - generated at build time in lawtime/_version.py
+try:
+    from lawtime._version import __version__, __product_version__
+except ImportError:
+    # Fallback for development (when not built)
+    __version__ = "0.0.0.dev"
+    __product_version__ = "0.0.0"
 __author__ = "Brahm Bhandari"
