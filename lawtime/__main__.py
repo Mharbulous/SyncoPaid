@@ -303,6 +303,40 @@ class LawTimeApp:
                 root.geometry("800x500")
                 root.attributes('-topmost', True)
 
+                # Create menu bar
+                menubar = tk.Menu(root)
+                root.config(menu=menubar)
+
+                # Help menu with About
+                help_menu = tk.Menu(menubar, tearoff=0)
+                menubar.add_cascade(label="Help", menu=help_menu)
+
+                def show_about():
+                    """Show About dialog with version and commit info."""
+                    try:
+                        from lawtime import __version__, __product_version__
+                    except ImportError:
+                        __version__ = "0.0.0.dev"
+                        __product_version__ = "0.0.0"
+
+                    # Extract commit ID from version (format: "1.0.0+89e840f")
+                    if '+' in __version__:
+                        commit_id = __version__.split('+')[1][:7]
+                    else:
+                        commit_id = "dev"
+
+                    messagebox.showinfo(
+                        "About TimeLogger",
+                        f"TimeLogger\n\n"
+                        f"Version: {__product_version__}\n"
+                        f"Build: {commit_id}\n\n"
+                        f"Automatic time tracking for lawyers.\n"
+                        f"All data stays local for attorney-client privilege.",
+                        parent=root
+                    )
+
+                help_menu.add_command(label="About", command=show_about)
+
                 # Header frame
                 header = tk.Frame(root, pady=10)
                 header.pack(fill=tk.X)
