@@ -24,8 +24,9 @@ try:
     from PIL import Image
     import imagehash
     PIL_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     PIL_AVAILABLE = False
+    logging.warning(f"PIL/imagehash import failed: {e}. Screenshots will be disabled.")
     # Create dummy types for non-PIL environments
     class Image:
         class Image:
@@ -141,6 +142,7 @@ class ScreenshotWorker:
             idle_seconds: Current idle time in seconds
         """
         self.total_submitted += 1
+        logging.info(f"Screenshot submitted #{self.total_submitted} for {window_app}")
 
         # Submit to thread pool
         self.executor.submit(
@@ -186,10 +188,12 @@ class ScreenshotWorker:
             # Capture the screenshot
             img = self._capture_window(hwnd)
             if img is None:
+                logging.info(f"Screenshot capture failed for {window_app} (window issue)")
                 self.total_skipped += 1
                 return
 
             self.total_captured += 1
+            logging.info(f"Screenshot captured #{self.total_captured} ({img.size[0]}x{img.size[1]})")
 
             # Resize if needed
             img = self._resize_if_needed(img)
@@ -439,7 +443,7 @@ class ScreenshotWorker:
         )
 
         self.total_saved += 1
-        logging.debug(f"Saved new screenshot: {file_path.name}")
+        logging.info(f"Saved new screenshot: {file_path}")
 
     def _overwrite_screenshot(
         self,
@@ -469,7 +473,7 @@ class ScreenshotWorker:
         self.last_metadata.captured_at = timestamp
 
         self.total_overwritten += 1
-        logging.debug(f"Overwritten screenshot: {Path(file_path).name}")
+        logging.info(f"Overwritten screenshot: {Path(file_path).name}")
 
     def shutdown(self, wait: bool = True, timeout: float = 5.0):
         """
