@@ -27,15 +27,15 @@ def on_status(icon, item):
 if __name__ == "__main__":
     print("System tray test - look for green icon in system tray")
     print("Right-click the icon to see menu, select Quit to exit\n")
-    
+
     icon = pystray.Icon(
-        "timelogger_test",
+        "timelawg_test",
         create_icon("green"),
-        "TimeLogger Test",
+        "TimeLawg Test",
         menu=pystray.Menu(
             pystray.MenuItem("Status", on_status),
             pystray.MenuItem("Quit", on_quit)
         )
     )
-    
+
     icon.run()

@@ -1,9 +1,9 @@
 @echo off
-REM TimeLogger Build Script
-REM Compiles the Python application into TimeLogger.exe
+REM TimeLawg Build Script
+REM Compiles the Python application into TimeLawg.exe
 
 echo ================================================
-echo TimeLogger Build Script
+echo TimeLawg Build Script
 echo ================================================
 echo.
 
@@ -32,7 +32,7 @@ REM Clean previous build artifacts
 echo Cleaning previous build artifacts...
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
-if exist TimeLogger.spec.bak del TimeLogger.spec.bak
+if exist TimeLawg.spec.bak del TimeLawg.spec.bak
 
 REM Generate version information
 echo.
@@ -47,9 +47,9 @@ if errorlevel 1 (
 
 REM Build the executable
 echo.
-echo Building TimeLogger.exe...
+echo Building TimeLawg.exe...
 echo.
-pyinstaller TimeLogger.spec
+pyinstaller TimeLawg.spec
 
 if errorlevel 1 (
     echo.
@@ -65,11 +65,11 @@ echo ================================================
 echo BUILD SUCCESSFUL!
 echo ================================================
 echo.
-echo Executable location: dist\TimeLogger.exe
+echo Executable location: dist\TimeLawg.exe
 echo.
 echo To test the executable:
 echo   1. Navigate to dist\ folder
-echo   2. Run TimeLogger.exe
+echo   2. Run TimeLawg.exe
 echo   3. Check system tray for the icon
 echo.
 pause

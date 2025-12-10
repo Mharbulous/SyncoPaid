@@ -103,8 +103,8 @@ class ConfigManager:
     Manages loading and saving configuration from JSON file.
     
     Config file location:
-    - Windows: %LOCALAPPDATA%\\TimeLogger\\config.json
-    - Linux/Mac: ~/.config/timelogger/config.json
+    - Windows: %LOCALAPPDATA%\\TimeLawg\\config.json
+    - Linux/Mac: ~/.config/timelawg/config.json
     """
     
     def __init__(self, config_path: Optional[Path] = None):
@@ -135,17 +135,17 @@ class ConfigManager:
         import os
         
         if sys.platform == 'win32':
-            # Windows: %LOCALAPPDATA%\TimeLogger\config.json
+            # Windows: %LOCALAPPDATA%\TimeLawg\config.json
             appdata = os.environ.get('LOCALAPPDATA')
             if not appdata:
                 # Fallback if LOCALAPPDATA not set
                 appdata = Path.home() / 'AppData' / 'Local'
             else:
                 appdata = Path(appdata)
-            config_dir = appdata / 'TimeLogger'
+            config_dir = appdata / 'TimeLawg'
         else:
-            # Linux/Mac: ~/.config/timelogger/config.json
-            config_dir = Path.home() / '.config' / 'timelogger'
+            # Linux/Mac: ~/.config/timelawg/config.json
+            config_dir = Path.home() / '.config' / 'timelawg'
         
         config_dir.mkdir(parents=True, exist_ok=True)
         return config_dir / 'config.json'
@@ -167,9 +167,9 @@ class ConfigManager:
                 appdata = Path.home() / 'AppData' / 'Local'
             else:
                 appdata = Path(appdata)
-            db_dir = appdata / 'TimeLogger'
+            db_dir = appdata / 'TimeLawg'
         else:
-            db_dir = Path.home() / '.local' / 'share' / 'timelogger'
+            db_dir = Path.home() / '.local' / 'share' / 'timelawg'
         
         db_dir.mkdir(parents=True, exist_ok=True)
         return db_dir / 'lawtime.db'

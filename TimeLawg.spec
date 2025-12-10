@@ -1,12 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec file for TimeLogger
+# PyInstaller spec file for TimeLawg
 
 a = Analysis(
     ['lawtime/__main__.py'],
     pathex=[],
     binaries=[],
     datas=[
-        ('LawTime.ico', '.'),  # Include icon in root of bundle
+        ('TimeLawg.ico', '.'),  # Include icon in root of bundle
     ],
     hiddenimports=[
         'win32timezone',  # pywin32 hidden dependency
@@ -26,7 +26,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='TimeLogger',
+    name='TimeLawg',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -39,6 +39,6 @@ exe = EXE(
     target_arch=None,
     coerce_macros=True,
     entitlements_file=None,
-    icon='LawTime.ico',
+    icon='TimeLawg.ico',
     version='version_info.txt',
 )

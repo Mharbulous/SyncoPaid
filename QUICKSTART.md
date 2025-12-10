@@ -18,7 +18,7 @@ Get up and running in 5 minutes.
 
 2. **Create virtual environment**
    ```bash
-   cd timelogger
+   cd timelawg
    python -m venv venv
    venv\Scripts\activate
    ```
@@ -82,7 +82,7 @@ My active matters:
 After first run, files are created at:
 
 ```
-%LOCALAPPDATA%\TimeLogger\
+%LOCALAPPDATA%\TimeLawg\
 ├── lawtime.db      # Activity database (DO NOT SHARE - contains your work data)
 └── config.json     # Settings (can edit manually)
 ```
@@ -100,7 +100,7 @@ After first run, files are created at:
 ## Troubleshooting
 
 **Icon not visible?**
-→ Click "^" in system tray, or Settings → Taskbar → Show TimeLogger icon
+→ Click "^" in system tray, or Settings → Taskbar → Show TimeLawg icon
 
 **"python not recognized"?**
 → Reinstall Python from python.org with "Add to PATH" checked
@@ -112,7 +112,7 @@ After first run, files are created at:
 
 - Run overnight to test stability
 - Export and try categorizing with Claude
-- Adjust config in `%LOCALAPPDATA%\TimeLogger\config.json` if needed
+- Adjust config in `%LOCALAPPDATA%\TimeLawg\config.json` if needed
 - Read README.md for detailed documentation
 
 ## Support
