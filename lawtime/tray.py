@@ -257,9 +257,8 @@ class TrayIcon:
                 self._toggle_startup,
                 checked=lambda item: is_startup_enabled()
             ),
-            pystray.MenuItem("ℹ About", self._handle_about),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("❌ Quit", self._handle_quit)
+            pystray.MenuItem("ℹ About", self._handle_about)
+            # Quit option removed - use command field with "quit" command
         )
     
     def _toggle_tracking(self, icon, item):
