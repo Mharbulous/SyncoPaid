@@ -109,6 +109,7 @@ class ActionScreenshotWorker:
         # Drag tracking state
         self.is_dragging = False
         self.drag_start_button = None
+        self.drag_start_pos = None
 
         # Statistics
         self.total_click_captures = 0
@@ -178,15 +179,22 @@ class ActionScreenshotWorker:
             button: Mouse button (left, right, middle)
             pressed: True if pressed, False if released
         """
-        if not pressed:
-            # Only capture on button release (completed click)
+        if pressed:
+            # Mouse button down - track for potential drag detection
+            self.drag_start_button = button
+            self.drag_start_pos = (x, y)
+        else:
+            # Mouse button up - either click or drop
             if self.is_dragging:
                 # This is a drag end (drop)
                 self.is_dragging = False
                 self.drag_start_button = None
+                self.drag_start_pos = None
                 self._capture_action_screenshot('drop')
             else:
                 # Regular click
+                self.drag_start_button = None
+                self.drag_start_pos = None
                 self._capture_action_screenshot('click')
 
     def _on_mouse_move(self, x, y):
@@ -196,17 +204,16 @@ class ActionScreenshotWorker:
         Args:
             x, y: Mouse position
         """
-        # Check if any mouse button is currently pressed (indicates dragging)
-        try:
-            from pynput.mouse import Controller as MouseController
-            controller = MouseController()
-
-            # Note: pynput doesn't directly expose button state during move
-            # We'll detect drag start by tracking button press/release patterns
-            # This is handled in the click handler
-
-        except Exception as e:
-            logging.debug(f"Error in mouse move handler: {e}")
+        # Detect drag start: button is held and mouse moved significantly
+        if self.drag_start_button is not None and not self.is_dragging:
+            if self.drag_start_pos is not None:
+                # Check if moved more than 10 pixels (threshold to distinguish drag from click)
+                dx = abs(x - self.drag_start_pos[0])
+                dy = abs(y - self.drag_start_pos[1])
+                if dx > 10 or dy > 10:
+                    # This is a drag start
+                    self.is_dragging = True
+                    self._capture_action_screenshot('drag')
 
     def _on_key_press(self, key):
         """
@@ -232,6 +239,21 @@ class ActionScreenshotWorker:
         Args:
             action: The action type ('click', 'enter', 'drag', 'drop')
         """
+        if not WINDOWS_APIS_AVAILABLE:
+            logging.debug("Windows APIs not available, skipping action screenshot")
+            return
+
+        # CRITICAL: Capture hwnd immediately in the callback thread, not in the worker thread
+        # By the time the worker thread runs, the foreground window may have changed
+        try:
+            hwnd = win32gui.GetForegroundWindow()
+            if not hwnd:
+                logging.debug(f"No foreground window for {action} screenshot")
+                return
+        except Exception as e:
+            logging.warning(f"Failed to get foreground window for {action}: {e}")
+            return
+
         # Check throttling
         with self.capture_lock:
             current_time = time.time()
@@ -254,20 +276,19 @@ class ActionScreenshotWorker:
         elif action == 'drop':
             self.total_drag_end_captures += 1
 
-        # Submit to thread pool
-        self.executor.submit(self._capture_and_save, action)
+        # Submit to thread pool with hwnd captured now
+        self.executor.submit(self._capture_and_save, action, hwnd)
+        logging.debug(f"Submitted {action} screenshot capture for hwnd {hwnd}")
 
-    def _capture_and_save(self, action: str):
+    def _capture_and_save(self, action: str, hwnd: int):
         """
         Capture screenshot and save to disk (runs in worker thread).
 
         Args:
             action: The action type ('click', 'enter', 'drag', 'drop')
+            hwnd: Window handle captured at event time
         """
         try:
-            # Get current foreground window
-            hwnd = win32gui.GetForegroundWindow()
-
             # Get window info for metadata
             window_app = None
             window_title = None
