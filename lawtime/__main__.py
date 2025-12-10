@@ -144,7 +144,6 @@ class LawTimeApp:
             on_start=self.start_tracking,
             on_pause=self.pause_tracking,
             on_view_time=self.show_view_time_window,
-            on_settings=self.show_settings_dialog,
             on_quit=self.quit_app
         )
 

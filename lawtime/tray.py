@@ -9,12 +9,16 @@ Provides a minimal system tray interface with:
 
 import logging
 import threading
-from typing import Callable, Optional
+from typing import Callable, Optional, TYPE_CHECKING
 from pathlib import Path
 
 # Platform detection
 import sys
 WINDOWS = sys.platform == 'win32'
+
+# Windows registry for startup management
+if WINDOWS:
+    import winreg
 
 # Version info
 try:
@@ -28,7 +32,120 @@ try:
     TRAY_AVAILABLE = True
 except ImportError:
     TRAY_AVAILABLE = False
+    Image = None  # Dummy for type hints
+    ImageDraw = None
     logging.warning("pystray not available. Install with: pip install pystray Pillow")
+
+
+# ============================================================================
+# WINDOWS STARTUP REGISTRY HELPERS
+# ============================================================================
+
+def is_startup_enabled() -> bool:
+    """
+    Check if the application is set to start with Windows.
+
+    Returns:
+        True if startup is enabled, False otherwise.
+    """
+    if not WINDOWS:
+        return False
+
+    try:
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            0,
+            winreg.KEY_READ
+        )
+        try:
+            value, _ = winreg.QueryValueEx(key, "TimeLawg")
+            winreg.CloseKey(key)
+            return bool(value)
+        except FileNotFoundError:
+            winreg.CloseKey(key)
+            return False
+    except Exception as e:
+        logging.error(f"Error checking startup status: {e}")
+        return False
+
+
+def enable_startup() -> bool:
+    """
+    Enable the application to start with Windows.
+
+    Adds a registry entry pointing to the current executable.
+
+    Returns:
+        True if successful, False otherwise.
+    """
+    if not WINDOWS:
+        logging.warning("Startup management only available on Windows")
+        return False
+
+    try:
+        # Get the current executable path
+        exe_path = sys.executable
+
+        # Only enable startup for compiled executables, not python.exe
+        if exe_path.lower().endswith(('python.exe', 'pythonw.exe')):
+            logging.info("Running in development mode - startup not enabled")
+            return False
+
+        # Open/create the registry key
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            0,
+            winreg.KEY_SET_VALUE
+        )
+
+        # Set the value
+        winreg.SetValueEx(key, "TimeLawg", 0, winreg.REG_SZ, exe_path)
+        winreg.CloseKey(key)
+
+        logging.info(f"Startup enabled: {exe_path}")
+        return True
+
+    except Exception as e:
+        logging.error(f"Error enabling startup: {e}")
+        return False
+
+
+def disable_startup() -> bool:
+    """
+    Disable the application from starting with Windows.
+
+    Removes the registry entry.
+
+    Returns:
+        True if successful, False otherwise.
+    """
+    if not WINDOWS:
+        logging.warning("Startup management only available on Windows")
+        return False
+
+    try:
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            0,
+            winreg.KEY_SET_VALUE
+        )
+
+        try:
+            winreg.DeleteValue(key, "TimeLawg")
+            winreg.CloseKey(key)
+            logging.info("Startup disabled")
+            return True
+        except FileNotFoundError:
+            # Value doesn't exist - that's fine
+            winreg.CloseKey(key)
+            return True
+
+    except Exception as e:
+        logging.error(f"Error disabling startup: {e}")
+        return False
 
 
 class TrayIcon:
@@ -43,17 +160,16 @@ class TrayIcon:
     Menu options:
     - Start/Pause Tracking
     - View Time...
-    - Settings...
+    - Start with Windows
     - About
     - Quit
     """
-    
+
     def __init__(
         self,
         on_start: Optional[Callable] = None,
         on_pause: Optional[Callable] = None,
         on_view_time: Optional[Callable] = None,
-        on_settings: Optional[Callable] = None,
         on_quit: Optional[Callable] = None
     ):
         """
@@ -63,13 +179,11 @@ class TrayIcon:
             on_start: Callback for "Start Tracking" menu item
             on_pause: Callback for "Pause Tracking" menu item
             on_view_time: Callback for "View Time" menu item
-            on_settings: Callback for "Settings" menu item
             on_quit: Callback for "Quit" menu item
         """
         self.on_start = on_start or (lambda: None)
         self.on_pause = on_pause or (lambda: None)
         self.on_view_time = on_view_time or (lambda: None)
-        self.on_settings = on_settings or (lambda: None)
         self.on_quit = on_quit or (lambda: None)
         
         self.icon: Optional[pystray.Icon] = None
@@ -78,7 +192,7 @@ class TrayIcon:
         if not TRAY_AVAILABLE:
             logging.error("System tray not available - pystray not installed")
     
-    def create_icon_image(self, color: str = "green") -> Optional[Image.Image]:
+    def create_icon_image(self, color: str = "green") -> Optional["Image.Image"]:
         """
         Create a simple colored circle icon.
 
@@ -129,7 +243,7 @@ class TrayIcon:
         """Create the right-click menu."""
         if not TRAY_AVAILABLE:
             return None
-        
+
         return pystray.Menu(
             pystray.MenuItem(
                 lambda text: "⏸ Pause Tracking" if self.is_tracking else "▶ Start Tracking",
@@ -138,7 +252,11 @@ class TrayIcon:
             ),
             pystray.MenuItem("📊 View Time...", self._handle_view_time),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("⚙ Settings...", self._handle_settings),
+            pystray.MenuItem(
+                "🚀 Start with Windows",
+                self._toggle_startup,
+                checked=lambda item: is_startup_enabled()
+            ),
             pystray.MenuItem("ℹ About", self._handle_about),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("❌ Quit", self._handle_quit)
@@ -161,12 +279,30 @@ class TrayIcon:
         """Handle View Time menu item."""
         logging.info("User clicked View Time from tray menu")
         self.on_view_time()
-    
-    def _handle_settings(self, icon, item):
-        """Handle Settings menu item."""
-        logging.info("User clicked Settings from tray menu")
-        self.on_settings()
-    
+
+    def _toggle_startup(self, icon, item):
+        """Handle Start with Windows toggle."""
+        current_state = is_startup_enabled()
+
+        if current_state:
+            # Currently enabled, so disable it
+            success = disable_startup()
+            if success:
+                logging.info("User disabled startup from tray menu")
+            else:
+                logging.error("Failed to disable startup")
+        else:
+            # Currently disabled, so enable it
+            success = enable_startup()
+            if success:
+                logging.info("User enabled startup from tray menu")
+            else:
+                logging.error("Failed to enable startup")
+
+        # Force menu update to reflect new state
+        if self.icon:
+            self.icon.update_menu()
+
     def _handle_about(self, icon, item):
         """Handle About menu item."""
         logging.info("User clicked About from tray menu")
@@ -287,21 +423,16 @@ if __name__ == "__main__":
     def on_view_time():
         print("✓ View Time callback triggered")
         print("  (In real app: would open view time window)")
-    
-    def on_settings():
-        print("✓ Settings callback triggered")
-        print("  (In real app: would open settings dialog)")
-    
+
     def on_quit():
         print("✓ Quit callback triggered")
         print("  (In real app: would clean up and exit)")
-    
+
     # Create tray icon
     tray = TrayIcon(
         on_start=on_start,
         on_pause=on_pause,
         on_view_time=on_view_time,
-        on_settings=on_settings,
         on_quit=on_quit
     )
     
