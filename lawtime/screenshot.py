@@ -219,8 +219,11 @@ class ScreenshotWorker:
                 hash_diff = current_hash - previous_hash
                 similarity = 1 - (hash_diff / 144.0)  # 12x12 = 144 bits
 
-                # Detect if active window has changed
-                window_changed = window_app != self.last_metadata.window_app
+                # Detect if active window has changed (either app or title)
+                window_changed = (
+                    window_app != self.last_metadata.window_app or
+                    window_title != self.last_metadata.window_title
+                )
 
                 # Select appropriate threshold based on window context
                 if window_changed:
@@ -229,10 +232,18 @@ class ScreenshotWorker:
                     # - User returns to same window (duplicate screenshot)
                     # - User switches between identical content (same page in different tabs)
                     threshold = self.threshold_identical_different_window
-                    logging.info(
-                        f"Window changed: {self.last_metadata.window_app} -> {window_app}. "
-                        f"Using strict threshold: {threshold}"
-                    )
+
+                    # Log the change details
+                    if window_app != self.last_metadata.window_app:
+                        logging.info(
+                            f"App changed: {self.last_metadata.window_app} -> {window_app}. "
+                            f"Using strict threshold: {threshold}"
+                        )
+                    else:
+                        logging.info(
+                            f"Window title changed (same app: {window_app}). "
+                            f"Using strict threshold: {threshold}"
+                        )
                 else:
                     # Same window: use more permissive threshold (90%)
                     # Allow natural visual changes within same window
