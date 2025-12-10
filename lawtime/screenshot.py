@@ -401,8 +401,8 @@ class ScreenshotWorker:
         """
         Generate file path for screenshot.
 
-        Format: {screenshot_dir}/YYYY-MM-DD/YYYY-MM-DD-HH-MM-SS-TZ_appname.jpg
-        (e.g., 2025-12-09/2025-12-09-23-25-05-PST_WindowsTerminal.jpg)
+        Format: {screenshot_dir}/YYYY-MM-DD/YYYY-MM-DD_HH-MM-SS_TZ_appname.jpg
+        (e.g., 2025-12-09/2025-12-09_23-25-05_PST_WindowsTerminal.jpg)
 
         Args:
             timestamp: ISO timestamp with timezone information
@@ -417,14 +417,15 @@ class ScreenshotWorker:
         date_dir = self.screenshot_dir / dt.strftime('%Y-%m-%d')
         date_dir.mkdir(parents=True, exist_ok=True)
 
-        # Generate filename with full timestamp and timezone abbreviation
-        time_str = dt.strftime('%Y-%m-%d-%H-%M-%S')
+        # Generate filename with date, time, and timezone abbreviation
+        date_str = dt.strftime('%Y-%m-%d')
+        time_str = dt.strftime('%H-%M-%S')
         tz_abbr = dt.strftime('%Z')  # Gets "PST", "PDT", "EST", etc.
         app_name = window_app if window_app else 'unknown'
         # Sanitize app name for filename
         app_name = app_name.replace('.exe', '').replace('.', '_')[:20]
 
-        filename = f"{time_str}-{tz_abbr}_{app_name}.jpg"
+        filename = f"{date_str}_{time_str}_{tz_abbr}_{app_name}.jpg"
         return date_dir / filename
 
     def _save_new_screenshot(
