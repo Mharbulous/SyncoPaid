@@ -1,0 +1,15 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/venv/Scripts/python.exe",
+  "python.terminal.activateEnvironment": true,
+  "python.terminal.activateEnvInCurrentTerminal": true,
+  "terminal.integrated.env.windows": {
+    "VIRTUAL_ENV": "${workspaceFolder}\\venv"
+  },
+  "terminal.integrated.profiles.windows": {
+    "Git Bash (Auto-activate venv)": {
+      "path": "C:\\Program Files\\Git\\bin\\bash.exe",
+      "args": ["--init-file", "${workspaceFolder}/.vscode/bash_init.sh"]
+    }
+  },
+  "terminal.integrated.defaultProfile.windows": "Git Bash (Auto-activate venv)"
+}
