@@ -437,8 +437,7 @@ class LawTimeApp:
 
                 # Help text
                 tk.Label(
-                    btn_frame,
-                    text="(screenshots | periodic | actions)",
+                    btn_frame,                    
                     font=('Segoe UI', 8),
                     foreground='gray'
                 ).pack(side=tk.LEFT, padx=5)
