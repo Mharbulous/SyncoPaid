@@ -2,7 +2,7 @@
 # PyInstaller spec file for TimeLogger
 
 a = Analysis(
-    ['lawtime\\__main__.py'],
+    ['lawtime/__main__.py'],
     pathex=[],
     binaries=[],
     datas=[
