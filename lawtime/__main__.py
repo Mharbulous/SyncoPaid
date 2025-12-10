@@ -25,7 +25,7 @@ from lawtime.config import ConfigManager, print_config
 from lawtime.database import Database, format_duration
 from lawtime.tracker import TrackerLoop
 from lawtime.exporter import Exporter
-from lawtime.tray import TrayIcon
+from lawtime.tray import TrayIcon, enable_startup
 from lawtime.screenshot import ScreenshotWorker, get_screenshot_directory
 from lawtime.action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
 
@@ -374,6 +374,15 @@ class LawTimeApp:
                         return
 
                     try:
+                        # Check for quit command first (case insensitive)
+                        if command == "quit":
+                            # Close the view time window
+                            root.destroy()
+                            # Quit the application
+                            logging.info("Quit command received from command field")
+                            self.quit_app()
+                            return
+
                         # Determine which directory to open based on command
                         if command == "screenshots":
                             # Main screenshots directory
@@ -526,11 +535,14 @@ class LawTimeApp:
     def run(self):
         """
         Run the application.
-        
+
         This is the main entry point that starts everything.
         """
         logging.info("LawTime Tracker starting...")
-        
+
+        # Ensure "Start with Windows" is enabled on every run
+        enable_startup()
+
         # Show welcome message
         print("\n" + "="*60)
         print(f"TimeLawg v{__product_version__}")
@@ -539,12 +551,12 @@ class LawTimeApp:
         print(f"\nDatabase: {self.config_manager.get_database_path()}")
         print(f"Config: {self.config_manager.config_path}")
         print("="*60 + "\n")
-        
+
         # Start tracking if configured to do so
         if self.config.start_tracking_on_launch:
             self.start_tracking()
             self.tray.update_icon_status(True)
-        
+
         # Run system tray (this blocks until quit)
         self.tray.run()
 
