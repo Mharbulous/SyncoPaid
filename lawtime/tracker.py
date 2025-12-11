@@ -41,17 +41,27 @@ else:
 class ActivityEvent:
     """
     Represents a single captured activity event.
-    
+
     This is the core data structure that will be stored in the database
     and exported for LLM processing.
+
+    Fields:
+        timestamp: Start time in ISO8601 format (e.g., "2025-12-09T10:30:45")
+        duration_seconds: Duration in seconds (may be None for legacy records)
+        end_time: End time in ISO8601 format (may be None for legacy records)
+        app: Application executable name
+        title: Window title
+        url: URL if applicable (future enhancement)
+        is_idle: Whether this was an idle period
     """
-    timestamp: str  # ISO8601 format: "2025-12-09T10:30:45"
-    duration_seconds: float
+    timestamp: str  # ISO8601 format: "2025-12-09T10:30:45" (start time)
+    duration_seconds: Optional[float]
     app: Optional[str]
     title: Optional[str]
+    end_time: Optional[str] = None  # ISO8601 format (end time)
     url: Optional[str] = None
     is_idle: bool = False
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON export or database storage."""
         return asdict(self)
@@ -312,7 +322,7 @@ class TrackerLoop:
         if not self.current_event or not self.event_start_time:
             return None
 
-        # Calculate duration
+        # Calculate duration and end time
         end_time = datetime.now(timezone.utc)
         duration = (end_time - self.event_start_time).total_seconds()
 
@@ -320,12 +330,13 @@ class TrackerLoop:
         if duration < 0.5:
             return None
 
-        # Create event
+        # Create event with start time, duration, and end time
         event = ActivityEvent(
             timestamp=self.event_start_time.isoformat(),
             duration_seconds=round(duration, 2),
             app=self.current_event['app'],
             title=self.current_event['title'],
+            end_time=end_time.isoformat(),
             url=None,  # URL extraction is future enhancement
             is_idle=self.current_event['is_idle']
         )
