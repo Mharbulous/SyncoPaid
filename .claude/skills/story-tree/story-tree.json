@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2025-12-11T23:00:00Z",
+  "lastUpdated": "2025-12-11T23:30:00Z",
   "root": {
     "id": "root",
     "story": "SaaS Apps for Lawyers",
@@ -223,6 +223,56 @@
                 "description": "Application never sends data over the network",
                 "capacity": 0,
                 "status": "implemented"
+              }
+            ]
+          },
+          {
+            "id": "1.1.7",
+            "story": "Tracking transparency",
+            "description": "As a lawyer, I want to understand my time tracking coverage so that I can identify and explain gaps in my records",
+            "capacity": 4,
+            "status": "planned",
+            "children": [
+              {
+                "id": "1.1.7.1",
+                "story": "Untracked time reasons",
+                "description": "As a lawyer, when time is not tracked, I want to know why (was TimeLawg paused, was it not on, was time deleted) so that I can account for gaps in my billing records",
+                "capacity": 4,
+                "status": "concept",
+                "children": [
+                  {
+                    "id": "1.1.7.1.1",
+                    "story": "State transition logging",
+                    "description": "As a lawyer, I want TimeLawg to log when tracking starts, pauses, and stops so that I can see exactly when tracking was active",
+                    "capacity": 2,
+                    "status": "concept",
+                    "children": []
+                  },
+                  {
+                    "id": "1.1.7.1.2",
+                    "story": "Deletion audit trail",
+                    "description": "As a lawyer, I want deleted time entries archived so that I know what time was removed and when",
+                    "capacity": 2,
+                    "status": "concept",
+                    "children": []
+                  },
+                  {
+                    "id": "1.1.7.1.3",
+                    "story": "Gap analysis",
+                    "description": "As a lawyer, I want to see a report of untracked periods with reasons so that I can explain billing gaps",
+                    "capacity": 2,
+                    "status": "concept",
+                    "children": []
+                  },
+                  {
+                    "id": "1.1.7.1.4",
+                    "story": "Crash recovery detection",
+                    "description": "As a lawyer, I want TimeLawg to detect if it crashed and record that as a reason for untracked time so that I know gaps weren't intentional",
+                    "capacity": 2,
+                    "status": "concept",
+                    "children": []
+                  }
+                ]
               }
             ]
           }
