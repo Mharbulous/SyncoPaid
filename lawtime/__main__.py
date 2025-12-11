@@ -288,10 +288,14 @@ class LawTimeApp:
                            ORDER BY timestamp DESC""",
                         (cutoff_iso,)
                     )
+                    columns = [desc[0] for desc in cursor.description]
                     for row in cursor.fetchall():
+                        # Handle end_time column which may not exist in older databases
+                        end_time = row['end_time'] if 'end_time' in columns else None
                         events.append({
                             'timestamp': row['timestamp'],
                             'duration_seconds': row['duration_seconds'],
+                            'end_time': end_time,
                             'app': row['app'],
                             'title': row['title'],
                         })
@@ -340,26 +344,31 @@ class LawTimeApp:
                 header = tk.Frame(root, pady=10)
                 header.pack(fill=tk.X)
 
-                # Calculate totals
-                total_seconds = sum(e['duration_seconds'] for e in events)
+                # Calculate totals (only count events with duration recorded)
+                total_seconds = sum(
+                    e['duration_seconds'] for e in events
+                    if e['duration_seconds'] is not None
+                )
                 tk.Label(
                     header,
                     text=f"Activity: {format_duration(total_seconds)} ({len(events)} events)",
                     font=('Segoe UI', 12, 'bold')
                 ).pack()
 
-                # Treeview for events
-                columns = ('time', 'duration', 'app', 'title')
+                # Treeview for events with start time, duration, end time columns
+                columns = ('start', 'duration', 'end', 'app', 'title')
                 tree = ttk.Treeview(root, columns=columns, show='headings')
-                tree.heading('time', text='Time')
+                tree.heading('start', text='Start')
                 tree.heading('duration', text='Duration')
+                tree.heading('end', text='End')
                 tree.heading('app', text='Application')
                 tree.heading('title', text='Window Title')
 
-                tree.column('time', width=140, minwidth=100)
+                tree.column('start', width=140, minwidth=100)
                 tree.column('duration', width=70, minwidth=50)
-                tree.column('app', width=120, minwidth=80)
-                tree.column('title', width=450, minwidth=200)
+                tree.column('end', width=140, minwidth=100)
+                tree.column('app', width=100, minwidth=80)
+                tree.column('title', width=330, minwidth=200)
 
                 # Scrollbar
                 scrollbar = ttk.Scrollbar(root, orient=tk.VERTICAL, command=tree.yview)
@@ -468,11 +477,22 @@ class LawTimeApp:
 
                 # Insert events
                 for event in events:
-                    ts = event['timestamp'][:19].replace('T', ' ')
-                    dur = format_duration(event['duration_seconds'])
+                    # Start time - always show (required field)
+                    start_ts = event['timestamp'][:19].replace('T', ' ')
+
+                    # Duration - show blank if not recorded (don't calculate)
+                    dur = ''
+                    if event['duration_seconds'] is not None:
+                        dur = format_duration(event['duration_seconds'])
+
+                    # End time - show blank if not recorded (don't calculate)
+                    end_ts = ''
+                    if event.get('end_time'):
+                        end_ts = event['end_time'][:19].replace('T', ' ')
+
                     app = event['app'] or ''
                     title = event['title'] or ''
-                    tree.insert('', tk.END, values=(ts, dur, app, title))
+                    tree.insert('', tk.END, values=(start_ts, dur, end_ts, app, title))
 
                 root.mainloop()
 

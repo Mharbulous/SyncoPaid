@@ -62,10 +62,19 @@ class Exporter:
             include_idle=include_idle
         )
         
-        # Calculate statistics
-        total_duration = sum(e['duration_seconds'] for e in events)
-        active_duration = sum(e['duration_seconds'] for e in events if not e['is_idle'])
-        idle_duration = sum(e['duration_seconds'] for e in events if e['is_idle'])
+        # Calculate statistics (handle None values for duration)
+        total_duration = sum(
+            e['duration_seconds'] for e in events
+            if e['duration_seconds'] is not None
+        )
+        active_duration = sum(
+            e['duration_seconds'] for e in events
+            if not e['is_idle'] and e['duration_seconds'] is not None
+        )
+        idle_duration = sum(
+            e['duration_seconds'] for e in events
+            if e['is_idle'] and e['duration_seconds'] is not None
+        )
         
         # Build export structure
         export_data = {
@@ -111,21 +120,22 @@ class Exporter:
     def _format_events_for_export(self, events: List[Dict]) -> List[Dict]:
         """
         Format events for JSON export.
-        
+
         Removes internal database IDs and ensures consistent format.
         """
         formatted = []
-        
+
         for event in events:
             formatted.append({
                 "timestamp": event['timestamp'],
                 "duration_seconds": event['duration_seconds'],
+                "end_time": event.get('end_time'),
                 "app": event['app'],
                 "title": event['title'],
                 "url": event['url'],
                 "is_idle": event['is_idle']
             })
-        
+
         return formatted
     
     def export_daily_summary(
@@ -192,24 +202,28 @@ class Exporter:
     def _calculate_app_breakdown(self, events: List[Dict]) -> List[Dict]:
         """
         Calculate time spent per application.
-        
+
         Args:
             events: List of event dictionaries
-            
+
         Returns:
             List of {app, duration_seconds, percentage} dictionaries
         """
         # Aggregate by app
         app_totals = {}
         total_duration = 0
-        
+
         for event in events:
             if event['is_idle']:
                 continue
-            
+
+            # Skip events without duration
+            if event['duration_seconds'] is None:
+                continue
+
             app = event['app'] or 'unknown'
             duration = event['duration_seconds']
-            
+
             app_totals[app] = app_totals.get(app, 0) + duration
             total_duration += duration
         
@@ -255,14 +269,19 @@ class Exporter:
         for event in events:
             # Extract time only (not full timestamp)
             time_str = event['timestamp'].split('T')[1][:8]  # HH:MM:SS
-            
+
+            # Handle None duration
+            duration_min = None
+            if event['duration_seconds'] is not None:
+                duration_min = round(event['duration_seconds'] / 60, 1)
+
             llm_events.append({
                 "time": time_str,
-                "duration_min": round(event['duration_seconds'] / 60, 1),
+                "duration_min": duration_min,
                 "app": event['app'],
                 "title": event['title']
             })
-        
+
         return json.dumps(llm_events, indent=2)
 
 

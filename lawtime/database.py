@@ -81,13 +81,21 @@ class Database:
                 CREATE TABLE IF NOT EXISTS events (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT NOT NULL,
-                    duration_seconds REAL NOT NULL,
+                    duration_seconds REAL,
+                    end_time TEXT,
                     app TEXT,
                     title TEXT,
                     url TEXT,
                     is_idle INTEGER DEFAULT 0
                 )
             """)
+
+            # Migration: Add end_time column if it doesn't exist (for existing databases)
+            cursor.execute("PRAGMA table_info(events)")
+            columns = [row[1] for row in cursor.fetchall()]
+            if 'end_time' not in columns:
+                cursor.execute("ALTER TABLE events ADD COLUMN end_time TEXT")
+                logging.info("Database migration: Added end_time column to events table")
 
             # Create indices for query performance
             cursor.execute("""
@@ -123,54 +131,59 @@ class Database:
     def insert_event(self, event: ActivityEvent) -> int:
         """
         Insert a single activity event into the database.
-        
+
         Args:
             event: ActivityEvent object to store
-            
+
         Returns:
             The ID of the inserted event
         """
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
+
+            # Get end_time if available (may be None for older code paths)
+            end_time = getattr(event, 'end_time', None)
+
             cursor.execute("""
-                INSERT INTO events (timestamp, duration_seconds, app, title, url, is_idle)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (
                 event.timestamp,
                 event.duration_seconds,
+                end_time,
                 event.app,
                 event.title,
                 event.url,
                 1 if event.is_idle else 0
             ))
-            
+
             return cursor.lastrowid
     
     def insert_events_batch(self, events: List[ActivityEvent]) -> int:
         """
         Insert multiple events in a single transaction (more efficient).
-        
+
         Args:
             events: List of ActivityEvent objects
-            
+
         Returns:
             Number of events inserted
         """
         if not events:
             return 0
-        
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            
+
             cursor.executemany("""
-                INSERT INTO events (timestamp, duration_seconds, app, title, url, is_idle)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """, [
-                (e.timestamp, e.duration_seconds, e.app, e.title, e.url, 1 if e.is_idle else 0)
+                (e.timestamp, e.duration_seconds, getattr(e, 'end_time', None),
+                 e.app, e.title, e.url, 1 if e.is_idle else 0)
                 for e in events
             ])
-            
+
             return len(events)
     
     def get_events(
@@ -219,7 +232,7 @@ class Database:
                 query += f" LIMIT {limit}"
             
             cursor.execute(query, params)
-            
+
             # Convert rows to dictionaries
             events = []
             for row in cursor.fetchall():
@@ -227,12 +240,13 @@ class Database:
                     'id': row['id'],
                     'timestamp': row['timestamp'],
                     'duration_seconds': row['duration_seconds'],
+                    'end_time': row['end_time'] if 'end_time' in row.keys() else None,
                     'app': row['app'],
                     'title': row['title'],
                     'url': row['url'],
                     'is_idle': bool(row['is_idle'])
                 })
-            
+
             return events
     
     def delete_events(
