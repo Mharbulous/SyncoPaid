@@ -42,7 +42,15 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 4. Verify installation
+### 4. Install the package in editable mode
+
+```bash
+pip install -e .
+```
+
+This installs the `timelawg` package from the `src/` directory so you can run it with `python -m timelawg`.
+
+### 5. Verify installation
 
 Test the core APIs work on your machine:
 
@@ -64,11 +72,11 @@ If all tests pass, you're ready to run the app!
 ### Run the application
 
 ```bash
-python -m lawtime
+python -m timelawg
 ```
 
 This will:
-1. Create the database at `%LOCALAPPDATA%\TimeLawg\lawtime.db`
+1. Create the database at `%LOCALAPPDATA%\TimeLawg\timelawg.db`
 2. Create config file at `%LOCALAPPDATA%\TimeLawg\config.json`
 3. Start tracking automatically (if `start_tracking_on_launch` is true)
 4. Show a system tray icon (green = tracking, yellow = paused)
@@ -145,7 +153,7 @@ Edit the config file and restart the app to apply changes.
 
 Activity data is stored in a local SQLite database at:
 ```
-%LOCALAPPDATA%\TimeLawg\lawtime.db
+%LOCALAPPDATA%\TimeLawg\timelawg.db
 ```
 
 ### Schema
@@ -167,7 +175,7 @@ CREATE TABLE events (
 You can query the database directly if needed:
 
 ```bash
-sqlite3 "%LOCALAPPDATA%\TimeLawg\lawtime.db"
+sqlite3 "%LOCALAPPDATA%\TimeLawg\timelawg.db"
 ```
 
 ```sql
@@ -253,14 +261,15 @@ Some admin-level applications may not report window titles to non-admin processe
 
 ```
 timelawg/
-├── lawtime/
-│   ├── __init__.py      # Package initialization
-│   ├── __main__.py      # Main entry point
-│   ├── tracker.py       # Core tracking loop
-│   ├── database.py      # SQLite operations
-│   ├── exporter.py      # JSON export
-│   ├── config.py        # Settings management
-│   └── tray.py          # System tray UI
+├── src/
+│   └── timelawg/
+│       ├── __init__.py      # Package initialization
+│       ├── __main__.py      # Main entry point
+│       ├── tracker.py       # Core tracking loop
+│       ├── database.py      # SQLite operations
+│       ├── exporter.py      # JSON export
+│       ├── config.py        # Settings management
+│       └── tray.py          # System tray UI
 ├── requirements.txt     # Dependencies
 ├── README.md           # This file
 └── .gitignore          # Git exclusions
@@ -272,19 +281,19 @@ Each module includes a `if __name__ == "__main__"` block for standalone testing:
 
 ```bash
 # Test tracker
-python -m lawtime.tracker
+python -m timelawg.tracker
 
 # Test database
-python -m lawtime.database
+python -m timelawg.database
 
 # Test config
-python -m lawtime.config
+python -m timelawg.config
 
 # Test exporter
-python -m lawtime.exporter
+python -m timelawg.exporter
 
 # Test tray
-python -m lawtime.tray
+python -m timelawg.tray
 ```
 
 ### Development Guidelines

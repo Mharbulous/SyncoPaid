@@ -2,7 +2,7 @@
 # PyInstaller spec file for TimeLawg
 
 a = Analysis(
-    ['lawtime/__main__.py'],
+    ['src/timelawg/__main__.py'],
     pathex=[],
     binaries=[],
     datas=[

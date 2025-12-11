@@ -156,11 +156,11 @@ class ConfigManager:
         Get the default database file path for the current platform.
         
         Returns:
-            Path object pointing to lawtime.db location
+            Path object pointing to timelawg.db location
         """
         import sys
         import os
-        
+
         if sys.platform == 'win32':
             appdata = os.environ.get('LOCALAPPDATA')
             if not appdata:
@@ -170,9 +170,17 @@ class ConfigManager:
             db_dir = appdata / 'TimeLawg'
         else:
             db_dir = Path.home() / '.local' / 'share' / 'timelawg'
-        
+
         db_dir.mkdir(parents=True, exist_ok=True)
-        return db_dir / 'lawtime.db'
+
+        # Migration: rename old database if it exists
+        old_db = db_dir / 'lawtime.db'
+        new_db = db_dir / 'timelawg.db'
+        if old_db.exists() and not new_db.exists():
+            logging.info(f"Migrating database from {old_db} to {new_db}")
+            old_db.rename(new_db)
+
+        return new_db
     
     def load(self) -> Config:
         """

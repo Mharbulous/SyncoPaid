@@ -95,6 +95,53 @@ Maintain a **self-managing tree of user stories** where:
 
 **Work with real codebase data**: Always analyze the actual git history and codebase you have access to. If the user mentions a hypothetical project scenario, acknowledge it but proceed with real data from the actual repository.
 
+## Auto-Update on Staleness
+
+**On ANY skill invocation**, before processing the user's command:
+
+1. **Load story-tree.json** and read the `lastUpdated` timestamp
+2. **Compare to today's date**
+3. **If more than 3 days old** → Automatically run the full "Update story tree" workflow first
+4. **Then** proceed with the user's original command
+
+### Staleness Check Logic
+
+```python
+from datetime import datetime, timedelta
+
+STALENESS_THRESHOLD_DAYS = 3
+
+last_updated = datetime.fromisoformat(tree["lastUpdated"].replace("Z", "+00:00"))
+now = datetime.now(last_updated.tzinfo)
+days_old = (now - last_updated).days
+
+if days_old >= STALENESS_THRESHOLD_DAYS:
+    # Run full update workflow (Steps 1-7) before user's command
+    print(f"Story tree is {days_old} days old. Running automatic update...")
+```
+
+### User Notification
+
+When auto-update triggers, inform the user:
+
+```markdown
+**Auto-update triggered**: Story tree was last updated {N} days ago (threshold: 3 days).
+Running full update before processing your "{command}" request...
+
+[Normal update report follows]
+
+---
+
+**Original request**: Now processing "{command}"...
+```
+
+### Skip Auto-Update
+
+The auto-update does NOT run when:
+- `story-tree.json` doesn't exist (initialization takes precedence)
+- User explicitly says "skip update" or "no auto-update"
+- The skill was invoked within the same conversation and already ran an update
+
 ## Autonomous Operation Workflow
 
 ### Step 1: Load Current Tree
@@ -488,5 +535,6 @@ Before outputting generated stories, verify:
 
 ## Version History
 
+- v1.2.0 (2025-12-11): Added auto-update on staleness (3-day threshold, triggers on any invocation)
 - v1.1.0 (2025-12-11): Added autonomous mode guidance, "When NOT to Use" section, real-world impact metrics, and common mistakes documentation
 - v1.0.0 (2025-12-11): Initial release

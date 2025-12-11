@@ -29,7 +29,7 @@ def create_bat():
     bat_content = f'''@echo off
 cd /d {PROJECT_DIR}
 call venv\\Scripts\\activate
-start /min pythonw -m lawtime
+start /min pythonw -m timelawg
 '''
     BAT_PATH.write_text(bat_content)
     print(f"Created: {BAT_PATH}")

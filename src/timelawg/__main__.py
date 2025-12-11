@@ -21,17 +21,17 @@ from pathlib import Path
 from datetime import datetime, date, timedelta
 import ctypes
 
-from lawtime.config import ConfigManager, print_config
-from lawtime.database import Database, format_duration
-from lawtime.tracker import TrackerLoop
-from lawtime.exporter import Exporter
-from lawtime.tray import TrayIcon, enable_startup
-from lawtime.screenshot import ScreenshotWorker, get_screenshot_directory
-from lawtime.action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
+from timelawg.config import ConfigManager, print_config
+from timelawg.database import Database, format_duration
+from timelawg.tracker import TrackerLoop
+from timelawg.exporter import Exporter
+from timelawg.tray import TrayIcon, enable_startup
+from timelawg.screenshot import ScreenshotWorker, get_screenshot_directory
+from timelawg.action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
 
 # Version info
 try:
-    from lawtime import __product_version__
+    from timelawg import __product_version__
 except ImportError:
     __product_version__ = "1.0.0"  # Fallback if not yet generated
 
@@ -317,7 +317,7 @@ class LawTimeApp:
                 def show_about():
                     """Show About dialog with version and commit info."""
                     try:
-                        from lawtime import __version__, __product_version__
+                        from timelawg import __version__, __product_version__
                     except ImportError:
                         __version__ = "0.0.0.dev"
                         __product_version__ = "0.0.0"

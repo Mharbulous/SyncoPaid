@@ -61,7 +61,7 @@ print()
 # Import screenshot module
 print("Importing screenshot module...")
 try:
-    from lawtime.screenshot import ScreenshotWorker, get_screenshot_directory, WINDOWS_APIS_AVAILABLE
+    from timelawg.screenshot import ScreenshotWorker, get_screenshot_directory, WINDOWS_APIS_AVAILABLE
     print(f"  ✓ screenshot module imported")
     print(f"  WINDOWS_APIS_AVAILABLE = {WINDOWS_APIS_AVAILABLE}")
 

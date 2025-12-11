@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "timelawg"
+version = "1.0.1"
+description = "Automatic time tracking for Windows 11 designed for civil litigation lawyers"
+authors = [{name = "Brahm Bhandari"}]
+requires-python = ">=3.11"
+dependencies = [
+    "pywin32>=306",
+    "psutil>=5.9.0",
+    "pystray>=0.19.0",
+    "Pillow>=10.0.0",
+    "imagehash>=4.3.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
