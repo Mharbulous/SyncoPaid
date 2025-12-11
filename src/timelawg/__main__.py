@@ -8,7 +8,7 @@ Coordinates all components:
 - System tray UI
 - Data export
 
-This is the file that runs when you execute: python -m lawtime
+This is the file that runs when you execute: python -m timelawg
 """
 
 import sys
@@ -230,7 +230,7 @@ class LawTimeApp:
                     title="Export Activity Data",
                     defaultextension=".json",
                     filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
-                    initialfile=f"lawtime_export_{datetime.now().strftime('%Y%m%d')}.json"
+                    initialfile=f"timelawg_export_{datetime.now().strftime('%Y%m%d')}.json"
                 )
 
                 if output_path:

@@ -334,7 +334,7 @@ class TrayIcon:
             return
         
         self.icon = pystray.Icon(
-            "lawtime_tracker",
+            "timelawg_tracker",
             self.create_icon_image("green"),
             f"TimeLawg v{__product_version__}",
             menu=self._create_menu()
@@ -350,7 +350,7 @@ class TrayIcon:
         Provides basic commands: start, pause, export, quit.
         """
         print("\n" + "="*60)
-        print("LawTime Tracker - Console Mode")
+        print("TimeLawg Tracker - Console Mode")
         print("(System tray not available)")
         print("="*60)
         print("\nCommands:")
@@ -362,7 +362,7 @@ class TrayIcon:
         
         while True:
             try:
-                cmd = input("lawtime> ").strip().lower()
+                cmd = input("timelawg> ").strip().lower()
                 
                 if cmd == "start":
                     print("▶ Starting tracking...")

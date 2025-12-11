@@ -9,10 +9,10 @@ from PIL import Image
 # Paths
 PROJECT_DIR = Path(__file__).parent
 ICON_PNG = PROJECT_DIR / "OrangeClockScale.png"
-ICON_ICO = PROJECT_DIR / "LawTime.ico"
+ICON_ICO = PROJECT_DIR / "TimeLawg.ico"
 DESKTOP = Path(os.environ["USERPROFILE"]) / "OneDrive - Logica Law" / "Desktop"
 SHORTCUT_PATH = DESKTOP / "LawTime V0.1.0.lnk"
-BAT_PATH = PROJECT_DIR / "launch_lawtime.bat"
+BAT_PATH = PROJECT_DIR / "launch_timelawg.bat"
 
 def create_ico():
     """Convert PNG to ICO with multiple sizes."""

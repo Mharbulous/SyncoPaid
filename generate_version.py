@@ -6,7 +6,7 @@ This script:
 1. Reads the product version from the VERSION file
 2. Gets the current git commit hash and commit count
 3. Generates version_info.txt for PyInstaller
-4. Updates lawtime/__init__.py with version constants
+4. Updates src/timelawg/_version.py with version constants
 
 Product version is manually controlled via the VERSION file.
 File version automatically includes git commit hash.
@@ -191,7 +191,7 @@ VSVersionInfo(
 
 def generate_version_py(product_version, file_version):
     """
-    Generate lawtime/_version.py with version constants.
+    Generate src/timelawg/_version.py with version constants.
 
     This file is gitignored and created at build time only.
 

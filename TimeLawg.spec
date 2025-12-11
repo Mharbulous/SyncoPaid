@@ -3,7 +3,7 @@
 
 a = Analysis(
     ['src/timelawg/__main__.py'],
-    pathex=[],
+    pathex=['src'],
     binaries=[],
     datas=[
         ('TimeLawg.ico', '.'),  # Include icon in root of bundle

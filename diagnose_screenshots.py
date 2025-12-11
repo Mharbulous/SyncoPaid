@@ -169,7 +169,7 @@ if all_deps_ok and is_windows:
     print("✓ All dependencies installed correctly")
     print()
     print("Next steps:")
-    print("1. Run the app: python -m lawtime")
+    print("1. Run the app: python -m timelawg")
     print("2. Wait at least 10 seconds")
     print("3. Check the console for these log messages:")
     print("   - 'Screenshot capture enabled: interval=10s'")
