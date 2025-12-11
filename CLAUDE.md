@@ -27,14 +27,14 @@ venv\Scripts\activate
 pip install -r requirements.txt
 
 # Run the application
-python -m lawtime
+python -m timelawg
 
 # Test individual modules
-python -m lawtime.tracker    # Window capture test (30s)
-python -m lawtime.database   # Database operations test
-python -m lawtime.config     # Config management test
-python -m lawtime.exporter   # Export functionality test
-python -m lawtime.tray       # System tray test
+python -m timelawg.tracker    # Window capture test (30s)
+python -m timelawg.database   # Database operations test
+python -m timelawg.config     # Config management test
+python -m timelawg.exporter   # Export functionality test
+python -m timelawg.tray       # System tray test
 
 # Quick API verification tests
 python test_window.py        # Test pywin32 window capture
@@ -47,7 +47,7 @@ python test_tray.py          # Test pystray system tray
 ### Module Structure
 
 ```
-lawtime/
+timelawg/
 ├── __main__.py    # Entry point, LawTimeApp coordinator class
 ├── tracker.py     # TrackerLoop: polls active window, detects idle, yields ActivityEvent
 ├── screenshot.py  # ScreenshotWorker: async screenshot capture with perceptual hashing
@@ -86,7 +86,7 @@ lawtime/
 
 ## File Locations
 
-- **Database**: `%LOCALAPPDATA%\TimeLawg\lawtime.db`
+- **Database**: `%LOCALAPPDATA%\TimeLawg\timelawg.db`
 - **Config**: `%LOCALAPPDATA%\TimeLawg\config.json`
 - **Screenshots**: `%LOCALAPPDATA%\TimeLawg\screenshots\YYYY-MM-DD\HHMMSS_appname.jpg`
 - **PRD/Docs**: `ai_docs/` directory

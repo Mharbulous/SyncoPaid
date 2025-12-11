@@ -5,9 +5,9 @@ This package provides passive background capture of window activity, idle detect
 and data export for LLM-powered billing categorization.
 """
 
-# Version info - generated at build time in lawtime/_version.py
+# Version info - generated at build time in timelawg/_version.py
 try:
-    from lawtime._version import __version__, __product_version__
+    from timelawg._version import __version__, __product_version__
 except ImportError:
     # Fallback for development (when not built)
     __version__ = "0.0.0.dev"

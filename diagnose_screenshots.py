@@ -71,7 +71,7 @@ print()
 # Check 3: Configuration
 print("3. Configuration Check")
 try:
-    from lawtime.config import ConfigManager
+    from timelawg.config import ConfigManager
     config_manager = ConfigManager()
     config = config_manager.config
 
@@ -88,7 +88,7 @@ print()
 # Check 4: Screenshot directory
 print("4. Screenshot Directory Check")
 try:
-    from lawtime.screenshot import get_screenshot_directory
+    from timelawg.screenshot import get_screenshot_directory
     screenshot_dir = get_screenshot_directory()
     print(f"   Screenshot directory: {screenshot_dir}")
     print(f"   Exists: {'✓ YES' if screenshot_dir.exists() else '✗ NO'}")
@@ -107,7 +107,7 @@ print()
 # Check 5: Can we import screenshot module?
 print("5. Screenshot Module Check")
 try:
-    from lawtime.screenshot import ScreenshotWorker, WINDOWS_APIS_AVAILABLE
+    from timelawg.screenshot import ScreenshotWorker, WINDOWS_APIS_AVAILABLE
     print(f"   ✓ screenshot.py imported successfully")
     print(f"   WINDOWS_APIS_AVAILABLE: {WINDOWS_APIS_AVAILABLE}")
 
@@ -125,7 +125,7 @@ print()
 # Check 6: Can we import tracker module?
 print("6. Tracker Module Check")
 try:
-    from lawtime.tracker import TrackerLoop, WINDOWS_APIS_AVAILABLE as TRACKER_APIS
+    from timelawg.tracker import TrackerLoop, WINDOWS_APIS_AVAILABLE as TRACKER_APIS
     print(f"   ✓ tracker.py imported successfully")
     print(f"   WINDOWS_APIS_AVAILABLE (tracker): {TRACKER_APIS}")
 
@@ -142,7 +142,7 @@ print()
 # Check 7: Database
 print("7. Database Check")
 try:
-    from lawtime.database import Database
+    from timelawg.database import Database
     config_manager = ConfigManager()
     db_path = config_manager.get_database_path()
     print(f"   Database path: {db_path}")
@@ -169,7 +169,7 @@ if all_deps_ok and is_windows:
     print("✓ All dependencies installed correctly")
     print()
     print("Next steps:")
-    print("1. Run the app: python -m lawtime")
+    print("1. Run the app: python -m timelawg")
     print("2. Wait at least 10 seconds")
     print("3. Check the console for these log messages:")
     print("   - 'Screenshot capture enabled: interval=10s'")

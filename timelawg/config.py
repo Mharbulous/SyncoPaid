@@ -154,13 +154,13 @@ class ConfigManager:
     def _get_default_database_path() -> Path:
         """
         Get the default database file path for the current platform.
-        
+
         Returns:
-            Path object pointing to lawtime.db location
+            Path object pointing to timelawg.db location
         """
         import sys
         import os
-        
+
         if sys.platform == 'win32':
             appdata = os.environ.get('LOCALAPPDATA')
             if not appdata:
@@ -170,9 +170,9 @@ class ConfigManager:
             db_dir = appdata / 'TimeLawg'
         else:
             db_dir = Path.home() / '.local' / 'share' / 'timelawg'
-        
+
         db_dir.mkdir(parents=True, exist_ok=True)
-        return db_dir / 'lawtime.db'
+        return db_dir / 'timelawg.db'
     
     def load(self) -> Config:
         """

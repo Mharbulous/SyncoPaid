@@ -297,7 +297,7 @@ if __name__ == "__main__":
     
     # Create test database with sample data
     with tempfile.TemporaryDirectory() as tmpdir:
-        test_db = os.path.join(tmpdir, "test_lawtime.db")
+        test_db = os.path.join(tmpdir, "test_timelawg.db")
         db = Database(test_db)
         
         # Create test events

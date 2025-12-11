@@ -532,7 +532,7 @@ if __name__ == "__main__":
     
     # Create test database
     with tempfile.TemporaryDirectory() as tmpdir:
-        test_db = os.path.join(tmpdir, "test_lawtime.db")
+        test_db = os.path.join(tmpdir, "test_timelawg.db")
         print(f"Testing database: {test_db}\n")
         
         db = Database(test_db)
