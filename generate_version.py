@@ -186,7 +186,7 @@ VSVersionInfo(
     version_info_path = Path(__file__).parent / 'version_info.txt'
     version_info_path.write_text(content, encoding='utf-8')
 
-    print(f"✓ Generated: {version_info_path}")
+    print(f"  Generated: {version_info_path}")
 
 
 def generate_version_py(product_version, file_version):
@@ -209,7 +209,7 @@ __product_version__ = "{product_version}"
 '''
 
     version_py_path.write_text(content, encoding='utf-8')
-    print(f"✓ Generated: {version_py_path}")
+    print(f"  Generated: {version_py_path}")
 
 
 def main():
