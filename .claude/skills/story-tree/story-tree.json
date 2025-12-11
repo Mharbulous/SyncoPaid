@@ -1,180 +1,280 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2025-12-11T23:00:00Z",
+  "lastUpdated": "2025-12-11T23:30:00Z",
   "root": {
     "id": "root",
-    "story": "TimeLawg - Automatic time tracking for lawyers",
-    "description": "A Windows 11 desktop application that automatically captures window activity for civil litigation lawyers, recording window titles and application names at second-level precision with all data stored locally for attorney-client privilege preservation.",
-    "capacity": 5,
-    "status": "in-progress",
+    "story": "SaaS Apps for Lawyers",
+    "description": "Build specialized SaaS applications for legal professionals that preserve attorney-client privilege",
+    "capacity": 10,
+    "status": "active",
     "children": [
       {
         "id": "1.1",
-        "story": "Activity Capture",
-        "description": "As a lawyer, I want TimeLawg to automatically capture my computer activity so that I don't have to manually log my time.",
-        "capacity": 5,
+        "story": "TimeLawg - Automatic time tracking for lawyers",
+        "description": "Windows 11 desktop application that automatically captures window activity for civil litigation lawyers, running in the background with second-level precision. All data stays local (SQLite) for attorney-client privilege preservation.",
+        "capacity": 10,
         "status": "in-progress",
+        "projectPath": "./",
         "children": [
           {
             "id": "1.1.1",
-            "story": "Window tracking",
-            "description": "As a lawyer, I want TimeLawg to track which application and window I'm working in so that my time is categorized by activity.",
-            "capacity": 3,
+            "story": "Core activity tracking",
+            "description": "As a lawyer, I want the app to automatically track which windows and applications I use so that I don't have to manually log my time",
+            "capacity": 5,
             "status": "implemented",
             "implementedCommits": ["db8305c", "531a5b9"],
-            "children": []
+            "children": [
+              {
+                "id": "1.1.1.1",
+                "story": "Poll active window at configurable interval",
+                "description": "Track active window title and application name every 1 second",
+                "capacity": 0,
+                "status": "implemented",
+                "implementedCommits": ["db8305c"]
+              },
+              {
+                "id": "1.1.1.2",
+                "story": "Detect idle time from keyboard/mouse inactivity",
+                "description": "Mark periods as idle when no input for configurable threshold (default 3 minutes)",
+                "capacity": 0,
+                "status": "implemented"
+              },
+              {
+                "id": "1.1.1.3",
+                "story": "Track start time, duration, and end time",
+                "description": "Record precise timestamps for activity events",
+                "capacity": 0,
+                "status": "implemented",
+                "implementedCommits": ["531a5b9"]
+              },
+              {
+                "id": "1.1.1.4",
+                "story": "Focus change detection",
+                "description": "Detect when user switches windows to immediately capture screenshots",
+                "capacity": 0,
+                "status": "implemented",
+                "implementedCommits": ["db8305c"]
+              }
+            ]
           },
           {
             "id": "1.1.2",
-            "story": "Idle detection",
-            "description": "As a lawyer, I want TimeLawg to detect when I'm away from my computer so that idle time is not incorrectly billed.",
-            "capacity": 3,
+            "story": "Screenshot capture",
+            "description": "As a lawyer, I want screenshots captured periodically so that I can verify my activity and have visual evidence of my work",
+            "capacity": 6,
             "status": "implemented",
-            "children": []
+            "implementedCommits": ["9e7864d", "e98fd8e", "df69b65"],
+            "children": [
+              {
+                "id": "1.1.2.1",
+                "story": "Periodic screenshot capture",
+                "description": "Capture screenshots at configurable intervals (default 10 seconds)",
+                "capacity": 0,
+                "status": "implemented",
+                "implementedCommits": ["8ed8285"]
+              },
+              {
+                "id": "1.1.2.2",
+                "story": "Action-based screenshot capture",
+                "description": "Capture screenshots when user switches focus between windows",
+                "capacity": 0,
+                "status": "implemented",
+                "implementedCommits": ["9e7864d"]
+              },
+              {
+                "id": "1.1.2.3",
+                "story": "Perceptual hash deduplication",
+                "description": "Use dHash to avoid saving duplicate/similar screenshots",
+                "capacity": 0,
+                "status": "implemented",
+                "implementedCommits": ["df69b65"]
+              },
+              {
+                "id": "1.1.2.4",
+                "story": "Multi-monitor support",
+                "description": "Capture screenshots from secondary monitors correctly",
+                "capacity": 0,
+                "status": "implemented",
+                "implementedCommits": ["e98fd8e", "bc46d54"]
+              }
+            ]
           },
           {
             "id": "1.1.3",
-            "story": "Screenshot capture",
-            "description": "As a lawyer, I want TimeLawg to capture screenshots so that I have visual evidence of my work for billing verification.",
-            "capacity": 4,
+            "story": "System tray interface",
+            "description": "As a lawyer, I want the app to run unobtrusively in the system tray so that it doesn't interrupt my work",
+            "capacity": 5,
             "status": "implemented",
-            "implementedCommits": ["9e7864d", "e98fd8e", "bc46d54"],
+            "implementedCommits": ["1409acc", "5873af4"],
             "children": [
               {
                 "id": "1.1.3.1",
-                "story": "Periodic screenshots",
-                "description": "As a lawyer, I want screenshots captured at regular intervals so that I have continuous visual documentation.",
-                "capacity": 2,
-                "status": "implemented",
-                "children": []
+                "story": "Start/Pause tracking from tray menu",
+                "description": "Toggle tracking with right-click menu",
+                "capacity": 0,
+                "status": "implemented"
               },
               {
                 "id": "1.1.3.2",
-                "story": "Action-based screenshots",
-                "description": "As a lawyer, I want screenshots captured when I switch windows so that I capture the moment of context change.",
-                "capacity": 2,
+                "story": "Start with Windows toggle",
+                "description": "Configure app to auto-start when Windows boots",
+                "capacity": 0,
                 "status": "implemented",
-                "implementedCommits": ["9e7864d"],
-                "children": []
+                "implementedCommits": ["1409acc"]
               },
               {
                 "id": "1.1.3.3",
-                "story": "Screenshot deduplication",
-                "description": "As a lawyer, I want duplicate screenshots removed so that storage isn't wasted on identical images.",
-                "capacity": 2,
-                "status": "implemented",
-                "children": []
+                "story": "Status indicator icon",
+                "description": "Green = tracking, Yellow = paused",
+                "capacity": 0,
+                "status": "implemented"
               }
             ]
-          }
-        ]
-      },
-      {
-        "id": "1.2",
-        "story": "Data Management",
-        "description": "As a lawyer, I want my tracked time data stored securely and exportable so that I can use it for billing.",
-        "capacity": 4,
-        "status": "in-progress",
-        "children": [
-          {
-            "id": "1.2.1",
-            "story": "Local database storage",
-            "description": "As a lawyer, I want all my data stored locally in SQLite so that attorney-client privilege is preserved.",
-            "capacity": 3,
-            "status": "implemented",
-            "children": []
           },
           {
-            "id": "1.2.2",
-            "story": "JSON export",
-            "description": "As a lawyer, I want to export my time data to JSON so that it can be processed by external tools for billing categorization.",
-            "capacity": 3,
-            "status": "implemented",
-            "children": []
-          }
-        ]
-      },
-      {
-        "id": "1.3",
-        "story": "Tracking Transparency",
-        "description": "As a lawyer, I want to understand my time tracking coverage so that I can identify and explain gaps in my records.",
-        "capacity": 4,
-        "status": "planned",
-        "children": [
-          {
-            "id": "1.3.1",
-            "story": "Untracked time reasons",
-            "description": "As a lawyer, when time is not tracked, I want to know why (was TimeLawg paused, was it not on, was time deleted) so that I can account for gaps in my billing records.",
-            "capacity": 4,
-            "status": "concept",
+            "id": "1.1.4",
+            "story": "View Time window",
+            "description": "As a lawyer, I want to view my recent activity so that I can review what I've worked on",
+            "capacity": 6,
+            "status": "in-progress",
+            "implementedCommits": ["b960361"],
             "children": [
               {
-                "id": "1.3.1.1",
-                "story": "State transition logging",
-                "description": "As a lawyer, I want TimeLawg to log when tracking starts, pauses, and stops so that I can see exactly when tracking was active.",
-                "capacity": 2,
-                "status": "concept",
+                "id": "1.1.4.1",
+                "story": "Display last 24 hours of activity",
+                "description": "Show events in a sortable table with start time, duration, end time, app, and title",
+                "capacity": 0,
+                "status": "implemented"
+              },
+              {
+                "id": "1.1.4.2",
+                "story": "Command text field",
+                "description": "Enter commands like 'screenshots', 'periodic', 'actions', 'quit' to perform actions",
+                "capacity": 0,
+                "status": "implemented",
+                "implementedCommits": ["b960361"]
+              },
+              {
+                "id": "1.1.4.3",
+                "story": "Delete highlighted log entries",
+                "description": "As a lawyer, I want to highlight log entries in the View Time window and delete them by typing 'delete' in the command field so that I can remove incorrect or irrelevant entries",
+                "capacity": 3,
+                "status": "planned",
+                "acceptanceCriteria": [
+                  "User can select one or more rows in the Treeview (multi-select enabled)",
+                  "Typing 'delete' in command field and pressing Enter deletes selected entries",
+                  "Confirmation dialog shown before deletion with count of entries to delete",
+                  "Events are permanently removed from database",
+                  "Treeview refreshes to show updated list after deletion",
+                  "Total activity time in header updates after deletion"
+                ],
                 "children": []
               },
               {
-                "id": "1.3.1.2",
-                "story": "Deletion audit trail",
-                "description": "As a lawyer, I want deleted time entries archived so that I know what time was removed and when.",
-                "capacity": 2,
-                "status": "concept",
-                "children": []
-              },
-              {
-                "id": "1.3.1.3",
-                "story": "Gap analysis",
-                "description": "As a lawyer, I want to see a report of untracked periods with reasons so that I can explain billing gaps.",
-                "capacity": 2,
-                "status": "concept",
-                "children": []
-              },
-              {
-                "id": "1.3.1.4",
-                "story": "Crash recovery detection",
-                "description": "As a lawyer, I want TimeLawg to detect if it crashed and record that as a reason for untracked time so that I know gaps weren't intentional.",
-                "capacity": 2,
-                "status": "concept",
-                "children": []
+                "id": "1.1.4.4",
+                "story": "About dialog",
+                "description": "Show version and build info from Help menu",
+                "capacity": 0,
+                "status": "implemented",
+                "implementedCommits": ["36bb125"]
               }
             ]
-          }
-        ]
-      },
-      {
-        "id": "1.4",
-        "story": "User Interface",
-        "description": "As a lawyer, I want an unobtrusive interface so that TimeLawg doesn't interrupt my work.",
-        "capacity": 4,
-        "status": "in-progress",
-        "children": [
-          {
-            "id": "1.4.1",
-            "story": "System tray",
-            "description": "As a lawyer, I want TimeLawg to run in the system tray so that it's always accessible but not intrusive.",
-            "capacity": 3,
-            "status": "implemented",
-            "children": []
           },
           {
-            "id": "1.4.2",
-            "story": "Start with Windows",
-            "description": "As a lawyer, I want TimeLawg to start automatically with Windows so that I never forget to track my time.",
-            "capacity": 2,
+            "id": "1.1.5",
+            "story": "Data export",
+            "description": "As a lawyer, I want to export my activity data so that I can process it for billing",
+            "capacity": 4,
             "status": "implemented",
-            "implementedCommits": ["1409acc"],
-            "children": []
+            "children": [
+              {
+                "id": "1.1.5.1",
+                "story": "Export to JSON",
+                "description": "Export events to structured JSON for LLM processing",
+                "capacity": 0,
+                "status": "implemented"
+              },
+              {
+                "id": "1.1.5.2",
+                "story": "Date range filtering",
+                "description": "Select date range for export",
+                "capacity": 0,
+                "status": "implemented"
+              }
+            ]
           },
           {
-            "id": "1.4.3",
-            "story": "View captured data",
-            "description": "As a lawyer, I want to view my captured screenshots and time data so that I can verify what was recorded.",
+            "id": "1.1.6",
+            "story": "Local database storage",
+            "description": "As a lawyer, I want all data stored locally so that attorney-client privilege is preserved",
             "capacity": 3,
-            "status": "in-progress",
-            "children": []
+            "status": "implemented",
+            "children": [
+              {
+                "id": "1.1.6.1",
+                "story": "SQLite database",
+                "description": "Store events and screenshots in local SQLite database",
+                "capacity": 0,
+                "status": "implemented"
+              },
+              {
+                "id": "1.1.6.2",
+                "story": "No network access",
+                "description": "Application never sends data over the network",
+                "capacity": 0,
+                "status": "implemented"
+              }
+            ]
+          },
+          {
+            "id": "1.1.7",
+            "story": "Tracking transparency",
+            "description": "As a lawyer, I want to understand my time tracking coverage so that I can identify and explain gaps in my records",
+            "capacity": 4,
+            "status": "planned",
+            "children": [
+              {
+                "id": "1.1.7.1",
+                "story": "Untracked time reasons",
+                "description": "As a lawyer, when time is not tracked, I want to know why (was TimeLawg paused, was it not on, was time deleted) so that I can account for gaps in my billing records",
+                "capacity": 4,
+                "status": "concept",
+                "children": [
+                  {
+                    "id": "1.1.7.1.1",
+                    "story": "State transition logging",
+                    "description": "As a lawyer, I want TimeLawg to log when tracking starts, pauses, and stops so that I can see exactly when tracking was active",
+                    "capacity": 2,
+                    "status": "concept",
+                    "children": []
+                  },
+                  {
+                    "id": "1.1.7.1.2",
+                    "story": "Deletion audit trail",
+                    "description": "As a lawyer, I want deleted time entries archived so that I know what time was removed and when",
+                    "capacity": 2,
+                    "status": "concept",
+                    "children": []
+                  },
+                  {
+                    "id": "1.1.7.1.3",
+                    "story": "Gap analysis",
+                    "description": "As a lawyer, I want to see a report of untracked periods with reasons so that I can explain billing gaps",
+                    "capacity": 2,
+                    "status": "concept",
+                    "children": []
+                  },
+                  {
+                    "id": "1.1.7.1.4",
+                    "story": "Crash recovery detection",
+                    "description": "As a lawyer, I want TimeLawg to detect if it crashed and record that as a reason for untracked time so that I know gaps weren't intentional",
+                    "capacity": 2,
+                    "status": "concept",
+                    "children": []
+                  }
+                ]
+              }
+            ]
           }
         ]
       }
