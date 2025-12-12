@@ -61,7 +61,7 @@ CREATE TABLE story_paths (
 );
 
 -- Commit tracking
-CREATE TABLE story_node_commits (
+CREATE TABLE story_commits (
     story_id TEXT NOT NULL REFERENCES story_nodes(id),
     commit_hash TEXT NOT NULL,
     commit_date TEXT,
@@ -357,7 +357,7 @@ Match git commits to stories using fuzzy keyword matching:
 
 ```sql
 -- Link commit to story
-INSERT INTO story_node_commits (story_id, commit_hash, commit_date, commit_message)
+INSERT INTO story_commits (story_id, commit_hash, commit_date, commit_message)
 VALUES (:story_id, :commit_hash, :commit_date, :commit_message);
 
 -- Update story status based on commit matches
