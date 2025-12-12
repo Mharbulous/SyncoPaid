@@ -310,6 +310,9 @@ class LawTimeApp:
         """Show window displaying activity from the past 24 hours."""
         def run_window():
             try:
+                # Run migration to populate missing end_time values (safe to run multiple times)
+                self.database.migrate_missing_end_times()
+
                 # Query events from the past 24 hours
                 cutoff = datetime.now() - timedelta(hours=24)
                 cutoff_iso = cutoff.isoformat()

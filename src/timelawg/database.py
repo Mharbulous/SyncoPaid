@@ -12,7 +12,7 @@ attorney-client privilege.
 import sqlite3
 import logging
 from typing import List, Dict, Optional, Tuple
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from pathlib import Path
 from contextlib import contextmanager
 
@@ -546,6 +546,57 @@ class Database:
         """
         screenshots = self.get_screenshots(limit=1)
         return screenshots[0] if screenshots else None
+
+    def migrate_missing_end_times(self) -> int:
+        """
+        Migrate events that are missing end_time by calculating it from
+        timestamp + duration_seconds.
+
+        This migration is safe to run multiple times (idempotent).
+
+        Returns:
+            Number of events updated with calculated end_time
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Find all events where end_time is NULL but duration_seconds is not NULL
+            cursor.execute("""
+                SELECT id, timestamp, duration_seconds
+                FROM events
+                WHERE end_time IS NULL
+                AND duration_seconds IS NOT NULL
+            """)
+
+            events_to_update = cursor.fetchall()
+            updated_count = 0
+
+            for row in events_to_update:
+                event_id = row['id']
+                timestamp_str = row['timestamp']
+                duration_seconds = row['duration_seconds']
+
+                try:
+                    # Parse timestamp and add duration
+                    start_time = datetime.fromisoformat(timestamp_str)
+                    end_time = start_time + timedelta(seconds=duration_seconds)
+                    end_time_str = end_time.isoformat()
+
+                    # Update the event with calculated end_time
+                    cursor.execute(
+                        "UPDATE events SET end_time = ? WHERE id = ?",
+                        (end_time_str, event_id)
+                    )
+                    updated_count += 1
+
+                except Exception as e:
+                    logging.warning(f"Could not calculate end_time for event {event_id}: {e}")
+                    continue
+
+            if updated_count > 0:
+                logging.info(f"Migration: Populated end_time for {updated_count} events")
+
+            return updated_count
 
 
 # ============================================================================
