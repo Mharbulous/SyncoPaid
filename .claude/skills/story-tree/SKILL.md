@@ -32,10 +32,10 @@ Story tree data is stored in `.claude/data/story-tree.db` using SQLite with a cl
 ### Core Tables
 
 ```sql
--- Stories table: all story data
-CREATE TABLE stories (
+-- Story nodes table: all story data
+CREATE TABLE story_nodes (
     id TEXT PRIMARY KEY,
-    story TEXT NOT NULL,
+    title TEXT NOT NULL,
     description TEXT NOT NULL,
     capacity INTEGER NOT NULL DEFAULT 3,
     status TEXT NOT NULL DEFAULT 'concept'
@@ -48,15 +48,15 @@ CREATE TABLE stories (
 
 -- Closure table: ancestor-descendant relationships at all depths
 CREATE TABLE story_tree (
-    ancestor_id TEXT NOT NULL REFERENCES stories(id),
-    descendant_id TEXT NOT NULL REFERENCES stories(id),
+    ancestor_id TEXT NOT NULL REFERENCES story_nodes(id),
+    descendant_id TEXT NOT NULL REFERENCES story_nodes(id),
     depth INTEGER NOT NULL,
     PRIMARY KEY (ancestor_id, descendant_id)
 );
 
 -- Commit tracking
 CREATE TABLE story_commits (
-    story_id TEXT NOT NULL REFERENCES stories(id),
+    story_id TEXT NOT NULL REFERENCES story_nodes(id),
     commit_hash TEXT NOT NULL,
     commit_date TEXT,
     commit_message TEXT,
@@ -192,7 +192,7 @@ SELECT
     s.*,
     (SELECT MIN(depth) FROM story_tree WHERE descendant_id = s.id) as node_depth,
     (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) as child_count
-FROM stories s;
+FROM story_nodes s;
 ```
 
 ### Step 4: Identify Priority Target
@@ -203,7 +203,7 @@ FROM stories s;
 SELECT s.*,
     (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) as child_count,
     (SELECT MIN(depth) FROM story_tree WHERE descendant_id = s.id) as node_depth
-FROM stories s
+FROM story_nodes s
 WHERE s.status != 'deprecated'
   AND (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) < s.capacity
 ORDER BY node_depth ASC,
@@ -259,8 +259,8 @@ Insert generated stories into SQLite:
 
 ```sql
 -- Insert story
-INSERT INTO stories (id, story, description, capacity, status, created_at, updated_at)
-VALUES (:new_id, :story, :description, :capacity, 'concept', datetime('now'), datetime('now'));
+INSERT INTO story_nodes (id, title, description, capacity, status, created_at, updated_at)
+VALUES (:new_id, :title, :description, :capacity, 'concept', datetime('now'), datetime('now'));
 
 -- Populate closure table (critical: includes self + all ancestors)
 INSERT INTO story_tree (ancestor_id, descendant_id, depth)
@@ -297,7 +297,7 @@ INSERT INTO story_commits (story_id, commit_hash, commit_date, commit_message)
 VALUES (:story_id, :commit_hash, :commit_date, :commit_message);
 
 -- Update story status based on commit matches
-UPDATE stories SET status = 'implemented', last_implemented = :commit_date
+UPDATE story_nodes SET status = 'implemented', last_implemented = :commit_date
 WHERE id = :story_id AND status IN ('planned', 'in-progress');
 ```
 
@@ -368,17 +368,17 @@ For human inspection and backup:
 
 ```bash
 # Export to JSON (reconstructs nested structure from SQL)
-sqlite3 .claude/data/story-tree.db "SELECT * FROM stories;" | python -c "
+sqlite3 .claude/data/story-tree.db "SELECT * FROM story_nodes;" | python -c "
 import sys, json
 # Reconstruct nested JSON from flat SQL output
 ..."
 
 # Export to markdown
 sqlite3 .claude/data/story-tree.db -markdown "
-SELECT s.id, s.story, s.status,
+SELECT s.id, s.title, s.status,
     (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) as children,
     s.capacity
-FROM stories s
+FROM story_nodes s
 ORDER BY s.id;
 "
 ```
@@ -392,7 +392,7 @@ When database doesn't exist, initialize with schema and seed root:
 .read schema.sql
 
 -- Insert root node
-INSERT INTO stories (id, story, description, capacity, status, created_at, updated_at)
+INSERT INTO story_nodes (id, title, description, capacity, status, created_at, updated_at)
 VALUES (
     'root',
     'SaaS Apps for lawyers',
@@ -412,7 +412,7 @@ INSERT INTO metadata (key, value) VALUES ('version', '2.0.0');
 INSERT INTO metadata (key, value) VALUES ('lastUpdated', datetime('now'));
 
 -- Seed first app
-INSERT INTO stories (id, story, description, capacity, status, project_path, created_at, updated_at)
+INSERT INTO story_nodes (id, title, description, capacity, status, project_path, created_at, updated_at)
 VALUES (
     '1.1',
     'Evidence management app (ListBot)',

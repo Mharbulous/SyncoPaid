@@ -221,4 +221,4 @@ Based on the story tree analysis:
 
 ---
 
-*This diagram is auto-generated from `.claude/skills/story-tree/story-tree.json`*
+*This diagram is auto-generated from `.claude/data/story-tree.db`*

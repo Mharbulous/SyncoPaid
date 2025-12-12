@@ -38,14 +38,14 @@ The closure table pattern stores ALL ancestor-descendant relationships, not just
 
 ## Table Definitions
 
-### Table 1: `stories`
+### Table 1: `story_nodes`
 
 Main table storing all story data.
 
 ```sql
-CREATE TABLE stories (
+CREATE TABLE story_nodes (
     id TEXT PRIMARY KEY,
-    story TEXT NOT NULL,
+    title TEXT NOT NULL,
     description TEXT NOT NULL,
     capacity INTEGER NOT NULL DEFAULT 3,
     status TEXT NOT NULL DEFAULT 'concept'
@@ -62,7 +62,7 @@ CREATE TABLE stories (
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `id` | TEXT | Yes | Unique hierarchical identifier (e.g., "root", "1.1", "1.3.2") |
-| `story` | TEXT | Yes | Short title (3-100 chars recommended) |
+| `title` | TEXT | Yes | Short title (3-100 chars recommended) |
 | `description` | TEXT | Yes | Full user story in "As a... I want... So that..." format |
 | `capacity` | INTEGER | Yes | Target number of child nodes (0-20 recommended) |
 | `status` | TEXT | Yes | Current implementation status |
@@ -95,8 +95,8 @@ Closure table storing ALL ancestor-descendant relationships.
 
 ```sql
 CREATE TABLE story_tree (
-    ancestor_id TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
-    descendant_id TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+    ancestor_id TEXT NOT NULL REFERENCES story_nodes(id) ON DELETE CASCADE,
+    descendant_id TEXT NOT NULL REFERENCES story_nodes(id) ON DELETE CASCADE,
     depth INTEGER NOT NULL,
     PRIMARY KEY (ancestor_id, descendant_id)
 );
@@ -131,7 +131,7 @@ Links git commits to stories for implementation tracking.
 
 ```sql
 CREATE TABLE story_commits (
-    story_id TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+    story_id TEXT NOT NULL REFERENCES story_nodes(id) ON DELETE CASCADE,
     commit_hash TEXT NOT NULL,
     commit_date TEXT,
     commit_message TEXT,
@@ -172,7 +172,7 @@ CREATE TABLE metadata (
 ```sql
 CREATE INDEX idx_tree_descendant ON story_tree(descendant_id);
 CREATE INDEX idx_tree_depth ON story_tree(depth);
-CREATE INDEX idx_stories_status ON stories(status);
+CREATE INDEX idx_story_nodes_status ON story_nodes(status);
 CREATE INDEX idx_commits_hash ON story_commits(commit_hash);
 ```
 
@@ -188,8 +188,8 @@ CREATE INDEX idx_commits_hash ON story_commits(commit_hash);
 
 ```sql
 -- Step 1: Insert story
-INSERT INTO stories (id, story, description, capacity, status, created_at, updated_at)
-VALUES (:new_id, :story, :description, :capacity, 'concept', datetime('now'), datetime('now'));
+INSERT INTO story_nodes (id, title, description, capacity, status, created_at, updated_at)
+VALUES (:new_id, :title, :description, :capacity, 'concept', datetime('now'), datetime('now'));
 
 -- Step 2: Populate closure table
 INSERT INTO story_tree (ancestor_id, descendant_id, depth)
@@ -201,7 +201,7 @@ UNION ALL SELECT :new_id, :new_id, 0;
 ### Get Direct Children
 
 ```sql
-SELECT s.* FROM stories s
+SELECT s.* FROM story_nodes s
 JOIN story_tree st ON s.id = st.descendant_id
 WHERE st.ancestor_id = :parent_id AND st.depth = 1
 ORDER BY s.id;
@@ -210,7 +210,7 @@ ORDER BY s.id;
 ### Get Entire Subtree
 
 ```sql
-SELECT s.*, st.depth as relative_depth FROM stories s
+SELECT s.*, st.depth as relative_depth FROM story_nodes s
 JOIN story_tree st ON s.id = st.descendant_id
 WHERE st.ancestor_id = :root_id
 ORDER BY st.depth, s.id;
@@ -219,7 +219,7 @@ ORDER BY st.depth, s.id;
 ### Get All Ancestors (Path to Root)
 
 ```sql
-SELECT s.*, st.depth as distance FROM stories s
+SELECT s.*, st.depth as distance FROM story_nodes s
 JOIN story_tree st ON s.id = st.ancestor_id
 WHERE st.descendant_id = :node_id
 ORDER BY st.depth DESC;
@@ -237,7 +237,7 @@ WHERE descendant_id = :node_id;
 
 ```sql
 -- CASCADE handles story_tree cleanup automatically
-DELETE FROM stories WHERE id IN (
+DELETE FROM story_nodes WHERE id IN (
     SELECT descendant_id FROM story_tree WHERE ancestor_id = :node_id
 );
 ```
@@ -245,7 +245,7 @@ DELETE FROM stories WHERE id IN (
 ### Update Node Status
 
 ```sql
-UPDATE stories
+UPDATE story_nodes
 SET status = :new_status, updated_at = datetime('now')
 WHERE id = :node_id;
 ```
@@ -256,22 +256,22 @@ WHERE id = :node_id;
 
 ```sql
 -- Check for orphaned nodes (no self-reference)
-SELECT s.id, s.story FROM stories s
+SELECT s.id, s.title FROM story_nodes s
 WHERE NOT EXISTS (
     SELECT 1 FROM story_tree st
     WHERE st.ancestor_id = s.id AND st.descendant_id = s.id AND st.depth = 0
 );
 
 -- Check for duplicate IDs (should never happen with PRIMARY KEY)
-SELECT id, COUNT(*) FROM stories GROUP BY id HAVING COUNT(*) > 1;
+SELECT id, COUNT(*) FROM story_nodes GROUP BY id HAVING COUNT(*) > 1;
 
 -- Check for invalid status values
-SELECT id, status FROM stories
+SELECT id, status FROM story_nodes
 WHERE status NOT IN ('concept', 'planned', 'in-progress', 'implemented', 'deprecated', 'active');
 
 -- Verify root node exists and has 'active' status
 SELECT CASE
-    WHEN (SELECT COUNT(*) FROM stories WHERE id = 'root' AND status = 'active') = 1
+    WHEN (SELECT COUNT(*) FROM story_nodes WHERE id = 'root' AND status = 'active') = 1
     THEN 'OK'
     ELSE 'MISSING ROOT'
 END as root_check;
@@ -281,22 +281,22 @@ END as root_check;
 
 ```sql
 -- Implemented stories without commits
-SELECT id, story FROM stories
+SELECT id, title FROM story_nodes
 WHERE status = 'implemented'
   AND NOT EXISTS (SELECT 1 FROM story_commits WHERE story_id = id);
 
 -- In-progress stories with many commits (might be implemented)
-SELECT s.id, s.story, COUNT(sc.commit_hash) as commits
-FROM stories s
+SELECT s.id, s.title, COUNT(sc.commit_hash) as commits
+FROM story_nodes s
 JOIN story_commits sc ON s.id = sc.story_id
 WHERE s.status = 'in-progress'
 GROUP BY s.id
 HAVING commits > 3;
 
 -- Over-capacity nodes
-SELECT s.id, s.story, s.capacity,
+SELECT s.id, s.title, s.capacity,
     (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) as children
-FROM stories s
+FROM story_nodes s
 WHERE (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) > s.capacity;
 ```
 
@@ -306,13 +306,13 @@ WHERE (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) >
 
 **Good format:**
 ```
-story: "Bulk document categorization"
+title: "Bulk document categorization"
 description: "As a legal assistant, I want to categorize multiple documents at once so that I can organize case files efficiently"
 ```
 
 **Poor format:**
 ```
-story: "Improve UX"
+title: "Improve UX"
 description: "Make it better"
 ```
 
@@ -339,10 +339,10 @@ If you have an existing `story-tree.json` file in the skill folder, see `docs/mi
 
 ```
 ┌─────────────────────────────────────────────────┐
-│ stories                                          │
+│ story_nodes                                      │
 ├─────────────────────────────────────────────────┤
 │ PK id TEXT                                       │
-│    story TEXT NOT NULL                           │
+│    title TEXT NOT NULL                           │
 │    description TEXT NOT NULL                     │
 │    capacity INTEGER NOT NULL                     │
 │    status TEXT NOT NULL (CHECK constraint)       │

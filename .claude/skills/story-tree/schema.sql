@@ -2,10 +2,10 @@
 -- Version: 2.0.0
 -- Uses closure table pattern for hierarchical data
 
--- Main stories table
-CREATE TABLE IF NOT EXISTS stories (
+-- Main story nodes table
+CREATE TABLE IF NOT EXISTS story_nodes (
     id TEXT PRIMARY KEY,
-    story TEXT NOT NULL,
+    title TEXT NOT NULL,
     description TEXT NOT NULL,
     capacity INTEGER NOT NULL DEFAULT 3,
     status TEXT NOT NULL DEFAULT 'concept'
@@ -20,15 +20,15 @@ CREATE TABLE IF NOT EXISTS stories (
 -- Stores ALL ancestor-descendant pairs, not just parent-child
 -- This enables efficient subtree queries without recursion
 CREATE TABLE IF NOT EXISTS story_tree (
-    ancestor_id TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
-    descendant_id TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+    ancestor_id TEXT NOT NULL REFERENCES story_nodes(id) ON DELETE CASCADE,
+    descendant_id TEXT NOT NULL REFERENCES story_nodes(id) ON DELETE CASCADE,
     depth INTEGER NOT NULL,
     PRIMARY KEY (ancestor_id, descendant_id)
 );
 
 -- Git commits linked to stories
 CREATE TABLE IF NOT EXISTS story_commits (
-    story_id TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+    story_id TEXT NOT NULL REFERENCES story_nodes(id) ON DELETE CASCADE,
     commit_hash TEXT NOT NULL,
     commit_date TEXT,
     commit_message TEXT,
@@ -44,15 +44,15 @@ CREATE TABLE IF NOT EXISTS metadata (
 -- Indexes for common query patterns
 CREATE INDEX IF NOT EXISTS idx_tree_descendant ON story_tree(descendant_id);
 CREATE INDEX IF NOT EXISTS idx_tree_depth ON story_tree(depth);
-CREATE INDEX IF NOT EXISTS idx_stories_status ON stories(status);
+CREATE INDEX IF NOT EXISTS idx_story_nodes_status ON story_nodes(status);
 CREATE INDEX IF NOT EXISTS idx_commits_hash ON story_commits(commit_hash);
 
 -- Triggers to maintain updated_at
-CREATE TRIGGER IF NOT EXISTS stories_updated_at
-AFTER UPDATE ON stories
+CREATE TRIGGER IF NOT EXISTS story_nodes_updated_at
+AFTER UPDATE ON story_nodes
 FOR EACH ROW
 BEGIN
-    UPDATE stories SET updated_at = datetime('now') WHERE id = OLD.id;
+    UPDATE story_nodes SET updated_at = datetime('now') WHERE id = OLD.id;
 END;
 
 -- =============================================================================
@@ -65,7 +65,7 @@ END;
 -- SELECT s.*,
 --     (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) as child_count,
 --     (SELECT MIN(depth) FROM story_tree WHERE descendant_id = s.id) as node_depth
--- FROM stories s
+-- FROM story_nodes s
 -- WHERE s.status != 'deprecated'
 --   AND (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) < s.capacity
 -- ORDER BY node_depth ASC,
@@ -73,27 +73,27 @@ END;
 
 -- QUERY 2: Get all children of a node (direct children only)
 --
--- SELECT s.* FROM stories s
+-- SELECT s.* FROM story_nodes s
 -- JOIN story_tree st ON s.id = st.descendant_id
 -- WHERE st.ancestor_id = :parent_id AND st.depth = 1;
 
 -- QUERY 3: Get entire subtree of a node
 --
--- SELECT s.*, st.depth as relative_depth FROM stories s
+-- SELECT s.*, st.depth as relative_depth FROM story_nodes s
 -- JOIN story_tree st ON s.id = st.descendant_id
 -- WHERE st.ancestor_id = :root_id
 -- ORDER BY st.depth;
 
 -- QUERY 4: Get ancestors of a node (path from root)
 --
--- SELECT s.*, st.depth as distance FROM stories s
+-- SELECT s.*, st.depth as distance FROM story_nodes s
 -- JOIN story_tree st ON s.id = st.ancestor_id
 -- WHERE st.descendant_id = :node_id
 -- ORDER BY st.depth DESC;
 
 -- QUERY 5: Get parent of a node
 --
--- SELECT s.* FROM stories s
+-- SELECT s.* FROM story_nodes s
 -- JOIN story_tree st ON s.id = st.ancestor_id
 -- WHERE st.descendant_id = :node_id AND st.depth = 1;
 
@@ -102,11 +102,11 @@ END;
 -- =============================================================================
 
 -- INSERT: Add a new node to the tree
--- Step 1: Insert into stories table
+-- Step 1: Insert into story_nodes table
 -- Step 2: Populate closure table with self-reference + all ancestor paths
 --
--- INSERT INTO stories (id, story, description, capacity, status)
--- VALUES (:new_id, :story, :description, :capacity, 'concept');
+-- INSERT INTO story_nodes (id, title, description, capacity, status)
+-- VALUES (:new_id, :title, :description, :capacity, 'concept');
 --
 -- INSERT INTO story_tree (ancestor_id, descendant_id, depth)
 -- SELECT ancestor_id, :new_id, depth + 1
@@ -118,9 +118,9 @@ END;
 -- =============================================================================
 
 -- DELETE: Remove a node and all descendants
--- With ON DELETE CASCADE, deleting from stories automatically cleans story_tree
+-- With ON DELETE CASCADE, deleting from story_nodes automatically cleans story_tree
 --
--- DELETE FROM stories WHERE id IN (
+-- DELETE FROM story_nodes WHERE id IN (
 --     SELECT descendant_id FROM story_tree WHERE ancestor_id = :node_id
 -- );
 
@@ -130,14 +130,14 @@ END;
 
 -- STATS: Count nodes by status
 --
--- SELECT status, COUNT(*) as count FROM stories GROUP BY status;
+-- SELECT status, COUNT(*) as count FROM story_nodes GROUP BY status;
 
 -- STATS: Count nodes by depth
 --
 -- SELECT
 --     (SELECT MIN(depth) FROM story_tree WHERE descendant_id = s.id) as node_depth,
 --     COUNT(*) as count
--- FROM stories s
+-- FROM story_nodes s
 -- GROUP BY node_depth;
 
 -- STATS: Total capacity vs actual children per level
@@ -152,6 +152,6 @@ END;
 --         s.capacity,
 --         (SELECT MIN(depth) FROM story_tree WHERE descendant_id = s.id) as node_depth,
 --         (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) as child_count
---     FROM stories s
+--     FROM story_nodes s
 -- ) sub
 -- GROUP BY node_depth;
