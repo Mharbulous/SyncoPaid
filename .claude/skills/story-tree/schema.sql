@@ -26,8 +26,8 @@ CREATE TABLE IF NOT EXISTS story_paths (
     PRIMARY KEY (ancestor_id, descendant_id)
 );
 
--- Git commits linked to story nodes
-CREATE TABLE IF NOT EXISTS story_node_commits (
+-- Git commits linked to stories
+CREATE TABLE IF NOT EXISTS story_commits (
     story_id TEXT NOT NULL REFERENCES story_nodes(id) ON DELETE CASCADE,
     commit_hash TEXT NOT NULL,
     commit_date TEXT,
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS metadata (
 CREATE INDEX IF NOT EXISTS idx_paths_descendant ON story_paths(descendant_id);
 CREATE INDEX IF NOT EXISTS idx_paths_depth ON story_paths(depth);
 CREATE INDEX IF NOT EXISTS idx_nodes_status ON story_nodes(status);
-CREATE INDEX IF NOT EXISTS idx_node_commits_hash ON story_node_commits(commit_hash);
+CREATE INDEX IF NOT EXISTS idx_commits_hash ON story_commits(commit_hash);
 
 -- Triggers to maintain updated_at
 CREATE TRIGGER IF NOT EXISTS story_nodes_updated_at
