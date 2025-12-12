@@ -3,6 +3,7 @@
 
 # Activity tracking data (attorney-client privilege)
 *.db
+!.claude/data/story-tree.db
 *.db-journal
 *.json
 !.claude/*.json
