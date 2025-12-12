@@ -220,28 +220,67 @@ FROM story_nodes s;
 
 ### Step 4: Identify Priority Target
 
-**Priority algorithm** - find under-capacity nodes, prioritize shallower:
+**Priority algorithm** - find under-capacity nodes that are **implemented or ready**, prioritize shallower:
 
 ```sql
 SELECT s.*,
     (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as child_count,
     (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth
 FROM story_nodes s
-WHERE s.status != 'deprecated'
+WHERE s.status IN ('implemented', 'ready', 'active')  -- Only expand completed/stable nodes
   AND (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) < s.capacity
 ORDER BY node_depth ASC,
     (child_count * 1.0 / s.capacity) ASC
 LIMIT 1;
 ```
 
+**Status filter rationale:**
+- `implemented`: Feature is complete, safe to add sub-concepts
+- `ready`: Production-tested, stable foundation for expansion
+- `active`: Root and actively-worked features (allows initial tree building)
+
+**Excluded from autonomous expansion:**
+- `concept`, `approved`, `planned`, `queued`: Not yet built
+- `in-progress`, `bugged`: Unstable, may change significantly
+- `deprecated`, `rejected`, `infeasible`: Dead ends
+
 **Rules:**
 - Root under capacity? → Generate level-1 app ideas
 - Level-1 under capacity? → Generate level-2 major features
 - All higher levels at capacity? → Drill to deepest under-capacity node
 
+### Human Override for Non-Implemented Nodes
+
+Users may request adding concepts to nodes that don't meet the status filter. **This is allowed** because:
+- Ideas come at unexpected times and will be forgotten if not recorded
+- Users may have context about upcoming implementations
+- Some concepts are worth tracking even for incomplete features
+
+**When user explicitly requests** "add concept to [node-id]" or "generate stories for [node-id]":
+1. Skip the status filter for that specific node
+2. Add the requested concepts
+3. Note in the report that this was a manual override
+
+```sql
+-- Manual override query (use when user specifies target node)
+SELECT s.*,
+    (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as child_count
+FROM story_nodes s
+WHERE s.id = :user_specified_node_id
+  AND s.status != 'deprecated';  -- Only block truly dead nodes
+```
+
 ### Step 5: Generate Stories for Target Node
 
 Based on target node's level and context:
+
+**HARD LIMIT: Maximum 3 concepts per node per invocation.**
+
+This limit:
+- Prevents overwhelming any single node with concepts
+- Balances concept distribution throughout the tree
+- Encourages deeper, more thoughtful story generation
+- Forces multiple passes to fill high-capacity nodes (intentional)
 
 **If Level 1 (app ideas)**:
 - Analyze root vision
@@ -251,12 +290,14 @@ Based on target node's level and context:
 **If Level 2 (major features)**:
 - Read parent app description
 - Analyze git commits for what exists
-- Generate: 1-5 major feature ideas with capacity 3-8 each
+- Generate: 1-3 major feature ideas with capacity 3-8 each
 
 **If Level 3+ (specific capabilities)**:
 - Read parent feature description
 - Check git commits for implementation status
-- Generate: 2-4 specific capability ideas with capacity 2-4 each
+- Generate: 1-3 specific capability ideas with capacity 2-4 each
+
+**Note:** Even if a node has capacity for 10 children, generate at most 3 per invocation. The next "update story tree" will add more if needed.
 
 **Story format:**
 
@@ -612,6 +653,7 @@ Before outputting generated stories, verify:
 
 ## Version History
 
+- v2.1.0 (2025-12-12): **Generation refinements** - (1) Max 3 concepts per node per invocation to prevent overwhelm and balance tree distribution; (2) Only expand implemented/ready/active nodes by default (excludes bugged, in-progress, concept, etc.); (3) Human override allowed for adding concepts to any non-deprecated node when explicitly requested.
 - v2.0.0 (2025-12-11): **Breaking change** - Migrated from JSON to SQLite with closure table pattern for scalability (200-500 stories). See docs/migration-guide.md for migration instructions.
 - v1.3.0 (2025-12-11): Added incremental commit analysis with checkpoint tracking
 - v1.2.0 (2025-12-11): Added auto-update on staleness (3-day threshold)
