@@ -77,18 +77,18 @@ CREATE TABLE metadata (
 ```
 
 ### Status Values
-- `concept`: Idea, not yet approved
-- `approved`: Human reviewed and approved, not yet planned
-- `rejected`: Human reviewed and rejected
-- `planned`: Implementation plan has been created
-- `queued`: Plan ready, all dependencies implemented
-- `active`: Currently being worked on
-- `in-progress`: Partially complete
-- `bugged`: In need of debugging
-- `implemented`: Complete/done
-- `ready`: Production ready, implemented and tested
-- `deprecated`: No longer relevant
-- `infeasible`: Couldn't build it
+- concept: Idea, not yet approved
+- approved: Human reviewed and approved, not yet planned
+- rejected: Human reviewed and rejected
+- planned: Implementation plan has been created
+- queued: Plan ready, all dependencies implemented
+- active: Currently being worked on
+- in-progress: Partially complete
+- bugged: In need of debugging
+- implemented: Complete/done
+- ready: Production ready, implemented and tested
+- deprecated: No longer relevant
+- infeasible: Couldn't build it
 
 ## Tree Structure Concepts
 
@@ -415,7 +415,9 @@ python .claude/skills/story-tree/tree-view.py --status deprecated --exclude-stat
 - Creating documentation that shows tree state
 - Debugging tree integrity issues
 
-**Status symbols (ASCII):** `.` concept, `v` approved, `x` rejected, `o` planned, `@` queued, `O` active, `D` in-progress, `!` bugged, `+` implemented, `#` ready, `-` deprecated, `0` infeasible
+**Status symbols (ASCII):**
+- concept=. approved=v rejected=x planned=o queued=@ active=O
+- in-progress=D bugged=! implemented=+ ready=# deprecated=- infeasible=0
 
 **Note:** Use `--force-ascii` on Windows cmd.exe to avoid encoding issues.
 

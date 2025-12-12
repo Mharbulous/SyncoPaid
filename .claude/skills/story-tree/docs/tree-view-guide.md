@@ -62,20 +62,20 @@ The `--show-status` flag adds status indicators to each node.
 
 ### Symbol Reference
 
-| Symbol | Status | Meaning |
+| Status | Symbol | Meaning |
 |--------|--------|---------|
-| `.` | concept | Idea, not yet approved |
-| `v` | approved | Human reviewed and approved, not yet planned |
-| `x` | rejected | Human reviewed and rejected |
-| `o` | planned | Implementation plan created |
-| `@` | queued | Plan ready, all dependencies implemented |
-| `O` | active | Currently being worked on |
-| `D` | in-progress | Partially complete |
-| `!` | bugged | In need of debugging |
-| `+` | implemented | Complete/done |
-| `#` | ready | Production ready, implemented and tested |
-| `-` | deprecated | No longer relevant |
-| `0` | infeasible | Couldn't build it |
+| concept | `.` | Idea, not yet approved |
+| approved | `v` | Human reviewed and approved, not yet planned |
+| rejected | `x` | Human reviewed and rejected |
+| planned | `o` | Implementation plan created |
+| queued | `@` | Plan ready, all dependencies implemented |
+| active | `O` | Currently being worked on |
+| in-progress | `D` | Partially complete |
+| bugged | ! | In need of debugging |
+| implemented | `+` | Complete/done |
+| ready | `#` | Production ready, implemented and tested |
+| deprecated | `-` | No longer relevant |
+| infeasible | `0` | Couldn't build it |
 
 ### Capacity Format
 
