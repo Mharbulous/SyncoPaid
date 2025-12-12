@@ -93,11 +93,10 @@ CREATE TABLE metadata (
 ## Tree Structure Concepts
 
 ### Node Levels
-- **Level 0 (Root)**: Product vision ("SaaS Apps for Lawyers")
-- **Level 1**: App ideas ("Evidence management app")
-- **Level 2**: Major features ("Upload evidence", "Deduplicate files")
-- **Level 3**: Specific capabilities ("Drag-and-drop UI", "Hash-based dedup")
-- **Level 4+**: Implementation details (as granular as needed)
+- **Level 0 (Root)**: App idea ("Evidence management app")
+- **Level 1**: Major features ("Upload evidence", "Deduplicate files")
+- **Level 2**: Specific capabilities ("Drag-and-drop UI", "Hash-based dedup")
+- **Level 3+**: Implementation details (as granular as needed)
 
 ### Closure Table Concept
 
@@ -630,35 +629,6 @@ conn.close()
 
 print(f'Initialized story tree for: {project_name}')
 "
-```
-
-### Alternative: SQL-Only Initialization
-
-If you prefer pure SQL without Python metadata detection:
-
-```sql
--- Apply schema
-.read schema.sql
-
--- Insert root node (CUSTOMIZE THIS FOR YOUR PROJECT)
-INSERT INTO story_nodes (id, title, description, capacity, status, created_at, updated_at)
-VALUES (
-    'root',
-    'YourProjectName',  -- ⚠️ CHANGE THIS to your actual project name
-    'Your project description',  -- ⚠️ CHANGE THIS to describe your project
-    10,
-    'active',
-    datetime('now'),
-    datetime('now')
-);
-
--- Root self-reference in closure table
-INSERT INTO story_paths (ancestor_id, descendant_id, depth)
-VALUES ('root', 'root', 0);
-
--- Metadata
-INSERT INTO metadata (key, value) VALUES ('version', '2.0.0');
-INSERT INTO metadata (key, value) VALUES ('lastUpdated', datetime('now'));
 ```
 
 ### Why This Approach?
