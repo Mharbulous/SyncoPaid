@@ -338,7 +338,10 @@ Generated: [ISO timestamp]
 
 ## Tree Visualization
 
-[ASCII tree showing current structure]
+\`\`\`bash
+# Run tree-view.py for current structure
+python .claude/skills/story-tree/tree-view.py --show-capacity --show-status --force-ascii
+\`\`\`
 
 ## Next Priority Target
 
@@ -361,6 +364,37 @@ The skill responds to these natural language commands:
 - **"Export story tree to markdown"**: Export tree as markdown document
 - **"Show recent commits"**: Display git analysis without updating tree
 - **"Rebuild story tree index"**: Force full 30-day rescan
+
+## Tree Visualization Script
+
+For any tree visualization needs, use the `tree-view.py` script rather than constructing ASCII trees manually:
+
+```bash
+# Full tree with capacity and status indicators
+python .claude/skills/story-tree/tree-view.py --show-capacity --show-status --force-ascii
+
+# Subtree from a specific node with depth limit
+python .claude/skills/story-tree/tree-view.py --root 1.1 --depth 2
+
+# Filter by status (e.g., only implemented stories)
+python .claude/skills/story-tree/tree-view.py --status implemented --compact
+
+# Markdown format for documentation
+python .claude/skills/story-tree/tree-view.py --format markdown --show-capacity
+
+# Exclude deprecated stories
+python .claude/skills/story-tree/tree-view.py --status deprecated --exclude-status
+```
+
+**When to use:**
+- Generating report tree visualization (Step 7)
+- Answering user questions about tree structure
+- Creating documentation that shows tree state
+- Debugging tree integrity issues
+
+**Status symbols:** `+` implemented, `~` in-progress, `o` planned, `.` concept, `*` active
+
+**Note:** Use `--force-ascii` on Windows cmd.exe to avoid encoding issues.
 
 ### Export Commands
 
@@ -444,6 +478,7 @@ Before outputting generated stories, verify:
 
 - **`.claude/data/story-tree.db`**: SQLite database (primary data store, project-specific)
 - **schema.sql**: Reference schema with query examples
+- **tree-view.py**: Python CLI for ASCII/markdown tree visualization
 - **lib/tree-analyzer.md**: SQL-based tree analysis algorithms
 - **lib/pattern-matcher.md**: Git commit → story matching logic
 - **lib/capacity-management.md**: Handling capacity issues
