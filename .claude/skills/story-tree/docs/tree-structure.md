@@ -172,14 +172,14 @@ CREATE TABLE metadata (
 ```sql
 CREATE INDEX idx_paths_descendant ON story_paths(descendant_id);
 CREATE INDEX idx_paths_depth ON story_paths(depth);
-CREATE INDEX idx_story_nodes_status ON story_nodes(status);
+CREATE INDEX idx_nodes_status ON story_nodes(status);
 CREATE INDEX idx_commits_hash ON story_commits(commit_hash);
 ```
 
 **Index purposes:**
 - `idx_paths_descendant`: Fast ancestor lookups
 - `idx_paths_depth`: Fast direct children queries (depth=1)
-- `idx_story_nodes_status`: Fast status filtering
+- `idx_nodes_status`: Fast status filtering
 - `idx_commits_hash`: Fast commit lookups
 
 ## Common Operations
