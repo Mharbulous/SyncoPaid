@@ -415,7 +415,7 @@ python .claude/skills/story-tree/tree-view.py --status deprecated --exclude-stat
 - Creating documentation that shows tree state
 - Debugging tree integrity issues
 
-**Status symbols (ASCII):** `.` concept, `v` approved, `x` rejected, `o` planned, `@` queued, `O` active, `D` in-progress, `!` bugged, `+` implemented, `#` ready, `-` deprecated, `0` infeasible
+**Status symbols (ASCII):** `.` concept, `v` approved, `x` rejected, `o` planned, `@` queued, `*` active, `~` in-progress, `!` bugged, `+` implemented, `#` ready, `-` deprecated, `0` infeasible
 
 **Note:** Use `--force-ascii` on Windows cmd.exe to avoid encoding issues.
 
@@ -442,18 +442,121 @@ ORDER BY s.id;
 
 ## Initial Tree Setup
 
-When database doesn't exist, initialize with schema and seed root:
+When database doesn't exist, initialize with schema and seed root **based on the current project**:
+
+### Step 1: Detect Project Metadata
+
+Read project information from `package.json`:
+
+```bash
+# Extract project name and description
+python -c "
+import json
+with open('package.json', 'r') as f:
+    pkg = json.load(f)
+    print(f'NAME:{pkg.get(\"name\", \"Unknown Project\")}')
+    print(f'DESC:{pkg.get(\"description\", \"\")}')
+"
+```
+
+If `package.json` doesn't exist or lacks description, read from `CLAUDE.md`:
+
+```bash
+# Extract project description from CLAUDE.md
+grep -A 2 "^## .*Project Overview" CLAUDE.md | grep -v "^##" | grep -v "^--"
+```
+
+**Fallback defaults if no metadata found:**
+- Title: `"Software Project"`
+- Description: `"Software project story tree"`
+
+### Step 2: Initialize Database
+
+**CRITICAL:** The root node should represent **this specific project**, not a multi-app portfolio.
+
+```bash
+# Create data directory
+mkdir -p .claude/data
+
+# Initialize schema
+cat .claude/skills/story-tree/schema.sql | python -c "
+import sqlite3
+import sys
+import json
+
+# Read schema from stdin
+schema = sys.stdin.read()
+
+# Connect to database
+conn = sqlite3.connect('.claude/data/story-tree.db')
+cursor = conn.cursor()
+
+# Apply schema
+cursor.executescript(schema)
+
+# Read project metadata from package.json
+try:
+    with open('package.json', 'r') as f:
+        pkg = json.load(f)
+        project_name = pkg.get('name', 'Software Project')
+        project_desc = pkg.get('description', '')
+
+        # If no description in package.json, try to extract from CLAUDE.md
+        if not project_desc:
+            try:
+                with open('CLAUDE.md', 'r') as cf:
+                    for line in cf:
+                        if 'Project:' in line or 'project' in line.lower():
+                            project_desc = line.strip()
+                            break
+            except:
+                pass
+
+        # Final fallback
+        if not project_desc:
+            project_desc = f'{project_name} - Software project story tree'
+
+except FileNotFoundError:
+    project_name = 'Software Project'
+    project_desc = 'Software project story tree'
+
+# Insert root node (represents THIS project)
+cursor.execute('''
+    INSERT INTO story_nodes (id, title, description, capacity, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+''', ('root', project_name, project_desc, 10, 'active'))
+
+# Root self-reference in closure table
+cursor.execute('''
+    INSERT INTO story_paths (ancestor_id, descendant_id, depth)
+    VALUES ('root', 'root', 0)
+''')
+
+# Metadata
+cursor.execute(\"INSERT INTO metadata (key, value) VALUES ('version', '2.0.0')\")
+cursor.execute(\"INSERT INTO metadata (key, value) VALUES ('lastUpdated', datetime('now'))\")
+
+conn.commit()
+conn.close()
+
+print(f'Initialized story tree for: {project_name}')
+"
+```
+
+### Alternative: SQL-Only Initialization
+
+If you prefer pure SQL without Python metadata detection:
 
 ```sql
 -- Apply schema
 .read schema.sql
 
--- Insert root node
+-- Insert root node (CUSTOMIZE THIS FOR YOUR PROJECT)
 INSERT INTO story_nodes (id, title, description, capacity, status, created_at, updated_at)
 VALUES (
     'root',
-    'SaaS Apps for lawyers',
-    'Build specialized SaaS applications for legal professionals',
+    'YourProjectName',  -- ⚠️ CHANGE THIS to your actual project name
+    'Your project description',  -- ⚠️ CHANGE THIS to describe your project
     10,
     'active',
     datetime('now'),
@@ -467,25 +570,21 @@ VALUES ('root', 'root', 0);
 -- Metadata
 INSERT INTO metadata (key, value) VALUES ('version', '2.0.0');
 INSERT INTO metadata (key, value) VALUES ('lastUpdated', datetime('now'));
-
--- Seed first app
-INSERT INTO story_nodes (id, title, description, capacity, status, project_path, created_at, updated_at)
-VALUES (
-    '1.1',
-    'Evidence management app (ListBot)',
-    'Help lawyers organize, deduplicate, and analyze case evidence',
-    10,
-    'in-progress',
-    './',
-    datetime('now'),
-    datetime('now')
-);
-
-INSERT INTO story_paths (ancestor_id, descendant_id, depth)
-SELECT ancestor_id, '1.1', depth + 1
-FROM story_paths WHERE descendant_id = 'root'
-UNION ALL SELECT '1.1', '1.1', 0;
 ```
+
+### Why This Approach?
+
+**ANTI-PATTERN (OLD):** Creating a portfolio-level root ("SaaS Apps for lawyers") with project as child.
+- ❌ Assumes multi-app portfolio
+- ❌ Hardcodes business domain
+- ❌ Creates unnecessary nesting
+- ❌ Database lives in ONE repo but tracks MANY apps
+
+**CORRECT (NEW):** Project-specific root based on current repository.
+- ✅ Each repo's `.claude/data/story-tree.db` tracks ONLY that project
+- ✅ Root represents the actual software being built
+- ✅ Auto-detects project name from package.json
+- ✅ No hardcoded assumptions about business domain
 
 ## Quality Checks
 
