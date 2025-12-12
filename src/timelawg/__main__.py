@@ -293,6 +293,7 @@ class LawTimeApp:
                         # Handle end_time column which may not exist in older databases
                         end_time = row['end_time'] if 'end_time' in columns else None
                         events.append({
+                            'id': row['id'],
                             'timestamp': row['timestamp'],
                             'duration_seconds': row['duration_seconds'],
                             'end_time': end_time,
@@ -356,14 +357,16 @@ class LawTimeApp:
                 ).pack()
 
                 # Treeview for events with start time, duration, end time columns
-                columns = ('start', 'duration', 'end', 'app', 'title')
+                columns = ('id', 'start', 'duration', 'end', 'app', 'title')
                 tree = ttk.Treeview(root, columns=columns, show='headings')
+                tree.heading('id', text='ID')
                 tree.heading('start', text='Start')
                 tree.heading('duration', text='Duration')
                 tree.heading('end', text='End')
                 tree.heading('app', text='Application')
                 tree.heading('title', text='Window Title')
 
+                tree.column('id', width=0, stretch=False)  # Hidden column
                 tree.column('start', width=140, minwidth=100)
                 tree.column('duration', width=70, minwidth=50)
                 tree.column('end', width=140, minwidth=100)
@@ -492,7 +495,7 @@ class LawTimeApp:
 
                     app = event['app'] or ''
                     title = event['title'] or ''
-                    tree.insert('', tk.END, values=(start_ts, dur, end_ts, app, title))
+                    tree.insert('', tk.END, values=(event['id'], start_ts, dur, end_ts, app, title))
 
                 root.mainloop()
 
