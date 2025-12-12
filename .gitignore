@@ -5,6 +5,7 @@
 *.db
 *.db-journal
 *.json
+!.claude/*.json
 !.claude/skills/story-tree/story-tree.json
 lawtime.db*
 exports/

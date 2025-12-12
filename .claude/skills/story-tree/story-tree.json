@@ -1,6 +1,7 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2025-12-11T23:30:00Z",
+  "lastUpdated": "2025-12-12T01:35:00Z",
+  "lastAnalyzedCommit": "29595a2",
   "root": {
     "id": "root",
     "story": "SaaS Apps for Lawyers",
@@ -136,8 +137,8 @@
             "story": "View Time window",
             "description": "As a lawyer, I want to view my recent activity so that I can review what I've worked on",
             "capacity": 6,
-            "status": "in-progress",
-            "implementedCommits": ["b960361"],
+            "status": "implemented",
+            "implementedCommits": ["b960361", "29595a2", "36bb125"],
             "children": [
               {
                 "id": "1.1.4.1",
@@ -159,7 +160,8 @@
                 "story": "Delete highlighted log entries",
                 "description": "As a lawyer, I want to highlight log entries in the View Time window and delete them by typing 'delete' in the command field so that I can remove incorrect or irrelevant entries",
                 "capacity": 3,
-                "status": "planned",
+                "status": "implemented",
+                "implementedCommits": ["29595a2", "876c6ac", "92752bc", "1fe079f", "bcd20e4", "f23b249"],
                 "acceptanceCriteria": [
                   "User can select one or more rows in the Treeview (multi-select enabled)",
                   "Typing 'delete' in command field and pressing Enter deletes selected entries",
@@ -271,6 +273,193 @@
                     "capacity": 2,
                     "status": "concept",
                     "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "1.1.8",
+            "story": "Time entry states",
+            "description": "As a lawyer, I want to categorize time entries with billing states or client matter numbers so that I can organize my tracked time for billing purposes",
+            "capacity": 6,
+            "status": "planned",
+            "children": [
+              {
+                "id": "1.1.8.1",
+                "story": "State data model",
+                "description": "As a lawyer, I want each time entry to have a state field so that I can categorize my time",
+                "capacity": 3,
+                "status": "concept",
+                "children": [
+                  {
+                    "id": "1.1.8.1.1",
+                    "story": "Add state column to events table",
+                    "description": "Add a 'state' column to the SQLite events table to store the billing state or client matter number",
+                    "capacity": 0,
+                    "status": "concept"
+                  },
+                  {
+                    "id": "1.1.8.1.2",
+                    "story": "Client matter number validation",
+                    "description": "Validate client matter numbers match pattern \\d{4}\\.[A-Z]?\\d{3} (e.g., 1023.L213, 1214.001)",
+                    "capacity": 0,
+                    "status": "concept"
+                  },
+                  {
+                    "id": "1.1.8.1.3",
+                    "story": "State conversion rules",
+                    "description": "Define which states can be converted to client matters (Active, Inactive, Off = yes; Personal, On-break, Blocked, Paused = generally no)",
+                    "capacity": 0,
+                    "status": "concept"
+                  }
+                ]
+              },
+              {
+                "id": "1.1.8.2",
+                "story": "System state assignment",
+                "description": "As a lawyer, I want TimeLawg to automatically assign system states based on tracking conditions so that I know how time was captured",
+                "capacity": 5,
+                "status": "concept",
+                "children": [
+                  {
+                    "id": "1.1.8.2.1",
+                    "story": "Active state assignment",
+                    "description": "Assign 'Active' state to time entries where activity was tracked (default state, client matter TBD)",
+                    "capacity": 0,
+                    "status": "concept"
+                  },
+                  {
+                    "id": "1.1.8.2.2",
+                    "story": "Inactive state assignment",
+                    "description": "Assign 'Inactive' state when idle is detected (keyboard/mouse inactivity exceeds threshold)",
+                    "capacity": 0,
+                    "status": "concept"
+                  },
+                  {
+                    "id": "1.1.8.2.3",
+                    "story": "Off state detection",
+                    "description": "Detect gaps where TimeLawg wasn't running and create synthetic 'Off' entries to account for untracked time",
+                    "capacity": 0,
+                    "status": "concept"
+                  },
+                  {
+                    "id": "1.1.8.2.4",
+                    "story": "Blocked state assignment",
+                    "description": "Assign 'Blocked' state when tracked content matches the blocklist (passwords, incognito, configured apps/URLs)",
+                    "capacity": 0,
+                    "status": "concept"
+                  },
+                  {
+                    "id": "1.1.8.2.5",
+                    "story": "Paused state assignment",
+                    "description": "Assign 'Paused' state when user manually pauses tracking via system tray",
+                    "capacity": 0,
+                    "status": "concept"
+                  }
+                ]
+              },
+              {
+                "id": "1.1.8.3",
+                "story": "App/URL blocklist",
+                "description": "As a lawyer, I want to configure which apps and URLs are automatically blocked from detailed tracking so that sensitive content (passwords, personal browsing) is not recorded",
+                "capacity": 4,
+                "status": "concept",
+                "children": [
+                  {
+                    "id": "1.1.8.3.1",
+                    "story": "Blocklist configuration",
+                    "description": "Provide UI or config file to manage list of blocked app names and URL patterns",
+                    "capacity": 0,
+                    "status": "concept"
+                  },
+                  {
+                    "id": "1.1.8.3.2",
+                    "story": "App name pattern matching",
+                    "description": "Match active window's app name against blocklist patterns (e.g., block 'KeePass', 'LastPass')",
+                    "capacity": 0,
+                    "status": "concept"
+                  },
+                  {
+                    "id": "1.1.8.3.3",
+                    "story": "Window title pattern matching",
+                    "description": "Match window titles against blocklist patterns (e.g., block titles containing 'Incognito', 'InPrivate', 'password')",
+                    "capacity": 0,
+                    "status": "concept"
+                  },
+                  {
+                    "id": "1.1.8.3.4",
+                    "story": "Default blocklist",
+                    "description": "Ship with sensible default blocklist (password managers, auth pages, private browsing indicators)",
+                    "capacity": 0,
+                    "status": "concept"
+                  }
+                ]
+              },
+              {
+                "id": "1.1.8.4",
+                "story": "User state assignment",
+                "description": "As a lawyer, I want to assign states or client matter numbers to time entries so that I can categorize my time for billing",
+                "capacity": 4,
+                "status": "concept",
+                "children": [
+                  {
+                    "id": "1.1.8.4.1",
+                    "story": "Assign state via command field",
+                    "description": "Type state name or matter number in View Time command field to assign to selected entries (e.g., 'Personal', '1023.L213')",
+                    "capacity": 0,
+                    "status": "concept"
+                  },
+                  {
+                    "id": "1.1.8.4.2",
+                    "story": "Client matter autocomplete",
+                    "description": "Suggest recently-used client matter numbers when typing in command field",
+                    "capacity": 0,
+                    "status": "concept"
+                  },
+                  {
+                    "id": "1.1.8.4.3",
+                    "story": "Bulk state assignment",
+                    "description": "Assign state to multiple selected entries at once (leverages existing multi-select)",
+                    "capacity": 0,
+                    "status": "concept"
+                  },
+                  {
+                    "id": "1.1.8.4.4",
+                    "story": "State column in View Time",
+                    "description": "Display state/matter number as a column in the View Time treeview",
+                    "capacity": 0,
+                    "status": "concept"
+                  }
+                ]
+              },
+              {
+                "id": "1.1.8.5",
+                "story": "State-based reporting",
+                "description": "As a lawyer, I want to view and export time organized by state or client matter so that I can generate billing reports",
+                "capacity": 3,
+                "status": "concept",
+                "children": [
+                  {
+                    "id": "1.1.8.5.1",
+                    "story": "Filter by state/matter",
+                    "description": "Filter View Time display by state or client matter number",
+                    "capacity": 0,
+                    "status": "concept"
+                  },
+                  {
+                    "id": "1.1.8.5.2",
+                    "story": "Export by state/matter",
+                    "description": "Filter JSON export to include only entries matching specified state or client matter",
+                    "capacity": 0,
+                    "status": "concept"
+                  },
+                  {
+                    "id": "1.1.8.5.3",
+                    "story": "Time summary by state/matter",
+                    "description": "Show total time grouped by state and client matter (billable hours per matter)",
+                    "capacity": 0,
+                    "status": "concept"
                   }
                 ]
               }

@@ -150,18 +150,35 @@ Read `.claude/skills/story-tree/story-tree.json`. If it doesn't exist, initializ
 
 ### Step 2: Analyze Git Commits
 
-Run git analysis to identify recent development activity:
+**Use incremental analysis** to minimize context usage. Only analyze commits since the last checkpoint:
 
 ```bash
-# Get recent commits (last 30 days)
+# Check if checkpoint exists
+git cat-file -t <lastAnalyzedCommit>
+
+# If checkpoint valid: Incremental (only new commits)
+git log <lastAnalyzedCommit>..HEAD --pretty=format:"%h|%ai|%s|%b" --no-merges
+
+# If checkpoint missing/invalid OR rebuild requested: Full scan
 git log --since="30 days ago" --pretty=format:"%h|%ai|%s|%b" --no-merges
-
-# Analyze files changed most frequently
-git log --since="30 days ago" --name-only --pretty=format: | sort | uniq -c | sort -rn | head -20
-
-# Identify feature branches merged
-git log --since="30 days ago" --merges --pretty=format:"%s"
 ```
+
+**When to use full scan:**
+- `lastAnalyzedCommit` field is missing from story-tree.json
+- Checkpoint commit no longer exists (rebased away)
+- User requests "Rebuild story tree index"
+
+**When to use incremental:**
+- `lastAnalyzedCommit` exists and the commit is still in history
+- This is the default for most updates
+
+**After analysis, update the checkpoint:**
+- Set `lastAnalyzedCommit` to the newest commit hash from the analysis
+- This ensures the next run only processes newer commits
+
+**If no new commits:**
+- Report "Story tree is up to date - no new commits since last analysis"
+- Skip pattern matching and story generation steps
 
 **Extract patterns from commits:**
 - Features added: commits with "feat:", "add", "implement"
@@ -503,7 +520,7 @@ Then run the normal workflow to populate level-2 features based on git analysis.
 
 The skill responds to these natural language commands:
 
-- **"Update story tree"**: Run full analysis, identify priorities, generate stories
+- **"Update story tree"**: Run incremental analysis, identify priorities, generate stories
 - **"Show story tree"**: Output current tree visualization
 - **"Tree status"**: Show metrics and priorities without generating stories
 - **"Set capacity for [node-id] to [N]"**: Adjust node capacity
@@ -512,6 +529,7 @@ The skill responds to these natural language commands:
 - **"Initialize story tree"**: Create new tree from scratch with prompts
 - **"Export story tree"**: Output tree as markdown document
 - **"Show recent commits"**: Display git analysis without updating tree
+- **"Rebuild story tree index"**: Force full 30-day rescan (use after rebases or history changes)
 
 ## Quality Checks
 
@@ -535,6 +553,7 @@ Before outputting generated stories, verify:
 
 ## Version History
 
+- v1.3.0 (2025-12-11): Added incremental commit analysis with checkpoint tracking (`lastAnalyzedCommit`) to reduce context/token usage by ~90%; added "Rebuild story tree index" command
 - v1.2.0 (2025-12-11): Added auto-update on staleness (3-day threshold, triggers on any invocation)
 - v1.1.0 (2025-12-11): Added autonomous mode guidance, "When NOT to Use" section, real-world impact metrics, and common mistakes documentation
 - v1.0.0 (2025-12-11): Initial release

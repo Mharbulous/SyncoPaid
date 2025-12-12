@@ -10,6 +10,7 @@ The story tree is stored as a JSON file with a versioned schema:
 {
   "version": "1.0.0",
   "lastUpdated": "2025-12-11T00:00:00Z",
+  "lastAnalyzedCommit": "29595a2",
   "root": { /* Node object */ }
 }
 ```
@@ -31,6 +32,16 @@ ISO 8601 timestamp of when the tree was last modified.
 - **Format**: `YYYY-MM-DDTHH:mm:ssZ`
 - **Example**: `"2025-12-11T14:32:00Z"`
 - **Usage**: Track tree changes over time, detect stale data
+
+### `lastAnalyzedCommit` (string, optional)
+
+Short git commit hash of the last commit that was analyzed for story matching.
+
+- **Format**: Short commit hash (7+ characters)
+- **Example**: `"29595a2"`
+- **Usage**: Enables incremental commit analysis - only commits after this hash are analyzed on subsequent runs
+- **When missing**: Falls back to full 30-day scan
+- **Reset by**: "Rebuild story tree index" command, or when commit no longer exists (e.g., after rebase)
 
 ### `root` (object, required)
 
@@ -410,6 +421,7 @@ function migrateNodeV1ToV2(node) {
 {
   "version": "1.0.0",
   "lastUpdated": "2025-12-11T14:32:00Z",
+  "lastAnalyzedCommit": "db1f3d91",
   "root": {
     "id": "root",
     "story": "SaaS Apps for lawyers",
