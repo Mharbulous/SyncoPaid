@@ -347,7 +347,7 @@ grep -oP "(?<=\`\`\`sql)[\s\S]*?(?=\`\`\`)" docs/file.md | \
 **Correct table/column names (as of v2.0.0):**
 - Table: `story_nodes` (not `stories`)
 - Table: `story_paths` (not `story_tree` or `story_hierarchy`)
-- Table: `story_node_commits` (not `story_commits`)
+- Table: `story_commits` (not `story_node_commits`)
 - Column: `title` (not `story` or `name`)
 
 ### Prevention

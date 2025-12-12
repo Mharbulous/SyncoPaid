@@ -14,7 +14,7 @@ The migration process:
 2. Create SQLite database with schema
 3. Insert all stories into `story_nodes` table
 4. Populate `story_paths` closure table
-5. Copy commit data to `story_node_commits` table
+5. Copy commit data to `story_commits` table
 6. Copy metadata to `metadata` table
 7. Verify migration
 8. Delete JSON file (optional)
@@ -66,7 +66,7 @@ UNION ALL SELECT 'NEW_ID', 'NEW_ID', 0;
 
 # For each implementedCommits array entry:
 sqlite3 stories.db "
-INSERT INTO story_node_commits (story_id, commit_hash, commit_message)
+INSERT INTO story_commits (story_id, commit_hash, commit_message)
 VALUES ('STORY_ID', 'COMMIT_HASH', NULL);
 "
 
@@ -175,7 +175,7 @@ def migrate_node(node, parent_id=None):
     # Copy commits
     for commit in node.get('implementedCommits', []):
         db.execute("""
-            INSERT INTO story_node_commits (story_id, commit_hash)
+            INSERT INTO story_commits (story_id, commit_hash)
             VALUES (?, ?)
         """, (node['id'], commit))
 

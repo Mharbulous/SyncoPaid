@@ -111,14 +111,14 @@ ORDER BY s.id;
 
 ```sql
 -- Check if commit is already linked to any story
-SELECT story_id FROM story_node_commits WHERE commit_hash = :commit_hash;
+SELECT story_id FROM story_commits WHERE commit_hash = :commit_hash;
 ```
 
 ### Query 3: Link Commit to Story
 
 ```sql
 -- Insert commit link
-INSERT OR IGNORE INTO story_node_commits (story_id, commit_hash, commit_date, commit_message)
+INSERT OR IGNORE INTO story_commits (story_id, commit_hash, commit_date, commit_message)
 VALUES (:story_id, :commit_hash, :commit_date, :commit_message);
 ```
 
@@ -145,7 +145,7 @@ WHERE id = :story_id
 ```sql
 -- Get all commits linked to a story
 SELECT commit_hash, commit_date, commit_message
-FROM story_node_commits
+FROM story_commits
 WHERE story_id = :story_id
 ORDER BY commit_date DESC;
 ```
@@ -161,7 +161,7 @@ SELECT
     COUNT(sc.commit_hash) as commit_count,
     MAX(sc.commit_date) as latest_commit
 FROM story_nodes s
-LEFT JOIN story_node_commits sc ON s.id = sc.story_id
+LEFT JOIN story_commits sc ON s.id = sc.story_id
 GROUP BY s.id
 ORDER BY commit_count DESC;
 ```
@@ -180,7 +180,7 @@ SELECT
     s.title,
     COUNT(sc.commit_hash) as commit_count
 FROM story_nodes s
-JOIN story_node_commits sc ON s.id = sc.story_id
+JOIN story_commits sc ON s.id = sc.story_id
 WHERE sc.commit_date > date('now', '-7 days')
 GROUP BY s.id
 HAVING commit_count >= 3
@@ -198,7 +198,7 @@ SELECT
     s.title,
     COUNT(sc.commit_hash) as fix_count
 FROM story_nodes s
-JOIN story_node_commits sc ON s.id = sc.story_id
+JOIN story_commits sc ON s.id = sc.story_id
 WHERE sc.commit_message LIKE 'fix:%'
    OR sc.commit_message LIKE '%fix %'
    OR sc.commit_message LIKE '%bug%'
@@ -217,7 +217,7 @@ SELECT s.id, s.title, s.status
 FROM story_nodes s
 WHERE s.status = 'implemented'
   AND NOT EXISTS (
-      SELECT 1 FROM story_node_commits sc WHERE sc.story_id = s.id
+      SELECT 1 FROM story_commits sc WHERE sc.story_id = s.id
   );
 ```
 
@@ -232,7 +232,7 @@ SELECT
     COUNT(sc.commit_hash) as commit_count,
     MAX(sc.commit_date) as latest_commit
 FROM story_nodes s
-JOIN story_node_commits sc ON s.id = sc.story_id
+JOIN story_commits sc ON s.id = sc.story_id
 WHERE s.status = 'in-progress'
 GROUP BY s.id
 HAVING commit_count >= 3
@@ -268,7 +268,7 @@ SELECT
     s.title,
     COUNT(sc.commit_hash) as fix_count
 FROM story_nodes s
-JOIN story_node_commits sc ON s.id = sc.story_id
+JOIN story_commits sc ON s.id = sc.story_id
 WHERE (sc.commit_message LIKE 'fix:%' OR sc.commit_message LIKE '%bug%')
   AND NOT EXISTS (
       SELECT 1 FROM story_nodes child
@@ -309,7 +309,7 @@ Output format: `hash|date|subject`
 
 ```sql
 -- Insert match (high confidence)
-INSERT OR IGNORE INTO story_node_commits (story_id, commit_hash, commit_date, commit_message)
+INSERT OR IGNORE INTO story_commits (story_id, commit_hash, commit_date, commit_message)
 VALUES (:story_id, :commit_hash, :commit_date, :commit_message);
 
 -- Update status if appropriate
@@ -381,5 +381,5 @@ sqlite3 $DB "INSERT OR REPLACE INTO metadata (key, value) VALUES ('lastUpdated',
 
 ## Version History
 
-- v2.0.0 (2025-12-11): Rewritten for SQLite storage. Commit tracking now uses `story_node_commits` table instead of JSON arrays.
+- v2.0.0 (2025-12-11): Rewritten for SQLite storage. Commit tracking now uses `story_commits` table instead of JSON arrays.
 - v1.0.0 (2025-12-11): Initial release with JSON-based commit tracking
