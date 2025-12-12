@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS metadata (
 -- Indexes for common query patterns
 CREATE INDEX IF NOT EXISTS idx_paths_descendant ON story_paths(descendant_id);
 CREATE INDEX IF NOT EXISTS idx_paths_depth ON story_paths(depth);
-CREATE INDEX IF NOT EXISTS idx_story_nodes_status ON story_nodes(status);
+CREATE INDEX IF NOT EXISTS idx_nodes_status ON story_nodes(status);
 CREATE INDEX IF NOT EXISTS idx_commits_hash ON story_commits(commit_hash);
 
 -- Triggers to maintain updated_at
