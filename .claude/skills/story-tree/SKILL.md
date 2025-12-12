@@ -177,6 +177,17 @@ git log <lastAnalyzedCommit>..HEAD --pretty=format:"%h|%ai|%s|%b" --no-merges
 git log --since="30 days ago" --pretty=format:"%h|%ai|%s|%b" --no-merges
 ```
 
+**Checkpoint validation:** Before using the checkpoint, verify it still exists in git history:
+```bash
+git cat-file -t <lastAnalyzedCommit>
+```
+
+If validation fails (commit rebased away or missing), **log the reason** before falling back:
+- Missing checkpoint: "No checkpoint found. Running full 30-day scan."
+- Invalid checkpoint: "Checkpoint `abc123` no longer exists (likely rebased). Running full 30-day scan."
+
+This logging helps users understand why analysis is slower than expected.
+
 **After analysis, update checkpoint:**
 ```sql
 INSERT OR REPLACE INTO metadata (key, value) VALUES ('lastAnalyzedCommit', '<newest_commit_hash>');

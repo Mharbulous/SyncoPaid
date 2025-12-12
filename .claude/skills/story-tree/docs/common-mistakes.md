@@ -313,6 +313,51 @@ If the user wants to explore hypothetical scenarios:
 
 ---
 
+## Mistake 7: Copy-Pasting SQL Queries Without Validation
+
+### Problem
+
+Copying SQL queries from documentation without testing them against the actual database:
+
+```sql
+-- Copied from docs, but uses wrong table name
+SELECT * FROM stories WHERE status = 'implemented';
+-- Error: no such table: stories
+```
+
+### Why It's Wrong
+
+- Documentation can drift from actual schema
+- Table/column names may have been renamed during refactoring
+- Untested queries fail at runtime, disrupting workflow
+
+### How to Fix
+
+**Always validate queries before using them:**
+
+```bash
+# Quick validation - run query and check for errors
+sqlite3 .claude/data/story-tree.db "SELECT * FROM story_nodes LIMIT 1;"
+
+# Validate all queries in a file (extract and test)
+grep -oP "(?<=\`\`\`sql)[\s\S]*?(?=\`\`\`)" docs/file.md | \
+    while read query; do sqlite3 .claude/data/story-tree.db "$query"; done
+```
+
+**Correct table/column names (as of v2.0.0):**
+- Table: `story_nodes` (not `stories`)
+- Table: `story_paths` (not `story_tree` or `story_hierarchy`)
+- Table: `story_node_commits` (not `story_commits`)
+- Column: `title` (not `story` or `name`)
+
+### Prevention
+
+- Test queries against actual database before documenting
+- When refactoring schema, search docs for old names
+- Use schema.sql as source of truth for table/column names
+
+---
+
 ## Quick Reference: Mistake Checklist
 
 Before outputting generated stories, verify you didn't make these mistakes:
@@ -323,6 +368,7 @@ Before outputting generated stories, verify you didn't make these mistakes:
 - [ ] **Not Mistake 4**: Capacity estimates vary by complexity (not uniform)
 - [ ] **Not Mistake 5**: All quality checks passed
 - [ ] **Not Mistake 6**: Used real git data (not hypothetical scenarios)
+- [ ] **Not Mistake 7**: SQL queries validated against actual schema
 
 If any checkbox fails, fix the issue before proceeding.
 
@@ -330,4 +376,5 @@ If any checkbox fails, fix the issue before proceeding.
 
 ## Version History
 
+- v1.1.0 (2025-12-11): Added Mistake 7 (SQL query validation)
 - v1.0.0 (2025-12-11): Initial documentation from RED-GREEN-REFACTOR testing
