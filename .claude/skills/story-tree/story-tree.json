@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2025-12-12T01:35:00Z",
-  "lastAnalyzedCommit": "29595a2",
+  "lastUpdated": "2025-12-12T07:10:00Z",
+  "lastAnalyzedCommit": "f598645",
   "root": {
     "id": "root",
     "story": "SaaS Apps for Lawyers",
@@ -291,7 +291,7 @@
                 "description": "As a lawyer, I want each time entry to have a state field so that I can categorize my time",
                 "capacity": 3,
                 "status": "implemented",
-                "implementedCommits": [],
+                "implementedCommits": ["f598645"],
                 "children": [
                   {
                     "id": "1.1.8.1.1",
@@ -465,6 +465,21 @@
                 ]
               }
             ]
+          },
+          {
+            "id": "1.1.9",
+            "story": "Settings and Preferences UI",
+            "description": "As a lawyer, I want a visual settings window to configure TimeLawg options so that I can customize tracking behavior without editing config files",
+            "capacity": 5,
+            "status": "concept",
+            "acceptanceCriteria": [
+              "Settings window accessible from system tray menu",
+              "Configure poll interval, idle threshold, merge threshold",
+              "Toggle screenshot capture on/off and adjust interval/quality",
+              "View and edit blocklist for apps/URLs",
+              "Changes saved to config.json and take effect immediately"
+            ],
+            "children": []
           }
         ]
       }
