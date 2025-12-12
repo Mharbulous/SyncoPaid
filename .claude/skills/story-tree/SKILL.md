@@ -18,7 +18,13 @@ Maintain a **self-managing tree of user stories** where:
 
 Story tree data is stored in `.claude/data/story-tree.db` using SQLite with a closure table pattern for efficient hierarchical queries.
 
-**Why separate from skill folder:** The skill definition files (SKILL.md, schema.sql, lib/, docs/) are meant to be copied between projects. The database contains project-specific data and should never be copied.
+**Why separate from skill folder:** The skill definition files (SKILL.md, schema.sql, lib/, docs/) are meant to be copied between projects. The database contains project-specific data and should not be copied to other projects, but it **should be tracked in version control** for the current project to maintain history of your backlog evolution.
+
+**Important:** Ensure your `.gitignore` includes an exception for the story-tree database:
+```
+*.db
+!.claude/data/story-tree.db
+```
 
 **Why SQLite over JSON:**
 - Scales to 500+ stories without performance issues
