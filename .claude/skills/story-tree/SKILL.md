@@ -418,7 +418,7 @@ After this update, next under-capacity node:
 The skill responds to these natural language commands:
 
 - **"Update story tree"**: Run incremental analysis, identify priorities, generate stories
-- **"Show story tree"**: Output current tree visualization
+- **"Show story tree"**: Output current tree visualization (see "CRITICAL: Presenting Tree Diagrams to Users" section below - you MUST save output to file and present it properly)
 - **"Tree status"**: Show metrics and priorities without generating stories
 - **"Set capacity for [node-id] to [N]"**: Adjust node capacity
 - **"Mark [node-id] as [status]"**: Change node status
@@ -431,7 +431,53 @@ The skill responds to these natural language commands:
 
 ## Tree Visualization Script
 
-For any tree visualization needs, use the `tree-view.py` script rather than constructing ASCII trees manually:
+For any tree visualization needs, use the `tree-view.py` script rather than constructing ASCII trees manually.
+
+### CRITICAL: Presenting Tree Diagrams to Users
+
+**Problem:** Claude Code truncates bash command output (e.g., showing `... +42 lines`). When you run `tree-view.py`, the user often cannot see the actual tree diagram.
+
+**Solution:** When the user asks to "show the story tree" or "show a diagram", you MUST:
+
+1. **Capture output to a file**, then read and present it:
+   ```bash
+   # Save output to temp file
+   python .claude/skills/story-tree/tree-view.py --show-capacity --force-ascii > /tmp/story-tree-output.txt
+   ```
+
+2. **Read the file using the Read tool** (not cat/bash)
+
+3. **Present the tree in your response text** as a properly formatted code block:
+   ```
+   Here's your current story tree:
+
+   \`\`\`
+   ListBot [8/10] O
+   +-- (1) File Upload & Deduplication [8/8] +
+   |   +-- (1.1) Hash-Based File Deduplication [0/4] +
+   |   +-- (1.2) Drag-and-Drop Upload Interface [0/3] +
+   ...
+   \`\`\`
+   ```
+
+4. **Add a legend and insights** after the tree:
+   - Explain the status symbols (`.` = concept, `+` = implemented, etc.)
+   - Highlight notable patterns (under-capacity nodes, next priorities)
+   - Summarize key metrics (total stories, completion percentage)
+
+**DO NOT:**
+- ❌ Show raw bash output and expect the user to see it (it gets truncated)
+- ❌ Use `cat` or `echo` to display the tree (same truncation issue)
+- ❌ Skip the visualization when output is too long
+
+**Example workflow for "show story tree":**
+```bash
+# Step 1: Generate tree to temp file
+python .claude/skills/story-tree/tree-view.py --show-capacity --force-ascii > /tmp/tree.txt 2>&1
+```
+Then use Read tool to read `/tmp/tree.txt`, and present the contents in your response.
+
+### Basic Usage
 
 ```bash
 # Full tree with capacity and status indicators

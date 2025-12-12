@@ -495,6 +495,25 @@ The `tree-view.py` script is used by the story-tree skill for generating visuali
 
 You can also run it manually anytime to inspect your backlog state without triggering the full skill workflow.
 
+### IMPORTANT: Claude Code Output Truncation
+
+**For Claude Code users:** When Claude runs `tree-view.py` via bash, the output often gets truncated (showing `... +42 lines`).
+
+**Claude's workflow for showing trees to users:**
+
+1. **Save output to a temp file:**
+   ```bash
+   python .claude/skills/story-tree/tree-view.py --show-capacity --force-ascii > /tmp/tree.txt
+   ```
+
+2. **Read the file using Claude's Read tool** (not cat or bash)
+
+3. **Present the tree contents directly in Claude's response** as a formatted code block
+
+4. **Add a legend and insights** explaining the symbols and highlighting key patterns
+
+This ensures users always see the complete tree visualization regardless of bash output limits.
+
 ---
 
 ## Advanced: Scripting with tree-view.py
