@@ -211,8 +211,8 @@ LIMIT 1;
 
 **When user explicitly requests** "add concept to [node-id]" or "generate stories for [node-id]":
 1. Skip the status filter for that specific node
-2. Add the requested concepts
-3. Note in the report that this was a manual override
+2. Create the story-node with status 'approved', skiping the 'concept' stage.
+
 
 ```sql
 -- Manual override query (only block deprecated nodes)
