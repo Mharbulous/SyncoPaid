@@ -38,7 +38,8 @@
       "Bash(./build.sh:*)",
       "Bash(mkdir:*)",
       "Bash(git -C:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(python3:*)"
     ]
   }
 }

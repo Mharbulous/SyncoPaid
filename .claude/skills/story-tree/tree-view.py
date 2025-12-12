@@ -176,12 +176,12 @@ def get_tree_data(
             s.status,
             s.capacity,
             st.depth,
-            (SELECT COUNT(*) FROM story_tree
+            (SELECT COUNT(*) FROM story_paths
              WHERE ancestor_id = s.id AND depth = 1) as child_count,
-            (SELECT st2.ancestor_id FROM story_tree st2
+            (SELECT st2.ancestor_id FROM story_paths st2
              WHERE st2.descendant_id = s.id AND st2.depth = 1) as parent_id
         FROM story_nodes s
-        JOIN story_tree st ON s.id = st.descendant_id
+        JOIN story_paths st ON s.id = st.descendant_id
         WHERE st.ancestor_id = :root_id
     """
 
