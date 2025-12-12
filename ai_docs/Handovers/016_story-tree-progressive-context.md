@@ -8,7 +8,7 @@ We just completed v2.4.0 refactoring of the story-tree skill with these changes:
 
 1. **Progressive context disclosure** - Moved rarely-used content to separate files:
    - `lib/initialization.md` - Database init (only needed once per repo)
-   - `docs/rationale.md` - Design decisions, version history
+   - `docs/rationales.md` - Design decisions, version history
 
 2. **Intuitive rules** - Simplified instructions to be self-explanatory:
    - Status filter: blacklist (`concept`, `rejected`, `deprecated`, `infeasible`, `bugged`)
@@ -21,7 +21,7 @@ We just completed v2.4.0 refactoring of the story-tree skill with these changes:
 | `.claude/skills/story-tree/SKILL.md` | Main skill - **review this for more refactoring** |
 | `.claude/skills/story-tree/schema.sql` | SQLite schema (updated to v2.4.0) |
 | `.claude/skills/story-tree/lib/initialization.md` | Init procedure (extracted) |
-| `.claude/skills/story-tree/docs/rationale.md` | Design decisions (extracted) |
+| `.claude/skills/story-tree/docs/rationales.md` | Design decisions (extracted) |
 | `.claude/skills/story-tree/tree-view.py` | Tree visualization script |
 
 ## Principles Applied

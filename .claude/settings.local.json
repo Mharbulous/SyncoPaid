@@ -44,7 +44,8 @@
       "Skill(superpowers:requesting-code-review)",
       "Bash(git cat-file:*)",
       "Skill(superpowers:systematic-debugging)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(git show:*)"
     ]
   }
 }

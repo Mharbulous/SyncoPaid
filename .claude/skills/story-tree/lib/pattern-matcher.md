@@ -47,7 +47,42 @@ VALUES ('lastAnalyzedCommit', :newest_commit_hash);
 
 ## Keyword Extraction
 
-Filter standard English stop words, words < 3 characters, and pure numbers. Extract compound terms (e.g., "drag-and-drop"). Detect conventional commit prefixes (feat:, fix:, refactor:, etc.).
+Extract meaningful keywords from text for similarity matching.
+
+### Stop Words to Filter
+
+```
+a, an, and, are, as, at, be, by, for, from, has, he, in, is, it, its, of, on,
+that, the, to, was, will, with, this, but, they, have, had, what, when, where,
+who, which, why, how
+```
+
+### Extraction Rules
+
+1. Convert to lowercase
+2. Remove special characters except hyphens
+3. Split on whitespace
+4. Filter words < 3 characters
+5. Filter stop words
+6. Filter pure numbers
+7. Extract compound terms (e.g., "drag-and-drop" stays intact)
+
+## Commit Type Detection
+
+Detect commit type from subject line:
+
+| Pattern | Type |
+|---------|------|
+| `^feat[:(]` | feature |
+| `^fix[:(]` | fix |
+| `^refactor[:(]` | refactor |
+| `^docs[:(]` | docs |
+| `^test[:(]` | test |
+| `^chore[:(]` | chore |
+| `(add\|implement\|create)` | feature |
+| `(fix\|bug\|issue)` | fix |
+| `(update\|improve\|refactor)` | refactor |
+| Other | other |
 
 ## SQL Operations for Commit Matching
 

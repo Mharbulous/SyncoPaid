@@ -14,7 +14,7 @@ Maintain a **self-managing tree of user stories** where:
 - Git commits are analyzed to mark stories as **implemented**
 - Higher-level nodes are prioritized when under capacity
 
-**Design rationale:** If instructions seem counter-intuitive or you're tempted to deviate, consult `docs/rationale.md` before changing approach.
+**Design rationale:** If instructions seem counter-intuitive or you're tempted to deviate, consult `docs/rationales.md` before changing approach.
 
 ## Storage: SQLite with Closure Table
 
@@ -407,7 +407,7 @@ Before outputting generated stories, verify:
 - **lib/tree-analyzer.md**: SQL-based tree analysis algorithms
 - **lib/pattern-matcher.md**: Git commit → story matching logic
 - **lib/capacity-management.md**: Handling capacity issues
-- **docs/rationale.md**: Design decisions, rationale, and version history
+- **docs/rationales.md**: Design decisions, rationale, and version history
 - **docs/tree-structure.md**: Detailed schema documentation
 - **docs/tree-view-guide.md**: Tree visualization tool guide
 - **docs/common-mistakes.md**: Common pitfalls and how to avoid them

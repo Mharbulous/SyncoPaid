@@ -18,6 +18,23 @@ The skill uses SQLite with a closure table pattern instead of a JSON file:
 
 JSON files become unwieldy and slow with large trees, requiring full file reads and recursive traversal for every operation.
 
+### Why Closure Table Over Alternatives
+
+| Pattern | Read Performance | Write Performance | Query Complexity |
+|---------|-----------------|-------------------|------------------|
+| Closure Table | Excellent | Good | Simple |
+| Adjacency List | Poor (recursive) | Excellent | Complex (CTEs) |
+| Nested Sets | Excellent | Poor | Moderate |
+| Materialized Path | Good | Good | Moderate |
+
+The closure table pattern stores ALL ancestor-descendant relationships, not just parent-child. This means:
+- Get entire subtree in single query (no recursion)
+- Get all ancestors in single query
+- O(1) depth calculation
+- Efficient for read-heavy workloads (which this skill is)
+
+Trade-off: More storage (O(n*depth) rows) and inserts require populating closure relationships. This is acceptable because reads vastly outnumber writes in backlog management.
+
 ### Why Database is Separate from Skill Folder
 
 The skill definition files (SKILL.md, schema.sql, lib/, docs/) are meant to be **copied between projects**. The database contains **project-specific data** and should not be copied to other projects.
@@ -70,6 +87,20 @@ Combined with dynamic capacity starting at 3, this creates natural pacing:
 
 Without this limit, the tree would grow shallow and speculative.
 
+## Why Common Mistakes Matter
+
+The `docs/common-mistakes.md` file documents pitfalls identified through testing. Understanding why these are mistakes (not just how to fix them) helps prevent variations:
+
+- **Vague stories**: Generic descriptions ("improve UX") aren't testable, don't connect to git evidence, and don't provide clear value. Teams can't build what isn't specified.
+
+- **Ignoring priority algorithm**: Depth-first expansion (shallower nodes first) creates balanced product portfolios. Skipping to deep nodes over-commits to single paths and reduces strategic flexibility.
+
+- **Not matching commits first**: Without commit analysis, stories stay "in-progress" forever, tree metrics become inaccurate, and duplicate stories get generated.
+
+- **Uniform capacity estimates**: A login button needs 2-3 children; an EDRM workflow needs 10-15. Uniform capacity creates shallow trees and mismatched expectations.
+
+- **Skipping quality checks**: Low-quality stories cause confusion and rework. Vague stories mean teams don't know what to build; untestable criteria mean completion can't be verified.
+
 ## Logging Decisions
 
 ### Why Log Checkpoint Validation Failures
@@ -82,8 +113,9 @@ This helps users understand why analysis is slower than expected. Without this l
 
 ## Version History
 
+- v2.4.1 (2025-12-12): **Restored algorithmic details** - Added back keyword extraction rules and commit type detection to pattern-matcher.md; consolidated design rationales (closure table comparison, common mistakes) into this file.
 - v2.4.0 (2025-12-12): **Intuitive rules** - (1) Status filter changed to blacklist (concept, rejected, deprecated, infeasible, bugged); (2) Dynamic capacity: `3 + implemented/ready children`; (3) Optional capacity override in schema.
-- v2.3.0 (2025-12-12): **Progressive context disclosure** - Moved rationale/design decisions to `docs/rationale.md` to reduce context load on every invocation.
+- v2.3.0 (2025-12-12): **Progressive context disclosure** - Moved rationale/design decisions to `docs/rationales.md` to reduce context load on every invocation.
 - v2.2.0 (2025-12-12): **Progressive context disclosure** - Moved database initialization details to `lib/initialization.md` to reduce context load on every invocation (~110 lines saved).
 - v2.1.0 (2025-12-12): **Generation refinements** - Max 3 concepts per node per invocation.
 - v2.0.0 (2025-12-11): **Breaking change** - Migrated from JSON to SQLite with closure table pattern for scalability (200-500 stories).
