@@ -29,6 +29,42 @@ from timelawg.tray import TrayIcon, enable_startup
 from timelawg.screenshot import ScreenshotWorker, get_screenshot_directory
 from timelawg.action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
 
+
+def _parse_duration_to_seconds(duration_str: str) -> float:
+    """
+    Parse a duration string like '2h 15m' or '45m' or '30s' back to seconds.
+
+    Args:
+        duration_str: Duration in format from format_duration()
+
+    Returns:
+        Duration in seconds
+    """
+    if not duration_str:
+        return 0.0
+
+    total = 0.0
+
+    # Handle hours
+    if 'h' in duration_str:
+        parts = duration_str.split('h')
+        total += int(parts[0].strip()) * 3600
+        duration_str = parts[1] if len(parts) > 1 else ''
+
+    # Handle minutes
+    if 'm' in duration_str:
+        parts = duration_str.split('m')
+        total += int(parts[0].strip()) * 60
+        duration_str = parts[1] if len(parts) > 1 else ''
+
+    # Handle seconds
+    if 's' in duration_str:
+        parts = duration_str.split('s')
+        total += int(parts[0].strip())
+
+    return total
+
+
 # Version info
 try:
     from timelawg import __product_version__
@@ -350,11 +386,12 @@ class LawTimeApp:
                     e['duration_seconds'] for e in events
                     if e['duration_seconds'] is not None
                 )
-                tk.Label(
+                header_label = tk.Label(
                     header,
                     text=f"Activity: {format_duration(total_seconds)} ({len(events)} events)",
                     font=('Segoe UI', 12, 'bold')
-                ).pack()
+                )
+                header_label.pack()
 
                 # Treeview for events with start time, duration, end time columns
                 columns = ('id', 'start', 'duration', 'end', 'app', 'title')
@@ -376,6 +413,22 @@ class LawTimeApp:
                 # Scrollbar
                 scrollbar = ttk.Scrollbar(root, orient=tk.VERTICAL, command=tree.yview)
                 tree.configure(yscrollcommand=scrollbar.set)
+
+                # Function to recalculate and update header totals
+                def update_header_totals():
+                    """Recalculate and update the header with current totals."""
+                    total_secs = 0
+                    count = 0
+                    for item in tree.get_children():
+                        values = tree.item(item, 'values')
+                        dur_str = values[2]  # Duration is third column (index 2)
+                        if dur_str:
+                            # Parse duration string back to seconds
+                            total_secs += _parse_duration_to_seconds(dur_str)
+                        count += 1
+                    header_label.config(
+                        text=f"Activity: {format_duration(total_secs)} ({count} events)"
+                    )
 
                 # Function to handle command execution
                 def execute_command(event=None):
@@ -440,6 +493,9 @@ class LawTimeApp:
                             # Remove from Treeview
                             for item in selected:
                                 tree.delete(item)
+
+                            # Update header totals
+                            update_header_totals()
 
                             # Show success message
                             messagebox.showinfo(
