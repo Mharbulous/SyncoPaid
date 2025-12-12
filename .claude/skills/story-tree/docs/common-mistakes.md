@@ -17,13 +17,6 @@ Creating stories with generic descriptions that aren't specific or testable:
 **So that** I'm happier
 ```
 
-### Why It's Wrong
-
-- Not specific (what aspect of UX?)
-- Not testable (what does "better" mean?)
-- No clear value (why does this matter?)
-- No connection to git evidence
-
 ### How to Fix
 
 Use git analysis to be specific:
@@ -104,13 +97,6 @@ Always follow the algorithm explicitly:
 
 Generating new stories without checking if recent commits should update existing story statuses.
 
-### Why It's Wrong
-
-- Stories stay "in-progress" even though they're implemented
-- Tree metrics are inaccurate
-- Duplicate work (generating stories that already exist)
-- Missing implementation evidence
-
 ### How to Fix
 
 Always run Step 2 (git analysis) before Step 5 (story generation):
@@ -157,18 +143,6 @@ Using the same capacity for every story regardless of complexity:
 ### 1.1.3: Entire EDRM workflow (capacity: 5)
 ```
 
-### Why It's Wrong
-
-Capacity should reflect expected breakdown granularity:
-- Login button needs 2-3 children (states, error handling, loading)
-- Email threading needs 8-10 children (parsing, tree building, UI, search)
-- EDRM workflow needs 10-15 children (8 phases + reporting + audit)
-
-Using uniform capacity leads to:
-- Shallow trees (under-detailed features)
-- Mismatched expectations
-- Poor planning
-
 ### How to Fix
 
 Use context-based estimation:
@@ -200,14 +174,6 @@ Use context-based estimation:
 ### Problem
 
 Generating stories without validating them against the quality checks (main SKILL.md lines 377-385).
-
-### Why It's Wrong
-
-Low-quality stories create confusion and rework:
-- Vague stories → team doesn't know what to build
-- Untestable criteria → can't verify completion
-- Duplicate stories → wasted effort
-- Misaligned stories → doesn't fit architecture
 
 ### How to Fix
 
@@ -255,61 +221,15 @@ Before outputting generated stories, verify EVERY item:
 
 ### Problem
 
-User describes a hypothetical project ("TaskFlow app") but you're in a real codebase ("Listbot").
+User describes a hypothetical project but you're in a real codebase.
 
-Should you:
-- A) Work with the hypothetical scenario?
-- B) Work with the real codebase?
+### Rule
 
-### Why It's Confusing
+**Always work with the real codebase.** The story-tree skill requires actual git history. If user mentions a hypothetical:
 
-The story-tree skill is designed to analyze **actual git history** and **actual code patterns**. Hypothetical scenarios have no git evidence.
-
-### How to Fix
-
-**Always work with the real codebase you have access to.**
-
-When user mentions a hypothetical scenario:
-
-1. **Acknowledge the mismatch**:
-   ```
-   "I notice you mentioned a 'TaskFlow' project, but I'm currently in the Listbot repository."
-   ```
-
-2. **Explain the constraint**:
-   ```
-   "The story-tree skill analyzes real git commits and codebase patterns, so I'll generate stories based on the **actual Listbot development activity**."
-   ```
-
-3. **Proceed with real data**:
-   ```
-   "Analyzing the last 30 days of commits in the Listbot repository..."
-   ```
-
-### Why Real Data Only
-
-Git-based pattern detection requires:
-- Actual commit messages to extract keywords
-- File change frequency to identify focus areas
-- Implementation evidence to update story status
-- Architecture patterns to guide capacity estimates
-
-None of this exists for hypothetical projects.
-
-### When Hypotheticals Are Appropriate
-
-If the user wants to explore hypothetical scenarios:
-- Discuss them conversationally
-- Don't use the story-tree skill
-- Don't create hypothetical story-tree.json files
-- Keep it separate from the real backlog
-
-### Prevention
-
-- Always check: "Am I in a real codebase with git history?"
-- If yes: Proceed autonomously with real data
-- If no: Inform user that skill requires real git history
-- Don't mix hypothetical stories with real backlog
+1. Acknowledge: "I'm in [real-repo], not [hypothetical]"
+2. Proceed with real data
+3. Don't mix hypothetical stories with real backlog
 
 ---
 
@@ -324,12 +244,6 @@ Copying SQL queries from documentation without testing them against the actual d
 SELECT * FROM stories WHERE status = 'implemented';
 -- Error: no such table: stories
 ```
-
-### Why It's Wrong
-
-- Documentation can drift from actual schema
-- Table/column names may have been renamed during refactoring
-- Untested queries fail at runtime, disrupting workflow
 
 ### How to Fix
 

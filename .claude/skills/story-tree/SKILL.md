@@ -32,7 +32,6 @@ Story tree data is stored in `.claude/data/story-tree.db` using SQLite with a cl
 ### Core Tables
 
 ```sql
--- Story nodes table: all story data
 CREATE TABLE story_nodes (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
@@ -46,7 +45,6 @@ CREATE TABLE story_nodes (
     updated_at TEXT NOT NULL
 );
 
--- Closure table: ancestor-descendant relationships at all depths
 CREATE TABLE story_paths (
     ancestor_id TEXT NOT NULL REFERENCES story_nodes(id),
     descendant_id TEXT NOT NULL REFERENCES story_nodes(id),
@@ -54,7 +52,6 @@ CREATE TABLE story_paths (
     PRIMARY KEY (ancestor_id, descendant_id)
 );
 
--- Commit tracking
 CREATE TABLE story_commits (
     story_id TEXT NOT NULL REFERENCES story_nodes(id),
     commit_hash TEXT NOT NULL,
@@ -63,7 +60,6 @@ CREATE TABLE story_commits (
     PRIMARY KEY (story_id, commit_hash)
 );
 
--- Metadata (version, lastUpdated, lastAnalyzedCommit)
 CREATE TABLE metadata (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -94,7 +90,7 @@ CREATE TABLE metadata (
 
 ### Closure Table
 
-The `story_paths` table uses a closure table pattern for efficient hierarchical queries. See **`docs/closure-table-explained.md`** for details.
+The `story_paths` table uses a closure table pattern for efficient hierarchical queries.
 
 ## When NOT to Use
 
@@ -138,18 +134,7 @@ SELECT value FROM metadata WHERE key = 'lastUpdated';
 
 ### Step 1: Load Current Tree
 
-Connect to `.claude/data/story-tree.db`. If database doesn't exist, create the data directory, initialize with schema, and seed root node.
-
-```bash
-# Create data directory if needed
-mkdir -p .claude/data
-
-# Check if database exists
-test -f .claude/data/story-tree.db
-
-# Initialize if needed
-sqlite3 .claude/data/story-tree.db < .claude/skills/story-tree/schema.sql
-```
+Connect to `.claude/data/story-tree.db`. If database doesn't exist, create directory, initialize schema, and seed root node. See `lib/initialization.md` for details.
 
 ### Step 2: Analyze Git Commits
 
@@ -417,13 +402,12 @@ Before outputting generated stories, verify:
 - **`.claude/data/story-tree.db`**: SQLite database (primary data store, project-specific)
 - **schema.sql**: Reference schema with query examples
 - **tree-view.py**: Python CLI for ASCII/markdown tree visualization
-- **lib/initialization.md**: Database initialization procedure (loaded only when needed)
+- **lib/initialization.md**: Database initialization procedure
 - **lib/tree-visualization.md**: Tree display instructions and presentation guidelines
 - **lib/tree-analyzer.md**: SQL-based tree analysis algorithms
 - **lib/pattern-matcher.md**: Git commit → story matching logic
 - **lib/capacity-management.md**: Handling capacity issues
 - **docs/rationale.md**: Design decisions, rationale, and version history
-- **docs/closure-table-explained.md**: Closure table pattern explanation
 - **docs/tree-structure.md**: Detailed schema documentation
-- **docs/migration-guide.md**: JSON to SQLite migration instructions
+- **docs/tree-view-guide.md**: Tree visualization tool guide
 - **docs/common-mistakes.md**: Common pitfalls and how to avoid them

@@ -8,18 +8,6 @@ This document provides SQL queries for analyzing the story tree structure, calcu
 > ```
 > See [Query 5](#query-5-tree-visualization-data) for SQL alternatives if needed.
 
-## Database Connection
-
-All queries use the SQLite database at `.claude/data/story-tree.db`.
-
-```bash
-# Interactive mode
-sqlite3 .claude/data/story-tree.db
-
-# Execute query from command line
-sqlite3 .claude/data/story-tree.db "SELECT * FROM story_nodes;"
-```
-
 ## Query 1: Get All Stories with Metrics
 
 Retrieve all stories with their depth and child count:
@@ -40,12 +28,6 @@ SELECT
 FROM story_nodes s
 ORDER BY node_depth ASC, s.id;
 ```
-
-**Result columns:**
-- `node_depth`: Distance from root (0 = root)
-- `child_count`: Number of direct children
-- `fill_rate`: child_count / capacity (0.0 to 1.0)
-- `needs_children`: How many more children needed to reach capacity
 
 ## Query 2: Calculate Tree Statistics
 

@@ -2,14 +2,6 @@
 
 This document provides algorithms for matching git commits to user stories in the SQLite database, detecting implementation patterns, and updating story status based on commit history.
 
-## Database Connection
-
-All operations use the SQLite database at `.claude/data/story-tree.db`.
-
-```bash
-sqlite3 .claude/data/story-tree.db
-```
-
 ## Incremental Commit Analysis
 
 ### Get Commits to Analyze
@@ -55,40 +47,7 @@ VALUES ('lastAnalyzedCommit', :newest_commit_hash);
 
 ## Keyword Extraction
 
-Extract meaningful keywords from text (implemented in the skill logic, not SQL):
-
-**Stop words to filter:**
-```
-a, an, and, are, as, at, be, by, for, from, has, he, in, is, it, its, of, on,
-that, the, to, was, will, with, this, but, they, have, had, what, when, where,
-who, which, why, how
-```
-
-**Extraction rules:**
-1. Convert to lowercase
-2. Remove special characters except hyphens
-3. Split on whitespace
-4. Filter words < 3 characters
-5. Filter stop words
-6. Filter pure numbers
-7. Extract compound terms (e.g., "drag-and-drop")
-
-## Commit Type Detection
-
-Detect commit type from subject line:
-
-| Pattern | Type |
-|---------|------|
-| `^feat[:(]` | feature |
-| `^fix[:(]` | fix |
-| `^refactor[:(]` | refactor |
-| `^docs[:(]` | docs |
-| `^test[:(]` | test |
-| `^chore[:(]` | chore |
-| `(add\|implement\|create)` | feature |
-| `(fix\|bug\|issue)` | fix |
-| `(update\|improve\|refactor)` | refactor |
-| Other | other |
+Filter standard English stop words, words < 3 characters, and pure numbers. Extract compound terms (e.g., "drag-and-drop"). Detect conventional commit prefixes (feat:, fix:, refactor:, etc.).
 
 ## SQL Operations for Commit Matching
 
@@ -331,17 +290,11 @@ INSERT OR REPLACE INTO metadata (key, value)
 VALUES ('lastUpdated', datetime('now'));
 ```
 
-## Similarity Calculation
+## Similarity Thresholds
 
-**Jaccard Similarity:**
-```
-similarity = |intersection| / |union|
-           = matching_keywords / (story_keywords + commit_keywords - matching_keywords)
-```
-
-**Thresholds:**
+Calculate Jaccard similarity between keyword sets:
 - >= 0.7: Strong match (auto-link, update status)
-- >= 0.4: Potential match (link, but review recommended)
+- >= 0.4: Potential match (link, review recommended)
 - < 0.4: No match
 
 ## Example Workflow

@@ -2,14 +2,6 @@
 
 This document provides detailed guidance on handling capacity-related issues in the story tree using SQL queries, including over-capacity violations and capacity adjustments.
 
-## Database Connection
-
-All queries use the SQLite database at `.claude/data/story-tree.db`.
-
-```bash
-sqlite3 .claude/data/story-tree.db
-```
-
 ## Handling Over-Capacity Nodes
 
 **Over-capacity** = node has more children than its capacity allows (e.g., capacity 3 but 4 children exist).

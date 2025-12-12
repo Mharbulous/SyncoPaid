@@ -12,30 +12,6 @@ The story tree uses SQLite with a **closure table pattern** for efficient hierar
 
 **Schema file:** `.claude/skills/story-tree/schema.sql`
 
-## Why Closure Table Pattern?
-
-The closure table pattern stores ALL ancestor-descendant relationships, not just parent-child:
-
-**Advantages:**
-- Get entire subtree in single query (no recursion)
-- Get all ancestors in single query
-- O(1) depth calculation
-- Efficient for read-heavy workloads
-
-**Trade-offs:**
-- More storage (O(n*depth) rows in closure table)
-- Insert requires populating closure relationships
-- Delete cascades through closure table
-
-**Comparison with alternatives:**
-
-| Pattern | Read Performance | Write Performance | Query Complexity |
-|---------|-----------------|-------------------|------------------|
-| Closure Table | Excellent | Good | Simple |
-| Adjacency List | Poor (recursive) | Excellent | Complex (CTEs) |
-| Nested Sets | Excellent | Poor | Moderate |
-| Materialized Path | Good | Good | Moderate |
-
 ## Table Definitions
 
 ### Table 1: `story_nodes`
@@ -56,20 +32,6 @@ CREATE TABLE story_nodes (
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 ```
-
-#### Field Definitions
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | TEXT | Yes | Unique hierarchical identifier (e.g., "root", "1.1", "1.3.2") |
-| `title` | TEXT | Yes | Short title (3-100 chars recommended) |
-| `description` | TEXT | Yes | Full user story in "As a... I want... So that..." format |
-| `capacity` | INTEGER | Yes | Target number of child nodes (0-20 recommended) |
-| `status` | TEXT | Yes | Current implementation status |
-| `project_path` | TEXT | No | Relative path for multi-project support |
-| `last_implemented` | TEXT | No | ISO 8601 timestamp of last implementation |
-| `created_at` | TEXT | Yes | ISO 8601 creation timestamp |
-| `updated_at` | TEXT | Yes | ISO 8601 last update timestamp |
 
 #### Status Values
 
@@ -107,29 +69,6 @@ CREATE TABLE story_paths (
     PRIMARY KEY (ancestor_id, descendant_id)
 );
 ```
-
-#### Field Definitions
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `ancestor_id` | TEXT | Yes | ID of ancestor node |
-| `descendant_id` | TEXT | Yes | ID of descendant node |
-| `depth` | INTEGER | Yes | Distance between ancestor and descendant (0 = self) |
-
-#### Closure Table Example
-
-For a tree: `root → 1.1 → 1.1.1`
-
-| ancestor_id | descendant_id | depth |
-|-------------|---------------|-------|
-| root | root | 0 |
-| root | 1.1 | 1 |
-| root | 1.1.1 | 2 |
-| 1.1 | 1.1 | 0 |
-| 1.1 | 1.1.1 | 1 |
-| 1.1.1 | 1.1.1 | 0 |
-
-**Key insight:** Every node has a self-reference (depth=0).
 
 ### Table 3: `story_commits`
 
@@ -181,12 +120,6 @@ CREATE INDEX idx_paths_depth ON story_paths(depth);
 CREATE INDEX idx_nodes_status ON story_nodes(status);
 CREATE INDEX idx_commits_hash ON story_commits(commit_hash);
 ```
-
-**Index purposes:**
-- `idx_paths_descendant`: Fast ancestor lookups
-- `idx_paths_depth`: Fast direct children queries (depth=1)
-- `idx_nodes_status`: Fast status filtering
-- `idx_commits_hash`: Fast commit lookups
 
 ## Common Operations
 
@@ -339,7 +272,7 @@ description: "Make it better"
 
 ## Migration from JSON
 
-If you have an existing `story-tree.json` file in the skill folder, see `docs/migration-guide.md` for migration instructions. The JSON file will be migrated to `.claude/data/story-tree.db`.
+If you have an existing `story-tree.json` file in the skill folder, see `deprecated/migration-guide.md` for migration instructions.
 
 ## Schema Diagram
 
