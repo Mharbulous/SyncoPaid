@@ -14,23 +14,17 @@ Maintain a **self-managing tree of user stories** where:
 - Git commits are analyzed to mark stories as **implemented**
 - Higher-level nodes are prioritized when under capacity
 
+**Design rationale:** If instructions seem counter-intuitive or you're tempted to deviate, consult `docs/rationale.md` before changing approach.
+
 ## Storage: SQLite with Closure Table
 
 Story tree data is stored in `.claude/data/story-tree.db` using SQLite with a closure table pattern for efficient hierarchical queries.
-
-**Why separate from skill folder:** The skill definition files (SKILL.md, schema.sql, lib/, docs/) are meant to be copied between projects. The database contains project-specific data and should not be copied to other projects, but it **should be tracked in version control** for the current project to maintain history of your backlog evolution.
 
 **Important:** Ensure your `.gitignore` includes an exception for the story-tree database:
 ```
 *.db
 !.claude/data/story-tree.db
 ```
-
-**Why SQLite over JSON:**
-- Scales to 500+ stories without performance issues
-- Single SQL query replaces recursive tree traversal
-- Atomic transactions prevent data corruption
-- Efficient queries for priority calculation
 
 **Database location:** `.claude/data/story-tree.db`
 **Schema reference:** `.claude/skills/story-tree/schema.sql`
@@ -43,7 +37,7 @@ CREATE TABLE story_nodes (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT NOT NULL,
-    capacity INTEGER NOT NULL DEFAULT 3,
+    capacity INTEGER,  -- Optional override; if NULL, use dynamic: 3 + implemented children
     status TEXT NOT NULL DEFAULT 'concept'
         CHECK (status IN ('concept','approved','rejected','planned','queued','active','in-progress','bugged','implemented','ready','deprecated','infeasible')),
     project_path TEXT,
@@ -193,11 +187,7 @@ git log --since="30 days ago" --pretty=format:"%h|%ai|%s|%b" --no-merges
 git cat-file -t <lastAnalyzedCommit>
 ```
 
-If validation fails (commit rebased away or missing), **log the reason** before falling back:
-- Missing checkpoint: "No checkpoint found. Running full 30-day scan."
-- Invalid checkpoint: "Checkpoint `abc123` no longer exists (likely rebased). Running full 30-day scan."
-
-This logging helps users understand why analysis is slower than expected.
+If validation fails (commit rebased away or missing), log the reason before falling back to full 30-day scan.
 
 **After analysis, update checkpoint:**
 ```sql
@@ -219,41 +209,36 @@ FROM story_nodes s;
 
 ### Step 4: Identify Priority Target
 
-**Priority algorithm** - find under-capacity nodes that are **implemented or ready**, prioritize shallower:
+**Do not autonomously expand nodes with status:** `concept` (unapproved), `rejected`, `deprecated`, `infeasible`, or `bugged`.
+
+**Priority algorithm** - find under-capacity nodes, prioritize shallower:
 
 ```sql
 SELECT s.*,
     (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as child_count,
-    (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth
+    (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth,
+    -- Use capacity override if set, otherwise dynamic: 3 + implemented/ready children
+    COALESCE(s.capacity, 3 + (SELECT COUNT(*) FROM story_paths sp
+         JOIN story_nodes child ON sp.descendant_id = child.id
+         WHERE sp.ancestor_id = s.id AND sp.depth = 1
+         AND child.status IN ('implemented', 'ready'))) as effective_capacity
 FROM story_nodes s
-WHERE s.status IN ('implemented', 'ready', 'active')  -- Only expand completed/stable nodes
-  AND (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) < s.capacity
-ORDER BY node_depth ASC,
-    (child_count * 1.0 / s.capacity) ASC
+WHERE s.status NOT IN ('concept', 'rejected', 'deprecated', 'infeasible', 'bugged')
+  AND (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) <
+      COALESCE(s.capacity, 3 + (SELECT COUNT(*) FROM story_paths sp
+           JOIN story_nodes child ON sp.descendant_id = child.id
+           WHERE sp.ancestor_id = s.id AND sp.depth = 1
+           AND child.status IN ('implemented', 'ready')))
+ORDER BY node_depth ASC
 LIMIT 1;
 ```
 
-**Status filter rationale:**
-- `implemented`: Feature is complete, safe to add sub-concepts
-- `ready`: Production-tested, stable foundation for expansion
-- `active`: Root and actively-worked features (allows initial tree building)
-
-**Excluded from autonomous expansion:**
-- `concept`, `approved`, `planned`, `queued`: Not yet built
-- `in-progress`, `bugged`: Unstable, may change significantly
-- `deprecated`, `rejected`, `infeasible`: Dead ends
-
 **Rules:**
-- Root under capacity? → Generate level-1 app ideas
-- Level-1 under capacity? → Generate level-2 major features
+- Root under capacity? → Generate level-1 features
+- Level-1 under capacity? → Generate level-2 capabilities
 - All higher levels at capacity? → Drill to deepest under-capacity node
 
-### Human Override for Non-Implemented Nodes
-
-Users may request adding concepts to nodes that don't meet the status filter. **This is allowed** because:
-- Ideas come at unexpected times and will be forgotten if not recorded
-- Users may have context about upcoming implementations
-- Some concepts are worth tracking even for incomplete features
+### Human Override
 
 **When user explicitly requests** "add concept to [node-id]" or "generate stories for [node-id]":
 1. Skip the status filter for that specific node
@@ -261,12 +246,12 @@ Users may request adding concepts to nodes that don't meet the status filter. **
 3. Note in the report that this was a manual override
 
 ```sql
--- Manual override query (use when user specifies target node)
+-- Manual override query (only block deprecated nodes)
 SELECT s.*,
     (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as child_count
 FROM story_nodes s
 WHERE s.id = :user_specified_node_id
-  AND s.status != 'deprecated';  -- Only block truly dead nodes
+  AND s.status NOT IN ('deprecated', 'rejected', 'infeasible');
 ```
 
 ### Step 5: Generate Stories for Target Node
@@ -275,28 +260,22 @@ Based on target node's level and context:
 
 **HARD LIMIT: Maximum 3 concepts per node per invocation.**
 
-This limit:
-- Prevents overwhelming any single node with concepts
-- Balances concept distribution throughout the tree
-- Encourages deeper, more thoughtful story generation
-- Forces multiple passes to fill high-capacity nodes (intentional)
-
-**If Level 1 (app ideas)**:
+**If Level 1 (major features)**:
 - Analyze root vision
-- Review existing sibling apps
-- Generate: 1-3 new app concepts with capacity 5-10 each
+- Review existing sibling features
+- Generate: 1-3 new feature concepts
 
-**If Level 2 (major features)**:
-- Read parent app description
-- Analyze git commits for what exists
-- Generate: 1-3 major feature ideas with capacity 3-8 each
-
-**If Level 3+ (specific capabilities)**:
+**If Level 2 (specific capabilities)**:
 - Read parent feature description
-- Check git commits for implementation status
-- Generate: 1-3 specific capability ideas with capacity 2-4 each
+- Analyze git commits for what exists
+- Generate: 1-3 capability ideas
 
-**Note:** Even if a node has capacity for 10 children, generate at most 3 per invocation. The next "update story tree" will add more if needed.
+**If Level 3+ (implementation details)**:
+- Read parent capability description
+- Check git commits for implementation status
+- Generate: 1-3 specific implementation ideas
+
+New nodes start with capacity 3. Capacity grows as children are implemented.
 
 **Story format:**
 
@@ -311,8 +290,6 @@ This limit:
 - [ ] [Specific, testable criterion]
 - [ ] [Specific, testable criterion]
 
-**Suggested capacity**: [N]
-**Rationale**: [Why this makes sense]
 **Related context**: [Git commits or patterns]
 ```
 
@@ -321,9 +298,9 @@ This limit:
 Insert generated stories into SQLite:
 
 ```sql
--- Insert story
-INSERT INTO story_nodes (id, title, description, capacity, status, created_at, updated_at)
-VALUES (:new_id, :title, :description, :capacity, 'concept', datetime('now'), datetime('now'));
+-- Insert story (capacity is NULL, uses dynamic calculation)
+INSERT INTO story_nodes (id, title, description, status, created_at, updated_at)
+VALUES (:new_id, :title, :description, 'concept', datetime('now'), datetime('now'));
 
 -- Populate closure table (critical: includes self + all ancestors)
 INSERT INTO story_paths (ancestor_id, descendant_id, depth)
@@ -341,14 +318,14 @@ INSERT OR REPLACE INTO metadata (key, value) VALUES ('lastUpdated', datetime('no
 
 Generate a comprehensive report (see "Report Format" section below).
 
-## Capacity Estimation Logic
+## Dynamic Capacity
 
-When generating stories, estimate capacity based on complexity:
+Node capacity is computed dynamically:
+```
+effective_capacity = capacity_override OR (3 + count of implemented/ready children)
+```
 
-- **Simple action** (single UI component): capacity = 2-3
-- **Feature with workflow** (multiple steps): capacity = 5-8
-- **Major feature** (end-to-end system): capacity = 8-12
-- **Cross-cutting concern** (affects multiple areas): capacity = 10-15
+This ensures the tree grows organically based on actual progress. Set `capacity` in the database to override for specific nodes.
 
 ## Implementation Detection
 
@@ -530,120 +507,12 @@ ORDER BY s.id;
 
 ## Initial Tree Setup
 
-When database doesn't exist, initialize with schema and seed root **based on the current project**:
+When database doesn't exist, follow the initialization procedure in **`lib/initialization.md`**.
 
-### Step 1: Detect Project Metadata
-
-Read project information from `package.json`:
-
-```bash
-# Extract project name and description
-python -c "
-import json
-with open('package.json', 'r') as f:
-    pkg = json.load(f)
-    print(f'NAME:{pkg.get(\"name\", \"Unknown Project\")}')
-    print(f'DESC:{pkg.get(\"description\", \"\")}')
-"
-```
-
-If `package.json` doesn't exist or lacks description, read from `CLAUDE.md`:
-
-```bash
-# Extract project description from CLAUDE.md
-grep -A 2 "^## .*Project Overview" CLAUDE.md | grep -v "^##" | grep -v "^--"
-```
-
-**Fallback defaults if no metadata found:**
-- Title: `"Software Project"`
-- Description: `"Software project story tree"`
-
-### Step 2: Initialize Database
-
-**CRITICAL:** The root node should represent **this specific project**, not a multi-app portfolio.
-
-```bash
-# Create data directory
-mkdir -p .claude/data
-
-# Initialize schema
-cat .claude/skills/story-tree/schema.sql | python -c "
-import sqlite3
-import sys
-import json
-
-# Read schema from stdin
-schema = sys.stdin.read()
-
-# Connect to database
-conn = sqlite3.connect('.claude/data/story-tree.db')
-cursor = conn.cursor()
-
-# Apply schema
-cursor.executescript(schema)
-
-# Read project metadata from package.json
-try:
-    with open('package.json', 'r') as f:
-        pkg = json.load(f)
-        project_name = pkg.get('name', 'Software Project')
-        project_desc = pkg.get('description', '')
-
-        # If no description in package.json, try to extract from CLAUDE.md
-        if not project_desc:
-            try:
-                with open('CLAUDE.md', 'r') as cf:
-                    for line in cf:
-                        if 'Project:' in line or 'project' in line.lower():
-                            project_desc = line.strip()
-                            break
-            except:
-                pass
-
-        # Final fallback
-        if not project_desc:
-            project_desc = f'{project_name} - Software project story tree'
-
-except FileNotFoundError:
-    project_name = 'Software Project'
-    project_desc = 'Software project story tree'
-
-# Insert root node (represents THIS project)
-cursor.execute('''
-    INSERT INTO story_nodes (id, title, description, capacity, status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-''', ('root', project_name, project_desc, 10, 'active'))
-
-# Root self-reference in closure table
-cursor.execute('''
-    INSERT INTO story_paths (ancestor_id, descendant_id, depth)
-    VALUES ('root', 'root', 0)
-''')
-
-# Metadata
-cursor.execute(\"INSERT INTO metadata (key, value) VALUES ('version', '2.0.0')\")
-cursor.execute(\"INSERT INTO metadata (key, value) VALUES ('lastUpdated', datetime('now'))\")
-
-conn.commit()
-conn.close()
-
-print(f'Initialized story tree for: {project_name}')
-"
-```
-
-### Why This Approach?
-
-**ANTI-PATTERN (OLD):** Creating a portfolio-level root ("SaaS Apps for lawyers") with project as child.
-- ❌ Assumes multi-app portfolio
-- ❌ Hardcodes business domain
-- ❌ Creates unnecessary nesting
-- ❌ Database lives in ONE repo but tracks MANY apps
-
-**CORRECT (NEW):** Project-specific root based on current repository.
-- ✅ Each repo's `.claude/data/story-tree.db` tracks ONLY that project
-- ✅ Root represents the actual software being built
-- ✅ Auto-detects project name from package.json
-- ✅ No hardcoded assumptions about business domain
+This includes:
+- Auto-detecting project name from `package.json` or `CLAUDE.md`
+- Creating the `.claude/data/` directory
+- Initializing schema and seeding the root node
 
 ## Quality Checks
 
@@ -660,18 +529,11 @@ Before outputting generated stories, verify:
 - **`.claude/data/story-tree.db`**: SQLite database (primary data store, project-specific)
 - **schema.sql**: Reference schema with query examples
 - **tree-view.py**: Python CLI for ASCII/markdown tree visualization
+- **lib/initialization.md**: Database initialization procedure (loaded only when needed)
 - **lib/tree-analyzer.md**: SQL-based tree analysis algorithms
 - **lib/pattern-matcher.md**: Git commit → story matching logic
 - **lib/capacity-management.md**: Handling capacity issues
+- **docs/rationale.md**: Design decisions, rationale, and version history
 - **docs/tree-structure.md**: Detailed schema documentation
 - **docs/migration-guide.md**: JSON to SQLite migration instructions
 - **docs/common-mistakes.md**: Common pitfalls and how to avoid them
-
-## Version History
-
-- v2.1.0 (2025-12-12): **Generation refinements** - (1) Max 3 concepts per node per invocation to prevent overwhelm and balance tree distribution; (2) Only expand implemented/ready/active nodes by default (excludes bugged, in-progress, concept, etc.); (3) Human override allowed for adding concepts to any non-deprecated node when explicitly requested.
-- v2.0.0 (2025-12-11): **Breaking change** - Migrated from JSON to SQLite with closure table pattern for scalability (200-500 stories). See docs/migration-guide.md for migration instructions.
-- v1.3.0 (2025-12-11): Added incremental commit analysis with checkpoint tracking
-- v1.2.0 (2025-12-11): Added auto-update on staleness (3-day threshold)
-- v1.1.0 (2025-12-11): Added autonomous mode guidance, "When NOT to Use" section
-- v1.0.0 (2025-12-11): Initial release

@@ -1,5 +1,5 @@
 -- Story Tree SQLite Schema
--- Version: 2.0.0
+-- Version: 2.4.0
 -- Uses closure table pattern for hierarchical data
 
 -- Main story nodes table
@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS story_nodes (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT NOT NULL,
-    capacity INTEGER NOT NULL DEFAULT 3,
+    capacity INTEGER,  -- Optional override; if NULL, use dynamic: 3 + implemented/ready children
     status TEXT NOT NULL DEFAULT 'concept'
         CHECK (status IN ('concept','approved','rejected','planned','queued','active','in-progress','bugged','implemented','ready','deprecated','infeasible')),
     project_path TEXT,
@@ -60,16 +60,25 @@ END;
 -- =============================================================================
 
 -- QUERY 1: Priority algorithm (find under-capacity nodes, shallower first)
--- This is the core query for identifying where to generate new stories
+-- Uses dynamic capacity: COALESCE(capacity, 3 + implemented/ready children)
+-- Excludes: concept, rejected, deprecated, infeasible, bugged
 --
 -- SELECT s.*,
 --     (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as child_count,
---     (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth
+--     (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth,
+--     COALESCE(s.capacity, 3 + (SELECT COUNT(*) FROM story_paths sp
+--          JOIN story_nodes child ON sp.descendant_id = child.id
+--          WHERE sp.ancestor_id = s.id AND sp.depth = 1
+--          AND child.status IN ('implemented', 'ready'))) as effective_capacity
 -- FROM story_nodes s
--- WHERE s.status != 'deprecated'
---   AND (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) < s.capacity
--- ORDER BY node_depth ASC,
---     (child_count * 1.0 / s.capacity) ASC;
+-- WHERE s.status NOT IN ('concept', 'rejected', 'deprecated', 'infeasible', 'bugged')
+--   AND (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) <
+--       COALESCE(s.capacity, 3 + (SELECT COUNT(*) FROM story_paths sp
+--            JOIN story_nodes child ON sp.descendant_id = child.id
+--            WHERE sp.ancestor_id = s.id AND sp.depth = 1
+--            AND child.status IN ('implemented', 'ready')))
+-- ORDER BY node_depth ASC
+-- LIMIT 1;
 
 -- QUERY 2: Get all children of a node (direct children only)
 --
@@ -102,11 +111,11 @@ END;
 -- =============================================================================
 
 -- INSERT: Add a new node to the tree
--- Step 1: Insert into story_nodes table
+-- Step 1: Insert into story_nodes table (capacity NULL = use dynamic)
 -- Step 2: Populate closure table with self-reference + all ancestor paths
 --
--- INSERT INTO story_nodes (id, title, description, capacity, status)
--- VALUES (:new_id, :title, :description, :capacity, 'concept');
+-- INSERT INTO story_nodes (id, title, description, status)
+-- VALUES (:new_id, :title, :description, 'concept');
 --
 -- INSERT INTO story_paths (ancestor_id, descendant_id, depth)
 -- SELECT ancestor_id, :new_id, depth + 1
@@ -140,16 +149,20 @@ END;
 -- FROM story_nodes s
 -- GROUP BY node_depth;
 
--- STATS: Total capacity vs actual children per level
+-- STATS: Total effective capacity vs actual children per level
+-- Uses dynamic capacity when no override is set
 --
 -- SELECT
 --     node_depth,
---     SUM(capacity) as total_capacity,
+--     SUM(effective_capacity) as total_capacity,
 --     SUM(child_count) as total_children
 -- FROM (
 --     SELECT
 --         s.id,
---         s.capacity,
+--         COALESCE(s.capacity, 3 + (SELECT COUNT(*) FROM story_paths sp
+--              JOIN story_nodes child ON sp.descendant_id = child.id
+--              WHERE sp.ancestor_id = s.id AND sp.depth = 1
+--              AND child.status IN ('implemented', 'ready'))) as effective_capacity,
 --         (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth,
 --         (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as child_count
 --     FROM story_nodes s
