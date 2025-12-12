@@ -93,11 +93,11 @@ CREATE TABLE metadata (
 ## Tree Structure Concepts
 
 ### Node Levels
-- **Level 0 (Root)**: Product vision ("SaaS Apps for Lawyers")
-- **Level 1**: App ideas ("Evidence management app")
-- **Level 2**: Major features ("Upload evidence", "Deduplicate files")
-- **Level 3**: Specific capabilities ("Drag-and-drop UI", "Hash-based dedup")
-- **Level 4+**: Implementation details (as granular as needed)
+- **Level 0 (Root)**: Project/Product ("TimeLawg", "MyApp", "ProjectName")
+- **Level 1**: Major feature areas ("Window Activity Tracking", "Screenshot Capture", "Data Export")
+- **Level 2**: Specific features ("Hash-based deduplication", "Idle detection", "JSON export")
+- **Level 3**: Implementation details ("Drag-and-drop UI", "Perceptual hashing")
+- **Level 4+**: Further granular details (as needed)
 
 ### Closure Table Concept
 
@@ -245,8 +245,8 @@ LIMIT 1;
 - `deprecated`, `rejected`, `infeasible`: Dead ends
 
 **Rules:**
-- Root under capacity? → Generate level-1 app ideas
-- Level-1 under capacity? → Generate level-2 major features
+- Root under capacity? → Generate level-1 major feature areas
+- Level-1 under capacity? → Generate level-2 specific features
 - All higher levels at capacity? → Drill to deepest under-capacity node
 
 ### Human Override for Non-Implemented Nodes
@@ -282,20 +282,20 @@ This limit:
 - Encourages deeper, more thoughtful story generation
 - Forces multiple passes to fill high-capacity nodes (intentional)
 
-**If Level 1 (app ideas)**:
-- Analyze root vision
-- Review existing sibling apps
-- Generate: 1-3 new app concepts with capacity 5-10 each
+**If Level 1 (major feature areas)**:
+- Analyze root project/product description
+- Review existing sibling feature areas
+- Generate: 1-3 new major feature areas with capacity 5-10 each
 
-**If Level 2 (major features)**:
-- Read parent app description
+**If Level 2 (specific features)**:
+- Read parent feature area description
 - Analyze git commits for what exists
-- Generate: 1-3 major feature ideas with capacity 3-8 each
+- Generate: 1-3 specific feature ideas with capacity 3-8 each
 
-**If Level 3+ (specific capabilities)**:
+**If Level 3+ (implementation details)**:
 - Read parent feature description
 - Check git commits for implementation status
-- Generate: 1-3 specific capability ideas with capacity 2-4 each
+- Generate: 1-3 implementation detail ideas with capacity 2-4 each
 
 **Note:** Even if a node has capacity for 10 children, generate at most 3 per invocation. The next "update story tree" will add more if needed.
 
