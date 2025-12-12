@@ -126,6 +126,11 @@ class Exporter:
         formatted = []
 
         for event in events:
+            # Derive state from is_idle if not present (backward compatibility)
+            state = event.get('state')
+            if not state:
+                state = 'Inactive' if event['is_idle'] else 'Active'
+
             formatted.append({
                 "timestamp": event['timestamp'],
                 "duration_seconds": event['duration_seconds'],
@@ -133,7 +138,8 @@ class Exporter:
                 "app": event['app'],
                 "title": event['title'],
                 "url": event['url'],
-                "is_idle": event['is_idle']
+                "is_idle": event['is_idle'],
+                "state": state
             })
 
         return formatted
@@ -275,11 +281,17 @@ class Exporter:
             if event['duration_seconds'] is not None:
                 duration_min = round(event['duration_seconds'] / 60, 1)
 
+            # Derive state from is_idle if not present (backward compatibility)
+            state = event.get('state')
+            if not state:
+                state = 'Active'  # Non-idle events default to Active
+
             llm_events.append({
                 "time": time_str,
                 "duration_min": duration_min,
                 "app": event['app'],
-                "title": event['title']
+                "title": event['title'],
+                "state": state
             })
 
         return json.dumps(llm_events, indent=2)

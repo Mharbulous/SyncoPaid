@@ -493,6 +493,7 @@ When `.claude/skills/story-tree/story-tree.json` doesn't exist, create initial s
 {
   "version": "1.0.0",
   "lastUpdated": "[ISO timestamp]",
+  "lastAnalyzedCommit": "[current HEAD hash]",
   "root": {
     "id": "root",
     "story": "SaaS Apps for lawyers",

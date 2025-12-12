@@ -97,6 +97,19 @@ class Database:
                 cursor.execute("ALTER TABLE events ADD COLUMN end_time TEXT")
                 logging.info("Database migration: Added end_time column to events table")
 
+            # Migration: Add state column if it doesn't exist
+            if 'state' not in columns:
+                cursor.execute("ALTER TABLE events ADD COLUMN state TEXT DEFAULT 'Active'")
+                logging.info("Database migration: Added state column to events table")
+
+                # Backfill existing data: set state based on is_idle
+                cursor.execute("""
+                    UPDATE events
+                    SET state = CASE WHEN is_idle = 1 THEN 'Inactive' ELSE 'Active' END
+                    WHERE state IS NULL
+                """)
+                logging.info("Database migration: Backfilled state column from is_idle")
+
             # Create indices for query performance
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_timestamp
@@ -141,12 +154,13 @@ class Database:
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            # Get end_time if available (may be None for older code paths)
+            # Get optional fields (may be None for older code paths)
             end_time = getattr(event, 'end_time', None)
+            state = getattr(event, 'state', 'Active')
 
             cursor.execute("""
-                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle, state)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 event.timestamp,
                 event.duration_seconds,
@@ -154,7 +168,8 @@ class Database:
                 event.app,
                 event.title,
                 event.url,
-                1 if event.is_idle else 0
+                1 if event.is_idle else 0,
+                state
             ))
 
             return cursor.lastrowid
@@ -176,11 +191,11 @@ class Database:
             cursor = conn.cursor()
 
             cursor.executemany("""
-                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle, state)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, [
                 (e.timestamp, e.duration_seconds, getattr(e, 'end_time', None),
-                 e.app, e.title, e.url, 1 if e.is_idle else 0)
+                 e.app, e.title, e.url, 1 if e.is_idle else 0, getattr(e, 'state', 'Active'))
                 for e in events
             ])
 
@@ -236,6 +251,12 @@ class Database:
             # Convert rows to dictionaries
             events = []
             for row in cursor.fetchall():
+                # Derive state from is_idle if column doesn't exist (backward compatibility)
+                if 'state' in row.keys() and row['state']:
+                    state = row['state']
+                else:
+                    state = 'Inactive' if row['is_idle'] else 'Active'
+
                 events.append({
                     'id': row['id'],
                     'timestamp': row['timestamp'],
@@ -244,7 +265,8 @@ class Database:
                     'app': row['app'],
                     'title': row['title'],
                     'url': row['url'],
-                    'is_idle': bool(row['is_idle'])
+                    'is_idle': bool(row['is_idle']),
+                    'state': state
                 })
 
             return events

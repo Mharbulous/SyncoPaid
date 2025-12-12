@@ -9,6 +9,7 @@ This module provides the TrackerLoop class which continuously monitors:
 All data is captured locally at second-level precision.
 """
 
+import re
 import time
 import logging
 from datetime import datetime, timezone
@@ -34,6 +35,52 @@ else:
 
 
 # ============================================================================
+# STATE CONSTANTS AND VALIDATION
+# ============================================================================
+
+# System states (assigned automatically based on tracking conditions)
+STATE_ACTIVE = "Active"       # Tracked activity, client matter TBD (default)
+STATE_INACTIVE = "Inactive"   # Idle detected (keyboard/mouse inactivity)
+STATE_OFF = "Off"             # TimeLawg wasn't running (gaps)
+STATE_BLOCKED = "Blocked"     # Auto-blocked content (passwords, incognito)
+STATE_PAUSED = "Paused"       # User manually paused tracking
+
+# User-assigned states (non-billable)
+STATE_PERSONAL = "Personal"   # Personal time
+STATE_ON_BREAK = "On-break"   # Break time
+
+# States that can be converted to client matters
+CONVERTIBLE_STATES = {STATE_ACTIVE, STATE_INACTIVE, STATE_OFF}
+
+# All valid system/user states
+VALID_STATES = {
+    STATE_ACTIVE, STATE_INACTIVE, STATE_OFF, STATE_BLOCKED,
+    STATE_PAUSED, STATE_PERSONAL, STATE_ON_BREAK
+}
+
+# Client matter pattern: 4 digits, dot, optional letter, 3 digits
+# Examples: 1023.L213, 1214.001
+CLIENT_MATTER_PATTERN = re.compile(r'^\d{4}\.[A-Z]?\d{3}$')
+
+
+def is_valid_state(state: str) -> bool:
+    """Check if state is valid (system state or client matter number)."""
+    if state in VALID_STATES:
+        return True
+    return bool(CLIENT_MATTER_PATTERN.match(state))
+
+
+def is_client_matter(state: str) -> bool:
+    """Check if state is a client matter number (not a system state)."""
+    return bool(CLIENT_MATTER_PATTERN.match(state))
+
+
+def can_convert_to_matter(state: str) -> bool:
+    """Check if a state can be converted to a client matter number."""
+    return state in CONVERTIBLE_STATES
+
+
+# ============================================================================
 # DATA MODELS
 # ============================================================================
 
@@ -52,7 +99,8 @@ class ActivityEvent:
         app: Application executable name
         title: Window title
         url: URL if applicable (future enhancement)
-        is_idle: Whether this was an idle period
+        is_idle: Whether this was an idle period (deprecated - use state)
+        state: Activity state or client matter number (e.g., "Active", "1023.L213")
     """
     timestamp: str  # ISO8601 format: "2025-12-09T10:30:45" (start time)
     duration_seconds: Optional[float]
@@ -61,6 +109,7 @@ class ActivityEvent:
     end_time: Optional[str] = None  # ISO8601 format (end time)
     url: Optional[str] = None
     is_idle: bool = False
+    state: str = STATE_ACTIVE  # Default to Active (client matter TBD)
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON export or database storage."""
@@ -330,7 +379,10 @@ class TrackerLoop:
         if duration < 0.5:
             return None
 
-        # Create event with start time, duration, and end time
+        # Derive state from is_idle flag
+        event_state = STATE_INACTIVE if self.current_event['is_idle'] else STATE_ACTIVE
+
+        # Create event with start time, duration, end time, and state
         event = ActivityEvent(
             timestamp=self.event_start_time.isoformat(),
             duration_seconds=round(duration, 2),
@@ -338,7 +390,8 @@ class TrackerLoop:
             title=self.current_event['title'],
             end_time=end_time.isoformat(),
             url=None,  # URL extraction is future enhancement
-            is_idle=self.current_event['is_idle']
+            is_idle=self.current_event['is_idle'],
+            state=event_state
         )
 
         self.total_events += 1

@@ -290,28 +290,29 @@
                 "story": "State data model",
                 "description": "As a lawyer, I want each time entry to have a state field so that I can categorize my time",
                 "capacity": 3,
-                "status": "concept",
+                "status": "implemented",
+                "implementedCommits": [],
                 "children": [
                   {
                     "id": "1.1.8.1.1",
                     "story": "Add state column to events table",
                     "description": "Add a 'state' column to the SQLite events table to store the billing state or client matter number",
                     "capacity": 0,
-                    "status": "concept"
+                    "status": "implemented"
                   },
                   {
                     "id": "1.1.8.1.2",
                     "story": "Client matter number validation",
                     "description": "Validate client matter numbers match pattern \\d{4}\\.[A-Z]?\\d{3} (e.g., 1023.L213, 1214.001)",
                     "capacity": 0,
-                    "status": "concept"
+                    "status": "implemented"
                   },
                   {
                     "id": "1.1.8.1.3",
                     "story": "State conversion rules",
                     "description": "Define which states can be converted to client matters (Active, Inactive, Off = yes; Personal, On-break, Blocked, Paused = generally no)",
                     "capacity": 0,
-                    "status": "concept"
+                    "status": "implemented"
                   }
                 ]
               },
