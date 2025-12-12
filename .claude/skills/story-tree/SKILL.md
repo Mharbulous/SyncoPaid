@@ -415,7 +415,7 @@ python .claude/skills/story-tree/tree-view.py --status deprecated --exclude-stat
 - Creating documentation that shows tree state
 - Debugging tree integrity issues
 
-**Status symbols (ASCII):** `.` concept, `v` approved, `x` rejected, `o` planned, `@` queued, `*` active, `~` in-progress, `!` bugged, `+` implemented, `#` ready, `-` deprecated, `0` infeasible
+**Status symbols (ASCII):** `.` concept, `v` approved, `x` rejected, `o` planned, `@` queued, `O` active, `D` in-progress, `!` bugged, `+` implemented, `#` ready, `-` deprecated, `0` infeasible
 
 **Note:** Use `--force-ascii` on Windows cmd.exe to avoid encoding issues.
 

@@ -46,8 +46,8 @@ STATUS_SYMBOLS_ASCII = {
     'rejected': 'x',     # Human reviewed and rejected
     'planned': 'o',      # Implementation plan created
     'queued': '@',       # Plan ready, all dependencies implemented
-    'active': '*',       # Currently being worked on
-    'in-progress': '~',  # Partially complete
+    'active': 'O',       # Currently being worked on (resembles ●)
+    'in-progress': 'D',  # Partially complete (resembles ◐)
     'bugged': '!',       # In need of debugging
     'implemented': '+',  # Complete/done
     'ready': '#',        # Production ready, implemented and tested

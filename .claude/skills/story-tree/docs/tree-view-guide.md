@@ -64,12 +64,18 @@ The `--show-status` flag adds status indicators to each node.
 
 | Symbol | Status | Meaning |
 |--------|--------|---------|
-| `*` | active | Root node (actively being developed) |
-| `+` | implemented | Feature is complete and in codebase |
-| `~` | in-progress | Currently working on this feature |
-| `o` | planned | Accepted for development, not started |
-| `.` | concept | Idea stage, not yet planned |
-| `x` | deprecated | No longer relevant, cancelled |
+| `.` | concept | Idea, not yet approved |
+| `v` | approved | Human reviewed and approved, not yet planned |
+| `x` | rejected | Human reviewed and rejected |
+| `o` | planned | Implementation plan created |
+| `@` | queued | Plan ready, all dependencies implemented |
+| `O` | active | Currently being worked on |
+| `D` | in-progress | Partially complete |
+| `!` | bugged | In need of debugging |
+| `+` | implemented | Complete/done |
+| `#` | ready | Production ready, implemented and tested |
+| `-` | deprecated | No longer relevant |
+| `0` | infeasible | Couldn't build it |
 
 ### Capacity Format
 
