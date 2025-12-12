@@ -399,6 +399,58 @@ class LawTimeApp:
                             self.quit_app()
                             return
 
+                        # Check for delete command
+                        if command == "delete":
+                            # Get selected items
+                            selected = tree.selection()
+
+                            if not selected:
+                                messagebox.showwarning(
+                                    "No Selection",
+                                    "Please select one or more entries to delete.",
+                                    parent=root
+                                )
+                                command_entry.delete(0, tk.END)
+                                return
+
+                            # Get event IDs from selected rows
+                            event_ids = []
+                            for item in selected:
+                                values = tree.item(item, 'values')
+                                event_id = int(values[0])  # ID is first column
+                                event_ids.append(event_id)
+
+                            # Confirm deletion
+                            count = len(event_ids)
+                            confirm = messagebox.askyesno(
+                                "Confirm Deletion",
+                                f"Delete {count} selected {'entry' if count == 1 else 'entries'}?\n\n"
+                                f"This action cannot be undone.",
+                                parent=root
+                            )
+
+                            if not confirm:
+                                command_entry.delete(0, tk.END)
+                                return
+
+                            # Delete from database
+                            deleted = self.database.delete_events_by_ids(event_ids)
+                            logging.info(f"Deleted {deleted} events via delete command")
+
+                            # Remove from Treeview
+                            for item in selected:
+                                tree.delete(item)
+
+                            # Show success message
+                            messagebox.showinfo(
+                                "Deleted",
+                                f"Successfully deleted {deleted} {'entry' if deleted == 1 else 'entries'}.",
+                                parent=root
+                            )
+
+                            command_entry.delete(0, tk.END)
+                            return
+
                         # Determine which directory to open based on command
                         if command == "screenshots":
                             # Main screenshots directory
@@ -415,9 +467,11 @@ class LawTimeApp:
                                 "Unknown Command",
                                 f"Unknown command: '{command}'\n\n"
                                 f"Available commands:\n"
+                                f"  • delete - Delete selected entries\n"
                                 f"  • screenshots - Open main screenshots folder\n"
                                 f"  • periodic - Open periodic screenshots folder\n"
-                                f"  • actions - Open action screenshots folder",
+                                f"  • actions - Open action screenshots folder\n"
+                                f"  • quit - Close application",
                                 parent=root
                             )
                             return
