@@ -13,7 +13,7 @@ The migration process:
 1. Parse the JSON file
 2. Create SQLite database with schema
 3. Insert all stories into `story_nodes` table
-4. Populate `story_tree` closure table
+4. Populate `story_paths` closure table
 5. Copy commit data to `story_commits` table
 6. Copy metadata to `metadata` table
 7. Verify migration
@@ -58,9 +58,9 @@ VALUES ('NODE_ID', 'NODE_TITLE', 'NODE_DESC', CAPACITY, 'STATUS', 'PATH', 'LAST_
 
 # For each node, populate closure table (self + all ancestors):
 sqlite3 stories.db "
-INSERT INTO story_tree (ancestor_id, descendant_id, depth)
+INSERT INTO story_paths (ancestor_id, descendant_id, depth)
 SELECT ancestor_id, 'NEW_ID', depth + 1
-FROM story_tree WHERE descendant_id = 'PARENT_ID'
+FROM story_paths WHERE descendant_id = 'PARENT_ID'
 UNION ALL SELECT 'NEW_ID', 'NEW_ID', 0;
 "
 
@@ -88,7 +88,7 @@ sqlite3 .claude/data/story-tree.db "SELECT COUNT(*) as story_count FROM story_no
 sqlite3 .claude/data/story-tree.db "
 SELECT COUNT(*) as orphaned FROM story_nodes s
 WHERE NOT EXISTS (
-    SELECT 1 FROM story_tree st
+    SELECT 1 FROM story_paths st
     WHERE st.descendant_id = s.id AND st.ancestor_id = s.id AND st.depth = 0
 );
 "
@@ -103,8 +103,8 @@ echo "JSON nodes: $JSON_COUNT, DB nodes: $DB_COUNT"
 # Verify tree structure
 sqlite3 .claude/data/story-tree.db "
 SELECT s.id, s.title,
-    (SELECT MIN(depth) FROM story_tree WHERE descendant_id = s.id) as depth,
-    (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) as children
+    (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as depth,
+    (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as children
 FROM story_nodes s
 ORDER BY s.id
 LIMIT 10;
@@ -161,14 +161,14 @@ def migrate_node(node, parent_id=None):
     if parent_id:
         # Copy all ancestor relationships from parent, incrementing depth
         db.execute("""
-            INSERT INTO story_tree (ancestor_id, descendant_id, depth)
+            INSERT INTO story_paths (ancestor_id, descendant_id, depth)
             SELECT ancestor_id, ?, depth + 1
-            FROM story_tree WHERE descendant_id = ?
+            FROM story_paths WHERE descendant_id = ?
         """, (node['id'], parent_id))
 
     # Add self-reference
     db.execute("""
-        INSERT INTO story_tree (ancestor_id, descendant_id, depth)
+        INSERT INTO story_paths (ancestor_id, descendant_id, depth)
         VALUES (?, ?, 0)
     """, (node['id'], node['id']))
 
@@ -202,7 +202,7 @@ For a simple tree: `root → 1.1 → 1.1.1`
 **Step 1: Insert root**
 ```sql
 INSERT INTO story_nodes (id, ...) VALUES ('root', ...);
-INSERT INTO story_tree VALUES ('root', 'root', 0);
+INSERT INTO story_paths VALUES ('root', 'root', 0);
 ```
 
 Closure table:
@@ -215,12 +215,12 @@ Closure table:
 INSERT INTO story_nodes (id, ...) VALUES ('1.1', ...);
 
 -- Copy ancestors from parent, increment depth
-INSERT INTO story_tree (ancestor_id, descendant_id, depth)
+INSERT INTO story_paths (ancestor_id, descendant_id, depth)
 SELECT ancestor_id, '1.1', depth + 1
-FROM story_tree WHERE descendant_id = 'root';
+FROM story_paths WHERE descendant_id = 'root';
 
 -- Add self-reference
-INSERT INTO story_tree VALUES ('1.1', '1.1', 0);
+INSERT INTO story_paths VALUES ('1.1', '1.1', 0);
 ```
 
 Closure table:
@@ -235,12 +235,12 @@ Closure table:
 INSERT INTO story_nodes (id, ...) VALUES ('1.1.1', ...);
 
 -- Copy ancestors from parent, increment depth
-INSERT INTO story_tree (ancestor_id, descendant_id, depth)
+INSERT INTO story_paths (ancestor_id, descendant_id, depth)
 SELECT ancestor_id, '1.1.1', depth + 1
-FROM story_tree WHERE descendant_id = '1.1';
+FROM story_paths WHERE descendant_id = '1.1';
 
 -- Add self-reference
-INSERT INTO story_tree VALUES ('1.1.1', '1.1.1', 0);
+INSERT INTO story_paths VALUES ('1.1.1', '1.1.1', 0);
 ```
 
 Final closure table:
@@ -277,13 +277,13 @@ Error: UNIQUE constraint failed: stories.id
 
 ```sql
 SELECT id FROM story_nodes WHERE id NOT IN (
-    SELECT descendant_id FROM story_tree WHERE depth = 0
+    SELECT descendant_id FROM story_paths WHERE depth = 0
 );
 ```
 
 **Solution:** Re-run migration or manually add:
 ```sql
-INSERT INTO story_tree VALUES ('missing_id', 'missing_id', 0);
+INSERT INTO story_paths VALUES ('missing_id', 'missing_id', 0);
 ```
 
 ### Problem: Broken Ancestor Chain
@@ -292,7 +292,7 @@ INSERT INTO story_tree VALUES ('missing_id', 'missing_id', 0);
 -- Find nodes with incomplete ancestor chains
 SELECT s.id FROM story_nodes s
 WHERE NOT EXISTS (
-    SELECT 1 FROM story_tree st
+    SELECT 1 FROM story_paths st
     WHERE st.descendant_id = s.id AND st.ancestor_id = 'root'
 ) AND s.id != 'root';
 ```
