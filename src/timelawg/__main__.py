@@ -358,7 +358,7 @@ class LawTimeApp:
 
                 # Treeview for events with start time, duration, end time columns
                 columns = ('id', 'start', 'duration', 'end', 'app', 'title')
-                tree = ttk.Treeview(root, columns=columns, show='headings')
+                tree = ttk.Treeview(root, columns=columns, show='headings', selectmode='extended')
                 tree.heading('id', text='ID')
                 tree.heading('start', text='Start')
                 tree.heading('duration', text='Duration')
