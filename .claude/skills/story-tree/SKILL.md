@@ -47,7 +47,7 @@ CREATE TABLE story_nodes (
 );
 
 -- Closure table: ancestor-descendant relationships at all depths
-CREATE TABLE story_tree (
+CREATE TABLE story_paths (
     ancestor_id TEXT NOT NULL REFERENCES story_nodes(id),
     descendant_id TEXT NOT NULL REFERENCES story_nodes(id),
     depth INTEGER NOT NULL,
@@ -89,12 +89,12 @@ CREATE TABLE metadata (
 
 ### Closure Table Concept
 
-The `story_tree` table stores ALL ancestor-descendant pairs, not just parent-child:
+The `story_paths` table stores ALL ancestor-descendant pairs, not just parent-child:
 
 ```
 For tree: root → 1.1 → 1.1.1
 
-story_tree contains:
+story_paths contains:
 | ancestor_id | descendant_id | depth |
 |-------------|---------------|-------|
 | root        | root          | 0     |  -- self
@@ -190,8 +190,8 @@ Use SQL to calculate metrics efficiently:
 -- Get all stories with their depth and child count
 SELECT
     s.*,
-    (SELECT MIN(depth) FROM story_tree WHERE descendant_id = s.id) as node_depth,
-    (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) as child_count
+    (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth,
+    (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as child_count
 FROM story_nodes s;
 ```
 
@@ -201,11 +201,11 @@ FROM story_nodes s;
 
 ```sql
 SELECT s.*,
-    (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) as child_count,
-    (SELECT MIN(depth) FROM story_tree WHERE descendant_id = s.id) as node_depth
+    (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as child_count,
+    (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth
 FROM story_nodes s
 WHERE s.status != 'deprecated'
-  AND (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) < s.capacity
+  AND (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) < s.capacity
 ORDER BY node_depth ASC,
     (child_count * 1.0 / s.capacity) ASC
 LIMIT 1;
@@ -263,9 +263,9 @@ INSERT INTO story_nodes (id, title, description, capacity, status, created_at, u
 VALUES (:new_id, :title, :description, :capacity, 'concept', datetime('now'), datetime('now'));
 
 -- Populate closure table (critical: includes self + all ancestors)
-INSERT INTO story_tree (ancestor_id, descendant_id, depth)
+INSERT INTO story_paths (ancestor_id, descendant_id, depth)
 SELECT ancestor_id, :new_id, depth + 1
-FROM story_tree WHERE descendant_id = :parent_id
+FROM story_paths WHERE descendant_id = :parent_id
 UNION ALL SELECT :new_id, :new_id, 0;
 ```
 
@@ -376,7 +376,7 @@ import sys, json
 # Export to markdown
 sqlite3 .claude/data/story-tree.db -markdown "
 SELECT s.id, s.title, s.status,
-    (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) as children,
+    (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as children,
     s.capacity
 FROM story_nodes s
 ORDER BY s.id;
@@ -404,7 +404,7 @@ VALUES (
 );
 
 -- Root self-reference in closure table
-INSERT INTO story_tree (ancestor_id, descendant_id, depth)
+INSERT INTO story_paths (ancestor_id, descendant_id, depth)
 VALUES ('root', 'root', 0);
 
 -- Metadata
@@ -424,9 +424,9 @@ VALUES (
     datetime('now')
 );
 
-INSERT INTO story_tree (ancestor_id, descendant_id, depth)
+INSERT INTO story_paths (ancestor_id, descendant_id, depth)
 SELECT ancestor_id, '1.1', depth + 1
-FROM story_tree WHERE descendant_id = 'root'
+FROM story_paths WHERE descendant_id = 'root'
 UNION ALL SELECT '1.1', '1.1', 0;
 ```
 

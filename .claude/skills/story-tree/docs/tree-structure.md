@@ -89,12 +89,12 @@ CREATE TABLE story_nodes (
 - **Level 2+**: Parent ID + `.` + sequence number
 - **Examples**: `"1.1"`, `"1.3.2"`, `"1.3.2.1"`
 
-### Table 2: `story_tree`
+### Table 2: `story_paths`
 
 Closure table storing ALL ancestor-descendant relationships.
 
 ```sql
-CREATE TABLE story_tree (
+CREATE TABLE story_paths (
     ancestor_id TEXT NOT NULL REFERENCES story_nodes(id) ON DELETE CASCADE,
     descendant_id TEXT NOT NULL REFERENCES story_nodes(id) ON DELETE CASCADE,
     depth INTEGER NOT NULL,
@@ -170,16 +170,16 @@ CREATE TABLE metadata (
 ## Indexes
 
 ```sql
-CREATE INDEX idx_tree_descendant ON story_tree(descendant_id);
-CREATE INDEX idx_tree_depth ON story_tree(depth);
+CREATE INDEX idx_paths_descendant ON story_paths(descendant_id);
+CREATE INDEX idx_paths_depth ON story_paths(depth);
 CREATE INDEX idx_story_nodes_status ON story_nodes(status);
 CREATE INDEX idx_commits_hash ON story_commits(commit_hash);
 ```
 
 **Index purposes:**
-- `idx_tree_descendant`: Fast ancestor lookups
-- `idx_tree_depth`: Fast direct children queries (depth=1)
-- `idx_stories_status`: Fast status filtering
+- `idx_paths_descendant`: Fast ancestor lookups
+- `idx_paths_depth`: Fast direct children queries (depth=1)
+- `idx_story_nodes_status`: Fast status filtering
 - `idx_commits_hash`: Fast commit lookups
 
 ## Common Operations
@@ -192,9 +192,9 @@ INSERT INTO story_nodes (id, title, description, capacity, status, created_at, u
 VALUES (:new_id, :title, :description, :capacity, 'concept', datetime('now'), datetime('now'));
 
 -- Step 2: Populate closure table
-INSERT INTO story_tree (ancestor_id, descendant_id, depth)
+INSERT INTO story_paths (ancestor_id, descendant_id, depth)
 SELECT ancestor_id, :new_id, depth + 1
-FROM story_tree WHERE descendant_id = :parent_id
+FROM story_paths WHERE descendant_id = :parent_id
 UNION ALL SELECT :new_id, :new_id, 0;
 ```
 
@@ -202,7 +202,7 @@ UNION ALL SELECT :new_id, :new_id, 0;
 
 ```sql
 SELECT s.* FROM story_nodes s
-JOIN story_tree st ON s.id = st.descendant_id
+JOIN story_paths st ON s.id = st.descendant_id
 WHERE st.ancestor_id = :parent_id AND st.depth = 1
 ORDER BY s.id;
 ```
@@ -211,7 +211,7 @@ ORDER BY s.id;
 
 ```sql
 SELECT s.*, st.depth as relative_depth FROM story_nodes s
-JOIN story_tree st ON s.id = st.descendant_id
+JOIN story_paths st ON s.id = st.descendant_id
 WHERE st.ancestor_id = :root_id
 ORDER BY st.depth, s.id;
 ```
@@ -220,7 +220,7 @@ ORDER BY st.depth, s.id;
 
 ```sql
 SELECT s.*, st.depth as distance FROM story_nodes s
-JOIN story_tree st ON s.id = st.ancestor_id
+JOIN story_paths st ON s.id = st.ancestor_id
 WHERE st.descendant_id = :node_id
 ORDER BY st.depth DESC;
 ```
@@ -229,16 +229,16 @@ ORDER BY st.depth DESC;
 
 ```sql
 SELECT MIN(depth) as node_depth
-FROM story_tree
+FROM story_paths
 WHERE descendant_id = :node_id;
 ```
 
 ### Delete Node and Descendants
 
 ```sql
--- CASCADE handles story_tree cleanup automatically
+-- CASCADE handles story_paths cleanup automatically
 DELETE FROM story_nodes WHERE id IN (
-    SELECT descendant_id FROM story_tree WHERE ancestor_id = :node_id
+    SELECT descendant_id FROM story_paths WHERE ancestor_id = :node_id
 );
 ```
 
@@ -258,7 +258,7 @@ WHERE id = :node_id;
 -- Check for orphaned nodes (no self-reference)
 SELECT s.id, s.title FROM story_nodes s
 WHERE NOT EXISTS (
-    SELECT 1 FROM story_tree st
+    SELECT 1 FROM story_paths st
     WHERE st.ancestor_id = s.id AND st.descendant_id = s.id AND st.depth = 0
 );
 
@@ -295,9 +295,9 @@ HAVING commits > 3;
 
 -- Over-capacity nodes
 SELECT s.id, s.title, s.capacity,
-    (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) as children
+    (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as children
 FROM story_nodes s
-WHERE (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) > s.capacity;
+WHERE (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) > s.capacity;
 ```
 
 ## Best Practices
@@ -356,7 +356,7 @@ If you have an existing `story-tree.json` file in the skill folder, see `docs/mi
         │           │           │
         ▼           ▼           ▼
 ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
-│ story_tree    │ │ story_commits │ │ metadata      │
+│ story_paths    │ │ story_commits │ │ metadata      │
 ├───────────────┤ ├───────────────┤ ├───────────────┤
 │ FK ancestor_id│ │ FK story_id   │ │ PK key TEXT   │
 │ FK descendant │ │ PK commit_hash│ │    value TEXT │
