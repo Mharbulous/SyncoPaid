@@ -125,12 +125,12 @@ For a tree: `root → 1.1 → 1.1.1`
 
 **Key insight:** Every node has a self-reference (depth=0).
 
-### Table 3: `story_commits`
+### Table 3: `story_node_commits`
 
-Links git commits to stories for implementation tracking.
+Links git commits to story nodes for implementation tracking.
 
 ```sql
-CREATE TABLE story_commits (
+CREATE TABLE story_node_commits (
     story_id TEXT NOT NULL REFERENCES story_nodes(id) ON DELETE CASCADE,
     commit_hash TEXT NOT NULL,
     commit_date TEXT,
@@ -173,14 +173,14 @@ CREATE TABLE metadata (
 CREATE INDEX idx_paths_descendant ON story_paths(descendant_id);
 CREATE INDEX idx_paths_depth ON story_paths(depth);
 CREATE INDEX idx_nodes_status ON story_nodes(status);
-CREATE INDEX idx_commits_hash ON story_commits(commit_hash);
+CREATE INDEX idx_node_commits_hash ON story_node_commits(commit_hash);
 ```
 
 **Index purposes:**
 - `idx_paths_descendant`: Fast ancestor lookups
 - `idx_paths_depth`: Fast direct children queries (depth=1)
 - `idx_nodes_status`: Fast status filtering
-- `idx_commits_hash`: Fast commit lookups
+- `idx_node_commits_hash`: Fast commit lookups
 
 ## Common Operations
 
@@ -283,12 +283,12 @@ END as root_check;
 -- Implemented stories without commits
 SELECT id, title FROM story_nodes
 WHERE status = 'implemented'
-  AND NOT EXISTS (SELECT 1 FROM story_commits WHERE story_id = id);
+  AND NOT EXISTS (SELECT 1 FROM story_node_commits WHERE story_id = id);
 
 -- In-progress stories with many commits (might be implemented)
 SELECT s.id, s.title, COUNT(sc.commit_hash) as commits
 FROM story_nodes s
-JOIN story_commits sc ON s.id = sc.story_id
+JOIN story_node_commits sc ON s.id = sc.story_id
 WHERE s.status = 'in-progress'
 GROUP BY s.id
 HAVING commits > 3;
@@ -355,14 +355,14 @@ If you have an existing `story-tree.json` file in the skill folder, see `docs/mi
         ┌───────────┼───────────┐
         │           │           │
         ▼           ▼           ▼
-┌───────────────┐ ┌───────────────┐ ┌───────────────┐
-│ story_paths    │ │ story_commits │ │ metadata      │
-├───────────────┤ ├───────────────┤ ├───────────────┤
-│ FK ancestor_id│ │ FK story_id   │ │ PK key TEXT   │
-│ FK descendant │ │ PK commit_hash│ │    value TEXT │
-│    depth INT  │ │    commit_date│ └───────────────┘
-│ PK(anc,desc)  │ │    message    │
-└───────────────┘ └───────────────┘
+┌───────────────┐ ┌──────────────────┐ ┌───────────────┐
+│ story_paths    │ │story_node_commits│ │ metadata      │
+├───────────────┤ ├──────────────────┤ ├───────────────┤
+│ FK ancestor_id│ │ FK story_id      │ │ PK key TEXT   │
+│ FK descendant │ │ PK commit_hash   │ │    value TEXT │
+│    depth INT  │ │    commit_date   │ └───────────────┘
+│ PK(anc,desc)  │ │    message       │
+└───────────────┘ └──────────────────┘
 ```
 
 ## Version History
