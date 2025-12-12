@@ -92,25 +92,9 @@ CREATE TABLE metadata (
 - **Level 2**: Specific capabilities ("Drag-and-drop UI", "Hash-based dedup")
 - **Level 3+**: Implementation details (as granular as needed)
 
-### Closure Table Concept
+### Closure Table
 
-The `story_paths` table stores ALL ancestor-descendant pairs, not just parent-child:
-
-```
-For tree: root → 1.1 → 1.1.1
-
-story_paths contains:
-| ancestor_id | descendant_id | depth |
-|-------------|---------------|-------|
-| root        | root          | 0     |  -- self
-| root        | 1.1           | 1     |  -- root's child
-| root        | 1.1.1         | 2     |  -- root's grandchild
-| 1.1         | 1.1           | 0     |  -- self
-| 1.1         | 1.1.1         | 1     |  -- 1.1's child
-| 1.1.1       | 1.1.1         | 0     |  -- self
-```
-
-This enables efficient subtree queries without recursion.
+The `story_paths` table uses a closure table pattern for efficient hierarchical queries. See **`docs/closure-table-explained.md`** for details.
 
 ## When NOT to Use
 
@@ -405,105 +389,9 @@ The skill responds to these natural language commands:
 - **"Show recent commits"**: Display git analysis without updating tree
 - **"Rebuild story tree index"**: Force full 30-day rescan
 
-## Tree Visualization Script
+## Tree Visualization
 
-For any tree visualization needs, use the `tree-view.py` script rather than constructing ASCII trees manually.
-
-### CRITICAL: Presenting Tree Diagrams to Users
-
-**Problem:** Claude Code truncates bash command output (e.g., showing `... +42 lines`). When you run `tree-view.py`, the user often cannot see the actual tree diagram.
-
-**Solution:** When the user asks to "show the story tree" or "show a diagram", you MUST:
-
-1. **Capture output to a file**, then read and present it:
-   ```bash
-   # Save output to temp file
-   python .claude/skills/story-tree/tree-view.py --show-capacity --force-ascii > /tmp/story-tree-output.txt
-   ```
-
-2. **Read the file using the Read tool** (not cat/bash)
-
-3. **Present the tree in your response text** as a properly formatted code block:
-   ```
-   Here's your current story tree:
-
-   \`\`\`
-   ListBot [8/10] O
-   +-- (1) File Upload & Deduplication [8/8] +
-   |   +-- (1.1) Hash-Based File Deduplication [0/4] +
-   |   +-- (1.2) Drag-and-Drop Upload Interface [0/3] +
-   ...
-   \`\`\`
-   ```
-
-4. **Add a legend and insights** after the tree:
-   - Explain the status symbols (`.` = concept, `+` = implemented, etc.)
-   - Highlight notable patterns (under-capacity nodes, next priorities)
-   - Summarize key metrics (total stories, completion percentage)
-
-**DO NOT:**
-- ❌ Show raw bash output and expect the user to see it (it gets truncated)
-- ❌ Use `cat` or `echo` to display the tree (same truncation issue)
-- ❌ Skip the visualization when output is too long
-
-**Example workflow for "show story tree":**
-```bash
-# Step 1: Generate tree to temp file
-python .claude/skills/story-tree/tree-view.py --show-capacity --force-ascii > /tmp/tree.txt 2>&1
-```
-Then use Read tool to read `/tmp/tree.txt`, and present the contents in your response.
-
-### Basic Usage
-
-```bash
-# Full tree with capacity and status indicators
-python .claude/skills/story-tree/tree-view.py --show-capacity --show-status --force-ascii
-
-# Subtree from a specific node with depth limit
-python .claude/skills/story-tree/tree-view.py --root 1.1 --depth 2
-
-# Filter by status (e.g., only implemented stories)
-python .claude/skills/story-tree/tree-view.py --status implemented --compact
-
-# Markdown format for documentation
-python .claude/skills/story-tree/tree-view.py --format markdown --show-capacity
-
-# Exclude deprecated stories
-python .claude/skills/story-tree/tree-view.py --status deprecated --exclude-status
-```
-
-**When to use:**
-- Generating report tree visualization (Step 7)
-- Answering user questions about tree structure
-- Creating documentation that shows tree state
-- Debugging tree integrity issues
-
-**Status symbols (ASCII):**
-- concept=. approved=v rejected=x planned=o queued=@ active=O
-- in-progress=D bugged=! implemented=+ ready=# deprecated=- infeasible=0
-
-**Note:** Use `--force-ascii` on Windows cmd.exe to avoid encoding issues.
-
-### Export Commands
-
-For human inspection and backup:
-
-```bash
-# Export to JSON (reconstructs nested structure from SQL)
-sqlite3 .claude/data/story-tree.db "SELECT * FROM story_nodes;" | python -c "
-import sys, json
-# Reconstruct nested JSON from flat SQL output
-..."
-
-# Export to markdown
-sqlite3 .claude/data/story-tree.db -markdown "
-SELECT s.id, s.title, s.status,
-    (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as children,
-    s.capacity
-FROM story_nodes s
-ORDER BY s.id;
-"
-```
+For tree visualization, use `tree-view.py`. See **`lib/tree-visualization.md`** for usage details and critical presentation guidelines.
 
 ## Initial Tree Setup
 
@@ -530,10 +418,12 @@ Before outputting generated stories, verify:
 - **schema.sql**: Reference schema with query examples
 - **tree-view.py**: Python CLI for ASCII/markdown tree visualization
 - **lib/initialization.md**: Database initialization procedure (loaded only when needed)
+- **lib/tree-visualization.md**: Tree display instructions and presentation guidelines
 - **lib/tree-analyzer.md**: SQL-based tree analysis algorithms
 - **lib/pattern-matcher.md**: Git commit → story matching logic
 - **lib/capacity-management.md**: Handling capacity issues
 - **docs/rationale.md**: Design decisions, rationale, and version history
+- **docs/closure-table-explained.md**: Closure table pattern explanation
 - **docs/tree-structure.md**: Detailed schema documentation
 - **docs/migration-guide.md**: JSON to SQLite migration instructions
 - **docs/common-mistakes.md**: Common pitfalls and how to avoid them
