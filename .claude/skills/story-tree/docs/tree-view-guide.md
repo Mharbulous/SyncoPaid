@@ -28,12 +28,23 @@ cd /path/to/your/project
 # View entire tree with capacity and status
 python .claude/skills/story-tree/tree-view.py --show-capacity --show-status --force-ascii
 
-# View specific subtree
-python .claude/skills/story-tree/tree-view.py --root 1.2 --show-capacity --force-ascii
+# View specific subtree (node 1 has children to display)
+python .claude/skills/story-tree/tree-view.py --root 1 --show-capacity --force-ascii
 
 # Filter by status
 python .claude/skills/story-tree/tree-view.py --status concept --show-capacity --force-ascii
 ```
+
+**Example output for subtree command:**
+```
+Core activity tracking [4/5]
++-- Poll active window at configurable interval [0/0]
++-- Detect idle time from keyboard/mouse inactivity [0/0]
++-- Track start time, duration, and end time [0/0]
+\-- Focus change detection [0/0]
+```
+
+**Note:** Leaf nodes (nodes with capacity=0 and no children) will display as a single line. To see a tree structure, use `--root` with a node that has children, or omit `--root` to see the entire tree.
 
 **Windows users:** Always include `--force-ascii` to avoid Unicode encoding errors in cmd.exe.
 

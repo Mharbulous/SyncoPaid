@@ -49,7 +49,7 @@ CREATE TABLE story_nodes (
     description TEXT NOT NULL,
     capacity INTEGER NOT NULL DEFAULT 3,
     status TEXT NOT NULL DEFAULT 'concept'
-        CHECK (status IN ('concept','planned','in-progress','implemented','deprecated','active')),
+        CHECK (status IN ('concept','approved','rejected','planned','queued','active','in-progress','bugged','implemented','ready','deprecated','infeasible')),
     project_path TEXT,
     last_implemented TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -75,12 +75,18 @@ CREATE TABLE story_nodes (
 
 | Status | Description | Can Transition To |
 |--------|-------------|-------------------|
-| `concept` | Idea exists, not approved | planned, deprecated |
-| `planned` | Approved for development | in-progress, deprecated |
-| `in-progress` | Currently being implemented | implemented, deprecated |
-| `implemented` | Complete and working | deprecated |
+| `concept` | Idea, not yet approved | approved, rejected |
+| `approved` | Human reviewed and approved, not yet planned | planned, rejected |
+| `rejected` | Human reviewed and rejected | (terminal) |
+| `planned` | Implementation plan has been created | queued, deprecated |
+| `queued` | Plan ready, all dependencies implemented | active, deprecated |
+| `active` | Currently being worked on | in-progress, bugged, implemented |
+| `in-progress` | Partially complete | active, bugged, implemented |
+| `bugged` | In need of debugging | active, in-progress, infeasible |
+| `implemented` | Complete/done | ready, bugged, deprecated |
+| `ready` | Production ready, implemented and tested | deprecated |
 | `deprecated` | No longer relevant | (terminal) |
-| `active` | Root node only | (special) |
+| `infeasible` | Couldn't build it | (terminal) |
 
 #### ID Format Rules
 
@@ -267,7 +273,7 @@ SELECT id, COUNT(*) FROM story_nodes GROUP BY id HAVING COUNT(*) > 1;
 
 -- Check for invalid status values
 SELECT id, status FROM story_nodes
-WHERE status NOT IN ('concept', 'planned', 'in-progress', 'implemented', 'deprecated', 'active');
+WHERE status NOT IN ('concept', 'approved', 'rejected', 'planned', 'queued', 'active', 'in-progress', 'bugged', 'implemented', 'ready', 'deprecated', 'infeasible');
 
 -- Verify root node exists and has 'active' status
 SELECT CASE

@@ -8,9 +8,10 @@ Usage:
     python tree-view.py [OPTIONS]
 
 Examples:
-    python tree-view.py --show-capacity --show-status
-    python tree-view.py --root 1.2 --depth 2
-    python tree-view.py --status implemented --compact
+    python tree-view.py                          # Default: shows IDs and status
+    python tree-view.py --show-capacity          # Add capacity indicators
+    python tree-view.py --root 1 --depth 2       # Start from node 1, max 2 levels
+    python tree-view.py --status implemented     # Filter by status
     python tree-view.py --format markdown > tree.md
 """
 
@@ -25,30 +26,48 @@ from typing import Optional
 
 # Status indicators - Unicode and ASCII fallbacks
 STATUS_SYMBOLS_UNICODE = {
-    'active': '●',
-    'implemented': '✓',
-    'in-progress': '◐',
-    'planned': '○',
-    'concept': '·',
-    'deprecated': '✗',
+    'concept': '·',      # Idea, not yet approved
+    'approved': '✓',     # Human reviewed and approved, not yet planned
+    'rejected': '✗',     # Human reviewed and rejected
+    'planned': '○',      # Implementation plan created
+    'queued': '◎',       # Plan ready, all dependencies implemented
+    'active': '●',       # Currently being worked on
+    'in-progress': '◐',  # Partially complete
+    'bugged': '⚠',       # In need of debugging
+    'implemented': '★',  # Complete/done
+    'ready': '✔',        # Production ready, implemented and tested
+    'deprecated': '⊘',   # No longer relevant
+    'infeasible': '∅',   # Couldn't build it
 }
 
 STATUS_SYMBOLS_ASCII = {
-    'active': '*',
-    'implemented': '+',
-    'in-progress': '~',
-    'planned': 'o',
-    'concept': '.',
-    'deprecated': 'x',
+    'concept': '.',      # Idea, not yet approved
+    'approved': 'v',     # Human reviewed and approved, not yet planned
+    'rejected': 'x',     # Human reviewed and rejected
+    'planned': 'o',      # Implementation plan created
+    'queued': '@',       # Plan ready, all dependencies implemented
+    'active': 'O',       # Currently being worked on (resembles ●)
+    'in-progress': 'D',  # Partially complete (resembles ◐)
+    'bugged': '!',       # In need of debugging
+    'implemented': '+',  # Complete/done
+    'ready': '#',        # Production ready, implemented and tested
+    'deprecated': '-',   # No longer relevant
+    'infeasible': '0',   # Couldn't build it
 }
 
 ANSI_COLORS = {
-    'active': '\033[94m',       # Blue
-    'implemented': '\033[92m',  # Green
-    'in-progress': '\033[93m',  # Yellow
+    'concept': '\033[97m',      # White (dim idea)
+    'approved': '\033[96m',     # Cyan
+    'rejected': '\033[91m',     # Red
     'planned': '\033[96m',      # Cyan
-    'concept': '\033[97m',      # White
+    'queued': '\033[93m',       # Yellow
+    'active': '\033[94m',       # Blue
+    'in-progress': '\033[93m',  # Yellow
+    'bugged': '\033[91m',       # Red
+    'implemented': '\033[92m',  # Green
+    'ready': '\033[32m',        # Bright green
     'deprecated': '\033[90m',   # Gray
+    'infeasible': '\033[91m',   # Red
     'reset': '\033[0m',
 }
 
@@ -117,7 +136,8 @@ class RenderOptions:
     compact: bool = False
     verbose: bool = False
     show_capacity: bool = False
-    show_status: bool = False
+    show_status: bool = True
+    show_ids: bool = True
     use_color: bool = True
     force_ascii: bool = False
     format: str = 'ascii'
@@ -272,7 +292,10 @@ def render_node_label(node: TreeNode, options: RenderOptions) -> str:
         # Compact: just ID and title
         parts.append(f"{node.id}: {node.title}")
     else:
-        # Full: title with optional decorations
+        # Full: ID (optional), title with decorations
+        if options.show_ids and node.id != 'root':
+            parts.append(f"({node.id})")
+
         parts.append(node.title)
 
         if options.show_capacity:
@@ -414,11 +437,12 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s --show-capacity --show-status
-  %(prog)s --root 1.2 --depth 2
-  %(prog)s --status implemented --compact
-  %(prog)s --format markdown > tree.md
-  %(prog)s --status deprecated --exclude-status
+  %(prog)s                              # Default: shows IDs and status symbols
+  %(prog)s --show-capacity              # Add capacity indicators [n/m]
+  %(prog)s --root 1 --depth 2           # Start from node 1, max 2 levels deep
+  %(prog)s --status implemented         # Filter to show only implemented nodes
+  %(prog)s --format markdown > tree.md  # Export as markdown
+  %(prog)s --hide-ids --hide-status     # Minimal output (title only)
         """
     )
 
@@ -460,14 +484,19 @@ Examples:
         help='Show capacity as [children/capacity]'
     )
     parser.add_argument(
-        '--show-status',
+        '--hide-status',
         action='store_true',
-        help='Show status indicator symbol'
+        help='Hide status indicator symbols (shown by default)'
     )
     parser.add_argument(
         '--no-color',
         action='store_true',
         help='Disable ANSI color codes'
+    )
+    parser.add_argument(
+        '--hide-ids',
+        action='store_true',
+        help='Hide node IDs (shown by default)'
     )
     parser.add_argument(
         '--force-ascii',
@@ -547,7 +576,8 @@ def main():
         compact=args.compact,
         verbose=args.verbose,
         show_capacity=args.show_capacity,
-        show_status=args.show_status,
+        show_status=not args.hide_status,
+        show_ids=not args.hide_ids,
         use_color=not args.no_color and sys.stdout.isatty(),
         force_ascii=args.force_ascii,
         format=args.format,

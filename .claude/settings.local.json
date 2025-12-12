@@ -42,7 +42,8 @@
       "Bash(python3:*)",
       "Bash(sqlite3:*)",
       "Skill(superpowers:requesting-code-review)",
-      "Bash(git cat-file:*)"
+      "Bash(git cat-file:*)",
+      "Skill(superpowers:systematic-debugging)"
     ]
   }
 }

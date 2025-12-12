@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS story_nodes (
     description TEXT NOT NULL,
     capacity INTEGER NOT NULL DEFAULT 3,
     status TEXT NOT NULL DEFAULT 'concept'
-        CHECK (status IN ('concept','planned','in-progress','implemented','deprecated','active')),
+        CHECK (status IN ('concept','approved','rejected','planned','queued','active','in-progress','bugged','implemented','ready','deprecated','infeasible')),
     project_path TEXT,
     last_implemented TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),

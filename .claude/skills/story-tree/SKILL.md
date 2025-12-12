@@ -45,7 +45,7 @@ CREATE TABLE story_nodes (
     description TEXT NOT NULL,
     capacity INTEGER NOT NULL DEFAULT 3,
     status TEXT NOT NULL DEFAULT 'concept'
-        CHECK (status IN ('concept','planned','in-progress','implemented','deprecated','active')),
+        CHECK (status IN ('concept','approved','rejected','planned','queued','active','in-progress','bugged','implemented','ready','deprecated','infeasible')),
     project_path TEXT,
     last_implemented TEXT,
     created_at TEXT NOT NULL,
@@ -77,12 +77,18 @@ CREATE TABLE metadata (
 ```
 
 ### Status Values
-- `concept`: Idea exists, not planned
-- `planned`: Accepted for development
-- `in-progress`: Currently being implemented
-- `implemented`: Confirmed in git commits
+- `concept`: Idea, not yet approved
+- `approved`: Human reviewed and approved, not yet planned
+- `rejected`: Human reviewed and rejected
+- `planned`: Implementation plan has been created
+- `queued`: Plan ready, all dependencies implemented
+- `active`: Currently being worked on
+- `in-progress`: Partially complete
+- `bugged`: In need of debugging
+- `implemented`: Complete/done
+- `ready`: Production ready, implemented and tested
 - `deprecated`: No longer relevant
-- `active`: Special status for root node only
+- `infeasible`: Couldn't build it
 
 ## Tree Structure Concepts
 
@@ -409,7 +415,7 @@ python .claude/skills/story-tree/tree-view.py --status deprecated --exclude-stat
 - Creating documentation that shows tree state
 - Debugging tree integrity issues
 
-**Status symbols:** `+` implemented, `~` in-progress, `o` planned, `.` concept, `*` active
+**Status symbols (ASCII):** `.` concept, `v` approved, `x` rejected, `o` planned, `@` queued, `*` active, `~` in-progress, `!` bugged, `+` implemented, `#` ready, `-` deprecated, `0` infeasible
 
 **Note:** Use `--force-ascii` on Windows cmd.exe to avoid encoding issues.
 
