@@ -288,10 +288,36 @@ class Database:
             
             cursor.execute(query, params)
             deleted_count = cursor.rowcount
-            
+
             logging.warning(f"Deleted {deleted_count} events from database")
             return deleted_count
-    
+
+    def delete_events_by_ids(self, event_ids: List[int]) -> int:
+        """
+        Delete specific events by their IDs.
+
+        Args:
+            event_ids: List of event IDs to delete
+
+        Returns:
+            Number of events deleted
+        """
+        if not event_ids:
+            return 0
+
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Use parameterized query with placeholders
+            placeholders = ','.join('?' * len(event_ids))
+            query = f"DELETE FROM events WHERE id IN ({placeholders})"
+
+            cursor.execute(query, event_ids)
+            deleted_count = cursor.rowcount
+
+            logging.warning(f"Deleted {deleted_count} events by ID from database")
+            return deleted_count
+
     def get_statistics(self) -> Dict:
         """
         Get database statistics.
