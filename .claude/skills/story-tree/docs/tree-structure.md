@@ -1,506 +1,371 @@
 # Story Tree Structure Documentation
 
-This document provides comprehensive documentation of the story tree JSON schema, field definitions, validation rules, and best practices.
+This document provides comprehensive documentation of the story tree SQLite schema, table definitions, field constraints, and best practices.
 
-## Schema Overview
+## Database Overview
 
-The story tree is stored as a JSON file with a versioned schema:
+The story tree uses SQLite with a **closure table pattern** for efficient hierarchical data storage and queries.
 
-```json
-{
-  "version": "1.0.0",
-  "lastUpdated": "2025-12-11T00:00:00Z",
-  "lastAnalyzedCommit": "29595a2",
-  "root": { /* Node object */ }
-}
+**Database location:** `.claude/data/story-tree.db`
+
+**Why this location:** The skill definition files (in `.claude/skills/story-tree/`) are meant to be copied between projects. The database contains project-specific data and lives separately in `.claude/data/` so it's never accidentally copied or overwritten.
+
+**Schema file:** `.claude/skills/story-tree/schema.sql`
+
+## Why Closure Table Pattern?
+
+The closure table pattern stores ALL ancestor-descendant relationships, not just parent-child:
+
+**Advantages:**
+- Get entire subtree in single query (no recursion)
+- Get all ancestors in single query
+- O(1) depth calculation
+- Efficient for read-heavy workloads
+
+**Trade-offs:**
+- More storage (O(n*depth) rows in closure table)
+- Insert requires populating closure relationships
+- Delete cascades through closure table
+
+**Comparison with alternatives:**
+
+| Pattern | Read Performance | Write Performance | Query Complexity |
+|---------|-----------------|-------------------|------------------|
+| Closure Table | Excellent | Good | Simple |
+| Adjacency List | Poor (recursive) | Excellent | Complex (CTEs) |
+| Nested Sets | Excellent | Poor | Moderate |
+| Materialized Path | Good | Good | Moderate |
+
+## Table Definitions
+
+### Table 1: `stories`
+
+Main table storing all story data.
+
+```sql
+CREATE TABLE stories (
+    id TEXT PRIMARY KEY,
+    story TEXT NOT NULL,
+    description TEXT NOT NULL,
+    capacity INTEGER NOT NULL DEFAULT 3,
+    status TEXT NOT NULL DEFAULT 'concept'
+        CHECK (status IN ('concept','planned','in-progress','implemented','deprecated','active')),
+    project_path TEXT,
+    last_implemented TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 ```
 
-## Top-Level Fields
+#### Field Definitions
 
-### `version` (string, required)
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | TEXT | Yes | Unique hierarchical identifier (e.g., "root", "1.1", "1.3.2") |
+| `story` | TEXT | Yes | Short title (3-100 chars recommended) |
+| `description` | TEXT | Yes | Full user story in "As a... I want... So that..." format |
+| `capacity` | INTEGER | Yes | Target number of child nodes (0-20 recommended) |
+| `status` | TEXT | Yes | Current implementation status |
+| `project_path` | TEXT | No | Relative path for multi-project support |
+| `last_implemented` | TEXT | No | ISO 8601 timestamp of last implementation |
+| `created_at` | TEXT | Yes | ISO 8601 creation timestamp |
+| `updated_at` | TEXT | Yes | ISO 8601 last update timestamp |
 
-Semantic version number of the schema format.
+#### Status Values
 
-- **Format**: `MAJOR.MINOR.PATCH`
-- **Current version**: `1.0.0`
-- **Usage**: Allows backward compatibility checks and schema migrations
+| Status | Description | Can Transition To |
+|--------|-------------|-------------------|
+| `concept` | Idea exists, not approved | planned, deprecated |
+| `planned` | Approved for development | in-progress, deprecated |
+| `in-progress` | Currently being implemented | implemented, deprecated |
+| `implemented` | Complete and working | deprecated |
+| `deprecated` | No longer relevant | (terminal) |
+| `active` | Root node only | (special) |
 
-### `lastUpdated` (string, required)
+#### ID Format Rules
 
-ISO 8601 timestamp of when the tree was last modified.
+- **Root**: `"root"` (exactly)
+- **Level 1**: `"1.1"`, `"1.2"`, etc.
+- **Level 2+**: Parent ID + `.` + sequence number
+- **Examples**: `"1.1"`, `"1.3.2"`, `"1.3.2.1"`
 
-- **Format**: `YYYY-MM-DDTHH:mm:ssZ`
-- **Example**: `"2025-12-11T14:32:00Z"`
-- **Usage**: Track tree changes over time, detect stale data
+### Table 2: `story_tree`
 
-### `lastAnalyzedCommit` (string, optional)
+Closure table storing ALL ancestor-descendant relationships.
 
-Short git commit hash of the last commit that was analyzed for story matching.
-
-- **Format**: Short commit hash (7+ characters)
-- **Example**: `"29595a2"`
-- **Usage**: Enables incremental commit analysis - only commits after this hash are analyzed on subsequent runs
-- **When missing**: Falls back to full 30-day scan
-- **Reset by**: "Rebuild story tree index" command, or when commit no longer exists (e.g., after rebase)
-
-### `root` (object, required)
-
-The root node of the story tree. See "Node Object Schema" below.
-
-## Node Object Schema
-
-Every node in the tree (including root) has the following structure:
-
-```typescript
-interface Node {
-  id: string;                    // Required
-  story: string;                 // Required
-  description: string;           // Required
-  capacity: number;              // Required
-  status: Status;                // Required
-  projectPath?: string;          // Optional
-  implementedCommits?: string[]; // Optional
-  lastImplemented?: string;      // Optional
-  children: Node[];              // Required (can be empty array)
-}
-
-type Status =
-  | "concept"
-  | "planned"
-  | "in-progress"
-  | "implemented"
-  | "deprecated"
-  | "active"; // Only for root node
+```sql
+CREATE TABLE story_tree (
+    ancestor_id TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+    descendant_id TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+    depth INTEGER NOT NULL,
+    PRIMARY KEY (ancestor_id, descendant_id)
+);
 ```
 
-### Field Definitions
+#### Field Definitions
 
-#### `id` (string, required)
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `ancestor_id` | TEXT | Yes | ID of ancestor node |
+| `descendant_id` | TEXT | Yes | ID of descendant node |
+| `depth` | INTEGER | Yes | Distance between ancestor and descendant (0 = self) |
 
-Unique hierarchical identifier for the node.
+#### Closure Table Example
 
-- **Format**: Dotted notation: `"1.3.2.1"`
-- **Root ID**: `"root"`
-- **Rules**:
-  - Must be unique across entire tree
-  - Child IDs must start with parent ID
-  - Numeric components only (except "root")
-- **Examples**:
-  - `"root"` - The root node
-  - `"1.1"` - First child of root
-  - `"1.3.2"` - Second child of third child of first child of root
+For a tree: `root → 1.1 → 1.1.1`
 
-#### `story` (string, required)
+| ancestor_id | descendant_id | depth |
+|-------------|---------------|-------|
+| root | root | 0 |
+| root | 1.1 | 1 |
+| root | 1.1.1 | 2 |
+| 1.1 | 1.1 | 0 |
+| 1.1 | 1.1.1 | 1 |
+| 1.1.1 | 1.1.1 | 0 |
 
-Short, human-readable title of the user story.
+**Key insight:** Every node has a self-reference (depth=0).
 
-- **Length**: 3-100 characters recommended
-- **Format**: Title case, concise description
-- **Examples**:
-  - `"Upload evidence files"`
-  - `"Deduplicate identical uploads"`
-  - `"Evidence management app (ListBot)"`
-- **Best practices**:
-  - Use action verbs for features ("Upload", "Analyze", "Organize")
-  - Be specific and descriptive
-  - Avoid jargon unless domain-specific
+### Table 3: `story_commits`
 
-#### `description` (string, required)
+Links git commits to stories for implementation tracking.
 
-Full user story in standard format.
-
-- **Format**:
-  ```
-  As a [user role], I want [capability] so that [benefit]
-  ```
-- **Examples**:
-  - `"As a lawyer, I want to upload discovery documents so that I can begin processing case evidence"`
-  - `"As a paralegal, I want automatic deduplication so that I don't waste time on duplicate files"`
-- **Best practices**:
-  - Always use complete user story format
-  - Be specific about user role
-  - Focus on user benefit, not technical implementation
-  - Keep under 200 characters when possible
-
-#### `capacity` (number, required)
-
-Target number of child nodes for this story.
-
-- **Type**: Positive integer
-- **Range**: 0-20 recommended
-- **Default suggestions by level**:
-  - Root: 10
-  - Level 1 (apps): 5-10
-  - Level 2 (major features): 5-8
-  - Level 3 (capabilities): 2-5
-  - Level 4+ (details): 2-3
-- **Special case**: `0` means no children expected (leaf node)
-- **Usage**: Drives autonomous story generation to fill gaps
-
-#### `status` (enum, required)
-
-Current implementation status of the story.
-
-**Values**:
-
-- **`"concept"`**: Idea exists but not approved for development
-  - Use when: Brainstorming, considering options
-  - Next state: `planned` (after approval)
-
-- **`"planned"`**: Approved and scheduled for development
-  - Use when: Added to backlog, prioritized
-  - Next state: `in-progress` (when work starts)
-
-- **`"in-progress"`**: Currently being implemented
-  - Use when: Active development, commits detected
-  - Next state: `implemented` (when complete)
-
-- **`"implemented"`**: Completed and verified in production
-  - Use when: Feature is live and working
-  - Next state: N/A (terminal state, unless deprecated later)
-
-- **`"deprecated"`**: No longer relevant or replaced
-  - Use when: Feature removed, approach changed
-  - Next state: N/A (terminal state)
-
-- **`"active"`**: Special status for root node only
-  - Use when: Root node (product vision is always "active")
-  - Next state: N/A
-
-**Status transition diagram**:
-```
-concept → planned → in-progress → implemented
-                                      ↓
-                                 deprecated
+```sql
+CREATE TABLE story_commits (
+    story_id TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+    commit_hash TEXT NOT NULL,
+    commit_date TEXT,
+    commit_message TEXT,
+    PRIMARY KEY (story_id, commit_hash)
+);
 ```
 
-#### `projectPath` (string, optional)
+#### Field Definitions
 
-Relative path to the project directory for this story.
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `story_id` | TEXT | Yes | ID of related story |
+| `commit_hash` | TEXT | Yes | Git commit hash (short or full) |
+| `commit_date` | TEXT | No | ISO 8601 commit timestamp |
+| `commit_message` | TEXT | No | Commit subject line |
 
-- **Format**: Relative path from workspace root
-- **Examples**:
-  - `"./"` - Current project
-  - `"./Bookkeeper"` - Multi-app workspace
-  - `"./packages/auth"` - Monorepo structure
-- **Usage**: Supports multi-app or monorepo architectures
-- **Default**: Inherits from parent if not specified
+### Table 4: `metadata`
 
-#### `implementedCommits` (array of strings, optional)
+Key-value storage for tree-level metadata.
 
-Git commit hashes that implemented this story.
+```sql
+CREATE TABLE metadata (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+```
 
-- **Format**: Array of short or full commit hashes
-- **Example**: `["db1f3d91", "935bf082", "5711f94b"]`
-- **Usage**:
-  - Track implementation history
-  - Link stories to code changes
-  - Verify implementation status
-- **Auto-populated**: By pattern matcher when commits match story keywords
+#### Standard Keys
 
-#### `lastImplemented` (string, optional)
+| Key | Description | Example Value |
+|-----|-------------|---------------|
+| `version` | Schema version | `"2.0.0"` |
+| `lastUpdated` | Last tree update | `"2025-12-11T14:32:00"` |
+| `lastAnalyzedCommit` | Checkpoint for incremental analysis | `"a1b2c3d"` |
 
-ISO 8601 timestamp of most recent implementation commit.
+## Indexes
 
-- **Format**: `YYYY-MM-DDTHH:mm:ssZ`
-- **Example**: `"2025-12-10T18:45:00Z"`
-- **Usage**: Track implementation recency, prioritize updates
-- **Auto-populated**: By pattern matcher from commit dates
+```sql
+CREATE INDEX idx_tree_descendant ON story_tree(descendant_id);
+CREATE INDEX idx_tree_depth ON story_tree(depth);
+CREATE INDEX idx_stories_status ON stories(status);
+CREATE INDEX idx_commits_hash ON story_commits(commit_hash);
+```
 
-#### `children` (array, required)
+**Index purposes:**
+- `idx_tree_descendant`: Fast ancestor lookups
+- `idx_tree_depth`: Fast direct children queries (depth=1)
+- `idx_stories_status`: Fast status filtering
+- `idx_commits_hash`: Fast commit lookups
 
-Array of child Node objects.
+## Common Operations
 
-- **Type**: `Node[]`
-- **Can be empty**: `[]` for leaf nodes
-- **Rules**:
-  - Children must have IDs that extend parent ID
-  - Children inherit `projectPath` from parent if not specified
-- **Ordering**: Typically ordered by ID, but not required
+### Insert New Node
+
+```sql
+-- Step 1: Insert story
+INSERT INTO stories (id, story, description, capacity, status, created_at, updated_at)
+VALUES (:new_id, :story, :description, :capacity, 'concept', datetime('now'), datetime('now'));
+
+-- Step 2: Populate closure table
+INSERT INTO story_tree (ancestor_id, descendant_id, depth)
+SELECT ancestor_id, :new_id, depth + 1
+FROM story_tree WHERE descendant_id = :parent_id
+UNION ALL SELECT :new_id, :new_id, 0;
+```
+
+### Get Direct Children
+
+```sql
+SELECT s.* FROM stories s
+JOIN story_tree st ON s.id = st.descendant_id
+WHERE st.ancestor_id = :parent_id AND st.depth = 1
+ORDER BY s.id;
+```
+
+### Get Entire Subtree
+
+```sql
+SELECT s.*, st.depth as relative_depth FROM stories s
+JOIN story_tree st ON s.id = st.descendant_id
+WHERE st.ancestor_id = :root_id
+ORDER BY st.depth, s.id;
+```
+
+### Get All Ancestors (Path to Root)
+
+```sql
+SELECT s.*, st.depth as distance FROM stories s
+JOIN story_tree st ON s.id = st.ancestor_id
+WHERE st.descendant_id = :node_id
+ORDER BY st.depth DESC;
+```
+
+### Get Node Depth
+
+```sql
+SELECT MIN(depth) as node_depth
+FROM story_tree
+WHERE descendant_id = :node_id;
+```
+
+### Delete Node and Descendants
+
+```sql
+-- CASCADE handles story_tree cleanup automatically
+DELETE FROM stories WHERE id IN (
+    SELECT descendant_id FROM story_tree WHERE ancestor_id = :node_id
+);
+```
+
+### Update Node Status
+
+```sql
+UPDATE stories
+SET status = :new_status, updated_at = datetime('now')
+WHERE id = :node_id;
+```
 
 ## Validation Rules
 
-### Structure Validation
+### Structural Validation
 
-```javascript
-function validateNode(node, parentId = null) {
-  const errors = []
+```sql
+-- Check for orphaned nodes (no self-reference)
+SELECT s.id, s.story FROM stories s
+WHERE NOT EXISTS (
+    SELECT 1 FROM story_tree st
+    WHERE st.ancestor_id = s.id AND st.descendant_id = s.id AND st.depth = 0
+);
 
-  // Required fields
-  if (!node.id) errors.push('Missing required field: id')
-  if (!node.story) errors.push('Missing required field: story')
-  if (!node.description) errors.push('Missing required field: description')
-  if (typeof node.capacity !== 'number') errors.push('Missing or invalid field: capacity')
-  if (!node.status) errors.push('Missing required field: status')
-  if (!Array.isArray(node.children)) errors.push('Missing or invalid field: children')
+-- Check for duplicate IDs (should never happen with PRIMARY KEY)
+SELECT id, COUNT(*) FROM stories GROUP BY id HAVING COUNT(*) > 1;
 
-  // ID validation
-  if (node.id !== 'root' && parentId) {
-    if (!node.id.startsWith(parentId + '.')) {
-      errors.push(`Child ID "${node.id}" must start with parent ID "${parentId}."`)
-    }
-  }
+-- Check for invalid status values
+SELECT id, status FROM stories
+WHERE status NOT IN ('concept', 'planned', 'in-progress', 'implemented', 'deprecated', 'active');
 
-  // Capacity validation
-  if (node.capacity < 0) {
-    errors.push('Capacity must be non-negative')
-  }
-
-  // Status validation
-  const validStatuses = ['concept', 'planned', 'in-progress', 'implemented', 'deprecated', 'active']
-  if (!validStatuses.includes(node.status)) {
-    errors.push(`Invalid status: ${node.status}`)
-  }
-
-  // Root-specific validation
-  if (node.id === 'root' && node.status !== 'active') {
-    errors.push('Root node must have status "active"')
-  }
-
-  // Recursive validation
-  for (const child of node.children) {
-    errors.push(...validateNode(child, node.id))
-  }
-
-  return errors
-}
+-- Verify root node exists and has 'active' status
+SELECT CASE
+    WHEN (SELECT COUNT(*) FROM stories WHERE id = 'root' AND status = 'active') = 1
+    THEN 'OK'
+    ELSE 'MISSING ROOT'
+END as root_check;
 ```
 
 ### Semantic Validation
 
-```javascript
-function validateTreeSemantics(tree) {
-  const warnings = []
+```sql
+-- Implemented stories without commits
+SELECT id, story FROM stories
+WHERE status = 'implemented'
+  AND NOT EXISTS (SELECT 1 FROM story_commits WHERE story_id = id);
 
-  // Check for over-capacity nodes
-  const allNodes = flattenTree(tree)
-  for (const node of allNodes) {
-    if (node.children.length > node.capacity) {
-      warnings.push(`Node ${node.id} is over capacity: ${node.children.length}/${node.capacity}`)
-    }
-  }
+-- In-progress stories with many commits (might be implemented)
+SELECT s.id, s.story, COUNT(sc.commit_hash) as commits
+FROM stories s
+JOIN story_commits sc ON s.id = sc.story_id
+WHERE s.status = 'in-progress'
+GROUP BY s.id
+HAVING commits > 3;
 
-  // Check for orphaned statuses
-  for (const node of allNodes) {
-    // Implemented nodes should have commits
-    if (node.status === 'implemented' && (!node.implementedCommits || node.implementedCommits.length === 0)) {
-      warnings.push(`Node ${node.id} is marked implemented but has no commits`)
-    }
-
-    // In-progress nodes should have some commits
-    if (node.status === 'in-progress' && node.implementedCommits && node.implementedCommits.length > 3) {
-      warnings.push(`Node ${node.id} is in-progress but has many commits (${node.implementedCommits.length}) - consider marking implemented`)
-    }
-  }
-
-  // Check for duplicate IDs
-  const ids = allNodes.map(n => n.id)
-  const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index)
-  if (duplicates.length > 0) {
-    warnings.push(`Duplicate IDs found: ${duplicates.join(', ')}`)
-  }
-
-  return warnings
-}
+-- Over-capacity nodes
+SELECT s.id, s.story, s.capacity,
+    (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) as children
+FROM stories s
+WHERE (SELECT COUNT(*) FROM story_tree WHERE ancestor_id = s.id AND depth = 1) > s.capacity;
 ```
 
 ## Best Practices
 
+### Story Writing
+
+**Good format:**
+```
+story: "Bulk document categorization"
+description: "As a legal assistant, I want to categorize multiple documents at once so that I can organize case files efficiently"
+```
+
+**Poor format:**
+```
+story: "Improve UX"
+description: "Make it better"
+```
+
 ### Capacity Guidelines
 
-**Root level**:
-- Start with capacity 5-10
-- Represents major product areas or apps
-- Only increase when you've validated multiple successful products
-
-**Level 1 (Apps/Major Areas)**:
-- Capacity 5-10 for complex apps
-- Capacity 3-5 for focused apps
-- Consider user workflows - each major workflow = 1-2 capacity
-
-**Level 2 (Major Features)**:
-- Capacity 5-8 for complex features (e.g., "Upload system")
-- Capacity 3-5 for standard features (e.g., "Document search")
-- Break down by user actions or system components
-
-**Level 3+ (Specific Capabilities)**:
-- Capacity 2-4 is typical
-- Deeper levels should have smaller capacity
-- At depth 5+, consider capacity 2-3 max
-
-### Story Writing Guidelines
-
-**Good story format** ✓:
-```json
-{
-  "story": "Bulk document categorization",
-  "description": "As a legal assistant, I want to categorize multiple documents at once so that I can organize case files efficiently without clicking each document",
-  "capacity": 3
-}
-```
-
-**Poor story format** ✗:
-```json
-{
-  "story": "Improve UX",
-  "description": "Make it better",
-  "capacity": 10
-}
-```
-
-**Why good matters**:
-- Specific user role enables targeted design
-- Clear capability enables testing
-- Explicit benefit justifies priority
-- Reasonable capacity enables planning
+| Node Depth | Typical Capacity | Notes |
+|------------|-----------------|-------|
+| 0 (root) | 5-10 | Major product areas |
+| 1 (apps) | 5-10 | Major feature areas |
+| 2 (features) | 3-8 | Specific capabilities |
+| 3+ (details) | 2-4 | Implementation details |
 
 ### Status Management
 
-**Don't rush to "implemented"**:
-- Only mark implemented when feature is **complete and working**
-- If bugs remain, keep as "in-progress"
-- "Implemented" means "users can use this successfully"
+- **Don't rush to "implemented"**: Only when feature is complete and working
+- **Use "concept" liberally**: Brainstorm freely, promote when approved
+- **Mark deprecated, don't delete**: Preserves history and rationale
 
-**Use "concept" liberally**:
-- Brainstorm freely, mark as "concept"
-- Promotes to "planned" when approved
-- Safe to have many concepts (they don't clutter backlog)
+## Migration from JSON
 
-**Track deprecated stories**:
-- Don't delete deprecated nodes - mark them "deprecated"
-- Preserves history and rationale
-- Helps avoid repeating past mistakes
-
-### Tree Organization
-
-**Breadth vs. Depth**:
-- Prefer breadth at higher levels (more app ideas)
-- Prefer depth at lower levels (detailed capabilities)
-- Avoid trees that are too deep (>6 levels gets unwieldy)
-
-**Consistency**:
-- Siblings should be at similar granularity
-- If one level-2 node is "Upload", sibling shouldn't be "Add button to header" (too granular)
-- Maintain consistent abstraction levels
-
-**Leaf nodes**:
-- Set `capacity: 0` for leaf nodes (no children expected)
-- Leaf nodes should be actionable work items
-- If a leaf node gets children, increase capacity from 0
-
-## Migration and Versioning
-
-### Version 1.0.0 → 2.0.0 (Future)
-
-If breaking changes are needed, provide migration script:
-
-```javascript
-function migrateV1ToV2(v1Tree) {
-  // Example: Add new required field
-  const v2Tree = {
-    version: "2.0.0",
-    lastUpdated: new Date().toISOString(),
-    root: migrateNodeV1ToV2(v1Tree.root)
-  }
-  return v2Tree
-}
-
-function migrateNodeV1ToV2(node) {
-  return {
-    ...node,
-    // Add new V2 fields with defaults
-    priority: 'medium', // New field in V2
-    children: node.children.map(migrateNodeV1ToV2)
-  }
-}
-```
-
-## Complete Example
-
-```json
-{
-  "version": "1.0.0",
-  "lastUpdated": "2025-12-11T14:32:00Z",
-  "lastAnalyzedCommit": "db1f3d91",
-  "root": {
-    "id": "root",
-    "story": "SaaS Apps for lawyers",
-    "description": "Build specialized SaaS applications for legal professionals",
-    "capacity": 10,
-    "status": "active",
-    "children": [
-      {
-        "id": "1.1",
-        "story": "Evidence management app (ListBot)",
-        "description": "Help lawyers organize, deduplicate, and analyze case evidence",
-        "capacity": 10,
-        "status": "in-progress",
-        "projectPath": "./",
-        "children": [
-          {
-            "id": "1.1.1",
-            "story": "Upload evidence files",
-            "description": "As a lawyer, I want to upload discovery documents so that I can begin processing case evidence",
-            "capacity": 5,
-            "status": "implemented",
-            "implementedCommits": ["db1f3d91", "935bf082"],
-            "lastImplemented": "2025-12-10T18:45:00Z",
-            "children": [
-              {
-                "id": "1.1.1.1",
-                "story": "Drag-and-drop upload interface",
-                "description": "As a lawyer, I want to drag and drop files so that I can quickly add evidence",
-                "capacity": 0,
-                "status": "implemented",
-                "children": []
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "id": "1.2",
-        "story": "Time tracking app",
-        "description": "Automatic time tracking for lawyers to bill clients accurately",
-        "capacity": 5,
-        "status": "concept",
-        "children": []
-      }
-    ]
-  }
-}
-```
+If you have an existing `story-tree.json` file in the skill folder, see `docs/migration-guide.md` for migration instructions. The JSON file will be migrated to `.claude/data/story-tree.db`.
 
 ## Schema Diagram
 
 ```
-┌─────────────────────────────────────────────┐
-│ Tree Root                                   │
-├─────────────────────────────────────────────┤
-│ version: string                             │
-│ lastUpdated: ISO8601                        │
-│ root: Node                                  │
-└─────────────────┬───────────────────────────┘
-                  │
-                  ▼
-┌─────────────────────────────────────────────┐
-│ Node                                        │
-├─────────────────────────────────────────────┤
-│ id: string (required)                       │
-│ story: string (required)                    │
-│ description: string (required)              │
-│ capacity: number (required)                 │
-│ status: Status (required)                   │
-│ projectPath?: string (optional)             │
-│ implementedCommits?: string[] (optional)    │
-│ lastImplemented?: ISO8601 (optional)        │
-│ children: Node[] (required, can be [])      │
-└─────────────────┬───────────────────────────┘
-                  │
-                  │ 0..n children
-                  ▼
-         ┌────────┴────────┐
-         │   Child Nodes   │
-         │   (recursive)   │
-         └─────────────────┘
+┌─────────────────────────────────────────────────┐
+│ stories                                          │
+├─────────────────────────────────────────────────┤
+│ PK id TEXT                                       │
+│    story TEXT NOT NULL                           │
+│    description TEXT NOT NULL                     │
+│    capacity INTEGER NOT NULL                     │
+│    status TEXT NOT NULL (CHECK constraint)       │
+│    project_path TEXT                             │
+│    last_implemented TEXT                         │
+│    created_at TEXT NOT NULL                      │
+│    updated_at TEXT NOT NULL                      │
+└───────────────────┬─────────────────────────────┘
+                    │
+        ┌───────────┼───────────┐
+        │           │           │
+        ▼           ▼           ▼
+┌───────────────┐ ┌───────────────┐ ┌───────────────┐
+│ story_tree    │ │ story_commits │ │ metadata      │
+├───────────────┤ ├───────────────┤ ├───────────────┤
+│ FK ancestor_id│ │ FK story_id   │ │ PK key TEXT   │
+│ FK descendant │ │ PK commit_hash│ │    value TEXT │
+│    depth INT  │ │    commit_date│ └───────────────┘
+│ PK(anc,desc)  │ │    message    │
+└───────────────┘ └───────────────┘
 ```
+
+## Version History
+
+- v2.0.0 (2025-12-11): Complete rewrite for SQLite with closure table pattern. Replaces JSON schema documentation.
+- v1.0.0 (2025-12-11): Initial JSON schema documentation
