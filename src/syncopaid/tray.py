@@ -2,8 +2,8 @@
 System tray UI module for SyncoPaid.
 
 Provides a minimal system tray interface with:
-- Status indicator icon (green=tracking, yellow=paused)
-- Right-click menu with Start/Pause, Export, Settings, Quit
+- State-specific icons (SyncoPaid-On=tracking, SyncoPaid-Paused=paused)
+- Right-click menu with Start/Pause, View Time, Start with Windows, About
 - Notifications for key events
 """
 
@@ -151,12 +151,11 @@ def disable_startup() -> bool:
 class TrayIcon:
     """
     System tray icon manager.
-    
+
     Provides a simple interface for controlling the tracker:
-    - Green icon = tracking active
-    - Yellow icon = tracking paused
-    - Red icon = error/stopped
-    
+    - SyncoPaid-On icon = tracking active
+    - SyncoPaid-Paused icon = tracking paused
+
     Menu options:
     - Start/Pause Tracking
     - View Time...
@@ -192,12 +191,12 @@ class TrayIcon:
         if not TRAY_AVAILABLE:
             logging.error("System tray not available - pystray not installed")
     
-    def create_icon_image(self, color: str = "green") -> Optional["Image.Image"]:
+    def create_icon_image(self, is_tracking: bool = True) -> Optional["Image.Image"]:
         """
-        Create system tray icon using SyncoPaid.png with status indicator.
+        Create system tray icon using state-specific icon files.
 
         Args:
-            color: Status indicator color - "green" (tracking), "yellow" (paused), "red" (error)
+            is_tracking: True if tracking is active, False if paused
 
         Returns:
             PIL Image object for the icon
@@ -207,9 +206,13 @@ class TrayIcon:
 
         size = 64
 
-        # Try to load the SyncoPaid icon (prefer ICO, fallback to PNG)
-        ico_path = Path(__file__).parent / "SyncoPaid.ico"
-        png_path = Path(__file__).parent / "SyncoPaid.png"
+        # Select icon file based on tracking state
+        if is_tracking:
+            ico_path = Path(__file__).parent / "SyncoPaid-On.ico"
+            png_path = Path(__file__).parent / "SyncoPaid-On.png"
+        else:
+            ico_path = Path(__file__).parent / "SyncoPaid-Paused.ico"
+            png_path = Path(__file__).parent / "SyncoPaid-Paused.png"
 
         image = None
         if ico_path.exists():
@@ -233,30 +236,11 @@ class TrayIcon:
             # Fallback to blank canvas if no icon found
             image = Image.new('RGBA', (size, size), (0, 0, 0, 0))
 
-        draw = ImageDraw.Draw(image)
-
-        # Color mapping for status indicator
-        colors = {
-            "green": (34, 197, 94),    # Tracking active
-            "yellow": (234, 179, 8),   # Paused
-            "red": (239, 68, 68)       # Error/stopped
-        }
-        fill = colors.get(color, colors["green"])
-
-        # Draw small status indicator dot in bottom-right corner
-        dot_size = 16
-        dot_x = size - dot_size - 2
-        dot_y = size - dot_size - 2
-        # White border for visibility
-        draw.ellipse([dot_x-1, dot_y-1, dot_x+dot_size+1, dot_y+dot_size+1], fill=(255, 255, 255))
-        # Colored status dot
-        draw.ellipse([dot_x, dot_y, dot_x+dot_size, dot_y+dot_size], fill=fill)
-
         return image
     
     def update_icon_status(self, is_tracking: bool):
         """
-        Update icon color based on tracking status.
+        Update icon based on tracking status.
 
         Args:
             is_tracking: True if tracking, False if paused
@@ -264,8 +248,7 @@ class TrayIcon:
         self.is_tracking = is_tracking
 
         if self.icon:
-            color = "green" if is_tracking else "yellow"
-            self.icon.icon = self.create_icon_image(color)
+            self.icon.icon = self.create_icon_image(is_tracking)
             self.icon.title = f"SyncoPaid v{__product_version__}"
     
     def _create_menu(self):
@@ -364,7 +347,7 @@ class TrayIcon:
         
         self.icon = pystray.Icon(
             "SyncoPaid_tracker",
-            self.create_icon_image("green"),
+            self.create_icon_image(self.is_tracking),
             f"SyncoPaid v{__product_version__}",
             menu=self._create_menu()
         )
