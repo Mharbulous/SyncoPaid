@@ -32,6 +32,29 @@ Maintain a **self-managing tree of user stories** where:
 
 Ensure `.gitignore` includes: `*.db` with exception `!.claude/data/story-tree.db`
 
+## Environment Requirements
+
+**CRITICAL:** The `sqlite3` CLI command is NOT available in most environments. Always use Python's sqlite3 module:
+
+```python
+python -c "
+import sqlite3
+conn = sqlite3.connect('.claude/data/story-tree.db')
+cursor = conn.cursor()
+cursor.execute('YOUR SQL HERE')
+print(cursor.fetchall())
+conn.close()
+"
+```
+
+**Script locations:** All scripts are in `.claude/skills/story-tree/scripts/` (NOT project root `scripts/`):
+- Tree visualization: `.claude/skills/story-tree/scripts/tree-view.py`
+
+**Do NOT:**
+- Use `sqlite3` CLI command directly
+- Assume `scripts/` means project root
+- Try multiple approaches hoping one works
+
 ## Autonomous Operation
 
 When user says "update story tree" or "generate stories":
@@ -52,20 +75,41 @@ If `.claude/data/story-tree.db` doesn't exist:
 
 ```bash
 mkdir -p .claude/data
+```
 
-# Get project name from package.json or default
-PROJECT_NAME=$(python -c "import json; print(json.load(open('package.json')).get('name', 'Software Project'))" 2>/dev/null || echo "Software Project")
+Then use Python (NOT `sqlite3` CLI):
 
-sqlite3 .claude/data/story-tree.db < references/schema.sql
+```python
+python -c "
+import sqlite3
+import json
+from pathlib import Path
 
-sqlite3 .claude/data/story-tree.db "
-INSERT INTO story_nodes (id, title, description, status, created_at, updated_at)
-VALUES ('root', '$PROJECT_NAME', 'Project root', 'active', datetime('now'), datetime('now'));
+# Get project name
+try:
+    project_name = json.load(open('package.json')).get('name', 'Software Project')
+except:
+    project_name = 'Software Project'
 
-INSERT INTO story_paths (ancestor_id, descendant_id, depth) VALUES ('root', 'root', 0);
+# Read and execute schema
+schema_path = '.claude/skills/story-tree/references/schema.sql'
+schema = Path(schema_path).read_text()
 
-INSERT INTO metadata (key, value) VALUES ('version', '2.4.0');
-INSERT INTO metadata (key, value) VALUES ('lastUpdated', datetime('now'));
+conn = sqlite3.connect('.claude/data/story-tree.db')
+conn.executescript(schema)
+
+# Initialize root node
+conn.execute('''
+    INSERT INTO story_nodes (id, title, description, status, created_at, updated_at)
+    VALUES ('root', ?, 'Project root', 'active', datetime('now'), datetime('now'))
+''', (project_name,))
+
+conn.execute('''INSERT INTO story_paths (ancestor_id, descendant_id, depth) VALUES ('root', 'root', 0)''')
+conn.execute('''INSERT INTO metadata (key, value) VALUES ('version', '2.4.0')''')
+conn.execute('''INSERT INTO metadata (key, value) VALUES ('lastUpdated', datetime('now'))''')
+conn.commit()
+conn.close()
+print('Database initialized')
 "
 ```
 
@@ -73,14 +117,32 @@ INSERT INTO metadata (key, value) VALUES ('lastUpdated', datetime('now'));
 
 Use incremental analysis from checkpoint:
 
-```bash
-LAST_COMMIT=$(sqlite3 .claude/data/story-tree.db "SELECT value FROM metadata WHERE key = 'lastAnalyzedCommit';")
+```python
+python -c "
+import sqlite3
+import subprocess
 
-if [ -z "$LAST_COMMIT" ] || ! git cat-file -t "$LAST_COMMIT" &>/dev/null; then
-    git log --since="30 days ago" --pretty=format:"%h|%ai|%s" --no-merges
-else
-    git log "$LAST_COMMIT"..HEAD --pretty=format:"%h|%ai|%s" --no-merges
-fi
+conn = sqlite3.connect('.claude/data/story-tree.db')
+cursor = conn.cursor()
+cursor.execute(\"SELECT value FROM metadata WHERE key = 'lastAnalyzedCommit'\")
+row = cursor.fetchone()
+last_commit = row[0] if row else None
+conn.close()
+
+# Check if commit exists
+if last_commit:
+    result = subprocess.run(['git', 'cat-file', '-t', last_commit], capture_output=True)
+    if result.returncode != 0:
+        last_commit = None
+
+if last_commit:
+    cmd = ['git', 'log', f'{last_commit}..HEAD', '--pretty=format:%h|%ai|%s', '--no-merges']
+else:
+    cmd = ['git', 'log', '--since=30 days ago', '--pretty=format:%h|%ai|%s', '--no-merges']
+
+result = subprocess.run(cmd, capture_output=True, text=True)
+print(result.stdout)
+"
 ```
 
 Match commits to stories using keyword similarity (see `references/sql-queries.md#pattern-matching`).
@@ -179,24 +241,24 @@ Generated: [ISO timestamp]
 
 ## Tree Visualization
 
-**Critical:** Bash output gets truncated. Always save to file and read:
+**Script path:** `.claude/skills/story-tree/scripts/tree-view.py` (NOT `scripts/tree-view.py`)
 
 ```bash
-python scripts/tree-view.py --show-capacity --force-ascii > /tmp/tree.txt
+python .claude/skills/story-tree/scripts/tree-view.py --show-capacity
 ```
 
-Then read `/tmp/tree.txt` and present in response as code block.
+The script automatically handles UTF-8 encoding on Windows. Use `--force-ascii` only if Unicode rendering fails.
 
-**Status symbols (ASCII):**
-| Status | Symbol |
-|--------|--------|
-| concept | `.` |
-| approved | `v` |
-| planned | `o` |
-| in-progress | `D` |
-| implemented | `+` |
-| ready | `#` |
-| deprecated | `-` |
+**Status symbols:**
+| Status | Unicode | ASCII |
+|--------|---------|-------|
+| concept | `·` | `.` |
+| approved | `✓` | `v` |
+| planned | `○` | `o` |
+| in-progress | `◐` | `D` |
+| implemented | `★` | `+` |
+| ready | `✓` | `#` |
+| deprecated | `⊘` | `-` |
 
 ## User Commands
 
@@ -218,6 +280,21 @@ Before outputting stories, verify:
 - [ ] Acceptance criteria are testable
 - [ ] No duplicates
 - [ ] User story format complete
+
+## Common Mistakes (STOP Before Making These)
+
+| Mistake | Why It Happens | What To Do Instead |
+|---------|----------------|-------------------|
+| Using `sqlite3` CLI command | Skill examples look like shell commands | Use Python's sqlite3 module (see Environment Requirements) |
+| Running `python scripts/tree-view.py` | Assuming `scripts/` is in project root | Use full path: `.claude/skills/story-tree/scripts/tree-view.py` |
+| Trying multiple approaches until one works | Not reading Environment Requirements first | Read skill completely before executing anything |
+| Piping to `sqlite3 db "$(cat schema.sql)"` | Trying to avoid Python | Python sqlite3 is the ONLY reliable approach |
+
+**Red Flags - If you're doing any of these, STOP:**
+- Running a command without checking if it exists first
+- Assuming any path is relative to project root
+- Using shell commands when Python is specified
+- Iterating through failed approaches
 
 ## References
 

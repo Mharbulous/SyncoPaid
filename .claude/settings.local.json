@@ -45,7 +45,8 @@
       "Bash(git cat-file:*)",
       "Skill(superpowers:systematic-debugging)",
       "Bash(find:*)",
-      "Bash(git show:*)"
+      "Bash(git show:*)",
+      "Bash(export TMPDIR=/tmp)"
     ]
   }
 }

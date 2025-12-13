@@ -106,9 +106,57 @@ Test queries against actual database before using.
 
 ---
 
+## 8. Using sqlite3 CLI Command
+
+**Wrong:**
+```bash
+sqlite3 .claude/data/story-tree.db "SELECT * FROM story_nodes;"
+```
+
+**Right:** Use Python's sqlite3 module (sqlite3 CLI is NOT available):
+```python
+python -c "
+import sqlite3
+conn = sqlite3.connect('.claude/data/story-tree.db')
+cursor = conn.cursor()
+cursor.execute('SELECT * FROM story_nodes')
+print(cursor.fetchall())
+conn.close()
+"
+```
+
+---
+
+## 9. Wrong Script Paths
+
+**Wrong:**
+```bash
+python scripts/tree-view.py
+```
+
+**Right:** Scripts are in the skill directory, not project root:
+```bash
+python .claude/skills/story-tree/scripts/tree-view.py
+```
+
+---
+
+## 10. Trial-and-Error Execution
+
+**Wrong:** Running commands hoping one works, then fixing errors.
+
+**Right:** Read the skill's Environment Requirements section FIRST, then execute with correct approach.
+
+---
+
 ## Quick Checklist
 
-Before outputting:
+Before executing:
+- [ ] Read Environment Requirements section
+- [ ] Using Python sqlite3 module (NOT sqlite3 CLI)
+- [ ] Using full paths to skill scripts
+
+Before outputting stories:
 - [ ] Stories are specific with testable criteria
 - [ ] Used priority algorithm (shallower first)
 - [ ] Matched commits before generating new stories

@@ -16,6 +16,7 @@ Examples:
 """
 
 import argparse
+import io
 import os
 import sqlite3
 import sys
@@ -23,21 +24,25 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+# Configure stdout for UTF-8 on Windows to support Unicode box-drawing and symbols
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+
 
 # Status indicators - Unicode and ASCII fallbacks
 STATUS_SYMBOLS_UNICODE = {
-    'concept': 'Â·',      # Idea, not yet approved
-    'approved': 'âœ“',     # Human reviewed and approved, not yet planned
-    'rejected': 'âœ—',     # Human reviewed and rejected
-    'planned': 'â—‹',      # Implementation plan created
-    'queued': 'â—Ž',       # Plan ready, all dependencies implemented
-    'active': 'â—',       # Currently being worked on
-    'in-progress': 'â—',  # Partially complete
-    'bugged': 'âš ',       # In need of debugging
-    'implemented': 'â˜…',  # Complete/done
-    'ready': 'âœ”',        # Production ready, implemented and tested
-    'deprecated': 'âŠ˜',   # No longer relevant
-    'infeasible': 'âˆ…',   # Couldn't build it
+    'concept': '·',      # Middle dot - Idea, not yet approved
+    'approved': '✓',     # Check mark - Human reviewed and approved
+    'rejected': '✗',     # Ballot X - Human reviewed and rejected
+    'planned': '○',      # White circle - Implementation plan created
+    'queued': '◎',       # Bullseye - Plan ready, all dependencies implemented
+    'active': '◐',       # Circle left half black - Currently being worked on
+    'in-progress': '◐',  # Circle left half black - Partially complete
+    'bugged': '⚠',       # Warning sign - In need of debugging
+    'implemented': '★',  # Black star - Complete/done
+    'ready': '✓',        # Check mark - Production ready
+    'deprecated': '⊘',   # Circled division slash - No longer relevant
+    'infeasible': '∅',   # Empty set - Couldn't build it
 }
 
 STATUS_SYMBOLS_ASCII = {
@@ -73,9 +78,9 @@ ANSI_COLORS = {
 
 # Box-drawing characters - Unicode and ASCII fallbacks
 BOX_UNICODE = {
-    'branch': 'â”œâ”€â”€ ',
-    'last_branch': 'â””â”€â”€ ',
-    'vertical': 'â”‚   ',
+    'branch': '├── ',
+    'last_branch': '└── ',
+    'vertical': '│   ',
     'empty': '    ',
 }
 
@@ -137,6 +142,7 @@ class RenderOptions:
     verbose: bool = False
     show_capacity: bool = False
     show_status: bool = True
+    show_status_label: bool = False
     show_ids: bool = True
     use_color: bool = True
     force_ascii: bool = False
@@ -306,6 +312,9 @@ def render_node_label(node: TreeNode, options: RenderOptions) -> str:
             symbol = symbols.get(node.status, '?')
             symbol = colorize(symbol, node.status, options.use_color)
             parts.append(symbol)
+
+            if options.show_status_label:
+                parts.append(f"({node.status})")
 
         if options.verbose and node.description:
             desc = node.description[:60]
@@ -489,6 +498,11 @@ Examples:
         help='Hide status indicator symbols (shown by default)'
     )
     parser.add_argument(
+        '--show-status',
+        action='store_true',
+        help='Show status name in parentheses after symbol (e.g., ★ (implemented))'
+    )
+    parser.add_argument(
         '--no-color',
         action='store_true',
         help='Disable ANSI color codes'
@@ -577,6 +591,7 @@ def main():
         verbose=args.verbose,
         show_capacity=args.show_capacity,
         show_status=not args.hide_status,
+        show_status_label=args.show_status,
         show_ids=not args.hide_ids,
         use_color=not args.no_color and sys.stdout.isatty(),
         force_ascii=args.force_ascii,
