@@ -194,10 +194,10 @@ class TrayIcon:
     
     def create_icon_image(self, color: str = "green") -> Optional["Image.Image"]:
         """
-        Create a simple colored circle icon.
+        Create system tray icon using TimeLawg.png with status indicator.
 
         Args:
-            color: Icon color - "green" (tracking), "yellow" (paused), "red" (error)
+            color: Status indicator color - "green" (tracking), "yellow" (paused), "red" (error)
 
         Returns:
             PIL Image object for the icon
@@ -206,10 +206,36 @@ class TrayIcon:
             return None
 
         size = 64
-        image = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+
+        # Try to load the TimeLawg icon (prefer ICO, fallback to PNG)
+        ico_path = Path(__file__).parent / "TimeLawg.ico"
+        png_path = Path(__file__).parent / "TimeLawg.png"
+
+        image = None
+        if ico_path.exists():
+            try:
+                # Open ICO and get the best size for system tray
+                ico = Image.open(ico_path)
+                # ICO files contain multiple sizes; resize to target
+                image = ico.convert('RGBA')
+                image = image.resize((size, size), Image.Resampling.LANCZOS)
+            except Exception as e:
+                logging.warning(f"Could not load ICO icon: {e}")
+
+        if image is None and png_path.exists():
+            try:
+                image = Image.open(png_path).convert('RGBA')
+                image = image.resize((size, size), Image.Resampling.LANCZOS)
+            except Exception as e:
+                logging.warning(f"Could not load PNG icon: {e}")
+
+        if image is None:
+            # Fallback to blank canvas if no icon found
+            image = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+
         draw = ImageDraw.Draw(image)
 
-        # Color mapping
+        # Color mapping for status indicator
         colors = {
             "green": (34, 197, 94),    # Tracking active
             "yellow": (234, 179, 8),   # Paused
@@ -217,11 +243,14 @@ class TrayIcon:
         }
         fill = colors.get(color, colors["green"])
 
-        # Draw circle
-        draw.ellipse([4, 4, size-4, size-4], fill=fill)
-
-        # Add small "L" text for "TimeLawg"
-        draw.text((size//2 - 8, size//2 - 12), "L", fill=(255, 255, 255))
+        # Draw small status indicator dot in bottom-right corner
+        dot_size = 16
+        dot_x = size - dot_size - 2
+        dot_y = size - dot_size - 2
+        # White border for visibility
+        draw.ellipse([dot_x-1, dot_y-1, dot_x+dot_size+1, dot_y+dot_size+1], fill=(255, 255, 255))
+        # Colored status dot
+        draw.ellipse([dot_x, dot_y, dot_x+dot_size, dot_y+dot_size], fill=fill)
 
         return image
     

@@ -29,6 +29,28 @@ from timelawg.tray import TrayIcon, enable_startup
 from timelawg.screenshot import ScreenshotWorker, get_screenshot_directory
 from timelawg.action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
 
+# Path to the application icon
+_ICON_ICO_PATH = Path(__file__).parent / "TimeLawg.ico"
+_ICON_PNG_PATH = Path(__file__).parent / "TimeLawg.png"
+
+
+def _set_window_icon(root: tk.Tk) -> None:
+    """Set the TimeLawg icon on a tkinter window."""
+    try:
+        # On Windows, use ICO file with iconbitmap (best quality)
+        if sys.platform == 'win32' and _ICON_ICO_PATH.exists():
+            root.iconbitmap(str(_ICON_ICO_PATH))
+        # Fallback to PNG with iconphoto
+        elif _ICON_PNG_PATH.exists():
+            from PIL import Image, ImageTk
+            icon_image = Image.open(_ICON_PNG_PATH)
+            icon_photo = ImageTk.PhotoImage(icon_image)
+            root.iconphoto(True, icon_photo)
+            # Keep a reference to prevent garbage collection
+            root._icon_photo = icon_photo
+    except Exception as e:
+        logging.debug(f"Could not set window icon: {e}")
+
 
 def _parse_duration_to_seconds(duration_str: str) -> float:
     """
@@ -203,7 +225,7 @@ class TimeLawgApp:
             self.action_screenshot_worker.start()
 
         logging.info("Tracking started")
-        print("✓ Tracking started")
+        print("[OK] Tracking started")
     
     def pause_tracking(self):
         """Pause the tracking loop."""
@@ -219,7 +241,7 @@ class TimeLawgApp:
             self.action_screenshot_worker.stop()
 
         logging.info("Tracking paused")
-        print("⏸ Tracking paused")
+        print("[PAUSED] Tracking paused")
     
     def _run_tracking_loop(self):
         """
@@ -342,6 +364,7 @@ class TimeLawgApp:
                 root.title("TimeLawg - Last 24 Hours")
                 root.geometry("800x500")
                 root.attributes('-topmost', True)
+                _set_window_icon(root)
 
                 # Create menu bar
                 menubar = tk.Menu(root)
