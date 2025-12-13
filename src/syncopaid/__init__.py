@@ -7,7 +7,7 @@ and data export for LLM-powered billing categorization.
 
 # Version info - generated at build time in SyncoPaid/_version.py
 try:
-    from SyncoPaid._version import __version__, __product_version__
+    from syncopaid._version import __version__, __product_version__
 except ImportError:
     # Fallback for development (when not built)
     __version__ = "0.0.0.dev"

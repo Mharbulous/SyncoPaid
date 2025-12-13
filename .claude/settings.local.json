@@ -46,7 +46,8 @@
       "Skill(superpowers:systematic-debugging)",
       "Bash(find:*)",
       "Bash(git show:*)",
-      "Bash(export TMPDIR=/tmp)"
+      "Bash(export TMPDIR=/tmp)",
+      "Bash(pip install:*)"
     ]
   }
 }

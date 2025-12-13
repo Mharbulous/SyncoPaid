@@ -21,13 +21,13 @@ from pathlib import Path
 from datetime import datetime, date, timedelta
 import ctypes
 
-from SyncoPaid.config import ConfigManager, print_config
-from SyncoPaid.database import Database, format_duration
-from SyncoPaid.tracker import TrackerLoop
-from SyncoPaid.exporter import Exporter
-from SyncoPaid.tray import TrayIcon, enable_startup
-from SyncoPaid.screenshot import ScreenshotWorker, get_screenshot_directory
-from SyncoPaid.action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
+from syncopaid.config import ConfigManager, print_config
+from syncopaid.database import Database, format_duration
+from syncopaid.tracker import TrackerLoop
+from syncopaid.exporter import Exporter
+from syncopaid.tray import TrayIcon, enable_startup
+from syncopaid.screenshot import ScreenshotWorker, get_screenshot_directory
+from syncopaid.action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
 
 # Path to the application icon
 _ICON_ICO_PATH = Path(__file__).parent / "SyncoPaid.ico"
@@ -89,7 +89,7 @@ def _parse_duration_to_seconds(duration_str: str) -> float:
 
 # Version info
 try:
-    from SyncoPaid import __product_version__
+    from syncopaid import __product_version__
 except ImportError:
     __product_version__ = "1.0.0"  # Fallback if not yet generated
 
@@ -377,7 +377,7 @@ class SyncoPaidApp:
                 def show_about():
                     """Show About dialog with version and commit info."""
                     try:
-                        from SyncoPaid import __version__, __product_version__
+                        from syncopaid import __version__, __product_version__
                     except ImportError:
                         __version__ = "0.0.0.dev"
                         __product_version__ = "0.0.0"

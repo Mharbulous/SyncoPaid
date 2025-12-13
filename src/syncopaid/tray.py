@@ -22,7 +22,7 @@ if WINDOWS:
 
 # Version info
 try:
-    from SyncoPaid import __product_version__
+    from syncopaid import __product_version__
 except ImportError:
     __product_version__ = "1.0.0"  # Fallback if not yet generated
 
