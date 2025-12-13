@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS story_nodes (
         )),
     project_path TEXT,
     last_implemented TEXT,
+    notes TEXT,  -- Freeform notes (rejection reasons, context, constraints, etc.)
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
