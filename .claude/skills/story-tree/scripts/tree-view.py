@@ -26,18 +26,18 @@ from typing import Optional
 
 # Status indicators - Unicode and ASCII fallbacks
 STATUS_SYMBOLS_UNICODE = {
-    'concept': '·',      # Idea, not yet approved
-    'approved': '✓',     # Human reviewed and approved, not yet planned
-    'rejected': '✗',     # Human reviewed and rejected
-    'planned': '○',      # Implementation plan created
-    'queued': '◎',       # Plan ready, all dependencies implemented
-    'active': '●',       # Currently being worked on
-    'in-progress': '◐',  # Partially complete
-    'bugged': '⚠',       # In need of debugging
-    'implemented': '★',  # Complete/done
-    'ready': '✔',        # Production ready, implemented and tested
-    'deprecated': '⊘',   # No longer relevant
-    'infeasible': '∅',   # Couldn't build it
+    'concept': 'Â·',      # Idea, not yet approved
+    'approved': 'âœ“',     # Human reviewed and approved, not yet planned
+    'rejected': 'âœ—',     # Human reviewed and rejected
+    'planned': 'â—‹',      # Implementation plan created
+    'queued': 'â—Ž',       # Plan ready, all dependencies implemented
+    'active': 'â—',       # Currently being worked on
+    'in-progress': 'â—',  # Partially complete
+    'bugged': 'âš ',       # In need of debugging
+    'implemented': 'â˜…',  # Complete/done
+    'ready': 'âœ”',        # Production ready, implemented and tested
+    'deprecated': 'âŠ˜',   # No longer relevant
+    'infeasible': 'âˆ…',   # Couldn't build it
 }
 
 STATUS_SYMBOLS_ASCII = {
@@ -46,8 +46,8 @@ STATUS_SYMBOLS_ASCII = {
     'rejected': 'x',     # Human reviewed and rejected
     'planned': 'o',      # Implementation plan created
     'queued': '@',       # Plan ready, all dependencies implemented
-    'active': 'O',       # Currently being worked on (resembles ●)
-    'in-progress': 'D',  # Partially complete (resembles ◐)
+    'active': 'O',       # Currently being worked on (resembles â—)
+    'in-progress': 'D',  # Partially complete (resembles â—)
     'bugged': '!',       # In need of debugging
     'implemented': '+',  # Complete/done
     'ready': '#',        # Production ready, implemented and tested
@@ -73,9 +73,9 @@ ANSI_COLORS = {
 
 # Box-drawing characters - Unicode and ASCII fallbacks
 BOX_UNICODE = {
-    'branch': '├── ',
-    'last_branch': '└── ',
-    'vertical': '│   ',
+    'branch': 'â”œâ”€â”€ ',
+    'last_branch': 'â””â”€â”€ ',
+    'vertical': 'â”‚   ',
     'empty': '    ',
 }
 
@@ -95,7 +95,7 @@ def can_use_unicode() -> bool:
             return True  # Redirected output can handle UTF-8
         try:
             # Try to encode a test character
-            '●'.encode(sys.stdout.encoding or 'utf-8')
+            'â—'.encode(sys.stdout.encoding or 'utf-8')
             return True
         except (UnicodeEncodeError, LookupError):
             return False
