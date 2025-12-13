@@ -1,5 +1,5 @@
 """
-LawTime Tracker - Main entry point.
+TimeLawg - Main entry point.
 
 Coordinates all components:
 - Configuration management
@@ -73,7 +73,7 @@ except ImportError:
 
 
 # Single-instance enforcement using Windows mutex
-_MUTEX_NAME = "LawTimeTracker_SingleInstance_Mutex"
+_MUTEX_NAME = "TimeLawgTracker_SingleInstance_Mutex"
 _mutex_handle = None
 
 
@@ -111,7 +111,7 @@ def release_single_instance():
         _mutex_handle = None
 
 
-class LawTimeApp:
+class TimeLawgApp:
     """
     Main application coordinator.
     
@@ -183,7 +183,7 @@ class LawTimeApp:
             on_quit=self.quit_app
         )
 
-        logging.info("LawTime application initialized")
+        logging.info("TimeLawg application initialized")
     
     def start_tracking(self):
         """Start the tracking loop in a background thread."""
@@ -339,7 +339,7 @@ class LawTimeApp:
 
                 # Create window
                 root = tk.Tk()
-                root.title("LawTime - Last 24 Hours")
+                root.title("TimeLawg - Last 24 Hours")
                 root.geometry("800x500")
                 root.attributes('-topmost', True)
 
@@ -631,7 +631,7 @@ class LawTimeApp:
         stats = self.database.get_statistics()
         
         print("\n" + "="*60)
-        print("LawTime Tracker Statistics")
+        print("TimeLawg Statistics")
         print("="*60)
         print(f"Total events captured: {stats['total_events']}")
         print(f"Active time: {format_duration(stats['active_duration_seconds'])}")
@@ -675,7 +675,7 @@ class LawTimeApp:
 
         This is the main entry point that starts everything.
         """
-        logging.info("LawTime Tracker starting...")
+        logging.info("TimeLawg starting...")
 
         # Ensure "Start with Windows" is enabled on every run
         enable_startup()
@@ -717,12 +717,12 @@ def main():
 
     # Enforce single instance
     if not acquire_single_instance():
-        print("LawTime Tracker is already running.")
+        print("TimeLawg is already running.")
         print("Check your system tray for the existing instance.")
         sys.exit(0)
 
     try:
-        app = LawTimeApp()
+        app = TimeLawgApp()
         app.run()
 
     except KeyboardInterrupt:

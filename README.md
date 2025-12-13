@@ -1,8 +1,8 @@
-# LawTime Tracker
+# TimeLawg
 
 **Automatic time tracking for Windows 11 designed specifically for civil litigation lawyers.**
 
-LawTime Tracker runs silently in the background, capturing your window activity at second-level precision. All data stays entirely local on your machine (never uploaded to any server), preserving attorney-client privilege. Export your activity log to JSON for processing by external LLM tools for automatic matter categorization and billing narrative generation.
+TimeLawg runs silently in the background, capturing your window activity at second-level precision. All data stays entirely local on your machine (never uploaded to any server), preserving attorney-client privilege. Export your activity log to JSON for processing by external LLM tools for automatic matter categorization and billing narrative generation.
 
 ## Features
 

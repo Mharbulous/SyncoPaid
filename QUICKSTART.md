@@ -1,4 +1,4 @@
-# LawTime Tracker - Quick Start Guide
+# TimeLawg - Quick Start Guide
 
 Get up and running in 5 minutes.
 
@@ -34,7 +34,7 @@ Verify everything works:
 
 ```bash
 # Test window tracking (switch windows to see output)
-python -m lawtime.tracker
+python -m timelawg.tracker
 
 # Should print window titles as you switch between apps
 ```
@@ -42,7 +42,7 @@ python -m lawtime.tracker
 ## Run the App
 
 ```bash
-python -m lawtime
+python -m timelawg
 ```
 
 You should see:
@@ -83,7 +83,7 @@ After first run, files are created at:
 
 ```
 %LOCALAPPDATA%\TimeLawg\
-├── lawtime.db      # Activity database (DO NOT SHARE - contains your work data)
+├── timelawg.db      # Activity database (DO NOT SHARE - contains your work data)
 └── config.json     # Settings (can edit manually)
 ```
 

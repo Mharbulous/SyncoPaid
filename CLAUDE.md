@@ -15,7 +15,7 @@ When working via Claude Code on the Web, Windows-specific APIs (pywin32, win32gu
 
 ## Project Overview
 
-LawTime Tracker is a Windows 11 desktop application that automatically captures window activity for civil litigation lawyers. It runs in the background, recording window titles and application names at second-level precision. All data stays local (SQLite database) for attorney-client privilege preservation. Exported JSON is designed for processing by external LLM tools for billing categorization.
+TimeLawg is a Windows 11 desktop application that automatically captures window activity for civil litigation lawyers. It runs in the background, recording window titles and application names at second-level precision. All data stays local (SQLite database) for attorney-client privilege preservation. Exported JSON is designed for processing by external LLM tools for billing categorization.
 
 ## Development Commands
 
@@ -51,7 +51,7 @@ python test_tray.py          # Test pystray system tray
 
 ```
 src/timelawg/
-├── __main__.py    # Entry point, LawTimeApp coordinator class
+├── __main__.py    # Entry point, TimeLawgApp coordinator class
 ├── tracker.py     # TrackerLoop: polls active window, detects idle, yields ActivityEvent
 ├── screenshot.py  # ScreenshotWorker: async screenshot capture with perceptual hashing
 ├── database.py    # SQLite operations (insert, query, delete, statistics)
@@ -65,7 +65,7 @@ src/timelawg/
 1. `TrackerLoop.start()` is a generator that polls `get_active_window()` and `get_idle_seconds()` every 1 second
 2. Every 10 seconds (configurable), tracker submits screenshot request to `ScreenshotWorker` (async, non-blocking)
 3. State changes yield `ActivityEvent` dataclass instances
-4. `LawTimeApp._run_tracking_loop()` inserts events into SQLite via `Database.insert_event()`
+4. `TimeLawgApp._run_tracking_loop()` inserts events into SQLite via `Database.insert_event()`
 5. `ScreenshotWorker` captures, deduplicates via dHash, and saves screenshots to disk + database
 6. `Exporter.export_to_json()` queries database and writes structured JSON for LLM processing
 

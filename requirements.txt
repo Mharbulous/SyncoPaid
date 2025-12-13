@@ -1,4 +1,4 @@
-# LawTime Tracker - Dependencies
+# TimeLawg - Dependencies
 
 # Windows API access (window titles, process info)
 pywin32>=306

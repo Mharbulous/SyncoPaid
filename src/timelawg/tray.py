@@ -1,5 +1,5 @@
 """
-System tray UI module for LawTime Tracker.
+System tray UI module for TimeLawg.
 
 Provides a minimal system tray interface with:
 - Status indicator icon (green=tracking, yellow=paused)
@@ -220,7 +220,7 @@ class TrayIcon:
         # Draw circle
         draw.ellipse([4, 4, size-4, size-4], fill=fill)
 
-        # Add small "L" text for "LawTime"
+        # Add small "L" text for "TimeLawg"
         draw.text((size//2 - 8, size//2 - 12), "L", fill=(255, 255, 255))
 
         return image

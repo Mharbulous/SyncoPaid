@@ -1,5 +1,5 @@
 """
-Configuration management for LawTime Tracker.
+Configuration management for TimeLawg.
 
 Handles loading, saving, and accessing application settings from a JSON file.
 Settings include polling intervals, thresholds, and file paths.

@@ -1,5 +1,5 @@
 """
-Create a Windows desktop shortcut with custom icon for LawTime.
+Create a Windows desktop shortcut with custom icon for TimeLawg.
 Run this script once from the activated venv to create the shortcut.
 """
 import os
@@ -11,7 +11,7 @@ PROJECT_DIR = Path(__file__).parent
 ICON_PNG = PROJECT_DIR / "OrangeClockScale.png"
 ICON_ICO = PROJECT_DIR / "TimeLawg.ico"
 DESKTOP = Path(os.environ["USERPROFILE"]) / "OneDrive - Logica Law" / "Desktop"
-SHORTCUT_PATH = DESKTOP / "LawTime V0.1.0.lnk"
+SHORTCUT_PATH = DESKTOP / "TimeLawg.lnk"
 BAT_PATH = PROJECT_DIR / "launch_timelawg.bat"
 
 def create_ico():
@@ -47,7 +47,7 @@ def create_shortcut():
     shortcut.TargetPath = str(BAT_PATH)
     shortcut.WorkingDirectory = str(PROJECT_DIR)
     shortcut.IconLocation = str(ICON_ICO)
-    shortcut.Description = "LawTime Tracker - Automatic time tracking for lawyers"
+    shortcut.Description = "TimeLawg - Automatic time tracking for lawyers"
     shortcut.WindowStyle = 7  # Minimized
     shortcut.save()
     print(f"Created shortcut: {SHORTCUT_PATH}")
@@ -55,7 +55,7 @@ def create_shortcut():
 
 if __name__ == "__main__":
     print("=" * 50)
-    print("LawTime Desktop Shortcut Creator")
+    print("TimeLawg Desktop Shortcut Creator")
     print("=" * 50)
 
     # Remove old bat file if exists
@@ -69,6 +69,6 @@ if __name__ == "__main__":
 
     if create_shortcut():
         print("\n✓ Desktop shortcut created successfully!")
-        print("  Double-click 'LawTime V0.1.0' on your desktop to launch.")
+        print("  Double-click 'TimeLawg' on your desktop to launch.")
     else:
         print("\n✗ Failed to create shortcut")

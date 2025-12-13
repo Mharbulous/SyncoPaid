@@ -446,7 +446,7 @@ def run_console_test(duration_seconds: int = 30):
         duration_seconds: How long to run the test (default 30s)
     """
     print("=" * 70)
-    print("LawTime Tracker - Console Test Mode")
+    print("TimeLawg - Console Test Mode")
     print("=" * 70)
     print(f"Running for {duration_seconds} seconds...")
     print("Switch between windows to see tracking in action.\n")

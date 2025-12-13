@@ -1,5 +1,5 @@
 """
-Screenshot Diagnostic Tool for LawTime Tracker
+Screenshot Diagnostic Tool for TimeLawg
 
 Run this script to diagnose why screenshots aren't being captured.
 """
@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 
 print("="*70)
-print("LawTime Tracker - Screenshot Diagnostic Tool")
+print("TimeLawg - Screenshot Diagnostic Tool")
 print("="*70)
 print()
 

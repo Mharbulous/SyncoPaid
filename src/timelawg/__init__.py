@@ -1,5 +1,5 @@
 """
-LawTime Tracker - Windows 11 automatic time tracking for legal professionals.
+TimeLawg - Windows 11 automatic time tracking for legal professionals.
 
 This package provides passive background capture of window activity, idle detection,
 and data export for LLM-powered billing categorization.
