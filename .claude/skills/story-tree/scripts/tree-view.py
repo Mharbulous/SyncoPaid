@@ -33,7 +33,9 @@ if sys.platform == 'win32':
 STATUS_SYMBOLS_UNICODE = {
     'concept': '·',      # Middle dot - Idea, not yet approved
     'approved': '✓',     # Check mark - Human reviewed and approved
+    'epic': '◆',         # Black diamond - Approved but needs decomposition
     'rejected': '✗',     # Ballot X - Human reviewed and rejected
+    'wishlist': '?',     # Question mark - Rejected for now, may reconsider
     'planned': '○',      # White circle - Implementation plan created
     'queued': '◎',       # Bullseye - Plan ready, all dependencies implemented
     'active': '◐',       # Circle left half black - Currently being worked on

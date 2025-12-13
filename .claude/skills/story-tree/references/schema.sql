@@ -21,7 +21,9 @@ CREATE TABLE IF NOT EXISTS story_nodes (
         CHECK (status IN (
             'concept',      -- Idea, not yet approved
             'approved',     -- Human approved, not yet planned
+            'epic',         -- Approved but too complex; needs decomposition into child concepts
             'rejected',     -- Human rejected
+            'wishlist',     -- Rejected for now, may reconsider later
             'planned',      -- Implementation plan created
             'queued',       -- Ready, dependencies met
             'active',       -- Currently being worked on
