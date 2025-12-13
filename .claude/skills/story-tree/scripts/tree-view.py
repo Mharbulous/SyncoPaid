@@ -50,7 +50,9 @@ STATUS_SYMBOLS_UNICODE = {
 STATUS_SYMBOLS_ASCII = {
     'concept': '.',      # Idea, not yet approved
     'approved': 'v',     # Human reviewed and approved, not yet planned
+    'epic': 'E',         # Approved but needs decomposition
     'rejected': 'x',     # Human reviewed and rejected
+    'wishlist': '?',     # Rejected for now, may reconsider
     'planned': 'o',      # Implementation plan created
     'queued': '@',       # Plan ready, all dependencies implemented
     'active': 'O',       # Currently being worked on (resembles â—)
@@ -65,7 +67,9 @@ STATUS_SYMBOLS_ASCII = {
 ANSI_COLORS = {
     'concept': '\033[97m',      # White (dim idea)
     'approved': '\033[96m',     # Cyan
+    'epic': '\033[95m',         # Magenta (needs decomposition)
     'rejected': '\033[91m',     # Red
+    'wishlist': '\033[90m',     # Gray (parked for later)
     'planned': '\033[96m',      # Cyan
     'queued': '\033[93m',       # Yellow
     'active': '\033[94m',       # Blue

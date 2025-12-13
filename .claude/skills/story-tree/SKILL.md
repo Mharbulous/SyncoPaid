@@ -149,7 +149,7 @@ Match commits to stories using keyword similarity (see `references/sql-queries.m
 
 ### Step 3: Identify Priority Target
 
-**Excluded statuses:** `concept`, `rejected`, `deprecated`, `infeasible`, `bugged`
+**Excluded statuses:** `concept`, `rejected`, `wishlist`, `epic`, `deprecated`, `infeasible`, `bugged`
 
 **Priority algorithm** - find under-capacity nodes, shallower first:
 
@@ -162,7 +162,7 @@ SELECT s.*,
          WHERE sp.ancestor_id = s.id AND sp.depth = 1
          AND child.status IN ('implemented', 'ready'))) as effective_capacity
 FROM story_nodes s
-WHERE s.status NOT IN ('concept', 'rejected', 'deprecated', 'infeasible', 'bugged')
+WHERE s.status NOT IN ('concept', 'rejected', 'wishlist', 'epic', 'deprecated', 'infeasible', 'bugged')
   AND (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) <
       COALESCE(s.capacity, 3 + (SELECT COUNT(*) FROM story_paths sp
            JOIN story_nodes child ON sp.descendant_id = child.id
@@ -254,6 +254,8 @@ The script automatically handles UTF-8 encoding on Windows. Use `--force-ascii` 
 |--------|---------|-------|
 | concept | `·` | `.` |
 | approved | `✓` | `v` |
+| epic | `◆` | `E` |
+| wishlist | `?` | `?` |
 | planned | `○` | `o` |
 | in-progress | `◐` | `D` |
 | implemented | `★` | `+` |
@@ -302,3 +304,4 @@ Before outputting stories, verify:
 - **`references/sql-queries.md`** - All SQL query patterns
 - **`references/common-mistakes.md`** - Error prevention
 - **`references/rationales.md`** - Design decisions
+- **`references/epic-decomposition.md`** - Epic/wishlist workflow
