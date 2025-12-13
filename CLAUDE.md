@@ -1,117 +1,80 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Critical Rules
+
+- **IMPORTANT**: Do not build fallbacks to avoid problematic code—doing so only hides the problem
+- **YOU MUST** activate virtual environment before running commands: `venv\Scripts\activate`
+- **ALWAYS** use native Windows path format with backslashes (`\`) for file operations
+- Never modify SQLite database directly
+
+## Project Summary
+
+**SyncoPaid** is a Windows 11 desktop app that runs in background tracking window activies. Data stored in local SQLite. Exports JSON for LLM billing categorization.
 
 **User Data Path**: `C:\Users\Brahm\AppData\Local\SyncoPaid\`
 
-## Project Overview
-
-SyncoPaid is a Windows 11 desktop application that automatically captures window activity for civil litigation lawyers. It runs in the background, recording window titles and application names at second-level precision. All data stays local (SQLite database) for attorney-client privilege preservation. Exported JSON is designed for processing by external LLM tools for billing categorization.
-
-## Development Commands
+## Commands
 
 ```bash
-# Activate virtual environment (required)
+# Activate venv first (required)
 venv\Scripts\activate
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Install package in editable mode (required for src/ layout)
-pip install -e .
-
-# Run the application
+# Run application
 python -m SyncoPaid
 
 # Test individual modules
-python -m SyncoPaid.tracker    # Window capture test (30s)
-python -m SyncoPaid.database   # Database operations test
-python -m SyncoPaid.config     # Config management test
-python -m SyncoPaid.exporter   # Export functionality test
-python -m SyncoPaid.tray       # System tray test
+python -m SyncoPaid.tracker    # Window capture (30s)
+python -m SyncoPaid.database   # Database ops
+python -m SyncoPaid.config     # Config management
+python -m SyncoPaid.exporter   # Export functionality
+python -m SyncoPaid.tray       # System tray
 
-# Quick API verification tests
-python test_window.py        # Test pywin32 window capture
-python test_idle.py          # Test idle detection API
-python test_tray.py          # Test pystray system tray
+# Quick API tests
+python test_window.py          # pywin32 capture
+python test_idle.py            # Idle detection
+python test_tray.py            # pystray tray
 ```
+
+## Tech Stack
+
+Python 3.11+ | pywin32 | psutil | pystray + Pillow | imagehash | SQLite
 
 ## Architecture
 
-### Module Structure
-
 ```
 src/SyncoPaid/
-├── __main__.py    # Entry point, SyncoPaidApp coordinator class
-├── tracker.py     # TrackerLoop: polls active window, detects idle, yields ActivityEvent
-├── screenshot.py  # ScreenshotWorker: async screenshot capture with perceptual hashing
-├── database.py    # SQLite operations (insert, query, delete, statistics)
+├── __main__.py    # Entry point, SyncoPaidApp coordinator
+├── tracker.py     # TrackerLoop: polls active window, yields ActivityEvent
+├── screenshot.py  # ScreenshotWorker: async capture with dHash deduplication
+├── database.py    # SQLite: insert, query, delete, statistics
 ├── exporter.py    # JSON export with date filtering
-├── config.py      # ConfigManager: loads/saves %LOCALAPPDATA%\SyncoPaid\config.json
-└── tray.py        # TrayIcon: pystray-based system tray with menu
+├── config.py      # ConfigManager: %LOCALAPPDATA%\SyncoPaid\config.json
+└── tray.py        # TrayIcon: pystray system tray with menu
 ```
 
-### Data Flow
-
-1. `TrackerLoop.start()` is a generator that polls `get_active_window()` and `get_idle_seconds()` every 1 second
-2. Every 10 seconds (configurable), tracker submits screenshot request to `ScreenshotWorker` (async, non-blocking)
-3. State changes yield `ActivityEvent` dataclass instances
-4. `SyncoPaidApp._run_tracking_loop()` inserts events into SQLite via `Database.insert_event()`
-5. `ScreenshotWorker` captures, deduplicates via dHash, and saves screenshots to disk + database
-6. `Exporter.export_to_json()` queries database and writes structured JSON for LLM processing
-
-### Key Classes
-
-- **ActivityEvent** (tracker.py): Dataclass with timestamp, duration_seconds, app, title, url, is_idle
-- **TrackerLoop** (tracker.py): Generator-based tracking loop with event merging logic
-- **ScreenshotWorker** (screenshot.py): Async screenshot capture with perceptual hashing (dHash) deduplication
-- **Database** (database.py): SQLite wrapper with insert_event(), insert_screenshot(), query operations
-- **ConfigManager** (config.py): Settings management with defaults and JSON persistence
-- **TrayIcon** (tray.py): System tray with start/pause/export/quit callbacks
-
-### Windows APIs Used
-
-- `win32gui.GetForegroundWindow()` / `GetWindowText()` - Active window title
-- `win32process.GetWindowThreadProcessId()` - Process ID from window handle
-- `psutil.Process(pid).name()` - Executable name from PID
-- `windll.user32.GetLastInputInfo()` - Idle time detection (keyboard/mouse inactivity)
-- `PIL.ImageGrab.grab()` - Screenshot capture of window regions
-- `win32gui.GetWindowRect()` - Window position/dimensions for screenshot capture
+**Data Flow**: TrackerLoop polls window every 1s → yields ActivityEvent on change → SyncoPaidApp inserts to SQLite → ScreenshotWorker captures every 10s with dHash dedup → Exporter outputs JSON
 
 ## File Locations
 
-- **Database**: `%LOCALAPPDATA%\SyncoPaid\SyncoPaid.db`
-- **Config**: `%LOCALAPPDATA%\SyncoPaid\config.json`
-- **Screenshots**: `%LOCALAPPDATA%\SyncoPaid\screenshots\YYYY-MM-DD\HHMMSS_appname.jpg`
-- **PRD/Docs**: `ai_docs/` directory
-
-## Technology Stack
-
-- Python 3.11+ (target Windows 11)
-- pywin32: Windows API access
-- psutil: Process information
-- pystray + Pillow: System tray icon and screenshot capture
-- imagehash: Perceptual hashing for screenshot deduplication
-- tkinter: Native file dialogs (stdlib)
-- SQLite: Local database (stdlib)
-
-## Configuration Defaults
-
-| Setting | Default | Purpose |
-|---------|---------|---------|
-| poll_interval_seconds | 1.0 | Window check frequency |
-| idle_threshold_seconds | 180 | Seconds before marking idle |
-| merge_threshold_seconds | 2.0 | Gap to merge identical events |
-| start_tracking_on_launch | true | Auto-start tracking |
-| screenshot_enabled | true | Enable periodic screenshot capture |
-| screenshot_interval_seconds | 10 | Seconds between screenshot attempts |
-| screenshot_quality | 65 | JPEG quality (1-100) |
-| screenshot_max_dimension | 1920 | Max width/height in pixels |
-| screenshot_threshold_identical | 0.92 | Similarity >= this overwrites previous |
-| screenshot_threshold_significant | 0.70 | Similarity < this saves new screenshot |
+| File | Path |
+|------|------|
+| Database | `%LOCALAPPDATA%\SyncoPaid\SyncoPaid.db` |
+| Config | `%LOCALAPPDATA%\SyncoPaid\config.json` |
+| Screenshots | `%LOCALAPPDATA%\SyncoPaid\screenshots\YYYY-MM-DD\` |
+| Docs | `ai_docs/` |
 
 ## Known Limitations
 
-- URL extraction not implemented (captures window titles only)
 - New Outlook doesn't expose email subjects (use Legacy Outlook)
-- Outlook reading pane shows generic "Inbox" instead of email subjects
+- Outlook reading pane shows generic "Inbox" instead of subjects
+
+## Reference
+
+For detailed configuration defaults, Windows APIs used, and key class documentation, see `ai_docs/technical-reference.md`.
+
+## Verification
+
+Before completing changes:
+1. Run relevant module test: `python -m SyncoPaid.<module>`
+2. Verify no regressions in window tracking or screenshot capture
+3. Test system tray functionality if UI changed

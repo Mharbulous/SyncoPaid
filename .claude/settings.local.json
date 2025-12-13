@@ -47,7 +47,8 @@
       "Bash(find:*)",
       "Bash(git show:*)",
       "Bash(export TMPDIR=/tmp)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(echo:*)"
     ]
   }
 }

@@ -9,8 +9,8 @@ elif [ -f ~/.bash_profile ]; then
     source ~/.bash_profile
 fi
 
-# Auto-activate virtual environment
-if [ -d "venv/Scripts" ] && [ -z "$VIRTUAL_ENV" ]; then
-    echo "Activating virtual environment..."
+# Auto-activate virtual environment for current project
+# Always activate local venv to ensure correct environment
+if [ -d "venv/Scripts" ]; then
     source venv/Scripts/activate
 fi
