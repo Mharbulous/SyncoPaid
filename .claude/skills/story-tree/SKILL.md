@@ -1,6 +1,6 @@
 ---
 name: story-tree
-description: Use when user says "generate stories", "brainstorm features", "update story tree", "what should we build", or asks for feature ideas - autonomously maintains hierarchical story backlog by analyzing git commits, identifying under-capacity nodes, and generating evidence-based stories to fill gaps. Works with SQLite database using closure table pattern, prioritizes shallower nodes first, and tracks implementation status through commit analysis.
+description: Use when user says "generate stories", "brainstorm features", "update story tree", "what should we build", "show story tree", "show me a map", "story map", "tree diagram", "show stories", "view stories", "list stories", or asks for feature ideas or story visualization - autonomously maintains hierarchical story backlog by analyzing git commits, identifying under-capacity nodes, and generating evidence-based stories to fill gaps. Works with SQLite database using closure table pattern, prioritizes shallower nodes first, and tracks implementation status through commit analysis.
 ---
 
 # Story Tree - Autonomous Hierarchical Backlog Manager
@@ -348,8 +348,8 @@ Generated: [ISO timestamp]
 ## Tree Visualization
 
 \`\`\`bash
-# Run tree-view.py for current structure
-python .claude/skills/story-tree/tree-view.py --show-capacity --show-status --force-ascii
+# Run tree-view.py for current structure (status shown by default)
+python .claude/skills/story-tree/tree-view.py --show-capacity --force-ascii
 \`\`\`
 
 ## Next Priority Target

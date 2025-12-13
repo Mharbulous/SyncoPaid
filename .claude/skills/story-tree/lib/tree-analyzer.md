@@ -4,7 +4,7 @@ This document provides SQL queries for analyzing the story tree structure, calcu
 
 > **For tree visualization**, use `tree-view.py` instead of SQL queries:
 > ```bash
-> python .claude/skills/story-tree/tree-view.py --show-capacity --show-status
+> python .claude/skills/story-tree/tree-view.py --show-capacity --force-ascii
 > ```
 > See [Query 5](#query-5-tree-visualization-data) for SQL alternatives if needed.
 
@@ -186,7 +186,7 @@ WHERE st.descendant_id = :node_id
 
 **Preferred method:** Use `tree-view.py` for tree visualization instead of these SQL queries:
 ```bash
-python .claude/skills/story-tree/tree-view.py --show-capacity --show-status --force-ascii
+python .claude/skills/story-tree/tree-view.py --show-capacity --force-ascii
 ```
 
 The queries below are provided for reference and custom analysis needs.

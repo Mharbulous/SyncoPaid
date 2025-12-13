@@ -50,7 +50,7 @@ Then use Read tool to read `/tmp/tree.txt`, and present the contents in your res
 
 ```bash
 # Full tree with capacity and status indicators
-python .claude/skills/story-tree/tree-view.py --show-capacity --show-status --force-ascii
+python .claude/skills/story-tree/tree-view.py --show-capacity --force-ascii
 
 # Subtree from a specific node with depth limit
 python .claude/skills/story-tree/tree-view.py --root 1.1 --depth 2

@@ -7,7 +7,7 @@
 
 ```bash
 # View entire tree with capacity and status
-python .claude/skills/story-tree/tree-view.py --show-capacity --show-status --force-ascii
+python .claude/skills/story-tree/tree-view.py --show-capacity --force-ascii
 
 # View specific subtree
 python .claude/skills/story-tree/tree-view.py --root 1 --show-capacity --force-ascii
