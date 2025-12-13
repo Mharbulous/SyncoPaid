@@ -2,15 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Development Environment
-
-**IMPORTANT**: The developer uses:
-- **Local Machine**: Windows 11 with VS Code (at `C:\Users\Brahm\Git\TimeLogger`)
-- **Claude Code**: Web-based (runs in Linux sandbox - Windows APIs NOT available)
-- **Target Platform**: Windows 11
-
-When working via Claude Code on the Web, Windows-specific APIs (pywin32, win32gui) will NOT be available since the sandbox runs Linux. The application must be tested on the actual Windows 11 machine to verify Windows-specific functionality like screenshot capture and window tracking.
-
 **User Data Path**: `C:\Users\Brahm\AppData\Local\SyncoPaid\`
 
 ## Project Overview
