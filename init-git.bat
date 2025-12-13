@@ -1,10 +1,10 @@
 @echo off
-REM TimeLawg Git Initialization Script for Windows
+REM SyncoPaid Git Initialization Script for Windows
 REM This script sets up a new Git repository and pushes to GitHub
 
 echo.
 echo ========================================
-echo TimeLawg Git Setup for Windows
+echo SyncoPaid Git Setup for Windows
 echo ========================================
 echo.
 
@@ -71,7 +71,7 @@ echo.
 
 REM Create initial commit
 echo Creating initial commit...
-git commit -m "Initial commit: TimeLawg MVP implementation
+git commit -m "Initial commit: SyncoPaid MVP implementation
 
 - Window tracking with pywin32 API
 - Idle detection (3-minute threshold)
@@ -97,14 +97,14 @@ echo ========================================
 echo.
 echo Before continuing, create a new PRIVATE repository on GitHub:
 echo   1. Go to https://github.com/new
-echo   2. Repository name: TimeLawg
+echo   2. Repository name: SyncoPaid
 echo   3. Description: Windows 11 automatic time tracker for legal billing
 echo   4. Visibility: PRIVATE (important - contains activity data structure)
 echo   5. Do NOT initialize with README, .gitignore, or license
 echo   6. Click "Create repository"
 echo.
 
-set /p repourl="Enter your GitHub repository URL (e.g., https://github.com/username/TimeLawg.git): "
+set /p repourl="Enter your GitHub repository URL (e.g., https://github.com/username/SyncoPaid.git): "
 
 if "%repourl%"=="" (
     echo No URL provided. You can add the remote later with:
@@ -153,7 +153,7 @@ echo ========================================
 echo ✓ SUCCESS!
 echo ========================================
 echo.
-echo Your TimeLawg repository is now on GitHub!
+echo Your SyncoPaid repository is now on GitHub!
 echo Repository: %repourl%
 echo.
 echo Next steps:

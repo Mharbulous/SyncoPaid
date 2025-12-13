@@ -39,7 +39,7 @@ Options:
 
 ### ASCII Format (default)
 ```
-TimeLawg [6/10] ●
+SyncoPaid [6/10] ●
 ├── 1.1 Window activity tracking [4/4] ✓
 │   ├── 1.1.1 Poll active window every second ✓
 │   ├── 1.1.2 Extract application name from process ✓
@@ -53,7 +53,7 @@ TimeLawg [6/10] ●
 
 ### Compact Format
 ```
-root: TimeLawg
+root: SyncoPaid
   1.1: Window activity tracking
     1.1.1: Poll active window every second
     1.1.2: Extract application name from process
@@ -61,7 +61,7 @@ root: TimeLawg
 
 ### Markdown Format
 ```markdown
-- **TimeLawg** [6/10] `active`
+- **SyncoPaid** [6/10] `active`
   - **1.1 Window activity tracking** [4/4] `implemented`
     - 1.1.1 Poll active window every second `implemented`
 ```

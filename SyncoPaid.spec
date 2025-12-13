@@ -1,12 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec file for TimeLawg
+# PyInstaller spec file for SyncoPaid
 
 a = Analysis(
-    ['src/timelawg/__main__.py'],
+    ['src/SyncoPaid/__main__.py'],
     pathex=['src'],
     binaries=[],
     datas=[
-        ('TimeLawg.ico', '.'),  # Include icon in root of bundle
+        ('SyncoPaid.ico', '.'),  # Include icon in root of bundle
     ],
     hiddenimports=[
         'win32timezone',  # pywin32 hidden dependency
@@ -26,7 +26,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='TimeLawg',
+    name='SyncoPaid',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -39,6 +39,6 @@ exe = EXE(
     target_arch=None,
     coerce_macros=True,
     entitlements_file=None,
-    icon='TimeLawg.ico',
+    icon='SyncoPaid.ico',
     version='version_info.txt',
 )

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Initialize story tree database for TimeLawg project."""
+"""Initialize story tree database for SyncoPaid project."""
 import sqlite3
 import os
 import re
@@ -19,7 +19,7 @@ cursor = conn.cursor()
 cursor.executescript(schema)
 
 # Extract project info from CLAUDE.md
-project_name = 'TimeLawg'
+project_name = 'SyncoPaid'
 project_desc = 'Windows 11 desktop application for automatic window activity capture'
 
 try:

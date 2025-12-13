@@ -1,4 +1,4 @@
-# TimeLawg - Quick Start Guide
+# SyncoPaid - Quick Start Guide
 
 Get up and running in 5 minutes.
 
@@ -18,7 +18,7 @@ Get up and running in 5 minutes.
 
 2. **Create virtual environment**
    ```bash
-   cd timelawg
+   cd SyncoPaid
    python -m venv venv
    venv\Scripts\activate
    ```
@@ -34,7 +34,7 @@ Verify everything works:
 
 ```bash
 # Test window tracking (switch windows to see output)
-python -m timelawg.tracker
+python -m SyncoPaid.tracker
 
 # Should print window titles as you switch between apps
 ```
@@ -42,7 +42,7 @@ python -m timelawg.tracker
 ## Run the App
 
 ```bash
-python -m timelawg
+python -m SyncoPaid
 ```
 
 You should see:
@@ -82,8 +82,8 @@ My active matters:
 After first run, files are created at:
 
 ```
-%LOCALAPPDATA%\TimeLawg\
-├── timelawg.db      # Activity database (DO NOT SHARE - contains your work data)
+%LOCALAPPDATA%\SyncoPaid\
+├── SyncoPaid.db      # Activity database (DO NOT SHARE - contains your work data)
 └── config.json     # Settings (can edit manually)
 ```
 
@@ -100,7 +100,7 @@ After first run, files are created at:
 ## Troubleshooting
 
 **Icon not visible?**
-→ Click "^" in system tray, or Settings → Taskbar → Show TimeLawg icon
+→ Click "^" in system tray, or Settings → Taskbar → Show SyncoPaid icon
 
 **"python not recognized"?**
 → Reinstall Python from python.org with "Add to PATH" checked
@@ -112,7 +112,7 @@ After first run, files are created at:
 
 - Run overnight to test stability
 - Export and try categorizing with Claude
-- Adjust config in `%LOCALAPPDATA%\TimeLawg\config.json` if needed
+- Adjust config in `%LOCALAPPDATA%\SyncoPaid\config.json` if needed
 - Read README.md for detailed documentation
 
 ## Support

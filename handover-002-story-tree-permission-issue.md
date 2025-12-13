@@ -2,18 +2,18 @@
 
 ## Status: Database Rebuilt Successfully, Skill Files Fixed, Cache Issue Identified
 
-**TL;DR**: Database successfully rebuilt with TimeLawg root. Skill tool cache prevented immediate use, but all skill files are now corrected. Story-tree skill should work in next session after cache clears/reloads.
+**TL;DR**: Database successfully rebuilt with SyncoPaid root. Skill tool cache prevented immediate use, but all skill files are now corrected. Story-tree skill should work in next session after cache clears/reloads.
 
 ### What Was Accomplished ✅
 
 1. **Database deleted and recreated** - `.claude/data/story-tree.db` successfully rebuilt from scratch
 2. **Root node correctly configured**:
    - ID: `root`
-   - Title: `TimeLawg`
+   - Title: `SyncoPaid`
    - Description: `LawTime Tracker is a Windows 11 desktop application that automatically captures window activity for civil litigation lawyers.`
    - Capacity: 10
    - Status: active
-3. **Visualization verified** - Tree displays correctly as `TimeLawg [0/10] O`
+3. **Visualization verified** - Tree displays correctly as `SyncoPaid [0/10] O`
 4. **Initialization scripts created**:
    - `.claude/data/init_story_tree.py` - Custom initialization for Python projects
    - `.claude/data/verify_root.py` - Verification script for checking database state
@@ -58,11 +58,11 @@ Since the database infrastructure is correct, generate stories by manually follo
    ```
 
 2. **Identify Priority Target** (lines 222-233):
-   - Root node `TimeLawg` has 0/10 capacity
+   - Root node `SyncoPaid` has 0/10 capacity
    - This is the highest priority target (depth 0, 0% filled)
 
 3. **Generate Stories** (lines 260-300):
-   - Analyze TimeLawg project documentation (CLAUDE.md, README, source code)
+   - Analyze SyncoPaid project documentation (CLAUDE.md, README, source code)
    - Identify 3-5 major feature categories for a Windows activity tracker:
      - Window capture and tracking
      - Screenshot management
@@ -128,17 +128,17 @@ Since the story-tree SKILL.md is just documentation, you can implement the workf
 
 ### Current Database State
 ```
-Root: TimeLawg [0/10 capacity] (active)
+Root: SyncoPaid [0/10 capacity] (active)
 └── (empty - ready for children)
 ```
 
 ### Git Commit Analysis Context
 - Last 30 days of commits are relevant (no checkpoint exists yet)
 - Recent work includes documentation updates, bug fixes, status symbol improvements
-- TimeLawg is a Python desktop app for Windows activity tracking
+- SyncoPaid is a Python desktop app for Windows activity tracking
 
 ### Story Generation Guidelines
-Based on TimeLawg's architecture (from CLAUDE.md):
+Based on SyncoPaid's architecture (from CLAUDE.md):
 - **Module categories**: tracker, screenshot, database, exporter, tray, config
 - **Key features**: Window capture, idle detection, screenshot deduplication, JSON export, system tray
 - **Technology stack**: Python 3.11+, pywin32, psutil, pystray, SQLite
@@ -158,7 +158,7 @@ Suggested top-level stories (Level 1):
 - `handover-002-story-tree-permission-issue.md` - This document
 
 ### Modified Files
-- `.claude/data/story-tree.db` - Deleted and recreated with TimeLawg root
+- `.claude/data/story-tree.db` - Deleted and recreated with SyncoPaid root
 - `.claude/skills/story-tree/SKILL.md` - Removed backticks from status documentation (lines 80-91, 418)
 - `.claude/skills/story-tree/docs/tree-view-guide.md` - Removed backticks from status table (line 74)
 
@@ -180,13 +180,13 @@ python -c "import sqlite3; conn = sqlite3.connect('.claude/data/story-tree.db');
 
 ## Success Criteria for Next Session
 
-- [ ] 3-5 level-1 stories created as children of TimeLawg root
+- [ ] 3-5 level-1 stories created as children of SyncoPaid root
 - [ ] Each story has appropriate capacity (3-5 for major features)
 - [ ] All stories have descriptive titles and context from codebase analysis
-- [ ] Stories reflect actual TimeLawg architecture and documented features
+- [ ] Stories reflect actual SyncoPaid architecture and documented features
 - [ ] Closure table correctly populated for all new nodes
 - [ ] Metadata updated with `lastUpdated` timestamp
-- [ ] Tree visualization shows `TimeLawg [3-5/10] O` with children
+- [ ] Tree visualization shows `SyncoPaid [3-5/10] O` with children
 
 ## Red Herrings / Dead Ends
 
@@ -197,7 +197,7 @@ python -c "import sqlite3; conn = sqlite3.connect('.claude/data/story-tree.db');
 ## Final Summary
 
 ### What Worked ✅
-1. Database rebuild with TimeLawg root - complete and verified
+1. Database rebuild with SyncoPaid root - complete and verified
 2. Initialization scripts created for Python projects
 3. Root cause identified: `!` (bugged status symbol) + backticks triggered bash parser
 4. All skill markdown files corrected to avoid bash parser conflicts
@@ -209,8 +209,8 @@ python -c "import sqlite3; conn = sqlite3.connect('.claude/data/story-tree.db');
 ### Next Steps 🎯
 1. **Start new session** or wait for cache expiration
 2. Run `Skill('story-tree')` - should now work without permission errors
-3. Tool will analyze git commits and generate 3-5 initial stories for TimeLawg
-4. Tree should show `TimeLawg [3-5/10] O` with proper child nodes
+3. Tool will analyze git commits and generate 3-5 initial stories for SyncoPaid
+4. Tree should show `SyncoPaid [3-5/10] O` with proper child nodes
 
 ## Related Documentation
 
@@ -226,4 +226,4 @@ python -c "import sqlite3; conn = sqlite3.connect('.claude/data/story-tree.db');
 - Python scripts work with forward slashes internally
 - Database should be tracked in git (exception to `*.db` gitignore rule)
 - Story generation should be evidence-based (analyze actual commits and code)
-- TimeLawg is single-repo, not multi-app portfolio (unlike original ListBot assumptions)
+- SyncoPaid is single-repo, not multi-app portfolio (unlike original ListBot assumptions)

@@ -1,5 +1,5 @@
 """
-Configuration management for TimeLawg.
+Configuration management for SyncoPaid.
 
 Handles loading, saving, and accessing application settings from a JSON file.
 Settings include polling intervals, thresholds, and file paths.
@@ -103,8 +103,8 @@ class ConfigManager:
     Manages loading and saving configuration from JSON file.
     
     Config file location:
-    - Windows: %LOCALAPPDATA%\\TimeLawg\\config.json
-    - Linux/Mac: ~/.config/timelawg/config.json
+    - Windows: %LOCALAPPDATA%\\SyncoPaid\\config.json
+    - Linux/Mac: ~/.config/SyncoPaid/config.json
     """
     
     def __init__(self, config_path: Optional[Path] = None):
@@ -135,17 +135,17 @@ class ConfigManager:
         import os
         
         if sys.platform == 'win32':
-            # Windows: %LOCALAPPDATA%\TimeLawg\config.json
+            # Windows: %LOCALAPPDATA%\SyncoPaid\config.json
             appdata = os.environ.get('LOCALAPPDATA')
             if not appdata:
                 # Fallback if LOCALAPPDATA not set
                 appdata = Path.home() / 'AppData' / 'Local'
             else:
                 appdata = Path(appdata)
-            config_dir = appdata / 'TimeLawg'
+            config_dir = appdata / 'SyncoPaid'
         else:
-            # Linux/Mac: ~/.config/timelawg/config.json
-            config_dir = Path.home() / '.config' / 'timelawg'
+            # Linux/Mac: ~/.config/SyncoPaid/config.json
+            config_dir = Path.home() / '.config' / 'SyncoPaid'
         
         config_dir.mkdir(parents=True, exist_ok=True)
         return config_dir / 'config.json'
@@ -156,7 +156,7 @@ class ConfigManager:
         Get the default database file path for the current platform.
         
         Returns:
-            Path object pointing to timelawg.db location
+            Path object pointing to SyncoPaid.db location
         """
         import sys
         import os
@@ -167,15 +167,15 @@ class ConfigManager:
                 appdata = Path.home() / 'AppData' / 'Local'
             else:
                 appdata = Path(appdata)
-            db_dir = appdata / 'TimeLawg'
+            db_dir = appdata / 'SyncoPaid'
         else:
-            db_dir = Path.home() / '.local' / 'share' / 'timelawg'
+            db_dir = Path.home() / '.local' / 'share' / 'SyncoPaid'
 
         db_dir.mkdir(parents=True, exist_ok=True)
 
         # Migration: rename old database if it exists
         old_db = db_dir / 'lawtime.db'
-        new_db = db_dir / 'timelawg.db'
+        new_db = db_dir / 'SyncoPaid.db'
         if old_db.exists() and not new_db.exists():
             logging.info(f"Migrating database from {old_db} to {new_db}")
             old_db.rename(new_db)

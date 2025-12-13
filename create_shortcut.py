@@ -1,5 +1,5 @@
 """
-Create a Windows desktop shortcut with custom icon for TimeLawg.
+Create a Windows desktop shortcut with custom icon for SyncoPaid.
 Run this script once from the activated venv to create the shortcut.
 """
 import os
@@ -9,10 +9,10 @@ from PIL import Image
 # Paths
 PROJECT_DIR = Path(__file__).parent
 ICON_PNG = PROJECT_DIR / "OrangeClockScale.png"
-ICON_ICO = PROJECT_DIR / "TimeLawg.ico"
+ICON_ICO = PROJECT_DIR / "SyncoPaid.ico"
 DESKTOP = Path(os.environ["USERPROFILE"]) / "OneDrive - Logica Law" / "Desktop"
-SHORTCUT_PATH = DESKTOP / "TimeLawg.lnk"
-BAT_PATH = PROJECT_DIR / "launch_timelawg.bat"
+SHORTCUT_PATH = DESKTOP / "SyncoPaid.lnk"
+BAT_PATH = PROJECT_DIR / "launch_SyncoPaid.bat"
 
 def create_ico():
     """Convert PNG to ICO with multiple sizes."""
@@ -29,7 +29,7 @@ def create_bat():
     bat_content = f'''@echo off
 cd /d {PROJECT_DIR}
 call venv\\Scripts\\activate
-start /min pythonw -m timelawg
+start /min pythonw -m SyncoPaid
 '''
     BAT_PATH.write_text(bat_content)
     print(f"Created: {BAT_PATH}")
@@ -47,7 +47,7 @@ def create_shortcut():
     shortcut.TargetPath = str(BAT_PATH)
     shortcut.WorkingDirectory = str(PROJECT_DIR)
     shortcut.IconLocation = str(ICON_ICO)
-    shortcut.Description = "TimeLawg - Automatic time tracking for lawyers"
+    shortcut.Description = "SyncoPaid - Automatic time tracking for lawyers"
     shortcut.WindowStyle = 7  # Minimized
     shortcut.save()
     print(f"Created shortcut: {SHORTCUT_PATH}")
@@ -55,7 +55,7 @@ def create_shortcut():
 
 if __name__ == "__main__":
     print("=" * 50)
-    print("TimeLawg Desktop Shortcut Creator")
+    print("SyncoPaid Desktop Shortcut Creator")
     print("=" * 50)
 
     # Remove old bat file if exists
@@ -69,6 +69,6 @@ if __name__ == "__main__":
 
     if create_shortcut():
         print("\n✓ Desktop shortcut created successfully!")
-        print("  Double-click 'TimeLawg' on your desktop to launch.")
+        print("  Double-click 'SyncoPaid' on your desktop to launch.")
     else:
         print("\n✗ Failed to create shortcut")

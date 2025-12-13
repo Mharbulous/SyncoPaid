@@ -1,5 +1,5 @@
 """
-System tray UI module for TimeLawg.
+System tray UI module for SyncoPaid.
 
 Provides a minimal system tray interface with:
 - Status indicator icon (green=tracking, yellow=paused)
@@ -22,7 +22,7 @@ if WINDOWS:
 
 # Version info
 try:
-    from timelawg import __product_version__
+    from SyncoPaid import __product_version__
 except ImportError:
     __product_version__ = "1.0.0"  # Fallback if not yet generated
 
@@ -59,7 +59,7 @@ def is_startup_enabled() -> bool:
             winreg.KEY_READ
         )
         try:
-            value, _ = winreg.QueryValueEx(key, "TimeLawg")
+            value, _ = winreg.QueryValueEx(key, "SyncoPaid")
             winreg.CloseKey(key)
             return bool(value)
         except FileNotFoundError:
@@ -101,7 +101,7 @@ def enable_startup() -> bool:
         )
 
         # Set the value
-        winreg.SetValueEx(key, "TimeLawg", 0, winreg.REG_SZ, exe_path)
+        winreg.SetValueEx(key, "SyncoPaid", 0, winreg.REG_SZ, exe_path)
         winreg.CloseKey(key)
 
         logging.info(f"Startup enabled: {exe_path}")
@@ -134,7 +134,7 @@ def disable_startup() -> bool:
         )
 
         try:
-            winreg.DeleteValue(key, "TimeLawg")
+            winreg.DeleteValue(key, "SyncoPaid")
             winreg.CloseKey(key)
             logging.info("Startup disabled")
             return True
@@ -194,7 +194,7 @@ class TrayIcon:
     
     def create_icon_image(self, color: str = "green") -> Optional["Image.Image"]:
         """
-        Create system tray icon using TimeLawg.png with status indicator.
+        Create system tray icon using SyncoPaid.png with status indicator.
 
         Args:
             color: Status indicator color - "green" (tracking), "yellow" (paused), "red" (error)
@@ -207,9 +207,9 @@ class TrayIcon:
 
         size = 64
 
-        # Try to load the TimeLawg icon (prefer ICO, fallback to PNG)
-        ico_path = Path(__file__).parent / "TimeLawg.ico"
-        png_path = Path(__file__).parent / "TimeLawg.png"
+        # Try to load the SyncoPaid icon (prefer ICO, fallback to PNG)
+        ico_path = Path(__file__).parent / "SyncoPaid.ico"
+        png_path = Path(__file__).parent / "SyncoPaid.png"
 
         image = None
         if ico_path.exists():
@@ -266,7 +266,7 @@ class TrayIcon:
         if self.icon:
             color = "green" if is_tracking else "yellow"
             self.icon.icon = self.create_icon_image(color)
-            self.icon.title = f"TimeLawg v{__product_version__}"
+            self.icon.title = f"SyncoPaid v{__product_version__}"
     
     def _create_menu(self):
         """Create the right-click menu."""
@@ -336,7 +336,7 @@ class TrayIcon:
         logging.info("User clicked About from tray menu")
         # TODO: Show about dialog
         print("\n" + "="*50)
-        print(f"TimeLawg v{__product_version__}")
+        print(f"SyncoPaid v{__product_version__}")
         print("Windows 11 automatic time tracking for lawyers")
         print("="*50 + "\n")
     
@@ -363,9 +363,9 @@ class TrayIcon:
             return
         
         self.icon = pystray.Icon(
-            "timelawg_tracker",
+            "SyncoPaid_tracker",
             self.create_icon_image("green"),
-            f"TimeLawg v{__product_version__}",
+            f"SyncoPaid v{__product_version__}",
             menu=self._create_menu()
         )
         
@@ -379,7 +379,7 @@ class TrayIcon:
         Provides basic commands: start, pause, export, quit.
         """
         print("\n" + "="*60)
-        print("TimeLawg Tracker - Console Mode")
+        print("SyncoPaid Tracker - Console Mode")
         print("(System tray not available)")
         print("="*60)
         print("\nCommands:")
@@ -391,7 +391,7 @@ class TrayIcon:
         
         while True:
             try:
-                cmd = input("timelawg> ").strip().lower()
+                cmd = input("SyncoPaid> ").strip().lower()
                 
                 if cmd == "start":
                     print("▶ Starting tracking...")

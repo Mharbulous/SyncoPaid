@@ -1,8 +1,8 @@
-# TimeLawg
+# SyncoPaid
 
 **Automatic time tracking for Windows 11 designed specifically for civil litigation lawyers.**
 
-TimeLawg runs silently in the background, capturing your window activity at second-level precision. All data stays entirely local on your machine (never uploaded to any server), preserving attorney-client privilege. Export your activity log to JSON for processing by external LLM tools for automatic matter categorization and billing narrative generation.
+SyncoPaid runs silently in the background, capturing your window activity at second-level precision. All data stays entirely local on your machine (never uploaded to any server), preserving attorney-client privilege. Export your activity log to JSON for processing by external LLM tools for automatic matter categorization and billing narrative generation.
 
 ## Features
 
@@ -25,8 +25,8 @@ TimeLawg runs silently in the background, capturing your window activity at seco
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/timelawg.git
-cd timelawg
+git clone https://github.com/yourusername/SyncoPaid.git
+cd SyncoPaid
 ```
 
 ### 2. Create a virtual environment
@@ -48,7 +48,7 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-This installs the `timelawg` package from the `src/` directory so you can run it with `python -m timelawg`.
+This installs the `SyncoPaid` package from the `src/` directory so you can run it with `python -m SyncoPaid`.
 
 ### 5. Verify installation
 
@@ -72,12 +72,12 @@ If all tests pass, you're ready to run the app!
 ### Run the application
 
 ```bash
-python -m timelawg
+python -m SyncoPaid
 ```
 
 This will:
-1. Create the database at `%LOCALAPPDATA%\TimeLawg\timelawg.db`
-2. Create config file at `%LOCALAPPDATA%\TimeLawg\config.json`
+1. Create the database at `%LOCALAPPDATA%\SyncoPaid\SyncoPaid.db`
+2. Create config file at `%LOCALAPPDATA%\SyncoPaid\config.json`
 3. Start tracking automatically (if `start_tracking_on_launch` is true)
 4. Show a system tray icon (green = tracking, yellow = paused)
 
@@ -123,7 +123,7 @@ The exported JSON can be fed to Claude or GPT for automatic categorization:
 
 ## Configuration
 
-Settings are stored in `%LOCALAPPDATA%\TimeLawg\config.json`:
+Settings are stored in `%LOCALAPPDATA%\SyncoPaid\config.json`:
 
 ```json
 {
@@ -153,7 +153,7 @@ Edit the config file and restart the app to apply changes.
 
 Activity data is stored in a local SQLite database at:
 ```
-%LOCALAPPDATA%\TimeLawg\timelawg.db
+%LOCALAPPDATA%\SyncoPaid\SyncoPaid.db
 ```
 
 ### Schema
@@ -175,7 +175,7 @@ CREATE TABLE events (
 You can query the database directly if needed:
 
 ```bash
-sqlite3 "%LOCALAPPDATA%\TimeLawg\timelawg.db"
+sqlite3 "%LOCALAPPDATA%\SyncoPaid\SyncoPaid.db"
 ```
 
 ```sql
@@ -249,7 +249,7 @@ python -m pywin32_postinstall -install
 
 Windows 11 hides overflow icons by default. Click the "^" arrow in the system tray to see hidden icons. To keep it visible:
 1. Right-click taskbar → Taskbar settings
-2. Other system tray icons → Turn on TimeLawg
+2. Other system tray icons → Turn on SyncoPaid
 
 ### Permission errors accessing windows
 
@@ -260,9 +260,9 @@ Some admin-level applications may not report window titles to non-admin processe
 ### Project Structure
 
 ```
-timelawg/
+SyncoPaid/
 ├── src/
-│   └── timelawg/
+│   └── SyncoPaid/
 │       ├── __init__.py      # Package initialization
 │       ├── __main__.py      # Main entry point
 │       ├── tracker.py       # Core tracking loop
@@ -281,19 +281,19 @@ Each module includes a `if __name__ == "__main__"` block for standalone testing:
 
 ```bash
 # Test tracker
-python -m timelawg.tracker
+python -m SyncoPaid.tracker
 
 # Test database
-python -m timelawg.database
+python -m SyncoPaid.database
 
 # Test config
-python -m timelawg.config
+python -m SyncoPaid.config
 
 # Test exporter
-python -m timelawg.exporter
+python -m SyncoPaid.exporter
 
 # Test tray
-python -m timelawg.tray
+python -m SyncoPaid.tray
 ```
 
 ### Development Guidelines
@@ -349,7 +349,7 @@ MIT License - See LICENSE file for details
 ## Support
 
 For issues, questions, or contributions:
-- GitHub: https://github.com/yourusername/timelawg
+- GitHub: https://github.com/yourusername/SyncoPaid
 - Email: your.email@example.com
 
 ## Credits

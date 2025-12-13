@@ -1,9 +1,9 @@
 #!/bin/bash
-# TimeLawg Build Script (Git Bash / Linux)
-# Compiles the Python application into TimeLawg.exe
+# SyncoPaid Build Script (Git Bash / Linux)
+# Compiles the Python application into SyncoPaid.exe
 
 echo "================================================"
-echo "TimeLawg Build Script"
+echo "SyncoPaid Build Script"
 echo "================================================"
 echo ""
 
@@ -29,7 +29,7 @@ fi
 
 # Clean previous build artifacts
 echo "Cleaning previous build artifacts..."
-rm -rf build dist TimeLawg.spec.bak
+rm -rf build dist SyncoPaid.spec.bak
 
 # Generate version information
 echo ""
@@ -44,9 +44,9 @@ fi
 
 # Build the executable
 echo ""
-echo "Building TimeLawg.exe..."
+echo "Building SyncoPaid.exe..."
 echo ""
-pyinstaller TimeLawg.spec
+pyinstaller SyncoPaid.spec
 
 if [ $? -ne 0 ]; then
     echo ""
@@ -62,11 +62,11 @@ echo "================================================"
 echo "BUILD SUCCESSFUL!"
 echo "================================================"
 echo ""
-echo "Executable location: dist/TimeLawg.exe"
+echo "Executable location: dist/SyncoPaid.exe"
 echo ""
 echo "To test the executable:"
 echo "  1. Navigate to dist/ folder"
-echo "  2. Run TimeLawg.exe"
+echo "  2. Run SyncoPaid.exe"
 echo "  3. Check system tray for the icon"
 echo ""
 read -p "Press Enter to exit..."

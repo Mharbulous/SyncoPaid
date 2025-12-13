@@ -29,9 +29,9 @@ if __name__ == "__main__":
     print("Right-click the icon to see menu, select Quit to exit\n")
 
     icon = pystray.Icon(
-        "timelawg_test",
+        "SyncoPaid_test",
         create_icon("green"),
-        "TimeLawg Test",
+        "SyncoPaid Test",
         menu=pystray.Menu(
             pystray.MenuItem("Status", on_status),
             pystray.MenuItem("Quit", on_quit)

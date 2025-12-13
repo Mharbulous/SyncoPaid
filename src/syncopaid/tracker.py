@@ -41,7 +41,7 @@ else:
 # System states (assigned automatically based on tracking conditions)
 STATE_ACTIVE = "Active"       # Tracked activity, client matter TBD (default)
 STATE_INACTIVE = "Inactive"   # Idle detected (keyboard/mouse inactivity)
-STATE_OFF = "Off"             # TimeLawg wasn't running (gaps)
+STATE_OFF = "Off"             # SyncoPaid wasn't running (gaps)
 STATE_BLOCKED = "Blocked"     # Auto-blocked content (passwords, incognito)
 STATE_PAUSED = "Paused"       # User manually paused tracking
 
@@ -446,7 +446,7 @@ def run_console_test(duration_seconds: int = 30):
         duration_seconds: How long to run the test (default 30s)
     """
     print("=" * 70)
-    print("TimeLawg - Console Test Mode")
+    print("SyncoPaid - Console Test Mode")
     print("=" * 70)
     print(f"Running for {duration_seconds} seconds...")
     print("Switch between windows to see tracking in action.\n")

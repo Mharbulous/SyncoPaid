@@ -1,6 +1,6 @@
-# GitHub Setup Guide for TimeLawg
+# GitHub Setup Guide for SyncoPaid
 
-This guide walks you through setting up your TimeLawg repository on GitHub and establishing a development workflow.
+This guide walks you through setting up your SyncoPaid repository on GitHub and establishing a development workflow.
 
 ## Table of Contents
 
@@ -15,7 +15,7 @@ This guide walks you through setting up your TimeLawg repository on GitHub and e
 
 - Git installed on your system
 - GitHub account created
-- TimeLawg code copied to your workspace
+- SyncoPaid code copied to your workspace
 
 ### Automated Setup (Recommended)
 
@@ -47,7 +47,7 @@ If you prefer to set up Git manually:
 
 1. Go to https://github.com/new
 2. Configure your repository:
-   - **Repository name:** `TimeLawg`
+   - **Repository name:** `SyncoPaid`
    - **Description:** `Windows 11 automatic time tracker for legal billing`
    - **Visibility:** **PRIVATE** (critical - this is personal activity tracking code)
    - **Do NOT** check "Initialize with README" (we already have one)

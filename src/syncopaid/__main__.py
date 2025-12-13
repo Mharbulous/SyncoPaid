@@ -1,5 +1,5 @@
 """
-TimeLawg - Main entry point.
+SyncoPaid - Main entry point.
 
 Coordinates all components:
 - Configuration management
@@ -8,7 +8,7 @@ Coordinates all components:
 - System tray UI
 - Data export
 
-This is the file that runs when you execute: python -m timelawg
+This is the file that runs when you execute: python -m SyncoPaid
 """
 
 import sys
@@ -21,21 +21,21 @@ from pathlib import Path
 from datetime import datetime, date, timedelta
 import ctypes
 
-from timelawg.config import ConfigManager, print_config
-from timelawg.database import Database, format_duration
-from timelawg.tracker import TrackerLoop
-from timelawg.exporter import Exporter
-from timelawg.tray import TrayIcon, enable_startup
-from timelawg.screenshot import ScreenshotWorker, get_screenshot_directory
-from timelawg.action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
+from SyncoPaid.config import ConfigManager, print_config
+from SyncoPaid.database import Database, format_duration
+from SyncoPaid.tracker import TrackerLoop
+from SyncoPaid.exporter import Exporter
+from SyncoPaid.tray import TrayIcon, enable_startup
+from SyncoPaid.screenshot import ScreenshotWorker, get_screenshot_directory
+from SyncoPaid.action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
 
 # Path to the application icon
-_ICON_ICO_PATH = Path(__file__).parent / "TimeLawg.ico"
-_ICON_PNG_PATH = Path(__file__).parent / "TimeLawg.png"
+_ICON_ICO_PATH = Path(__file__).parent / "SyncoPaid.ico"
+_ICON_PNG_PATH = Path(__file__).parent / "SyncoPaid.png"
 
 
 def _set_window_icon(root: tk.Tk) -> None:
-    """Set the TimeLawg icon on a tkinter window."""
+    """Set the SyncoPaid icon on a tkinter window."""
     try:
         # On Windows, use ICO file with iconbitmap (best quality)
         if sys.platform == 'win32' and _ICON_ICO_PATH.exists():
@@ -89,13 +89,13 @@ def _parse_duration_to_seconds(duration_str: str) -> float:
 
 # Version info
 try:
-    from timelawg import __product_version__
+    from SyncoPaid import __product_version__
 except ImportError:
     __product_version__ = "1.0.0"  # Fallback if not yet generated
 
 
 # Single-instance enforcement using Windows mutex
-_MUTEX_NAME = "TimeLawgTracker_SingleInstance_Mutex"
+_MUTEX_NAME = "SyncoPaidTracker_SingleInstance_Mutex"
 _mutex_handle = None
 
 
@@ -133,7 +133,7 @@ def release_single_instance():
         _mutex_handle = None
 
 
-class TimeLawgApp:
+class SyncoPaidApp:
     """
     Main application coordinator.
     
@@ -205,7 +205,7 @@ class TimeLawgApp:
             on_quit=self.quit_app
         )
 
-        logging.info("TimeLawg application initialized")
+        logging.info("SyncoPaid application initialized")
     
     def start_tracking(self):
         """Start the tracking loop in a background thread."""
@@ -288,7 +288,7 @@ class TimeLawgApp:
                     title="Export Activity Data",
                     defaultextension=".json",
                     filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
-                    initialfile=f"timelawg_export_{datetime.now().strftime('%Y%m%d')}.json"
+                    initialfile=f"SyncoPaid_export_{datetime.now().strftime('%Y%m%d')}.json"
                 )
 
                 if output_path:
@@ -361,7 +361,7 @@ class TimeLawgApp:
 
                 # Create window
                 root = tk.Tk()
-                root.title("TimeLawg - Last 24 Hours")
+                root.title("SyncoPaid - Last 24 Hours")
                 root.geometry("800x500")
                 root.attributes('-topmost', True)
                 _set_window_icon(root)
@@ -377,7 +377,7 @@ class TimeLawgApp:
                 def show_about():
                     """Show About dialog with version and commit info."""
                     try:
-                        from timelawg import __version__, __product_version__
+                        from SyncoPaid import __version__, __product_version__
                     except ImportError:
                         __version__ = "0.0.0.dev"
                         __product_version__ = "0.0.0"
@@ -389,8 +389,8 @@ class TimeLawgApp:
                         commit_id = "dev"
 
                     messagebox.showinfo(
-                        "About TimeLawg",
-                        f"TimeLawg\n\n"
+                        "About SyncoPaid",
+                        f"SyncoPaid\n\n"
                         f"Version: {__product_version__}\n"
                         f"Build: {commit_id}\n\n"
                         f"Automatic time tracking for lawyers.\n"
@@ -654,7 +654,7 @@ class TimeLawgApp:
         stats = self.database.get_statistics()
         
         print("\n" + "="*60)
-        print("TimeLawg Statistics")
+        print("SyncoPaid Statistics")
         print("="*60)
         print(f"Total events captured: {stats['total_events']}")
         print(f"Active time: {format_duration(stats['active_duration_seconds'])}")
@@ -698,14 +698,14 @@ class TimeLawgApp:
 
         This is the main entry point that starts everything.
         """
-        logging.info("TimeLawg starting...")
+        logging.info("SyncoPaid starting...")
 
         # Ensure "Start with Windows" is enabled on every run
         enable_startup()
 
         # Show welcome message
         print("\n" + "="*60)
-        print(f"TimeLawg v{__product_version__}")
+        print(f"SyncoPaid v{__product_version__}")
         print("Windows 11 automatic time tracking for lawyers")
         print("="*60)
         print(f"\nDatabase: {self.config_manager.get_database_path()}")
@@ -740,12 +740,12 @@ def main():
 
     # Enforce single instance
     if not acquire_single_instance():
-        print("TimeLawg is already running.")
+        print("SyncoPaid is already running.")
         print("Check your system tray for the existing instance.")
         sys.exit(0)
 
     try:
-        app = TimeLawgApp()
+        app = SyncoPaidApp()
         app.run()
 
     except KeyboardInterrupt:

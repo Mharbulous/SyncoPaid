@@ -13,7 +13,7 @@
 ## Task 1: Add `delete_events_by_ids()` method to Database
 
 **Files:**
-- Modify: `src\timelawg\database.py:252-293` (after existing `delete_events` method)
+- Modify: `src\SyncoPaid\database.py:252-293` (after existing `delete_events` method)
 - Test: Manual test via Python REPL
 
 **Step 1: Add the new method**
@@ -52,7 +52,7 @@ def delete_events_by_ids(self, event_ids: List[int]) -> int:
 
 Run in Python REPL (from project root with venv activated):
 ```python
-from timelawg.database import Database
+from SyncoPaid.database import Database
 import tempfile
 import os
 
@@ -61,7 +61,7 @@ tmpdir = tempfile.mkdtemp()
 db = Database(os.path.join(tmpdir, "test.db"))
 
 # Insert test events
-from timelawg.tracker import ActivityEvent
+from SyncoPaid.tracker import ActivityEvent
 events = [
     ActivityEvent(timestamp="2025-12-11T09:00:00", duration_seconds=60, app="test", title="Test 1", is_idle=False),
     ActivityEvent(timestamp="2025-12-11T09:01:00", duration_seconds=60, app="test", title="Test 2", is_idle=False),
@@ -90,7 +90,7 @@ Expected: "SUCCESS: delete_events_by_ids works correctly"
 **Step 3: Commit**
 
 ```bash
-git add src/timelawg/database.py
+git add src/SyncoPaid/database.py
 git commit -m "feat: add delete_events_by_ids() method to Database
 
 Enables deleting specific events by their IDs, required for
@@ -102,7 +102,7 @@ the View Time window delete functionality."
 ## Task 2: Store event IDs in Treeview rows
 
 **Files:**
-- Modify: `src\timelawg\__main__.py:478-495` (event insertion loop)
+- Modify: `src\SyncoPaid\__main__.py:478-495` (event insertion loop)
 
 **Step 1: Modify event query to include ID**
 
@@ -152,7 +152,7 @@ Run the application and open View Time window. The ID column should be hidden bu
 **Step 6: Commit**
 
 ```bash
-git add src/timelawg/__main__.py
+git add src/SyncoPaid/__main__.py
 git commit -m "feat: store event ID in Treeview rows (hidden column)
 
 Required for delete functionality to know which database records
@@ -164,7 +164,7 @@ to remove."
 ## Task 3: Enable multi-select on Treeview
 
 **Files:**
-- Modify: `src\timelawg\__main__.py:360` (Treeview creation)
+- Modify: `src\SyncoPaid\__main__.py:360` (Treeview creation)
 
 **Step 1: Add selectmode parameter**
 
@@ -195,7 +195,7 @@ Run application, open View Time window, verify you can:
 **Step 3: Commit**
 
 ```bash
-git add src/timelawg/__main__.py
+git add src/SyncoPaid/__main__.py
 git commit -m "feat: enable multi-select on View Time Treeview
 
 Allows selecting multiple log entries for batch deletion using
@@ -207,7 +207,7 @@ Ctrl+Click and Shift+Click."
 ## Task 4: Add 'delete' command handler
 
 **Files:**
-- Modify: `src\timelawg\__main__.py:378-438` (execute_command function)
+- Modify: `src\SyncoPaid\__main__.py:378-438` (execute_command function)
 
 **Step 1: Add delete command handling**
 
@@ -306,7 +306,7 @@ messagebox.showwarning(
 **Step 4: Commit**
 
 ```bash
-git add src/timelawg/__main__.py
+git add src/SyncoPaid/__main__.py
 git commit -m "feat: add delete command to View Time window
 
 Allows deleting selected log entries:
@@ -321,7 +321,7 @@ Allows deleting selected log entries:
 ## Task 5: Update total activity time after deletion
 
 **Files:**
-- Modify: `src\timelawg\__main__.py` (View Time window)
+- Modify: `src\SyncoPaid\__main__.py` (View Time window)
 
 **Step 1: Extract header label to variable**
 
@@ -431,7 +431,7 @@ messagebox.showinfo(
 **Step 6: Commit**
 
 ```bash
-git add src/timelawg/__main__.py
+git add src/SyncoPaid/__main__.py
 git commit -m "feat: update activity totals after deleting entries
 
 Header now shows recalculated total time and event count

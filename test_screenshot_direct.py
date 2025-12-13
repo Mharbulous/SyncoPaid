@@ -61,7 +61,7 @@ print()
 # Import screenshot module
 print("Importing screenshot module...")
 try:
-    from timelawg.screenshot import ScreenshotWorker, get_screenshot_directory, WINDOWS_APIS_AVAILABLE
+    from SyncoPaid.screenshot import ScreenshotWorker, get_screenshot_directory, WINDOWS_APIS_AVAILABLE
     print(f"  ✓ screenshot module imported")
     print(f"  WINDOWS_APIS_AVAILABLE = {WINDOWS_APIS_AVAILABLE}")
 

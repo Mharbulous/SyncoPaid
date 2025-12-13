@@ -11,11 +11,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 When working via Claude Code on the Web, Windows-specific APIs (pywin32, win32gui) will NOT be available since the sandbox runs Linux. The application must be tested on the actual Windows 11 machine to verify Windows-specific functionality like screenshot capture and window tracking.
 
-**User Data Path**: `C:\Users\Brahm\AppData\Local\TimeLawg\`
+**User Data Path**: `C:\Users\Brahm\AppData\Local\SyncoPaid\`
 
 ## Project Overview
 
-TimeLawg is a Windows 11 desktop application that automatically captures window activity for civil litigation lawyers. It runs in the background, recording window titles and application names at second-level precision. All data stays local (SQLite database) for attorney-client privilege preservation. Exported JSON is designed for processing by external LLM tools for billing categorization.
+SyncoPaid is a Windows 11 desktop application that automatically captures window activity for civil litigation lawyers. It runs in the background, recording window titles and application names at second-level precision. All data stays local (SQLite database) for attorney-client privilege preservation. Exported JSON is designed for processing by external LLM tools for billing categorization.
 
 ## Development Commands
 
@@ -30,14 +30,14 @@ pip install -r requirements.txt
 pip install -e .
 
 # Run the application
-python -m timelawg
+python -m SyncoPaid
 
 # Test individual modules
-python -m timelawg.tracker    # Window capture test (30s)
-python -m timelawg.database   # Database operations test
-python -m timelawg.config     # Config management test
-python -m timelawg.exporter   # Export functionality test
-python -m timelawg.tray       # System tray test
+python -m SyncoPaid.tracker    # Window capture test (30s)
+python -m SyncoPaid.database   # Database operations test
+python -m SyncoPaid.config     # Config management test
+python -m SyncoPaid.exporter   # Export functionality test
+python -m SyncoPaid.tray       # System tray test
 
 # Quick API verification tests
 python test_window.py        # Test pywin32 window capture
@@ -50,13 +50,13 @@ python test_tray.py          # Test pystray system tray
 ### Module Structure
 
 ```
-src/timelawg/
-├── __main__.py    # Entry point, TimeLawgApp coordinator class
+src/SyncoPaid/
+├── __main__.py    # Entry point, SyncoPaidApp coordinator class
 ├── tracker.py     # TrackerLoop: polls active window, detects idle, yields ActivityEvent
 ├── screenshot.py  # ScreenshotWorker: async screenshot capture with perceptual hashing
 ├── database.py    # SQLite operations (insert, query, delete, statistics)
 ├── exporter.py    # JSON export with date filtering
-├── config.py      # ConfigManager: loads/saves %LOCALAPPDATA%\TimeLawg\config.json
+├── config.py      # ConfigManager: loads/saves %LOCALAPPDATA%\SyncoPaid\config.json
 └── tray.py        # TrayIcon: pystray-based system tray with menu
 ```
 
@@ -65,7 +65,7 @@ src/timelawg/
 1. `TrackerLoop.start()` is a generator that polls `get_active_window()` and `get_idle_seconds()` every 1 second
 2. Every 10 seconds (configurable), tracker submits screenshot request to `ScreenshotWorker` (async, non-blocking)
 3. State changes yield `ActivityEvent` dataclass instances
-4. `TimeLawgApp._run_tracking_loop()` inserts events into SQLite via `Database.insert_event()`
+4. `SyncoPaidApp._run_tracking_loop()` inserts events into SQLite via `Database.insert_event()`
 5. `ScreenshotWorker` captures, deduplicates via dHash, and saves screenshots to disk + database
 6. `Exporter.export_to_json()` queries database and writes structured JSON for LLM processing
 
@@ -89,9 +89,9 @@ src/timelawg/
 
 ## File Locations
 
-- **Database**: `%LOCALAPPDATA%\TimeLawg\timelawg.db`
-- **Config**: `%LOCALAPPDATA%\TimeLawg\config.json`
-- **Screenshots**: `%LOCALAPPDATA%\TimeLawg\screenshots\YYYY-MM-DD\HHMMSS_appname.jpg`
+- **Database**: `%LOCALAPPDATA%\SyncoPaid\SyncoPaid.db`
+- **Config**: `%LOCALAPPDATA%\SyncoPaid\config.json`
+- **Screenshots**: `%LOCALAPPDATA%\SyncoPaid\screenshots\YYYY-MM-DD\HHMMSS_appname.jpg`
 - **PRD/Docs**: `ai_docs/` directory
 
 ## Technology Stack

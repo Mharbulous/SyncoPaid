@@ -22,7 +22,7 @@ Acceptance Criteria:
 - Generates ActivityEvent instances with timestamp, duration, app, title, idle status
 - Handles multi-monitor setups correctly
 
-Related context: Commits db8305c (focus change detection), 29595a2 (delete log entries), e98fd8e (multi-monitor fix), 531a5b9 (end_time tracking). Module: src/timelawg/tracker.py''',
+Related context: Commits db8305c (focus change detection), 29595a2 (delete log entries), e98fd8e (multi-monitor fix), 531a5b9 (end_time tracking). Module: src/SyncoPaid/tracker.py''',
         'capacity': 8,
         'status': 'concept'
     },
@@ -43,7 +43,7 @@ Acceptance Criteria:
 - Handles multi-monitor coordinate systems correctly
 - Applies JPEG quality and dimension constraints
 
-Related context: Commits e98fd8e (MSS library), b082e8b (filename sanitization), df69b65 (context-aware thresholds), 8ed8285 (action screenshots). Modules: src/timelawg/screenshot.py, src/timelawg/action_screenshot.py''',
+Related context: Commits e98fd8e (MSS library), b082e8b (filename sanitization), df69b65 (context-aware thresholds), 8ed8285 (action screenshots). Modules: src/SyncoPaid/screenshot.py, src/SyncoPaid/action_screenshot.py''',
         'capacity': 10,
         'status': 'concept'
     },
@@ -64,7 +64,7 @@ Acceptance Criteria:
 - Preserves attorney-client privilege (all data local, no cloud sync)
 - Calculates activity statistics and totals
 
-Related context: Commits 29595a2 (delete log entries), 876c6ac (update totals), f23b249 (delete_events_by_ids), 531a5b9 (end_time tracking). Modules: src/timelawg/database.py, src/timelawg/exporter.py''',
+Related context: Commits 29595a2 (delete log entries), 876c6ac (update totals), f23b249 (delete_events_by_ids), 531a5b9 (end_time tracking). Modules: src/SyncoPaid/database.py, src/SyncoPaid/exporter.py''',
         'capacity': 7,
         'status': 'concept'
     },
@@ -86,7 +86,7 @@ Acceptance Criteria:
 - View Captured Images button opens screenshot folders
 - Treeview displays start time, duration, end time, application, and title
 
-Related context: Commits b960361 (command field), 1409acc (Start with Windows), 5873af4 (remove quit), 36786be (View Images button), 36bb125 (About menu). Modules: src/timelawg/tray.py, view_time_window.py''',
+Related context: Commits b960361 (command field), 1409acc (Start with Windows), 5873af4 (remove quit), 36786be (View Images button), 36bb125 (About menu). Modules: src/SyncoPaid/tray.py, view_time_window.py''',
         'capacity': 9,
         'status': 'concept'
     },
@@ -98,7 +98,7 @@ I want configurable tracking behavior and thresholds
 So that I can customize the tool to match my workflow and storage constraints
 
 Acceptance Criteria:
-- Centralized configuration file (%LOCALAPPDATA%\\TimeLawg\\config.json)
+- Centralized configuration file (%LOCALAPPDATA%\\SyncoPaid\\config.json)
 - Configurable poll interval for window tracking (default 1 second)
 - Configurable idle threshold (default 180 seconds)
 - Configurable event merge threshold (default 2 seconds)
@@ -109,14 +109,14 @@ Acceptance Criteria:
 - Settings persist across application restarts
 - Validation of configuration values with sensible defaults
 
-Related context: Commits df69b65 (context-aware thresholds), 8ed8285 (action screenshot config), 4e47aa8 (lastUpdated fields). Module: src/timelawg/config.py''',
+Related context: Commits df69b65 (context-aware thresholds), 8ed8285 (action screenshot config), 4e47aa8 (lastUpdated fields). Module: src/SyncoPaid/config.py''',
         'capacity': 6,
         'status': 'concept'
     },
     {
         'id': '1.6',
         'title': 'Build, Packaging & Distribution',
-        'description': '''As a TimeLawg developer
+        'description': '''As a SyncoPaid developer
 I want automated build and packaging system
 So that I can distribute executable versions to users with proper versioning
 
@@ -131,7 +131,7 @@ Acceptance Criteria:
 - Icon embedding in executable
 - Version displayed in system tray tooltip and About dialog
 
-Related context: Commits ab5856b (automatic version), cc75360 (commit count), 5e39595 (fix build script), c28e804 (compilation testing). Files: build.sh, build.bat, generate_version.py, TimeLawg.spec''',
+Related context: Commits ab5856b (automatic version), cc75360 (commit count), 5e39595 (fix build script), c28e804 (compilation testing). Files: build.sh, build.bat, generate_version.py, SyncoPaid.spec''',
         'capacity': 5,
         'status': 'concept'
     }

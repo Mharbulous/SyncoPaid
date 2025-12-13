@@ -1,4 +1,4 @@
-# TimeLawg - Dependencies
+# SyncoPaid - Dependencies
 
 # Windows API access (window titles, process info)
 pywin32>=306
