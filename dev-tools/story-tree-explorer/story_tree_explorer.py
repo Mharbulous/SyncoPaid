@@ -41,7 +41,9 @@ ALL_STATUSES = [
 class StoryNode:
     """Represents a story node from the database."""
     def __init__(self, id: str, title: str, status: str, capacity: Optional[int],
-                 description: str = '', depth: int = 0, parent_id: Optional[str] = None):
+                 description: str = '', depth: int = 0, parent_id: Optional[str] = None,
+                 notes: str = '', project_path: str = '', created_at: str = '',
+                 updated_at: str = '', last_implemented: str = ''):
         self.id = id
         self.title = title
         self.status = status
@@ -49,7 +51,238 @@ class StoryNode:
         self.description = description
         self.depth = depth
         self.parent_id = parent_id
+        self.notes = notes
+        self.project_path = project_path
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.last_implemented = last_implemented
         self.children: List['StoryNode'] = []
+
+
+class DetailView(ttk.Frame):
+    """Detail view panel showing all information about a story node."""
+
+    def __init__(self, parent, app: 'StoryTreeExplorer'):
+        super().__init__(parent)
+        self.app = app
+        self.history: List[str] = []  # Navigation history
+        self.history_index: int = -1  # Current position in history
+        self.current_node_id: Optional[str] = None
+
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Set up the detail view UI."""
+        # Navigation toolbar
+        nav_frame = ttk.Frame(self)
+        nav_frame.pack(fill=tk.X, pady=(0, 10))
+
+        self.back_btn = ttk.Button(nav_frame, text="< Back", command=self._go_back, width=8)
+        self.back_btn.pack(side=tk.LEFT, padx=2)
+
+        self.forward_btn = ttk.Button(nav_frame, text="Forward >", command=self._go_forward, width=8)
+        self.forward_btn.pack(side=tk.LEFT, padx=2)
+
+        ttk.Button(nav_frame, text="Close", command=self._close, width=8).pack(side=tk.RIGHT, padx=2)
+
+        # Scrollable content area
+        canvas = tk.Canvas(self, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(self, orient=tk.VERTICAL, command=canvas.yview)
+        self.content_frame = ttk.Frame(canvas)
+
+        self.content_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=self.content_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Bind mouse wheel
+        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
+
+        self._update_nav_buttons()
+
+    def show_node(self, node_id: str, add_to_history: bool = True):
+        """Display details for a specific node."""
+        if node_id not in self.app.nodes:
+            return
+
+        self.current_node_id = node_id
+        node = self.app.nodes[node_id]
+
+        # Update history
+        if add_to_history:
+            # Remove any forward history
+            if self.history_index < len(self.history) - 1:
+                self.history = self.history[:self.history_index + 1]
+            self.history.append(node_id)
+            self.history_index = len(self.history) - 1
+
+        self._update_nav_buttons()
+
+        # Clear content
+        for widget in self.content_frame.winfo_children():
+            widget.destroy()
+
+        # Node ID and Title header
+        header = ttk.Frame(self.content_frame)
+        header.pack(fill=tk.X, pady=(0, 10))
+
+        id_label = ttk.Label(header, text=node.id, font=('TkDefaultFont', 14, 'bold'))
+        id_label.pack(anchor=tk.W)
+
+        title_label = ttk.Label(header, text=node.title, font=('TkDefaultFont', 12))
+        title_label.pack(anchor=tk.W)
+
+        ttk.Separator(self.content_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=5)
+
+        # Status with color
+        self._add_field("Status", node.status, color=STATUS_COLORS.get(node.status))
+
+        # Capacity
+        capacity_text = str(node.capacity) if node.capacity is not None else "dynamic"
+        self._add_field("Capacity", capacity_text)
+
+        # Depth
+        self._add_field("Depth", str(node.depth))
+
+        ttk.Separator(self.content_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=5)
+
+        # Parent (clickable)
+        if node.parent_id:
+            self._add_link_field("Parent", node.parent_id)
+        else:
+            self._add_field("Parent", "(none)")
+
+        # Children (clickable list)
+        if node.children:
+            children_frame = ttk.Frame(self.content_frame)
+            children_frame.pack(fill=tk.X, pady=2)
+            ttk.Label(children_frame, text="Children:", font=('TkDefaultFont', 9, 'bold')).pack(anchor=tk.W)
+
+            for child in node.children:
+                self._add_child_link(children_frame, child)
+        else:
+            self._add_field("Children", "(none)")
+
+        ttk.Separator(self.content_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=5)
+
+        # Description
+        self._add_text_field("Description", node.description or "(no description)")
+
+        # Notes
+        if node.notes:
+            self._add_text_field("Notes", node.notes)
+
+        # Project path
+        if node.project_path:
+            self._add_field("Project Path", node.project_path)
+
+        ttk.Separator(self.content_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=5)
+
+        # Timestamps
+        if node.created_at:
+            self._add_field("Created", node.created_at)
+        if node.updated_at:
+            self._add_field("Updated", node.updated_at)
+        if node.last_implemented:
+            self._add_field("Last Implemented", node.last_implemented)
+
+    def _add_field(self, label: str, value: str, color: Optional[str] = None):
+        """Add a simple label: value field."""
+        frame = ttk.Frame(self.content_frame)
+        frame.pack(fill=tk.X, pady=2)
+
+        ttk.Label(frame, text=f"{label}:", font=('TkDefaultFont', 9, 'bold'), width=15).pack(side=tk.LEFT, anchor=tk.N)
+
+        value_label = ttk.Label(frame, text=value, wraplength=400)
+        if color:
+            value_label.configure(foreground=color)
+        value_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+    def _add_link_field(self, label: str, node_id: str):
+        """Add a clickable link field."""
+        frame = ttk.Frame(self.content_frame)
+        frame.pack(fill=tk.X, pady=2)
+
+        ttk.Label(frame, text=f"{label}:", font=('TkDefaultFont', 9, 'bold'), width=15).pack(side=tk.LEFT, anchor=tk.N)
+
+        node = self.app.nodes.get(node_id)
+        link_text = f"{node_id}"
+        if node:
+            link_text += f" - {node.title[:40]}{'...' if len(node.title) > 40 else ''}"
+
+        link = tk.Label(frame, text=link_text, fg='#0066CC', cursor='hand2')
+        link.pack(side=tk.LEFT)
+        link.bind('<Double-Button-1>', lambda e, nid=node_id: self.show_node(nid))
+        link.bind('<Enter>', lambda e: e.widget.configure(font=('TkDefaultFont', 9, 'underline')))
+        link.bind('<Leave>', lambda e: e.widget.configure(font=('TkDefaultFont', 9)))
+
+    def _add_child_link(self, parent_frame: ttk.Frame, child: StoryNode):
+        """Add a clickable child link."""
+        child_frame = ttk.Frame(parent_frame)
+        child_frame.pack(fill=tk.X, padx=(20, 0))
+
+        status_color = STATUS_COLORS.get(child.status, '#000000')
+        link_text = f"{child.id} [{child.status}] - {child.title[:50]}{'...' if len(child.title) > 50 else ''}"
+
+        link = tk.Label(child_frame, text=link_text, fg='#0066CC', cursor='hand2')
+        link.pack(anchor=tk.W)
+        link.bind('<Double-Button-1>', lambda e, nid=child.id: self.show_node(nid))
+        link.bind('<Enter>', lambda e: e.widget.configure(font=('TkDefaultFont', 9, 'underline')))
+        link.bind('<Leave>', lambda e: e.widget.configure(font=('TkDefaultFont', 9)))
+
+    def _add_text_field(self, label: str, text: str):
+        """Add a multi-line text field."""
+        frame = ttk.Frame(self.content_frame)
+        frame.pack(fill=tk.X, pady=2)
+
+        ttk.Label(frame, text=f"{label}:", font=('TkDefaultFont', 9, 'bold')).pack(anchor=tk.W)
+
+        text_widget = tk.Text(frame, height=4, wrap=tk.WORD, relief=tk.FLAT, bg='#f5f5f5')
+        text_widget.insert('1.0', text)
+        text_widget.configure(state=tk.DISABLED)
+        text_widget.pack(fill=tk.X, pady=(2, 0))
+
+    def _update_nav_buttons(self):
+        """Update the state of navigation buttons."""
+        # Back button
+        if self.history_index > 0:
+            self.back_btn.configure(state=tk.NORMAL)
+        else:
+            self.back_btn.configure(state=tk.DISABLED)
+
+        # Forward button
+        if self.history_index < len(self.history) - 1:
+            self.forward_btn.configure(state=tk.NORMAL)
+        else:
+            self.forward_btn.configure(state=tk.DISABLED)
+
+    def _go_back(self):
+        """Navigate to previous node in history."""
+        if self.history_index > 0:
+            self.history_index -= 1
+            self.show_node(self.history[self.history_index], add_to_history=False)
+
+    def _go_forward(self):
+        """Navigate to next node in history."""
+        if self.history_index < len(self.history) - 1:
+            self.history_index += 1
+            self.show_node(self.history[self.history_index], add_to_history=False)
+
+    def _close(self):
+        """Close detail view and return to tree view."""
+        self.app.show_tree_view()
+
+    def reset_history(self):
+        """Reset navigation history."""
+        self.history.clear()
+        self.history_index = -1
+        self.current_node_id = None
 
 
 class StoryTreeExplorer:
@@ -71,11 +304,11 @@ class StoryTreeExplorer:
     def _setup_ui(self):
         """Set up the user interface."""
         # Main container
-        main_frame = ttk.Frame(self.root, padding="5")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        self.main_frame = ttk.Frame(self.root, padding="5")
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
 
         # Top toolbar
-        toolbar = ttk.Frame(main_frame)
+        toolbar = ttk.Frame(self.main_frame)
         toolbar.pack(fill=tk.X, pady=(0, 5))
 
         ttk.Button(toolbar, text="Open Database...", command=self._open_database).pack(side=tk.LEFT, padx=2)
@@ -84,8 +317,15 @@ class StoryTreeExplorer:
         self.db_label = ttk.Label(toolbar, text="No database loaded")
         self.db_label.pack(side=tk.LEFT, padx=10)
 
+        # Container for switchable views
+        self.view_container = ttk.Frame(self.main_frame)
+        self.view_container.pack(fill=tk.BOTH, expand=True)
+
+        # Tree view frame
+        self.tree_view_frame = ttk.Frame(self.view_container)
+
         # Paned window for tree and filters
-        paned = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
+        paned = ttk.PanedWindow(self.tree_view_frame, orient=tk.HORIZONTAL)
         paned.pack(fill=tk.BOTH, expand=True)
 
         # Left panel: Tree view
@@ -135,19 +375,50 @@ class StoryTreeExplorer:
                                 command=self._apply_filters)
             cb.pack(anchor=tk.W)
 
-        # Description panel at bottom
-        desc_frame = ttk.LabelFrame(main_frame, text="Description", padding="5")
+        # Description panel at bottom of tree view
+        desc_frame = ttk.LabelFrame(self.tree_view_frame, text="Description (double-click node for details)", padding="5")
         desc_frame.pack(fill=tk.X, pady=(5, 0))
 
         self.desc_text = tk.Text(desc_frame, height=4, wrap=tk.WORD, state=tk.DISABLED)
         self.desc_text.pack(fill=tk.X)
 
-        # Bind tree selection
+        # Bind tree events
         self.tree.bind('<<TreeviewSelect>>', self._on_tree_select)
+        self.tree.bind('<Double-Button-1>', self._on_tree_double_click)
+
+        # Detail view frame
+        self.detail_view = DetailView(self.view_container, self)
 
         # Status bar
-        self.status_bar = ttk.Label(main_frame, text="Ready", relief=tk.SUNKEN, anchor=tk.W)
+        self.status_bar = ttk.Label(self.main_frame, text="Ready", relief=tk.SUNKEN, anchor=tk.W)
         self.status_bar.pack(fill=tk.X, pady=(5, 0))
+
+        # Show tree view by default
+        self.show_tree_view()
+
+    def show_tree_view(self):
+        """Switch to tree view."""
+        self.detail_view.pack_forget()
+        self.tree_view_frame.pack(fill=tk.BOTH, expand=True)
+        self.status_bar.config(text=f"Loaded {len(self.nodes)} nodes" if self.nodes else "Ready")
+
+    def show_detail_view(self, node_id: str):
+        """Switch to detail view for a specific node."""
+        self.tree_view_frame.pack_forget()
+        self.detail_view.pack(fill=tk.BOTH, expand=True)
+        self.detail_view.show_node(node_id)
+        node = self.nodes.get(node_id)
+        if node:
+            self.status_bar.config(text=f"Viewing: {node_id} - {node.title}")
+
+    def _on_tree_double_click(self, event):
+        """Handle double-click to open detail view."""
+        item_id = self.tree.identify_row(event.y)
+        if item_id:
+            node_id = self.tree.item(item_id, 'text')
+            if node_id in self.nodes:
+                self.detail_view.reset_history()
+                self.show_detail_view(node_id)
 
     def _try_auto_detect_db(self):
         """Try to auto-detect the database file."""
@@ -210,10 +481,11 @@ class StoryTreeExplorer:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        # Get all nodes with their depth and parent
+        # Get all nodes with their depth, parent, and all fields
         query = """
             SELECT
                 s.id, s.title, s.status, s.capacity, s.description,
+                s.notes, s.project_path, s.created_at, s.updated_at, s.last_implemented,
                 COALESCE(
                     (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id AND ancestor_id != s.id),
                     0
@@ -234,7 +506,12 @@ class StoryTreeExplorer:
                 capacity=row['capacity'],
                 description=row['description'] or '',
                 depth=row['depth'] or 0,
-                parent_id=row['parent_id']
+                parent_id=row['parent_id'],
+                notes=row['notes'] or '',
+                project_path=row['project_path'] or '',
+                created_at=row['created_at'] or '',
+                updated_at=row['updated_at'] or '',
+                last_implemented=row['last_implemented'] or ''
             )
             self.nodes[node.id] = node
 
