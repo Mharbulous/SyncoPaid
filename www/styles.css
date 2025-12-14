@@ -10,6 +10,7 @@
     --primary-blue: #0078be;
     --primary-teal: #1bbeae;
     --icon-blue: #0891d1;
+    --icon-purple: #8b5fbf;
     --icon-green: #52c399;
     --icon-teal: #1bbeae;
     --text-dark: #333333;
@@ -110,14 +111,11 @@ body {
     margin: 0 auto;
 }
 
-.hero-icon {
-    width: 80px;
-    height: 80px;
+.hero-logo {
+    height: 112px;
+    width: auto;
     margin: 0 auto 2rem;
-    background: var(--white);
-    border-radius: 50%;
-    padding: 1rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: block;
 }
 
 .hero h1 {
@@ -192,6 +190,10 @@ body {
 
 .story-icon.search {
     background-color: var(--icon-blue);
+}
+
+.story-icon.history {
+    background-color: var(--icon-purple);
 }
 
 .story-icon.breakthrough {
