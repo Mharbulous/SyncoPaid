@@ -8,7 +8,8 @@ import os
 import sys
 import sqlite3
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from datetime import datetime
+from tkinter import ttk, filedialog, messagebox, simpledialog
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -28,13 +29,14 @@ STATUS_COLORS = {
     'bugged': '#FF4500',       # Orange red
     'deprecated': '#A9A9A9',   # Dark gray
     'infeasible': '#696969',   # Dim gray
+    'revising': '#DAA520',     # Goldenrod (needs attention)
 }
 
 # All possible statuses
 ALL_STATUSES = [
     'active', 'in-progress', 'queued', 'planned', 'approved', 'concept',
     'epic', 'wishlist', 'implemented', 'ready', 'rejected', 'bugged',
-    'deprecated', 'infeasible'
+    'deprecated', 'infeasible', 'revising'
 ]
 
 
@@ -57,6 +59,104 @@ class StoryNode:
         self.updated_at = updated_at
         self.last_implemented = last_implemented
         self.children: List['StoryNode'] = []
+
+
+class StatusChangeDialog(tk.Toplevel):
+    """Dialog for entering notes when changing story status."""
+
+    def __init__(self, parent, node_id: str, new_status: str, mandatory: bool = False):
+        super().__init__(parent)
+        self.result: Optional[str] = None
+        self.mandatory = mandatory
+        self.node_id = node_id
+        self.new_status = new_status
+
+        # Configure dialog
+        self.title(f"Change Status to '{new_status}'")
+        self.geometry("400x250")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        self._setup_ui()
+
+        # Center on parent
+        self.update_idletasks()
+        x = parent.winfo_rootx() + (parent.winfo_width() - self.winfo_width()) // 2
+        y = parent.winfo_rooty() + (parent.winfo_height() - self.winfo_height()) // 2
+        self.geometry(f"+{x}+{y}")
+
+        # Bind escape key
+        self.bind('<Escape>', lambda e: self._on_cancel())
+
+        # Wait for dialog to close
+        self.wait_window()
+
+    def _setup_ui(self):
+        """Set up the dialog UI."""
+        main_frame = ttk.Frame(self, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Header
+        header_text = f"Changing '{self.node_id}' to status: {self.new_status}"
+        ttk.Label(main_frame, text=header_text, font=('TkDefaultFont', 10, 'bold')).pack(anchor=tk.W)
+
+        ttk.Separator(main_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+
+        # Prompt text based on status
+        if self.new_status == 'approved':
+            prompt_text = "Please note how high a priority this story is:"
+        elif self.new_status == 'revising':
+            prompt_text = "Please explain what needs to be revised (required):"
+        else:
+            prompt_text = "Add a note about this decision (optional):"
+
+        ttk.Label(main_frame, text=prompt_text).pack(anchor=tk.W, pady=(0, 5))
+
+        # Text area for notes
+        text_frame = ttk.Frame(main_frame)
+        text_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.notes_text = tk.Text(text_frame, height=6, wrap=tk.WORD)
+        self.notes_text.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
+
+        scrollbar = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=self.notes_text.yview)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.notes_text.configure(yscrollcommand=scrollbar.set)
+
+        # Focus on text area
+        self.notes_text.focus_set()
+
+        # Buttons
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.pack(fill=tk.X, pady=(10, 0))
+
+        ttk.Button(btn_frame, text="Cancel", command=self._on_cancel).pack(side=tk.RIGHT, padx=(5, 0))
+        ttk.Button(btn_frame, text="Confirm", command=self._on_confirm).pack(side=tk.RIGHT)
+
+        # Bind Enter key (Ctrl+Enter for confirm with text)
+        self.bind('<Control-Return>', lambda e: self._on_confirm())
+
+    def _on_confirm(self):
+        """Handle confirm button click."""
+        notes = self.notes_text.get('1.0', tk.END).strip()
+
+        if self.mandatory and not notes:
+            messagebox.showwarning(
+                "Notes Required",
+                f"Notes are required when changing status to '{self.new_status}'.",
+                parent=self
+            )
+            self.notes_text.focus_set()
+            return
+
+        self.result = notes
+        self.destroy()
+
+    def _on_cancel(self):
+        """Handle cancel button click."""
+        self.result = None
+        self.destroy()
 
 
 class DetailView(ttk.Frame):
@@ -385,6 +485,10 @@ class StoryTreeExplorer:
         # Bind tree events
         self.tree.bind('<<TreeviewSelect>>', self._on_tree_select)
         self.tree.bind('<Double-Button-1>', self._on_tree_double_click)
+        self.tree.bind('<Button-3>', self._on_tree_right_click)  # Right-click context menu
+
+        # Create context menu (initially empty, populated on right-click)
+        self.context_menu = tk.Menu(self.root, tearoff=0)
 
         # Detail view frame
         self.detail_view = DetailView(self.view_container, self)
@@ -419,6 +523,116 @@ class StoryTreeExplorer:
             if node_id in self.nodes:
                 self.detail_view.reset_history()
                 self.show_detail_view(node_id)
+
+    def _on_tree_right_click(self, event):
+        """Handle right-click to show context menu."""
+        item_id = self.tree.identify_row(event.y)
+        if not item_id:
+            return
+
+        # Select the item under cursor
+        self.tree.selection_set(item_id)
+
+        node_id = self.tree.item(item_id, 'text')
+        node = self.nodes.get(node_id)
+        if not node:
+            return
+
+        # Clear existing menu items
+        self.context_menu.delete(0, tk.END)
+
+        # Build context menu based on status
+        if node.status == 'concept':
+            self.context_menu.add_command(
+                label="Approve",
+                command=lambda: self._change_node_status(node_id, 'approved')
+            )
+            self.context_menu.add_command(
+                label="Reject",
+                command=lambda: self._change_node_status(node_id, 'rejected')
+            )
+            self.context_menu.add_command(
+                label="Wishlist",
+                command=lambda: self._change_node_status(node_id, 'wishlist')
+            )
+            self.context_menu.add_command(
+                label="Revise",
+                command=lambda: self._change_node_status(node_id, 'revising')
+            )
+        else:
+            # For non-concept nodes, show current status (disabled)
+            self.context_menu.add_command(
+                label=f"Status: {node.status}",
+                state=tk.DISABLED
+            )
+
+        # Show context menu at cursor position
+        try:
+            self.context_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.context_menu.grab_release()
+
+    def _change_node_status(self, node_id: str, new_status: str):
+        """Change a node's status with a notes dialog."""
+        node = self.nodes.get(node_id)
+        if not node:
+            return
+
+        # Determine if notes are mandatory
+        mandatory = (new_status == 'revising')
+
+        # Show dialog
+        dialog = StatusChangeDialog(self.root, node_id, new_status, mandatory=mandatory)
+
+        # Check if user confirmed (result is not None)
+        if dialog.result is not None:
+            notes = dialog.result
+            self._update_node_status_in_db(node_id, new_status, notes)
+
+    def _update_node_status_in_db(self, node_id: str, new_status: str, notes: str):
+        """Update node status and notes in the database."""
+        if not self.db_path:
+            messagebox.showerror("Error", "No database loaded.")
+            return
+
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # Get current notes to append to
+            cursor.execute("SELECT notes FROM story_nodes WHERE id = ?", (node_id,))
+            row = cursor.fetchone()
+            current_notes = row[0] if row and row[0] else ""
+
+            # Build new notes with timestamp
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+            if notes:
+                new_note_entry = f"[{timestamp}] Status changed to '{new_status}': {notes}"
+            else:
+                new_note_entry = f"[{timestamp}] Status changed to '{new_status}'"
+
+            if current_notes:
+                updated_notes = f"{current_notes}\n{new_note_entry}"
+            else:
+                updated_notes = new_note_entry
+
+            # Update status and notes
+            cursor.execute(
+                "UPDATE story_nodes SET status = ?, notes = ?, updated_at = ? WHERE id = ?",
+                (new_status, updated_notes, datetime.now().isoformat(), node_id)
+            )
+
+            conn.commit()
+            conn.close()
+
+            self.status_bar.config(text=f"Updated '{node_id}' status to '{new_status}'")
+
+            # Refresh the tree to show updated status
+            self._refresh()
+
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Failed to update status:\n{e}")
 
     def _try_auto_detect_db(self):
         """Try to auto-detect the database file."""

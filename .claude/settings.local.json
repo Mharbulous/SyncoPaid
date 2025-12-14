@@ -49,7 +49,8 @@
       "Bash(export TMPDIR=/tmp)",
       "Bash(pip install:*)",
       "Bash(echo:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(venv/Scripts/activate)"
     ]
   }
 }
