@@ -72,6 +72,7 @@ body {
 .logo-banner {
     height: 28px;
     width: auto;
+    max-width: 100%;
 }
 
 .logo-text {
@@ -114,6 +115,7 @@ body {
 .hero-logo {
     height: 112px;
     width: auto;
+    max-width: 100%;
     margin: 0 auto 2rem;
     display: block;
 }
@@ -492,6 +494,7 @@ body {
 .footer-banner {
     height: 24px;
     width: auto;
+    max-width: 100%;
     filter: brightness(0) invert(1);
 }
 
