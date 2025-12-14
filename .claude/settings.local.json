@@ -48,7 +48,8 @@
       "Bash(git show:*)",
       "Bash(export TMPDIR=/tmp)",
       "Bash(pip install:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "WebSearch"
     ]
   }
 }
