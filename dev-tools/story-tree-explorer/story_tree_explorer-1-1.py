@@ -868,46 +868,22 @@ class StoryTreeExplorer:
 
         # Get the row index for this node
         try:
-            # Find the row for this iid
-            all_iids = list(self.sheet.get_children()) + self._get_all_descendants()
-            if node.id in all_iids:
+            # Get row index from iid for highlighting
+            row_idx = self.sheet.itemrow(node.id)
+            if row_idx is not None:
                 # Apply coloring to status cell (column 1)
                 status_color = STATUS_COLORS.get(node.status, '#000000')
 
                 if node.id in faded_nodes:
                     # Faded ancestor: gray text for ID and Title, but keep status color
-                    self.sheet.highlight(
-                        row=node.id,
-                        column=0,
-                        fg='#999999'
-                    )
-                    self.sheet.highlight(
-                        row=node.id,
-                        column=1,
-                        fg=status_color
-                    )
-                    self.sheet.highlight(
-                        row=node.id,
-                        column=2,
-                        fg='#999999'
-                    )
+                    self.sheet.highlight((row_idx, 0), fg='#999999')
+                    self.sheet.highlight((row_idx, 1), fg=status_color)
+                    self.sheet.highlight((row_idx, 2), fg='#999999')
                 else:
                     # Normal node: black text, colored status
-                    self.sheet.highlight(
-                        row=node.id,
-                        column=0,
-                        fg='#000000'
-                    )
-                    self.sheet.highlight(
-                        row=node.id,
-                        column=1,
-                        fg=status_color
-                    )
-                    self.sheet.highlight(
-                        row=node.id,
-                        column=2,
-                        fg='#000000'
-                    )
+                    self.sheet.highlight((row_idx, 0), fg='#000000')
+                    self.sheet.highlight((row_idx, 1), fg=status_color)
+                    self.sheet.highlight((row_idx, 2), fg='#000000')
         except Exception as e:
             print(f"Highlight error for {node.id}: {e}")
 
