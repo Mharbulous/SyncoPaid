@@ -44,16 +44,6 @@ window.addEventListener('scroll', () => {
     });
 });
 
-// Add shadow to header on scroll
-const header = document.querySelector('.header');
-window.addEventListener('scroll', () => {
-    if (window.scrollY > 10) {
-        header.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-    } else {
-        header.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
-    }
-});
-
 // Animate elements on scroll
 const observerOptions = {
     threshold: 0.1,
@@ -69,9 +59,9 @@ const observer = new IntersectionObserver((entries) => {
     });
 }, observerOptions);
 
-// Observe feature cards and pricing cards
+// Observe feature cards and story items for animation
 document.addEventListener('DOMContentLoaded', () => {
-    const animatedElements = document.querySelectorAll('.feature-card, .pricing-card, .step');
+    const animatedElements = document.querySelectorAll('.feature-card, .story-item');
 
     animatedElements.forEach(el => {
         el.style.opacity = '0';
@@ -81,11 +71,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Handle download button clicks
-document.querySelectorAll('a[href="#download"]').forEach(button => {
-    button.addEventListener('click', (e) => {
-        // You can add actual download logic here
-        console.log('Download button clicked');
-        // For now, it will just scroll to the download section
+// Handle form submission
+const contactForm = document.querySelector('.contact-form');
+if (contactForm) {
+    contactForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        // Add your form submission logic here
+        console.log('Form submitted');
+        alert('Thank you for your message! I\'ll get back to you soon.');
     });
-});
+}

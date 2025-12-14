@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="SYNCOPaiD - Automated time tracking for Windows. Track your work, invoice your clients.">
-    <title>SYNCOPaiD - Automated Time Tracking for Windows</title>
+    <title>SYNCOPaiD - Automated Time Tracking</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
+    <link rel="icon" type="image/x-icon" href="assets/SYNCOPaiD.ico">
 </head>
 <body>
     <!-- Header -->
@@ -14,13 +14,13 @@
         <div class="container">
             <nav class="nav">
                 <div class="logo">
-                    <img src="assets/logo.svg" alt="SYNCOPaiD Logo" class="logo-image">
+                    <img src="assets/icon.svg" alt="SYNCOPaiD" class="logo-icon">
+                    <img src="assets/SYNCOPaiD-logo.webp" alt="SYNCOPaiD" class="logo-banner">
                 </div>
                 <ul class="nav-menu">
+                    <li><a href="#story">Story</a></li>
                     <li><a href="#features">Features</a></li>
-                    <li><a href="#how-it-works">How It Works</a></li>
-                    <li><a href="#pricing">Pricing</a></li>
-                    <li><a href="#download" class="btn btn-primary">Download</a></li>
+                    <li><a href="#contact">Contact</a></li>
                 </ul>
             </nav>
         </div>
@@ -30,17 +30,60 @@
     <section class="hero">
         <div class="container">
             <div class="hero-content">
-                <div class="hero-text">
-                    <h1>Never Forget to Log Your Time Again</h1>
-                    <p class="hero-subtitle">SYNCOPaiD automatically tracks your work on Windows. Get accurate timesheets, invoice clients faster, and stop losing billable hours.</p>
-                    <div class="hero-cta">
-                        <a href="#download" class="btn btn-large btn-primary">Download for Windows</a>
-                        <a href="#how-it-works" class="btn btn-large btn-secondary">See How It Works</a>
+                <img src="assets/icon.svg" alt="SYNCOPaiD Icon" class="hero-icon">
+                <h1>Automate your Time Tracking</h1>
+                <p class="hero-subtitle">Automated Time Tracking for Windows Professionals</p>
+                <p class="hero-description">The automated time tracking solution you've been searching for finally exists</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- My Story Section -->
+    <section id="story" class="story">
+        <div class="container">
+            <h2>My Story</h2>
+
+            <div class="story-photo">
+                <img src="assets/Brahm Dorst.webp" alt="Brahm Dorst">
+            </div>
+
+            <div class="story-content">
+                <div class="story-item">
+                    <div class="story-icon search">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
                     </div>
-                    <p class="hero-note">Free 14-day trial. No credit card required.</p>
+                    <div class="story-text">
+                        <h3>The Search</h3>
+                        <p>I spent years searching for a time tracking tool that actually understood the reality of knowledge work. Every solution I tried was either too complex, too simplistic, or required constant manual input that disrupted my workflow. I tried dozens of tools, but nothing captured the nuances of real work—the interrupted phone calls, the quick client emails, the research that spans multiple matters.</p>
+                    </div>
                 </div>
-                <div class="hero-image">
-                    <img src="assets/icon.svg" alt="SYNCOPaiD Icon" class="hero-icon">
+
+                <div class="story-item">
+                    <div class="story-icon breakthrough">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2v20M17 7H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                        </svg>
+                    </div>
+                    <div class="story-text">
+                        <h3>The Breakthrough</h3>
+                        <p>Then technology evolved to a point where I realized, I could finally build the tool I'd been searching for. AI could understand context, learn patterns, and automate the tedious parts of time tracking while maintaining the accuracy and detail that legal billing demands. What seemed impossible just a few years ago became not only possible but practical.</p>
+                    </div>
+                </div>
+
+                <div class="story-item">
+                    <div class="story-icon solution">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2 2 7l10 5 10-5-10-5z"></path>
+                            <path d="m2 17 10 5 10-5M2 12l10 5 10-5"></path>
+                        </svg>
+                    </div>
+                    <div class="story-text">
+                        <h3>The Solution</h3>
+                        <p>SYNCOPaiD is the result of that journey. It's built by someone who understands the daily challenges of professional work because I live them. It's designed to capture every billable moment without interrupting your work. It learns your patterns, understands your matters, and creates accurate time entries automatically. This is the tool I needed—and now it exists.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -49,142 +92,114 @@
     <!-- Features Section -->
     <section id="features" class="features">
         <div class="container">
-            <h2 class="section-title">Automated Time Tracking That Works for You</h2>
+            <h2>Features Built for Professionals</h2>
+            <p class="features-subtitle">Every feature designed with the specific needs of knowledge workers in mind</p>
+
             <div class="features-grid">
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <img src="assets/icon.svg" alt="Automatic Tracking">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
                     </div>
-                    <h3>Automatic Tracking</h3>
-                    <p>Works silently in the background, capturing every billable minute without manual timers.</p>
+                    <h3>AI-Powered Context</h3>
+                    <p>Understands the nuances of your work and automatically categorizes activities by matter and client</p>
                 </div>
+
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <img src="assets/icon.svg" alt="Window Detection">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="9" y1="15" x2="15" y2="15"></line>
+                        </svg>
                     </div>
-                    <h3>Smart Window Detection</h3>
-                    <p>Automatically detects which applications and documents you're working on.</p>
+                    <h3>Automatic Entries</h3>
+                    <p>Generates accurate time entries from your computer activity, emails, and calendar events</p>
                 </div>
+
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <img src="assets/icon.svg" alt="Privacy First">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                        </svg>
                     </div>
-                    <h3>Privacy First</h3>
-                    <p>All data stays on your computer. No cloud uploads, no tracking, no privacy concerns.</p>
+                    <h3>Recover Lost Time</h3>
+                    <p>Capture an average of 2-3 additional billable hours per day that typically go unrecorded</p>
                 </div>
+
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <img src="assets/icon.svg" alt="Easy Exports">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
                     </div>
-                    <h3>Easy Exports</h3>
-                    <p>Export your time data to JSON for analysis, billing, or integration with other tools.</p>
+                    <h3>Client Confidential</h3>
+                    <p>Built with law-security compliance and attorney-client privilege in mind. All data stays on your machine</p>
                 </div>
+
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <img src="assets/icon.svg" alt="Lightweight">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                            <polyline points="13 2 13 9 20 9"></polyline>
+                        </svg>
                     </div>
-                    <h3>Lightweight</h3>
-                    <p>Minimal system resources. Won't slow down your computer while tracking.</p>
+                    <h3>Easy Export</h3>
+                    <p>Export to JSON for easy integration with your billing system or further analysis</p>
                 </div>
+
                 <div class="feature-card">
                     <div class="feature-icon">
-                        <img src="assets/icon.svg" alt="Windows Native">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
                     </div>
-                    <h3>Windows Native</h3>
-                    <p>Built specifically for Windows 11. Integrates seamlessly with your system.</p>
+                    <h3>One-Way Reveal Using AI Plugin</h3>
+                    <p>Use our optional using AI plugin to one-way reveal using accuracy and suggests optimizations</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- How It Works Section -->
-    <section id="how-it-works" class="how-it-works">
+    <!-- Early Adopters Section -->
+    <section class="early-adopters">
         <div class="container">
-            <h2 class="section-title">How It Works</h2>
-            <div class="steps">
-                <div class="step">
-                    <div class="step-number">1</div>
-                    <h3>Install & Launch</h3>
-                    <p>Download SYNCOPaiD and install it on your Windows PC. It runs in the system tray, out of your way.</p>
-                </div>
-                <div class="step">
-                    <div class="step-number">2</div>
-                    <h3>Work Normally</h3>
-                    <p>Go about your day. SYNCOPaiD automatically tracks active windows and documents as you work.</p>
-                </div>
-                <div class="step">
-                    <div class="step-number">3</div>
-                    <h3>Review & Export</h3>
-                    <p>Review your tracked time, categorize activities, and export data for billing or analysis.</p>
-                </div>
-            </div>
+            <h2>Join the Early Adopters</h2>
+            <p class="early-adopters-subtitle">Be part of shaping the future of automated time tracking</p>
         </div>
     </section>
 
-    <!-- Pricing Section -->
-    <section id="pricing" class="pricing">
+    <!-- Contact Section -->
+    <section id="contact" class="contact">
         <div class="container">
-            <h2 class="section-title">Simple, Honest Pricing</h2>
-            <div class="pricing-cards">
-                <div class="pricing-card">
-                    <h3>Free Trial</h3>
-                    <div class="price">
-                        <span class="currency">$</span>
-                        <span class="amount">0</span>
-                    </div>
-                    <p class="price-period">14 days</p>
-                    <ul class="features-list">
-                        <li>Full feature access</li>
-                        <li>Unlimited tracking</li>
-                        <li>No credit card required</li>
-                    </ul>
-                    <a href="#download" class="btn btn-secondary">Start Free Trial</a>
-                </div>
-                <div class="pricing-card featured">
-                    <div class="badge">Most Popular</div>
-                    <h3>Pro</h3>
-                    <div class="price">
-                        <span class="currency">$</span>
-                        <span class="amount">9</span>
-                        <span class="period">/mo</span>
-                    </div>
-                    <p class="price-period">Billed monthly</p>
-                    <ul class="features-list">
-                        <li>Automatic time tracking</li>
-                        <li>Smart categorization</li>
-                        <li>Export to JSON</li>
-                        <li>Priority support</li>
-                        <li>Lifetime updates</li>
-                    </ul>
-                    <a href="#download" class="btn btn-primary">Get Started</a>
-                </div>
-                <div class="pricing-card">
-                    <h3>Lifetime</h3>
-                    <div class="price">
-                        <span class="currency">$</span>
-                        <span class="amount">99</span>
-                    </div>
-                    <p class="price-period">One-time payment</p>
-                    <ul class="features-list">
-                        <li>Everything in Pro</li>
-                        <li>Lifetime updates</li>
-                        <li>No recurring fees</li>
-                        <li>Best value</li>
-                    </ul>
-                    <a href="#download" class="btn btn-secondary">Buy Lifetime</a>
-                </div>
-            </div>
-        </div>
-    </section>
+            <div class="contact-content">
+                <h2>Get in Touch</h2>
+                <p class="contact-subtitle">Interested in automating your time tracking? Let's talk</p>
 
-    <!-- Download Section -->
-    <section id="download" class="download">
-        <div class="container">
-            <div class="download-content">
-                <h2>Ready to Track Your Time?</h2>
-                <p>Download SYNCOPaiD for Windows and start your 14-day free trial today.</p>
-                <a href="#" class="btn btn-large btn-primary">Download for Windows 11</a>
-                <p class="download-info">Requires Windows 11 or later. Free 14-day trial included.</p>
+                <form class="contact-form">
+                    <div class="form-group">
+                        <input type="text" id="name" placeholder="e.g., Corporate, Litigation, Family" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="message">Message *</label>
+                        <textarea id="message" rows="6" placeholder="Tell me about your current time tracking challenges and what you're looking for..." required></textarea>
+                    </div>
+
+                    <button type="submit" class="btn-submit">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                        Send Message
+                    </button>
+
+                    <p class="form-note">I typically respond within 24 hours. Your information is kept confidential</p>
+                </form>
             </div>
         </div>
     </section>
@@ -193,39 +208,20 @@
     <footer class="footer">
         <div class="container">
             <div class="footer-content">
-                <div class="footer-logo">
-                    <img src="assets/logo.svg" alt="SYNCOPaiD Logo" class="footer-logo-image">
-                    <p>Automated time tracking for professionals.</p>
+                <div class="footer-brand">
+                    <div class="footer-logo">
+                        <img src="assets/icon.svg" alt="SYNCOPaiD" class="footer-icon">
+                        <img src="assets/SYNCOPaiD-logo.webp" alt="SYNCOPaiD" class="footer-banner">
+                    </div>
+                    <p>Automated Time Tracking for Professionals</p>
                 </div>
-                <div class="footer-links">
-                    <div class="footer-column">
-                        <h4>Product</h4>
-                        <ul>
-                            <li><a href="#features">Features</a></li>
-                            <li><a href="#how-it-works">How It Works</a></li>
-                            <li><a href="#pricing">Pricing</a></li>
-                            <li><a href="#download">Download</a></li>
-                        </ul>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Support</h4>
-                        <ul>
-                            <li><a href="#">Documentation</a></li>
-                            <li><a href="#">FAQs</a></li>
-                            <li><a href="#">Contact</a></li>
-                        </ul>
-                    </div>
-                    <div class="footer-column">
-                        <h4>Legal</h4>
-                        <ul>
-                            <li><a href="#">Privacy Policy</a></li>
-                            <li><a href="#">Terms of Service</a></li>
-                        </ul>
-                    </div>
+                <div class="footer-location">
+                    <p>Vancouver, BC, Canada</p>
+                    <p>&copy; 2025 SYNCOPaiD. All rights reserved</p>
                 </div>
             </div>
-            <div class="footer-bottom">
-                <p>&copy; 2025 SYNCOPaiD. All rights reserved.</p>
+            <div class="footer-tagline">
+                <p>Built by a professional who understands your challenges</p>
             </div>
         </div>
     </footer>
