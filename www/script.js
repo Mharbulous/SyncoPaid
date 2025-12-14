@@ -71,13 +71,62 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// Handle form submission
+// Handle form submission with Formspree
 const contactForm = document.querySelector('.contact-form');
 if (contactForm) {
-    contactForm.addEventListener('submit', (e) => {
+    contactForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        // Add your form submission logic here
-        console.log('Form submitted');
-        alert('Thank you for your message! I\'ll get back to you soon.');
+
+        const submitButton = contactForm.querySelector('.btn-submit');
+        const originalButtonText = submitButton.innerHTML;
+
+        // Show loading state
+        submitButton.disabled = true;
+        submitButton.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinner">
+                <circle cx="12" cy="12" r="10"></circle>
+            </svg>
+            Sending...
+        `;
+
+        try {
+            const formData = new FormData(contactForm);
+            const response = await fetch(contactForm.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                // Success - show thank you message
+                contactForm.innerHTML = `
+                    <div class="form-success">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                        </svg>
+                        <h3>Thank you!</h3>
+                        <p>Your message has been sent. I'll get back to you within 24 hours.</p>
+                    </div>
+                `;
+            } else {
+                throw new Error('Form submission failed');
+            }
+        } catch (error) {
+            // Error - restore form and show error message
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
+
+            // Show error message
+            let errorMsg = contactForm.querySelector('.form-error');
+            if (!errorMsg) {
+                errorMsg = document.createElement('p');
+                errorMsg.className = 'form-error';
+                submitButton.parentNode.insertBefore(errorMsg, submitButton.nextSibling);
+            }
+            errorMsg.textContent = 'Sorry, there was an error sending your message. Please try again or email directly at brahm@whatisfair.ca';
+        }
     });
 }
