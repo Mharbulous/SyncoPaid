@@ -9,9 +9,10 @@
     /* Colors - matching TimeLawg */
     --primary-blue: #0078be;
     --primary-teal: #1bbeae;
-    --icon-blue: #0891d1;
-    --icon-purple: #8b5fbf;
-    --icon-green: #52c399;
+    --icon-amber: #f4a261;
+    --icon-blue: #2E86AB;
+    --icon-mauve: #847389;
+    --icon-gold: #E2C97C;
     --icon-teal: #1bbeae;
     --text-dark: #333333;
     --text-light: #666666;
@@ -223,20 +224,24 @@ body {
     color: var(--white);
 }
 
+.story-icon.problem {
+    background-color: var(--icon-amber);
+}
+
 .story-icon.search {
-    background-color: var(--icon-blue);
+    background-color: #4A9D8B;
 }
 
 .story-icon.history {
-    background-color: var(--icon-purple);
+    background-color: var(--icon-mauve);
 }
 
 .story-icon.breakthrough {
-    background-color: var(--icon-green);
+    background-color: #C9917A;
 }
 
 .story-icon.solution {
-    background-color: var(--icon-teal);
+    background: linear-gradient(160deg, #d4c078 0%, #fcf6ba 45%, #e8d9a0 70%, #c9a84c 100%);
 }
 
 .story-icon svg {
