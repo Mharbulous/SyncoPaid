@@ -786,31 +786,74 @@ class StoryTreeExplorer:
             self._add_node_to_tree(child, item_id)
 
     def _apply_filters(self):
-        """Apply status filters to show/hide nodes."""
+        """Apply status filters to show/hide nodes with ancestry display.
+
+        When filtering:
+        - Nodes matching filter: display normally
+        - Ancestor nodes of matching nodes: display faded (even if they don't match)
+        - Non-matching nodes with no matching descendants: hide completely
+        """
         visible_statuses = {s for s, var in self.status_vars.items() if var.get()}
+
+        # Step 1: Find all nodes that directly match the filter
+        matching_nodes = {node_id for node_id, node in self.nodes.items()
+                         if node.status in visible_statuses}
+
+        # Step 2: Collect ancestors of all matching nodes
+        ancestor_nodes = set()
+        for node_id in matching_nodes:
+            ancestor_nodes.update(self._get_ancestors(node_id))
+
+        # Nodes to show = matching nodes + their ancestors
+        visible_nodes = matching_nodes | ancestor_nodes
+        # Ancestor-only nodes (shown faded)
+        faded_nodes = ancestor_nodes - matching_nodes
+
+        # Configure faded tag with italic font (preserves status colors)
+        # Using italic distinguishes faded ancestors from concept status (which uses gray)
+        default_font = ('TkDefaultFont', 9, 'italic')
+        self.tree.tag_configure('faded', font=default_font)
 
         for node_id, item_id in self.tree_items.items():
             node = self.nodes.get(node_id)
-            if node:
-                # Detach or reattach based on filter
-                if node.status in visible_statuses:
-                    # Need to show - check if it's detached
-                    try:
-                        self.tree.reattach(item_id, self._get_parent_item(node), 'end')
-                    except tk.TclError:
-                        pass  # Already attached
+            if not node:
+                continue
+
+            if node_id in visible_nodes:
+                # Show node - reattach if detached
+                try:
+                    self.tree.reattach(item_id, self._get_parent_item(node), 'end')
+                except tk.TclError:
+                    pass  # Already attached
+
+                # Apply appropriate tags
+                if node_id in faded_nodes:
+                    # Ancestor-only: status color + italic font
+                    self.tree.item(item_id, tags=(node.status, 'faded'))
                 else:
-                    # Need to hide
-                    try:
-                        self.tree.detach(item_id)
-                    except tk.TclError:
-                        pass  # Already detached
+                    # Matching node: normal status color
+                    self.tree.item(item_id, tags=(node.status,))
+            else:
+                # Hide node
+                try:
+                    self.tree.detach(item_id)
+                except tk.TclError:
+                    pass  # Already detached
 
     def _get_parent_item(self, node: StoryNode) -> str:
         """Get the tree item ID for a node's parent."""
         if node.parent_id and node.parent_id in self.tree_items:
             return self.tree_items[node.parent_id]
         return ''
+
+    def _get_ancestors(self, node_id: str) -> set:
+        """Get all ancestor node IDs for a given node."""
+        ancestors = set()
+        node = self.nodes.get(node_id)
+        while node and node.parent_id:
+            ancestors.add(node.parent_id)
+            node = self.nodes.get(node.parent_id)
+        return ancestors
 
     def _select_all_statuses(self):
         """Select all status filters."""
