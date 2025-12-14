@@ -2,7 +2,10 @@
 System tray UI module for SyncoPaid.
 
 Provides a minimal system tray interface with:
-- State-specific icons (SyncoPaid-On=tracking, SyncoPaid-Paused=paused)
+- State-specific icons:
+  - stopwatch-pictogram-green = tracking active
+  - stopwatch-pictogram-orange = user manually paused (with ❚❚ overlay)
+  - stopwatch-pictogram-faded = no activity for 5min (with 💤 overlay)
 - Right-click menu with Start/Pause, View Time, Start with Windows, About
 - Notifications for key events
 """
@@ -152,9 +155,10 @@ class TrayIcon:
     """
     System tray icon manager.
 
-    Provides a simple interface for controlling the tracker:
-    - SyncoPaid-On icon = tracking active
-    - SyncoPaid-Paused icon = tracking paused
+    Provides a simple interface for controlling the tracker with three states:
+    - stopwatch-pictogram-green = tracking active
+    - stopwatch-pictogram-orange + ❚❚ overlay = user manually paused
+    - stopwatch-pictogram-faded + 💤 overlay = no activity for 5min
 
     Menu options:
     - Start/Pause Tracking
@@ -184,19 +188,20 @@ class TrayIcon:
         self.on_pause = on_pause or (lambda: None)
         self.on_view_time = on_view_time or (lambda: None)
         self.on_quit = on_quit or (lambda: None)
-        
+
         self.icon: Optional[pystray.Icon] = None
         self.is_tracking = True
-        
+        self.is_inactive = False  # True when no activity for 5 minutes
+
         if not TRAY_AVAILABLE:
             logging.error("System tray not available - pystray not installed")
     
-    def create_icon_image(self, is_tracking: bool = True) -> Optional["Image.Image"]:
+    def create_icon_image(self, state: str = "on") -> Optional["Image.Image"]:
         """
         Create system tray icon using state-specific icon files.
 
         Args:
-            is_tracking: True if tracking is active, False if paused
+            state: One of "on" (tracking), "paused" (user paused), "inactive" (no activity)
 
         Returns:
             PIL Image object for the icon
@@ -206,13 +211,16 @@ class TrayIcon:
 
         size = 64
 
-        # Select icon file based on tracking state
-        if is_tracking:
-            ico_path = Path(__file__).parent / "SyncoPaid-On.ico"
-            png_path = Path(__file__).parent / "SyncoPaid-On.png"
-        else:
-            ico_path = Path(__file__).parent / "SyncoPaid-Paused.ico"
-            png_path = Path(__file__).parent / "SyncoPaid-Paused.png"
+        # Select icon file based on state
+        # Active (on): green stopwatch
+        # Paused: orange stopwatch (user clicked pause)
+        # Inactive: faded stopwatch with sleep emoji overlay (5min idle)
+        if state == "inactive":
+            ico_path = Path(__file__).parent / "stopwatch-pictogram-faded.ico"
+        elif state == "paused":
+            ico_path = Path(__file__).parent / "stopwatch-pictogram-orange.ico"
+        else:  # "on" or default
+            ico_path = Path(__file__).parent / "stopwatch-pictogram-green.ico"
 
         image = None
         if ico_path.exists():
@@ -225,31 +233,165 @@ class TrayIcon:
             except Exception as e:
                 logging.warning(f"Could not load ICO icon: {e}")
 
-        if image is None and png_path.exists():
-            try:
-                image = Image.open(png_path).convert('RGBA')
-                image = image.resize((size, size), Image.Resampling.LANCZOS)
-            except Exception as e:
-                logging.warning(f"Could not load PNG icon: {e}")
-
         if image is None:
             # Fallback to blank canvas if no icon found
             image = Image.new('RGBA', (size, size), (0, 0, 0, 0))
 
+        # Add overlays based on state
+        if state == "inactive":
+            image = self._add_sleep_overlay(image)
+        elif state == "paused":
+            image = self._add_pause_overlay(image)
+
         return image
+
+    def _add_sleep_overlay(self, image: "Image.Image") -> "Image.Image":
+        """
+        Add a 💤 overlay to the icon for inactive state.
+
+        Args:
+            image: Base icon image
+
+        Returns:
+            Image with sleep overlay composited
+        """
+        from PIL import ImageFont
+
+        size = image.size[0]
+        overlay_size = size // 2  # Sleep emoji takes up half the icon
+
+        # Create overlay with sleep emoji
+        overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+
+        # Try to use Windows emoji font, fall back to text "zzz"
+        emoji_text = "💤"
+        fallback_text = "zzz"
+
+        try:
+            # Windows has Segoe UI Emoji font
+            font = ImageFont.truetype("seguiemj.ttf", overlay_size)
+            text = emoji_text
+        except Exception:
+            try:
+                # Fallback to any available font
+                font = ImageFont.truetype("arial.ttf", overlay_size // 2)
+                text = fallback_text
+            except Exception:
+                # Last resort: default font
+                font = ImageFont.load_default()
+                text = fallback_text
+
+        # Position in bottom-right corner
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+
+        x = size - text_width - 2
+        y = size - text_height - 2
+
+        # Draw with slight shadow for visibility
+        draw.text((x + 1, y + 1), text, font=font, fill=(0, 0, 0, 128))
+        draw.text((x, y), text, font=font, fill=(255, 255, 255, 255))
+
+        # Composite overlay onto base image
+        return Image.alpha_composite(image, overlay)
+
+    def _add_pause_overlay(self, image: "Image.Image") -> "Image.Image":
+        """
+        Add a ❚❚ overlay to the icon for paused state.
+
+        Args:
+            image: Base icon image
+
+        Returns:
+            Image with pause overlay composited
+        """
+        from PIL import ImageFont
+
+        size = image.size[0]
+        overlay_size = size // 2
+
+        # Create overlay with pause symbol
+        overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+
+        text = "❚❚"
+
+        try:
+            # Use a font that renders the pause bars well
+            font = ImageFont.truetype("arial.ttf", overlay_size)
+        except Exception:
+            font = ImageFont.load_default()
+
+        # Position in bottom-right corner
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+
+        x = size - text_width - 2
+        y = size - text_height - 2
+
+        # Draw with shadow for visibility
+        draw.text((x + 1, y + 1), text, font=font, fill=(0, 0, 0, 128))
+        draw.text((x, y), text, font=font, fill=(255, 255, 255, 255))
+
+        # Composite overlay onto base image
+        return Image.alpha_composite(image, overlay)
+
+    def _get_current_state(self) -> str:
+        """Get the current icon state based on tracking and inactive flags."""
+        if not self.is_tracking:
+            return "paused"
+        elif self.is_inactive:
+            return "inactive"
+        else:
+            return "on"
     
     def update_icon_status(self, is_tracking: bool):
         """
-        Update icon based on tracking status.
+        Update icon based on tracking status (user pause/unpause).
 
         Args:
-            is_tracking: True if tracking, False if paused
+            is_tracking: True if tracking, False if user paused
         """
         self.is_tracking = is_tracking
+        if is_tracking:
+            self.is_inactive = False  # Clear inactive when user resumes
 
+        self._refresh_icon()
+
+    def set_inactive(self, inactive: bool):
+        """
+        Set inactive state (no activity detected for 5 minutes).
+
+        This shows the faded icon with sleep emoji. Only applies when
+        is_tracking is True (user hasn't manually paused).
+
+        Args:
+            inactive: True if no activity detected, False when activity resumes
+        """
+        if self.is_inactive != inactive:
+            self.is_inactive = inactive
+            if self.is_tracking:  # Only update if not manually paused
+                self._refresh_icon()
+                if inactive:
+                    logging.info("User inactive - showing sleep icon")
+                else:
+                    logging.info("User active - showing normal icon")
+
+    def _refresh_icon(self):
+        """Refresh the icon based on current state."""
         if self.icon:
-            self.icon.icon = self.create_icon_image(is_tracking)
-            self.icon.title = f"SyncoPaid v{__product_version__}"
+            state = self._get_current_state()
+            self.icon.icon = self.create_icon_image(state)
+            # Update tooltip to reflect state
+            if state == "paused":
+                self.icon.title = f"SyncoPaid v{__product_version__} - Paused"
+            elif state == "inactive":
+                self.icon.title = f"SyncoPaid v{__product_version__} - Inactive"
+            else:
+                self.icon.title = f"SyncoPaid v{__product_version__}"
     
     def _create_menu(self):
         """Create the right-click menu."""
@@ -278,13 +420,14 @@ class TrayIcon:
         if self.is_tracking:
             logging.info("User paused tracking from tray menu")
             self.on_pause()
+            self.is_tracking = False
         else:
             logging.info("User started tracking from tray menu")
             self.on_start()
-        
-        # Update icon
-        self.is_tracking = not self.is_tracking
-        self.update_icon_status(self.is_tracking)
+            self.is_tracking = True
+            self.is_inactive = False  # Clear inactive when user resumes
+
+        self._refresh_icon()
     
     def _handle_view_time(self, icon, item):
         """Handle View Time menu item."""
@@ -347,7 +490,7 @@ class TrayIcon:
         
         self.icon = pystray.Icon(
             "SyncoPaid_tracker",
-            self.create_icon_image(self.is_tracking),
+            self.create_icon_image(self._get_current_state()),
             f"SyncoPaid v{__product_version__}",
             menu=self._create_menu()
         )

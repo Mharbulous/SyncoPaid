@@ -29,35 +29,15 @@ from syncopaid.tray import TrayIcon, enable_startup
 from syncopaid.screenshot import ScreenshotWorker, get_screenshot_directory
 from syncopaid.action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
 
-# Paths to the application icons (state-specific)
-_ICON_ON_ICO_PATH = Path(__file__).parent / "SyncoPaid-On.ico"
-_ICON_ON_PNG_PATH = Path(__file__).parent / "SyncoPaid-On.png"
-_ICON_PAUSED_ICO_PATH = Path(__file__).parent / "SyncoPaid-Paused.ico"
-_ICON_PAUSED_PNG_PATH = Path(__file__).parent / "SyncoPaid-Paused.png"
+# Paths to the application icons
+_ICON_VIEWTIME_ICO_PATH = Path(__file__).parent / "stopwatch-pictogram-gold.ico"
 
 
-def _set_window_icon(root: tk.Tk, is_tracking: bool = True) -> None:
-    """Set the SyncoPaid icon on a tkinter window.
-
-    Args:
-        root: The tkinter window to set the icon on
-        is_tracking: True to use the "On" icon, False to use the "Paused" icon
-    """
+def _set_window_icon(root: tk.Tk) -> None:
+    """Set the SyncoPaid gold icon on a tkinter window (View Time window)."""
     try:
-        ico_path = _ICON_ON_ICO_PATH if is_tracking else _ICON_PAUSED_ICO_PATH
-        png_path = _ICON_ON_PNG_PATH if is_tracking else _ICON_PAUSED_PNG_PATH
-
-        # On Windows, use ICO file with iconbitmap (best quality)
-        if sys.platform == 'win32' and ico_path.exists():
-            root.iconbitmap(str(ico_path))
-        # Fallback to PNG with iconphoto
-        elif png_path.exists():
-            from PIL import Image, ImageTk
-            icon_image = Image.open(png_path)
-            icon_photo = ImageTk.PhotoImage(icon_image)
-            root.iconphoto(True, icon_photo)
-            # Keep a reference to prevent garbage collection
-            root._icon_photo = icon_photo
+        if sys.platform == 'win32' and _ICON_VIEWTIME_ICO_PATH.exists():
+            root.iconbitmap(str(_ICON_VIEWTIME_ICO_PATH))
     except Exception as e:
         logging.debug(f"Could not set window icon: {e}")
 
@@ -374,7 +354,7 @@ class SyncoPaidApp:
                 root.title("SyncoPaid - Last 24 Hours")
                 root.geometry("800x500")
                 root.attributes('-topmost', True)
-                _set_window_icon(root, self.is_tracking)
+                _set_window_icon(root)
 
                 # Create menu bar
                 menubar = tk.Menu(root)
