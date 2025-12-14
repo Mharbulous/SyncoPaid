@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Story Tree Explorer - A simple desktop app to explore story-tree databases.
-Uses tkinter for GUI and SQLite for database access.
+Story Tree Explorer v1.1 - Using tksheet for per-cell coloring
+A simple desktop app to explore story-tree databases.
+Uses tkinter + tksheet for GUI and SQLite for database access.
 """
 
 import os
@@ -9,9 +10,15 @@ import sys
 import sqlite3
 import tkinter as tk
 from datetime import datetime
-from tkinter import ttk, filedialog, messagebox, simpledialog
+from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+try:
+    from tksheet import Sheet
+except ImportError:
+    print("Error: tksheet is required. Install with: pip install tksheet")
+    sys.exit(1)
 
 # Status colors (muted, readable on both light and dark backgrounds)
 STATUS_COLORS = {
@@ -327,7 +334,6 @@ class DetailView(ttk.Frame):
         child_frame = ttk.Frame(parent_frame)
         child_frame.pack(fill=tk.X, padx=(20, 0))
 
-        status_color = STATUS_COLORS.get(child.status, '#000000')
         link_text = f"{child.id} [{child.status}] - {child.title[:50]}{'...' if len(child.title) > 50 else ''}"
 
         link = tk.Label(child_frame, text=link_text, fg='#0066CC', cursor='hand2')
@@ -390,13 +396,13 @@ class StoryTreeExplorer:
 
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("Story Tree Explorer")
-        self.root.geometry("900x600")
+        self.root.title("Story Tree Explorer v1.1 (tksheet)")
+        self.root.geometry("1000x700")
 
         self.db_path: Optional[str] = None
         self.nodes: Dict[str, StoryNode] = {}
         self.status_vars: Dict[str, tk.BooleanVar] = {}
-        self.tree_items: Dict[str, str] = {}  # node_id -> tree item id
+        self.iid_to_row: Dict[str, int] = {}  # Maps node_id to sheet row
 
         self._setup_ui()
         self._try_auto_detect_db()
@@ -428,34 +434,40 @@ class StoryTreeExplorer:
         paned = ttk.PanedWindow(self.tree_view_frame, orient=tk.HORIZONTAL)
         paned.pack(fill=tk.BOTH, expand=True)
 
-        # Left panel: Tree view
+        # Left panel: tksheet Tree view
         tree_frame = ttk.Frame(paned)
         paned.add(tree_frame, weight=3)
 
-        # Tree with scrollbars
-        tree_container = ttk.Frame(tree_frame)
-        tree_container.pack(fill=tk.BOTH, expand=True)
+        # Create tksheet with treeview mode
+        self.sheet = Sheet(
+            tree_frame,
+            treeview=True,
+            headers=["ID", "Status", "Title"],
+            show_row_index=False,
+            show_header=True,
+            height=500,
+            width=700
+        )
+        self.sheet.enable_bindings((
+            "single_select",
+            "row_select",
+            "column_width_resize",
+            "double_click_column_resize",
+            "tree_expand_collapse",
+            "right_click_popup_menu",
+            "copy",
+        ))
+        self.sheet.pack(fill=tk.BOTH, expand=True)
 
-        self.tree = ttk.Treeview(tree_container, columns=('status', 'title'), show='tree headings')
-        self.tree.heading('#0', text='ID', anchor=tk.W)
-        self.tree.heading('status', text='Status', anchor=tk.W)
-        self.tree.heading('title', text='Title', anchor=tk.W)
+        # Set column widths
+        self.sheet.column_width(column=0, width=150)
+        self.sheet.column_width(column=1, width=100)
+        self.sheet.column_width(column=2, width=400)
 
-        self.tree.column('#0', width=120, minwidth=80)
-        self.tree.column('status', width=100, minwidth=80)
-        self.tree.column('title', width=400, minwidth=200)
-
-        # Scrollbars
-        vsb = ttk.Scrollbar(tree_container, orient=tk.VERTICAL, command=self.tree.yview)
-        hsb = ttk.Scrollbar(tree_container, orient=tk.HORIZONTAL, command=self.tree.xview)
-        self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-
-        self.tree.grid(row=0, column=0, sticky='nsew')
-        vsb.grid(row=0, column=1, sticky='ns')
-        hsb.grid(row=1, column=0, sticky='ew')
-
-        tree_container.grid_rowconfigure(0, weight=1)
-        tree_container.grid_columnconfigure(0, weight=1)
+        # Bind events
+        self.sheet.bind("<<SheetSelect>>", self._on_sheet_select)
+        self.sheet.bind("<Double-Button-1>", self._on_sheet_double_click)
+        self.sheet.bind("<Button-3>", self._on_sheet_right_click)
 
         # Right panel: Filters
         filter_frame = ttk.LabelFrame(paned, text="Status Filters", padding="5")
@@ -482,12 +494,7 @@ class StoryTreeExplorer:
         self.desc_text = tk.Text(desc_frame, height=4, wrap=tk.WORD, state=tk.DISABLED)
         self.desc_text.pack(fill=tk.X)
 
-        # Bind tree events
-        self.tree.bind('<<TreeviewSelect>>', self._on_tree_select)
-        self.tree.bind('<Double-Button-1>', self._on_tree_double_click)
-        self.tree.bind('<Button-3>', self._on_tree_right_click)  # Right-click context menu
-
-        # Create context menu (initially empty, populated on right-click)
+        # Create context menu
         self.context_menu = tk.Menu(self.root, tearoff=0)
 
         # Detail view frame
@@ -515,62 +522,101 @@ class StoryTreeExplorer:
         if node:
             self.status_bar.config(text=f"Viewing: {node_id} - {node.title}")
 
-    def _on_tree_double_click(self, event):
-        """Handle double-click to open detail view."""
-        item_id = self.tree.identify_row(event.y)
-        if item_id:
-            node_id = self.tree.item(item_id, 'text')
-            if node_id in self.nodes:
-                self.detail_view.reset_history()
-                self.show_detail_view(node_id)
-
-    def _on_tree_right_click(self, event):
-        """Handle right-click to show context menu."""
-        item_id = self.tree.identify_row(event.y)
-        if not item_id:
+    def _on_sheet_select(self, event):
+        """Handle sheet selection to show description."""
+        selected = self.sheet.get_currently_selected()
+        if not selected:
             return
 
-        # Select the item under cursor
-        self.tree.selection_set(item_id)
-
-        node_id = self.tree.item(item_id, 'text')
-        node = self.nodes.get(node_id)
-        if not node:
-            return
-
-        # Clear existing menu items
-        self.context_menu.delete(0, tk.END)
-
-        # Build context menu based on status
-        if node.status == 'concept':
-            self.context_menu.add_command(
-                label="Approve",
-                command=lambda: self._change_node_status(node_id, 'approved')
-            )
-            self.context_menu.add_command(
-                label="Reject",
-                command=lambda: self._change_node_status(node_id, 'rejected')
-            )
-            self.context_menu.add_command(
-                label="Wishlist",
-                command=lambda: self._change_node_status(node_id, 'wishlist')
-            )
-            self.context_menu.add_command(
-                label="Revise",
-                command=lambda: self._change_node_status(node_id, 'revising')
-            )
-        else:
-            # For non-concept nodes, show current status (disabled)
-            self.context_menu.add_command(
-                label=f"Status: {node.status}",
-                state=tk.DISABLED
-            )
-
-        # Show context menu at cursor position
+        # Get the selected row
         try:
-            self.context_menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            self.context_menu.grab_release()
+            if hasattr(selected, 'row') and selected.row is not None:
+                row = selected.row
+            else:
+                return
+        except:
+            return
+
+        # Get node_id from the first column
+        try:
+            node_id = self.sheet.get_cell_data(row, 0)
+            node = self.nodes.get(node_id)
+
+            self.desc_text.config(state=tk.NORMAL)
+            self.desc_text.delete('1.0', tk.END)
+
+            if node:
+                desc = node.description if node.description else '(no description)'
+                self.desc_text.insert('1.0', desc)
+
+            self.desc_text.config(state=tk.DISABLED)
+        except:
+            pass
+
+    def _on_sheet_double_click(self, event):
+        """Handle double-click to open detail view."""
+        selected = self.sheet.get_currently_selected()
+        if not selected:
+            return
+
+        try:
+            if hasattr(selected, 'row') and selected.row is not None:
+                row = selected.row
+                node_id = self.sheet.get_cell_data(row, 0)
+                if node_id in self.nodes:
+                    self.detail_view.reset_history()
+                    self.show_detail_view(node_id)
+        except:
+            pass
+
+    def _on_sheet_right_click(self, event):
+        """Handle right-click to show context menu."""
+        # Identify the row under cursor
+        try:
+            row = self.sheet.identify_row(event)
+            if row is None:
+                return
+
+            node_id = self.sheet.get_cell_data(row, 0)
+            node = self.nodes.get(node_id)
+            if not node:
+                return
+
+            # Clear existing menu items
+            self.context_menu.delete(0, tk.END)
+
+            # Build context menu based on status
+            if node.status == 'concept':
+                self.context_menu.add_command(
+                    label="Approve",
+                    command=lambda: self._change_node_status(node_id, 'approved')
+                )
+                self.context_menu.add_command(
+                    label="Reject",
+                    command=lambda: self._change_node_status(node_id, 'rejected')
+                )
+                self.context_menu.add_command(
+                    label="Wishlist",
+                    command=lambda: self._change_node_status(node_id, 'wishlist')
+                )
+                self.context_menu.add_command(
+                    label="Revise",
+                    command=lambda: self._change_node_status(node_id, 'revising')
+                )
+            else:
+                # For non-concept nodes, show current status (disabled)
+                self.context_menu.add_command(
+                    label=f"Status: {node.status}",
+                    state=tk.DISABLED
+                )
+
+            # Show context menu at cursor position
+            try:
+                self.context_menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                self.context_menu.grab_release()
+        except Exception as e:
+            print(f"Right-click error: {e}")
 
     def _change_node_status(self, node_id: str, new_status: str):
         """Change a node's status with a notes dialog."""
@@ -751,43 +797,22 @@ class StoryTreeExplorer:
             return (2, node_id)
 
     def _build_tree(self):
-        """Build the tree view from loaded nodes."""
-        # Clear existing tree
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        self.tree_items.clear()
+        """Build the tree view from loaded nodes using tksheet."""
+        # Just call _apply_filters which handles the actual tree building
+        # This ensures we don't insert nodes twice
+        pass
 
-        # Find root nodes (nodes with no parent or parent not in nodes)
-        root_nodes = [n for n in self.nodes.values()
-                     if not n.parent_id or n.parent_id not in self.nodes]
-        root_nodes.sort(key=lambda n: self._sort_key(n.id))
-
-        # Build tree recursively
-        for node in root_nodes:
-            self._add_node_to_tree(node, '')
-
-    def _add_node_to_tree(self, node: StoryNode, parent_item: str):
-        """Add a node and its children to the tree."""
-        item_id = self.tree.insert(
-            parent_item, 'end',
-            text=node.id,
-            values=(node.status, node.title),
-            open=True
-        )
-        self.tree_items[node.id] = item_id
-
-        # Add children
-        for child in node.children:
-            self._add_node_to_tree(child, item_id)
+    def _get_ancestors(self, node_id: str) -> set:
+        """Get all ancestor node IDs for a given node."""
+        ancestors = set()
+        node = self.nodes.get(node_id)
+        while node and node.parent_id:
+            ancestors.add(node.parent_id)
+            node = self.nodes.get(node.parent_id)
+        return ancestors
 
     def _apply_filters(self):
-        """Apply status filters to show/hide nodes with ancestry display.
-
-        When filtering:
-        - Nodes matching filter: display normally
-        - Ancestor nodes of matching nodes: display faded (even if they don't match)
-        - Non-matching nodes with no matching descendants: hide completely
-        """
+        """Apply status filters and color the Status column."""
         visible_statuses = {s for s, var in self.status_vars.items() if var.get()}
 
         # Step 1: Find all nodes that directly match the filter
@@ -804,51 +829,112 @@ class StoryTreeExplorer:
         # Ancestor-only nodes (shown faded)
         faded_nodes = ancestor_nodes - matching_nodes
 
-        # Configure faded tag: gray italic for ancestor-only nodes
-        # Note: tkinter Treeview doesn't support per-column styling,
-        # so we apply gray+italic to the entire row for faded nodes
-        self.tree.tag_configure('faded', foreground='#999999', font=('TkDefaultFont', 9, 'italic'))
+        # Clear the treeview completely before rebuilding
+        try:
+            self.sheet.tree_reset()
+        except Exception as e:
+            print(f"tree_reset error: {e}")
 
-        for node_id, item_id in self.tree_items.items():
-            node = self.nodes.get(node_id)
-            if not node:
-                continue
+        # Find root nodes that are visible
+        root_nodes = [n for n in self.nodes.values()
+                     if (not n.parent_id or n.parent_id not in self.nodes)
+                     and n.id in visible_nodes]
+        root_nodes.sort(key=lambda n: self._sort_key(n.id))
 
-            if node_id in visible_nodes:
-                # Show node - reattach if detached
-                try:
-                    self.tree.reattach(item_id, self._get_parent_item(node), 'end')
-                except tk.TclError:
-                    pass  # Already attached
+        # Build filtered tree
+        row_index = 0
+        for node in root_nodes:
+            row_index = self._add_filtered_node(node, "", visible_nodes, faded_nodes, row_index)
 
-                # Apply appropriate tags
-                if node_id in faded_nodes:
-                    # Ancestor-only: gray italic
-                    self.tree.item(item_id, tags=('faded',))
+        # Expand all
+        try:
+            self.sheet.tree_set_open(self.sheet.get_children())
+        except:
+            pass
+
+    def _add_filtered_node(self, node: StoryNode, parent: str, visible_nodes: set,
+                           faded_nodes: set, row_index: int) -> int:
+        """Add a node to the filtered tree with appropriate coloring."""
+        if node.id not in visible_nodes:
+            return row_index
+
+        # Insert the node
+        self.sheet.insert(
+            parent=parent,
+            iid=node.id,
+            text=node.id,
+            values=[node.id, node.status, node.title]
+        )
+
+        # Get the row index for this node
+        try:
+            # Find the row for this iid
+            all_iids = list(self.sheet.get_children()) + self._get_all_descendants()
+            if node.id in all_iids:
+                # Apply coloring to status cell (column 1)
+                status_color = STATUS_COLORS.get(node.status, '#000000')
+
+                if node.id in faded_nodes:
+                    # Faded ancestor: gray text for ID and Title, but keep status color
+                    self.sheet.highlight(
+                        row=node.id,
+                        column=0,
+                        fg='#999999'
+                    )
+                    self.sheet.highlight(
+                        row=node.id,
+                        column=1,
+                        fg=status_color
+                    )
+                    self.sheet.highlight(
+                        row=node.id,
+                        column=2,
+                        fg='#999999'
+                    )
                 else:
-                    # Matching node: default styling (black text)
-                    self.tree.item(item_id, tags=())
-            else:
-                # Hide node
-                try:
-                    self.tree.detach(item_id)
-                except tk.TclError:
-                    pass  # Already detached
+                    # Normal node: black text, colored status
+                    self.sheet.highlight(
+                        row=node.id,
+                        column=0,
+                        fg='#000000'
+                    )
+                    self.sheet.highlight(
+                        row=node.id,
+                        column=1,
+                        fg=status_color
+                    )
+                    self.sheet.highlight(
+                        row=node.id,
+                        column=2,
+                        fg='#000000'
+                    )
+        except Exception as e:
+            print(f"Highlight error for {node.id}: {e}")
 
-    def _get_parent_item(self, node: StoryNode) -> str:
-        """Get the tree item ID for a node's parent."""
-        if node.parent_id and node.parent_id in self.tree_items:
-            return self.tree_items[node.parent_id]
-        return ''
+        row_index += 1
 
-    def _get_ancestors(self, node_id: str) -> set:
-        """Get all ancestor node IDs for a given node."""
-        ancestors = set()
-        node = self.nodes.get(node_id)
-        while node and node.parent_id:
-            ancestors.add(node.parent_id)
-            node = self.nodes.get(node.parent_id)
-        return ancestors
+        # Add visible children
+        visible_children = [c for c in node.children if c.id in visible_nodes]
+        visible_children.sort(key=lambda n: self._sort_key(n.id))
+
+        for child in visible_children:
+            row_index = self._add_filtered_node(child, node.id, visible_nodes, faded_nodes, row_index)
+
+        return row_index
+
+    def _get_all_descendants(self) -> List[str]:
+        """Get all descendant iids from the tree."""
+        descendants = []
+        def collect(parent):
+            children = self.sheet.get_children(parent)
+            for child in children:
+                descendants.append(child)
+                collect(child)
+        try:
+            collect("")
+        except:
+            pass
+        return descendants
 
     def _select_all_statuses(self):
         """Select all status filters."""
@@ -861,25 +947,6 @@ class StoryTreeExplorer:
         for var in self.status_vars.values():
             var.set(False)
         self._apply_filters()
-
-    def _on_tree_select(self, event):
-        """Handle tree selection to show description."""
-        selection = self.tree.selection()
-        if not selection:
-            return
-
-        item_id = selection[0]
-        node_id = self.tree.item(item_id, 'text')
-        node = self.nodes.get(node_id)
-
-        self.desc_text.config(state=tk.NORMAL)
-        self.desc_text.delete('1.0', tk.END)
-
-        if node:
-            desc = node.description if node.description else '(no description)'
-            self.desc_text.insert('1.0', desc)
-
-        self.desc_text.config(state=tk.DISABLED)
 
 
 def main():
