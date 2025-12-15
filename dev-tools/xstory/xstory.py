@@ -70,7 +70,7 @@ DESIGNER_TRANSITIONS = {
     'infeasible': ['concept', 'wishlist', 'archived'],
     'rejected': ['concept', 'wishlist', 'archived'],
     'wishlist': ['concept', 'rejected', 'archived'],
-    'concept': ['approved', 'rejected', 'wishlist', 'refine'],
+    'concept': ['approved', 'deferred', 'rejected', 'wishlist', 'refine'],
     'refine': ['concept', 'rejected', 'wishlist'],
     'deferred': ['approved', 'wishlist', 'rejected'],
     'approved': ['deferred', 'rejected'],
