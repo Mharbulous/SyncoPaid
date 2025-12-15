@@ -1,0 +1,5 @@
+#!/bin/bash
+# Story Tree Explorer Launcher (v1.1 - colored tree view with tksheet)
+cd "$(dirname "$0")"
+source venv/Scripts/activate
+python dev-tools/story-tree-explorer/story_tree_explorer-1-1.py
