@@ -65,6 +65,44 @@ ALL_STATUSES = [
     'legacy', 'deprecated', 'archived'
 ]
 
+# Designer mode transitions (approval, quality, priority, end-of-life decisions)
+DESIGNER_TRANSITIONS = {
+    'infeasible': ['concept', 'wishlist', 'archived'],
+    'rejected': ['concept', 'wishlist', 'archived'],
+    'wishlist': ['concept', 'rejected', 'archived'],
+    'concept': ['approved', 'rejected', 'wishlist', 'refine'],
+    'refine': ['concept', 'rejected', 'wishlist'],
+    'deferred': ['approved', 'wishlist', 'rejected'],
+    'approved': ['deferred', 'rejected'],
+    'blocked': ['deferred'],
+    'planned': ['deferred', 'approved'],
+    'paused': ['deferred'],
+    'reviewing': ['implemented'],
+    'implemented': ['ready'],
+    'ready': ['released', 'polish'],
+    'polish': ['ready', 'released'],
+    'released': ['polish', 'legacy'],
+    'legacy': ['deprecated', 'released', 'archived'],
+    'deprecated': ['archived', 'legacy'],
+    'archived': ['deprecated', 'wishlist'],
+}
+
+# Engineer mode transitions (workflow, blockers, bugs, progress)
+ENGINEER_TRANSITIONS = {
+    'approved': ['planned'],
+    'blocked': ['planned', 'queued'],
+    'planned': ['queued', 'blocked'],
+    'queued': ['active', 'blocked', 'paused', 'planned'],
+    'broken': ['active', 'paused', 'blocked', 'queued'],
+    'paused': ['active', 'queued', 'blocked'],
+    'active': ['reviewing', 'paused', 'broken', 'blocked'],
+    'reviewing': ['active', 'broken'],
+    'implemented': ['reviewing', 'broken'],
+    'ready': ['reviewing'],
+    'polish': ['reviewing'],
+    'released': ['broken'],
+}
+
 
 def create_checkbox_pixmap(color_hex: str, checked: bool) -> QPixmap:
     """Create a custom checkbox pixmap with white checkmark on colored background."""
@@ -526,6 +564,7 @@ class XstoryExplorer(QMainWindow):
         self.nodes: Dict[str, StoryNode] = {}
         self.status_checkboxes: Dict[str, QCheckBox] = {}
         self.tree_items: Dict[str, QTreeWidgetItem] = {}  # Maps node_id to QTreeWidgetItem
+        self.current_role: str = 'designer'  # 'designer' or 'engineer'
 
         self._setup_ui()
         self._try_auto_detect_db()
@@ -551,6 +590,14 @@ class XstoryExplorer(QMainWindow):
         self.db_label = QLabel("No database loaded")
         toolbar_layout.addWidget(self.db_label)
         toolbar_layout.addStretch()
+
+        # Role toggle button
+        self.role_toggle_btn = QPushButton("Designer")
+        self.role_toggle_btn.setCheckable(True)
+        self.role_toggle_btn.setFixedWidth(100)
+        self.role_toggle_btn.clicked.connect(self._toggle_role)
+        self._update_role_button()
+        toolbar_layout.addWidget(self.role_toggle_btn)
 
         self.main_layout.addLayout(toolbar_layout)
 
@@ -718,26 +765,29 @@ class XstoryExplorer(QMainWindow):
 
         menu = QMenu(self)
 
-        if node.status == 'concept':
-            approve_action = QAction("Approve", self)
-            approve_action.triggered.connect(lambda: self._change_node_status(node_id, 'approved'))
-            menu.addAction(approve_action)
+        # Header showing current status and role
+        header_action = QAction(f"[{node.status}] — {self.current_role.title()} mode", self)
+        header_action.setEnabled(False)
+        menu.addAction(header_action)
+        menu.addSeparator()
 
-            reject_action = QAction("Reject", self)
-            reject_action.triggered.connect(lambda: self._change_node_status(node_id, 'rejected'))
-            menu.addAction(reject_action)
-
-            wishlist_action = QAction("Wishlist", self)
-            wishlist_action.triggered.connect(lambda: self._change_node_status(node_id, 'wishlist'))
-            menu.addAction(wishlist_action)
-
-            refine_action = QAction("Refine", self)
-            refine_action.triggered.connect(lambda: self._change_node_status(node_id, 'refine'))
-            menu.addAction(refine_action)
+        # Get available transitions based on current role
+        if self.current_role == 'designer':
+            transitions = DESIGNER_TRANSITIONS.get(node.status, [])
         else:
-            status_action = QAction(f"Status: {node.status}", self)
-            status_action.setEnabled(False)
-            menu.addAction(status_action)
+            transitions = ENGINEER_TRANSITIONS.get(node.status, [])
+
+        if transitions:
+            for target_status in transitions:
+                action = QAction(f"→ {target_status}", self)
+                action.triggered.connect(
+                    lambda checked, ns=target_status: self._change_node_status(node_id, ns)
+                )
+                menu.addAction(action)
+        else:
+            no_options = QAction("(no transitions available)", self)
+            no_options.setEnabled(False)
+            menu.addAction(no_options)
 
         menu.exec(self.tree.mapToGlobal(position))
 
@@ -800,6 +850,32 @@ class XstoryExplorer(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(self, "Database Error", f"Failed to update status:\n{e}")
+
+    def _toggle_role(self):
+        """Toggle between Designer and Engineer modes."""
+        if self.current_role == 'designer':
+            self.current_role = 'engineer'
+        else:
+            self.current_role = 'designer'
+        self._update_role_button()
+        self.status_bar.showMessage(f"Switched to {self.current_role.title()} mode")
+
+    def _update_role_button(self):
+        """Update the role toggle button appearance."""
+        if self.current_role == 'designer':
+            self.role_toggle_btn.setText("Designer")
+            self.role_toggle_btn.setChecked(False)
+            self.role_toggle_btn.setStyleSheet(
+                "QPushButton { background-color: #9900CC; color: white; font-weight: bold; }"
+                "QPushButton:hover { background-color: #7700AA; }"
+            )
+        else:
+            self.role_toggle_btn.setText("Engineer")
+            self.role_toggle_btn.setChecked(True)
+            self.role_toggle_btn.setStyleSheet(
+                "QPushButton { background-color: #0099CC; color: white; font-weight: bold; }"
+                "QPushButton:hover { background-color: #0077AA; }"
+            )
 
     def _try_auto_detect_db(self):
         """Try to auto-detect the database file."""
