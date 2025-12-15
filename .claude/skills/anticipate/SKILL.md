@@ -17,8 +17,8 @@ This creates living documentation that evolves as users approve/reject more stor
 
 | File | Location | Content |
 |------|----------|---------|
-| `user-vision.md` | `.claude/data/user-vision.md` | Concise bullet-point summary of what the user is building |
-| `user-anti-vision.md` | `.claude/data/user-anti-vision.md` | Bullet-point summary of what the vision explicitly excludes |
+| `user-vision.md` | `ai_docs/user-vision.md` | Concise bullet-point summary of what the user is building |
+| `user-anti-vision.md` | `ai_docs/user-anti-vision.md` | Bullet-point summary of what the vision explicitly excludes |
 
 ## When to Use
 
@@ -73,10 +73,10 @@ Prompt for Agent 1:
 You are synthesizing the user's product vision from approved story nodes.
 
 DATABASE: .claude/data/story-tree.db
-OUTPUT FILE: .claude/data/user-vision.md
+OUTPUT FILE: ai_docs/user-vision.md
 
 STEPS:
-1. Read existing .claude/data/user-vision.md if it exists (to preserve context)
+1. Read existing ai_docs/user-vision.md if it exists (to preserve context)
 2. Query all approved stories from the database:
 
    python -c "
@@ -102,7 +102,7 @@ STEPS:
    - Key capabilities being built
    - Underlying values and priorities
 
-4. Write .claude/data/user-vision.md with this structure:
+4. Write ai_docs/user-vision.md with this structure:
 
    # Product Vision
 
@@ -134,10 +134,10 @@ Prompt for Agent 2:
 You are synthesizing what the user's product vision explicitly EXCLUDES based on rejected stories.
 
 DATABASE: .claude/data/story-tree.db
-OUTPUT FILE: .claude/data/user-anti-vision.md
+OUTPUT FILE: ai_docs/user-anti-vision.md
 
 STEPS:
-1. Read existing .claude/data/user-anti-vision.md if it exists (to preserve context)
+1. Read existing ai_docs/user-anti-vision.md if it exists (to preserve context)
 2. Query all rejected stories WITH notes from the database:
 
    python -c "
@@ -163,7 +163,7 @@ STEPS:
    - Features deemed unnecessary (YAGNI)
    - Philosophical boundaries
 
-4. Write .claude/data/user-anti-vision.md with this structure:
+4. Write ai_docs/user-anti-vision.md with this structure:
 
    # What This Product is NOT
 
@@ -200,7 +200,7 @@ After both agents complete, summarize:
 ## user-vision-is-not.md
 [Summary from Agent 2]
 
-Files location: `.claude/data/`
+Files location: `ai_docs/`
 ```
 
 ## Example Execution

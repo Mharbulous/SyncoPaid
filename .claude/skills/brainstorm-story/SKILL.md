@@ -52,15 +52,28 @@ conn.close()
 
 ## Story Generation Workflow
 
-### Step 0: Review Product Vision (CRITICAL - Do This First)
+### Step 0: Check for Product Vision Files (Optional but Recommended)
 
-**BEFORE generating any story ideas**, review the vision files to understand what the product IS and what it is NOT:
+**BEFORE generating story ideas**, check if vision files exist to understand what the product IS and what it is NOT:
 
-**Vision Files:**
-- `.claude/data/user-vision.md` - Product direction, target user, core capabilities, guiding principles
-- `.claude/data/user-anti-vision.md` - Explicit exclusions, anti-patterns, YAGNI items
+**Vision Files (if they exist):**
+- `ai_docs/user-vision.md` - Product direction, target user, core capabilities, guiding principles
+- `ai_docs/user-anti-vision.md` - Explicit exclusions, anti-patterns, YAGNI items
 
-**Read and internalize:**
+**Check for existence:**
+```python
+python -c "
+import os
+vision_path = 'ai_docs/user-vision.md'
+anti_vision_path = 'ai_docs/user-anti-vision.md'
+has_vision = os.path.exists(vision_path)
+has_anti_vision = os.path.exists(anti_vision_path)
+print(f'Vision file exists: {has_vision}')
+print(f'Anti-vision file exists: {has_anti_vision}')
+"
+```
+
+**If vision files exist**, read and internalize:
 1. **What the product IS**: Target user, core capabilities, guiding principles
 2. **What the product is NOT**: Explicit exclusions, anti-patterns to avoid
 3. **Philosophical boundaries**: What kinds of features align vs. conflict with product vision
@@ -70,7 +83,12 @@ conn.close()
 - Stories that conflict with anti-vision = instant rejection
 - Understanding boundaries = better gap identification
 
-**Action:** Read both files before proceeding to context gathering.
+**If vision files do NOT exist:**
+- Skip vision-based filtering
+- Generate stories based purely on git commits and gap analysis
+- Consider suggesting the user run the `anticipate` skill to create vision files
+
+**Action:** Check for files, read them if they exist, then proceed to context gathering.
 
 ### Step 1: Gather Context for Parent Node
 
@@ -150,9 +168,9 @@ print('\n'.join([f\"{c['hash']} - {c['message']}\" for c in commits]))
 
 Match commits to parent node scope using keyword similarity.
 
-### Step 3: Identify Story Gaps (Vision-Aware)
+### Step 3: Identify Story Gaps
 
-Analyze what's missing while respecting product vision:
+Analyze what's missing based on evidence:
 
 **Gap Analysis Types:**
 1. **Functional gaps**: Features mentioned in parent but not covered by children
@@ -160,23 +178,17 @@ Analyze what's missing while respecting product vision:
 3. **User journey gaps**: Steps in user workflows not yet addressed
 4. **Technical gaps**: Infrastructure or foundation work needed
 
-**Vision-Aware Filtering:**
+**If vision files exist, apply Vision-Aware Filtering:**
 - **Cross-check against user-vision.md**: Does this gap align with core capabilities and guiding principles?
 - **Cross-check against user-anti-vision.md**: Does this gap fall into explicit exclusions or anti-patterns?
 - **Reject speculative features**: If gap isn't grounded in vision OR commits, don't create a story
+- **Red Flags**: Features that conflict with principles stated in user-vision.md, or are explicitly excluded in user-anti-vision.md
+- **Green Flags**: Features that directly support capabilities listed in user-vision.md
 
-**Red Flags (Skip These Gaps):**
-- Features that conflict with "un-intrusive background app" principle
-- Analytics/reporting dashboards not tied to core time-tracking workflow
-- Configuration complexity without clear value (YAGNI items)
-- Features the user explicitly rejected or listed in anti-vision
-
-**Green Flags (Prioritize These Gaps):**
-- Improves AI-powered categorization accuracy
-- Reduces manual effort for lawyers
-- Better context capture (URLs, email subjects, folder paths)
-- Non-intrusive prompting at natural work breaks
-- Learning and improvement capabilities
+**If vision files do NOT exist:**
+- Focus purely on evidence from git commits and functional gaps
+- Avoid speculative features not grounded in actual development patterns
+- Ensure stories decompose parent scope without adding new scope
 
 **Generate max 3 stories per invocation** to prevent overwhelming the backlog.
 
@@ -204,7 +216,7 @@ For each identified gap, create a properly formatted user story:
 **Story ID Format:** `[parent-id].[N]` where N is next available child number
 
 **Story Quality Guidelines:**
-- **Specific user role**: Not "user" - be precise (e.g., "lawyer", "developer", "end user")
+- **Specific user role**: Not "user" - be precise based on who the product serves (derive from vision file if available, or from codebase context)
 - **Concrete capability**: What exactly can they do? (e.g., "configure polling interval" not "change settings")
 - **Measurable benefit**: Why does this matter? (e.g., "reduce manual time entry" not "improve experience")
 - **Testable criteria**: Each criterion must be verifiable (e.g., "Settings persist after restart" not "Settings work correctly")
@@ -214,11 +226,11 @@ For each identified gap, create a properly formatted user story:
 - Avoid speculative features not grounded in actual development patterns
 - Stories should decompose parent scope, not add new scope
 
-**Vision Alignment Requirements:**
-- **Aligns with product vision**: Story must support core capabilities (automatic capture, AI categorization, non-intrusive prompting, etc.)
-- **Respects anti-vision boundaries**: Story must NOT be an explicit exclusion (analytics dashboards, screenshot galleries, intrusive UI, etc.)
-- **Follows guiding principles**: "Minimize manual effort", "non-intrusive intelligence", "preserve all history", "learn and improve", "lawyer-specific workflows"
-- **Target user focus**: Story should benefit lawyers tracking billable hours, not generic productivity users
+**Vision Alignment Requirements (if vision files exist):**
+- **Aligns with product vision**: Story must support core capabilities listed in user-vision.md
+- **Respects anti-vision boundaries**: Story must NOT be an explicit exclusion listed in user-anti-vision.md
+- **Follows guiding principles**: Adhere to principles stated in user-vision.md
+- **Target user focus**: Story should benefit the target user described in user-vision.md
 
 ### Step 5: Validate Stories
 
@@ -233,23 +245,23 @@ Before inserting, verify:
 - [ ] IDs follow [parent-id].[N] format
 - [ ] Story scope fits within parent's description
 
-**Vision Alignment (CRITICAL):**
+**Vision Alignment (if vision files exist):**
 - [ ] Story aligns with at least one core capability from user-vision.md
 - [ ] Story does NOT conflict with any explicit exclusion in user-anti-vision.md
-- [ ] Story follows guiding principles (minimize manual effort, non-intrusive, etc.)
-- [ ] Story benefits target user (lawyers tracking billable hours)
-- [ ] Story does NOT introduce anti-patterns (intrusive UI, feature bloat, rebuilding existing tools)
+- [ ] Story follows guiding principles stated in user-vision.md
+- [ ] Story benefits target user described in user-vision.md
+- [ ] Story does NOT introduce anti-patterns listed in user-anti-vision.md
 - [ ] Story does NOT implement YAGNI items unless explicitly requested
 
-**Vision Red Flag Check:**
+**Vision Red Flag Check (if user-anti-vision.md exists):**
 Ask yourself: "Would this story be rejected based on the anti-vision file?"
-- Analytics/reporting dashboard? → REJECT
-- Standalone screenshot gallery? → REJECT (unless AI-assisted clarification workflow)
-- Global hotkeys or popup overlays? → REJECT
-- Configuration complexity without clear value? → REJECT
-- Rebuilding what lawyers already have elsewhere? → REJECT
+- Review the explicit exclusions in user-anti-vision.md
+- Check if the story matches any anti-patterns listed
+- If any red flag triggers, do NOT create the story
 
-If any red flag triggers, do NOT create the story.
+**If vision files do NOT exist:**
+- Focus validation on evidence quality and format requirements
+- Ensure stories are grounded in git commits or clear functional gaps
 
 ### Step 6: Insert Stories into Database
 
@@ -294,12 +306,25 @@ Repeat for each generated story (max 3).
 **Generated:** [ISO timestamp]
 **Parent Node:** [ID] - "[Title]"
 
+## Vision Status
+
+**Vision files found:** [Yes/No]
+- `ai_docs/user-vision.md`: [Exists/Not found]
+- `ai_docs/user-anti-vision.md`: [Exists/Not found]
+
+[If vision files exist, include:]
 ## Vision Alignment Summary
 
 **Product Vision Review:** ✓ Completed
 - Core capabilities considered: [list relevant capabilities from user-vision.md]
 - Anti-patterns avoided: [list any anti-vision items that were filtered out]
 - Guiding principles applied: [list relevant principles]
+
+[If vision files do NOT exist, include:]
+## Note on Vision Files
+
+Vision files not found. Stories generated based on git commits and gap analysis only.
+Consider running the `anticipate` skill to create vision files for better story alignment.
 
 ## Context Analysis
 
@@ -314,16 +339,20 @@ Repeat for each generated story (max 3).
 ## Gaps Identified
 
 1. [Gap description and why it needs a story]
-   - **Vision alignment**: [How this gap supports product vision]
+   [If vision files exist:] - **Vision alignment**: [How this gap supports product vision]
 2. [Gap description and why it needs a story]
-   - **Vision alignment**: [How this gap supports product vision]
+   [If vision files exist:] - **Vision alignment**: [How this gap supports product vision]
 3. [Gap description and why it needs a story]
-   - **Vision alignment**: [How this gap supports product vision]
+   [If vision files exist:] - **Vision alignment**: [How this gap supports product vision]
 
-## Gaps Rejected (Vision Conflicts)
+## Gaps Rejected
 
+[If vision files exist:]
 [List any gaps that were identified but rejected due to anti-vision conflicts]
 - [Gap description] - **Reason**: Conflicts with [specific anti-vision item]
+
+[If vision files do NOT exist:]
+[List any gaps rejected due to lack of evidence or scope creep]
 
 ## Generated Stories
 
@@ -395,15 +424,20 @@ Before finalizing any story generation:
 - [ ] IDs follow proper hierarchy format
 - [ ] Maximum 3 stories generated per invocation
 
-**Vision Alignment (CRITICAL - DO NOT SKIP):**
-- [ ] Reviewed user-vision.md before generating stories
-- [ ] Reviewed user-anti-vision.md before generating stories
-- [ ] Each story aligns with at least one core capability
-- [ ] No story conflicts with explicit exclusions
-- [ ] No story introduces anti-patterns (intrusive UI, feature bloat, etc.)
+**Vision Alignment (if vision files exist):**
+- [ ] Checked for ai_docs/user-vision.md and ai_docs/user-anti-vision.md
+- [ ] Reviewed vision files before generating stories (if they exist)
+- [ ] Each story aligns with core capabilities from user-vision.md
+- [ ] No story conflicts with explicit exclusions from user-anti-vision.md
+- [ ] No story introduces anti-patterns listed in user-anti-vision.md
 - [ ] No story implements YAGNI items without explicit request
-- [ ] Stories follow guiding principles (minimize manual effort, non-intrusive, etc.)
-- [ ] Stories benefit target user (lawyers tracking billable hours)
+- [ ] Stories follow guiding principles from user-vision.md
+- [ ] Stories benefit target user described in user-vision.md
+
+**If vision files do NOT exist:**
+- [ ] Stories are grounded in git commits or clear functional gaps
+- [ ] No speculative features without evidence
+- [ ] Consider recommending the `anticipate` skill to the user
 
 ## Common Mistakes (STOP Before Making These)
 
@@ -412,67 +446,84 @@ Before finalizing any story generation:
 | Using `sqlite3` CLI command | Copy-pasting shell-looking examples | Use Python's sqlite3 module (see Environment Requirements) |
 | Generating >3 stories | Trying to be thorough | Limit to 3 - story-tree will call again if needed |
 | Speculative features | Not grounding in evidence | Every story must reference commits OR specific gap |
-| Generic user roles | "As a user" is too vague | Be specific: "lawyer", "developer", "end user" |
+| Generic user roles | "As a user" is too vague | Be specific based on target user from vision file or codebase context |
 | Vague acceptance criteria | "Feature works correctly" | Make testable: "Setting persists after restart" |
 | Adding new scope | Expanding beyond parent | Stories decompose parent, don't expand it |
-| **Skipping vision review** | Rushing to generate stories | **ALWAYS read vision files FIRST (Step 0)** |
-| **Analytics/dashboard stories** | Assuming users want reporting | Check anti-vision: explicitly excluded unless AI workflow |
-| **Intrusive UI features** | Building what seems helpful | Check guiding principles: "non-intrusive intelligence" |
-| **Screenshot gallery/viewer** | Assuming users need browsing | Check anti-vision: rejected unless AI-assisted clarification |
-| **Complex configuration** | Over-engineering settings | Check anti-vision: avoid YAGNI items |
-| **Generic productivity features** | Forgetting target user | Focus on lawyers tracking billable hours |
+| **Skipping vision check** | Rushing to generate stories | **ALWAYS check for vision files FIRST (Step 0)** |
+| **Ignoring anti-vision** | Assuming features are wanted | If anti-vision exists, check exclusions before creating stories |
+| **Features without evidence** | Building what seems helpful | Ground every story in git commits or functional gaps |
+| **Complex configuration** | Over-engineering settings | Avoid YAGNI items unless explicitly requested |
+| **Generic features** | Forgetting target user | Focus on target user described in vision file or inferred from codebase |
 
 ## Examples
 
-### Good Story Example (Vision-Aligned)
+### Good Story Example (with vision files)
 
 ```markdown
-### 1.2.3: Detect email subject changes for automatic matter switching
+### 1.2.3: Add keyboard shortcut for quick task creation
 
-**As a** lawyer using Outlook
-**I want** the app to detect when I switch between emails with different subjects
-**So that** the AI can automatically prompt me to categorize time spent on each matter
+**As a** project manager
+**I want** to create new tasks with a keyboard shortcut from any screen
+**So that** I can capture tasks quickly without interrupting my workflow
 
 **Acceptance Criteria:**
-- [ ] App captures email subject line when Outlook window is active
-- [ ] Subject changes trigger new activity events in database
-- [ ] Subject data is included in JSON export for AI categorization
-- [ ] Works with both legacy Outlook and new Outlook (where supported)
+- [ ] Ctrl+N opens quick task creation modal from any screen
+- [ ] Modal pre-fills project based on current context
+- [ ] Task is saved and appears in task list immediately
+- [ ] Shortcut is configurable in settings
 
-**Related context**: Commits abc123, def456 added basic Outlook tracking, but gap analysis shows email subjects aren't captured for matter detection. Aligns with "context-aware categorization" and "capture rich contextual data" principles from user-vision.md.
+**Related context**: Commits abc123, def456 added task creation flow, but gap analysis shows no keyboard-driven path exists. Aligns with "quick capture" and "minimize workflow interruption" principles from user-vision.md.
 
 **Vision alignment**:
-- Core capability: Automatic activity capture, AI-powered categorization
-- Guiding principle: Context-aware categorization (URLs, email subjects, folder paths)
-- Target user: Lawyers tracking billable hours across multiple matters
+- Core capability: Quick task capture (from user-vision.md)
+- Guiding principle: Minimize workflow interruption
+- Target user: Project managers (from user-vision.md)
 ```
 
-### Bad Story Example (Don't Do This - Vision Violation)
+### Good Story Example (without vision files)
 
 ```markdown
-### 1.2.3: Add productivity analytics dashboard
+### 1.2.3: Add keyboard shortcut for quick task creation
 
-**As a** user
-**I want** to view charts and graphs showing my productivity over time
-**So that** I can see how much time I spend in each application
+**As a** [role inferred from codebase: project manager based on existing UI copy]
+**I want** to create new tasks with a keyboard shortcut from any screen
+**So that** I can capture tasks quickly without interrupting my workflow
 
 **Acceptance Criteria:**
-- [ ] Dashboard shows pie charts of app usage
+- [ ] Ctrl+N opens quick task creation modal from any screen
+- [ ] Modal pre-fills project based on current context
+- [ ] Task is saved and appears in task list immediately
+- [ ] Shortcut is configurable in settings
+
+**Related context**: Commits abc123, def456 added task creation flow. Gap analysis shows no keyboard-driven path exists, which is common in task management apps for power users.
+
+**Note**: No vision files found. Consider running `anticipate` skill to create them.
+```
+
+### Bad Story Example (Vision Violation - if anti-vision exists)
+
+```markdown
+### 1.2.3: Add analytics dashboard
+
+**As a** user
+**I want** to view charts and graphs showing my usage over time
+**So that** I can see patterns in my behavior
+
+**Acceptance Criteria:**
+- [ ] Dashboard shows pie charts of usage
 - [ ] Weekly/monthly view toggles
 - [ ] Export charts as PNG
 
-**Related context**: Users might want to see productivity analytics
+**Related context**: Users might want to see analytics
 ```
 
 **Problems:**
-- **CRITICAL: Violates anti-vision** - Analytics dashboards are explicitly excluded in user-anti-vision.md
-- Generic role ("user" instead of "lawyer")
-- Rebuilding existing tools (productivity analytics exist elsewhere)
+- **CRITICAL: Check anti-vision** - If analytics dashboards are excluded in user-anti-vision.md, this story should not be created
+- Generic role ("user" instead of specific target user)
 - Not grounded in evidence ("might want" is speculation)
-- Doesn't benefit target user's core need (billable time tracking, not productivity analytics)
-- Violates guiding principle: "Use AI to save lawyers time, not rebuild what already exists elsewhere"
+- Check if this conflicts with guiding principles in user-vision.md
 
-### Another Bad Example (Format Issues)
+### Bad Story Example (Format Issues)
 
 ```markdown
 ### 1.2.4: Improve settings
@@ -490,7 +541,7 @@ Before finalizing any story generation:
 
 **Problems:**
 - Vague title ("Improve settings")
-- Generic role ("user")
+- Generic role ("user") - use target user from vision file or infer from codebase
 - Non-specific capability ("better settings")
 - Unmeasurable benefit ("works better")
 - Untestable criteria ("settings are good")
@@ -498,12 +549,14 @@ Before finalizing any story generation:
 
 ## References
 
-**Vision Files (READ FIRST):**
-- **Product Vision:** `.claude/data/user-vision.md` - What the product IS (target user, core capabilities, guiding principles)
-- **Anti-Vision:** `.claude/data/user-anti-vision.md` - What the product is NOT (explicit exclusions, anti-patterns, YAGNI items)
+**Vision Files (check for existence first):**
+- **Product Vision:** `ai_docs/user-vision.md` - What the product IS (target user, core capabilities, guiding principles)
+- **Anti-Vision:** `ai_docs/user-anti-vision.md` - What the product is NOT (explicit exclusions, anti-patterns, YAGNI items)
+- **Note:** These files may not exist in all projects. Check for existence before attempting to read.
 
 **Story Tree System:**
 - **Story Tree Database:** `.claude/data/story-tree.db`
 - **Story Tree Skill:** `.claude/skills/story-tree/SKILL.md`
 - **Schema:** `.claude/skills/story-tree/references/schema.sql`
 - **21-Status System:** See story-tree skill SKILL.md for full status definitions
+- **Anticipate Skill:** `.claude/skills/anticipate/SKILL.md` - Use to generate vision files if they don't exist
