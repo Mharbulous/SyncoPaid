@@ -1,32 +1,31 @@
 # Handover: Xstory Version Cleanup & Detail View UI Refinement
 
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 
 ## Task
 1. Remove obsolete xstory versions to prevent confusion in future sessions
 2. Document recent UI improvement: hide "Open Database..." and "Refresh" buttons in detail view
 
-## What Just Happened
+## What Was Done
 
-User reported that changes made to detail view weren't visible when running `./Xstory`. Root cause: Modified wrong file (`xstory.py` instead of `xstory-1-2.py`). The launcher script executes `xstory-1-2.py`, which is the current PySide6/Qt version.
+### Version Cleanup (Completed)
+- **Deleted** obsolete versions: `xstory.py` (tkinter), `xstory-1-0.py`, `xstory-1-1.py`
+- **Renamed** `xstory-1-2.py` → `xstory.py` (no version suffix needed)
+- **Updated** `Xstory` launcher script to point to renamed file
 
-**Changes applied**: When user double-clicks a story node to view details, the "Open Database..." and "Refresh" buttons now hide. They reappear when closing detail view.
+### UI Improvement (Previously Completed)
+When user double-clicks a story node to view details, the "Open Database..." and "Refresh" buttons now hide. They reappear when closing detail view.
 
-## Files to Keep vs Delete
+## Current File Structure
 
-### KEEP:
-- **`dev-tools/xstory/xstory-1-2.py`** - Current version (PySide6/Qt) ✓
+### Files:
+- **`dev-tools/xstory/xstory.py`** - Current version (PySide6/Qt) ✓
 - **`dev-tools/xstory/build.py`** - Build script
-- **`Xstory`** - Launcher script (points to xstory-1-2.py)
-
-### DELETE:
-- `dev-tools/xstory/xstory.py` - tkinter version (37KB, modified Dec 14 23:58)
-- `dev-tools/xstory/xstory-1-0.py` - Old version (34KB)
-- `dev-tools/xstory/xstory-1-1.py` - Old version (36KB)
+- **`Xstory`** - Launcher script (points to xstory.py)
 
 ## Recent Implementation (Detail View Button Hiding)
 
-**File**: `dev-tools/xstory/xstory-1-2.py`
+**File**: `dev-tools/xstory/xstory.py`
 
 **Changes**:
 1. Lines 542-548: Store button references as `self.open_btn` and `self.refresh_btn`
@@ -37,15 +36,11 @@ User reported that changes made to detail view weren't visible when running `./X
 
 ## Tech Stack
 
-**Current Version (xstory-1-2.py)**:
+**Current Version (xstory.py)**:
 - **Framework**: PySide6 (Qt for Python)
 - **Main widget**: QTreeWidget for hierarchical story display
 - **Database**: SQLite with closure table pattern (`.claude/data/story-tree.db`)
 - **Views**: Two-pane system (tree view ↔ detail view)
-
-**Deprecated Versions**:
-- xstory.py: tkinter-based (replaced by PySide6 for better UI capabilities)
-- xstory-1-0.py, xstory-1-1.py: Earlier PySide6 iterations
 
 ## Key Architecture Details
 
@@ -63,13 +58,6 @@ Uses 21-status rainbow system with role-based transitions (Designer/Engineer mod
 - **`src/syncopaid/`** - Main SyncoPaid app (window tracker); unrelated to story-tree
 - **`.claude/skills/story-tree/SKILL.md`** - Skill prompt documentation, not UI code
 
-## Next Steps
-
-1. Delete obsolete versions: `xstory.py`, `xstory-1-0.py`, `xstory-1-1.py`
-2. Verify `./Xstory` launcher still works after cleanup
-3. Consider renaming `xstory-1-2.py` → `xstory.py` (no longer need version suffix)
-4. Update launcher script if renaming
-
 ## Documentation References
 
 - **024_status-context-menu-role-toggle.md** - Role-based status transitions
@@ -78,9 +66,8 @@ Uses 21-status rainbow system with role-based transitions (Designer/Engineer mod
 
 ## Testing
 
-Verify after cleanup:
 ```bash
-./Xstory  # Should launch xstory-1-2.py
+./Xstory  # Launches xstory.py
 # Double-click any node → buttons should hide
 # Click "Close" → buttons should reappear
 ```

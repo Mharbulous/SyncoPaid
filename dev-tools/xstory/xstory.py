@@ -1,93 +1,159 @@
 #!/usr/bin/env python3
 """
-Xstory - A simple desktop app to explore story-tree databases.
-Uses tkinter for GUI and SQLite for database access.
+Xstory v1.2 - PySide6 Migration
+A desktop app to explore story-tree databases.
+Uses PySide6 (Qt for Python) under the LGPL v3 license.
+
+PySide6 License: LGPL v3 (https://www.gnu.org/licenses/lgpl-3.0.html)
+Qt for Python: https://www.qt.io/qt-for-python
 """
 
 import os
 import sys
 import sqlite3
-import tkinter as tk
 from datetime import datetime
-from tkinter import ttk, filedialog, messagebox, simpledialog
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-# Status colors (21-status rainbow system - reordered while preserving color sequence)
+try:
+    from PySide6.QtWidgets import (
+        QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+        QTreeWidget, QTreeWidgetItem, QSplitter, QGroupBox, QCheckBox,
+        QPushButton, QLabel, QTextEdit, QDialog, QDialogButtonBox,
+        QFileDialog, QMessageBox, QScrollArea, QFrame, QStatusBar,
+        QMenu, QLineEdit
+    )
+    from PySide6.QtCore import Qt, Signal, QSize
+    from PySide6.QtGui import QBrush, QColor, QFont, QAction, QPixmap, QPainter, QPen, QIcon
+except ImportError:
+    print("Error: PySide6 is required. Install with: pip install PySide6")
+    sys.exit(1)
+
+# Status colors (21-status rainbow system - optimized for visibility)
 STATUS_COLORS = {
-    # Red Zone (Can't/Won't)
-    'infeasible': '#8B0000',   # Deep Red
-    'rejected': '#FF4500',     # Red-Orange
-    'wishlist': '#FF8C00',     # Orange
-    # Orange-Yellow Zone (Concept & Broken)
-    'concept': '#FFA500',      # Yellow-Orange
-    'broken': '#FFD700',       # Gold
-    'blocked': '#9ACD32',      # Yellow-Green
-    'refine': '#FFDB58',       # Light Gold
-    # Yellow Zone (Planning)
-    'deferred': '#EEE8AA',     # Light Goldenrod
-    'approved': '#B8860B',     # Dark Goldenrod
-    'planned': '#DAA520',      # Goldenrod
-    'queued': '#FFB347',       # Sandy
-    'paused': '#BDB76B',       # Dark Khaki
-    # Green Zone (Development)
-    'active': '#32CD32',       # Lime Green
-    # Cyan-Blue Zone (Testing)
-    'reviewing': '#40E0D0',    # Turquoise
-    'implemented': '#4169E1',  # Royal Blue
-    # Blue Zone (Production)
-    'ready': '#0000FF',        # Blue
-    'polish': '#0047AB',       # Cobalt Blue
-    'released': '#4169E1',     # Royal Blue
-    # Violet Zone (Post-Production/End-of-Life)
-    'legacy': '#4B0082',       # Indigo
-    'deprecated': '#9400D3',   # Dark Violet
-    'archived': '#800080',     # Purple
+    'infeasible': '#CC0000',   # Deep Red
+    'rejected': '#CC3300',     # Red-Orange
+    'wishlist': '#CC6600',     # Pumpkin Orange
+    'concept': '#CC9900',      # Goldenrod
+    'broken': '#CCCC00',       # Dark Gold / Olive
+    'blocked': '#99CC00',      # Lime Green
+    'refine': '#66CC00',       # Chartreuse
+    'deferred': '#00CC00',     # Pure Green
+    'approved': '#00CC33',     # Spring Green
+    'planned': '#00CC66',      # Emerald
+    'queued': '#00CC99',       # Teal Green
+    'paused': '#00CCCC',       # Dark Cyan
+    'active': '#0099CC',       # Cerulean
+    'reviewing': '#0066CC',    # Azure
+    'implemented': '#0000CC',  # Pure Blue
+    'ready': '#3300CC',        # Electric Indigo
+    'polish': '#6600CC',       # Violet
+    'released': '#9900CC',     # Purple
+    'legacy': '#CC00CC',       # Magenta
+    'deprecated': '#CC0099',   # Fuchsia
+    'archived': '#CC0066',     # Deep Pink
 }
 
-# All possible statuses (21-status system - canonical order)
+# All possible statuses (21-status rainbow system - canonical order)
 ALL_STATUSES = [
-    'infeasible', 'rejected', 'wishlist', 'concept', 'broken', 'blocked', 'refine',
-    'deferred', 'approved', 'planned', 'queued', 'paused', 'active', 'reviewing',
-    'implemented', 'ready', 'polish', 'released', 'legacy', 'deprecated', 'archived',
+    'infeasible', 'rejected', 'wishlist',
+    'concept', 'broken', 'blocked', 'refine',
+    'deferred', 'approved', 'planned', 'queued', 'paused',
+    'active', 'reviewing',
+    'implemented',
+    'ready', 'polish', 'released',
+    'legacy', 'deprecated', 'archived'
 ]
 
-# Role-based status transitions
-DESIGNER_TRANSITIONS = {
-    'infeasible': ['concept', 'wishlist', 'archived'],
-    'rejected': ['concept', 'wishlist', 'archived'],
-    'wishlist': ['concept', 'rejected', 'archived'],
-    'concept': ['approved', 'rejected', 'wishlist', 'refine'],
-    'refine': ['concept', 'rejected', 'wishlist'],
-    'deferred': ['approved', 'wishlist', 'rejected'],
-    'approved': ['deferred', 'rejected'],
-    'blocked': ['deferred'],
-    'planned': ['deferred', 'approved'],
-    'paused': ['deferred'],
-    'reviewing': ['implemented'],
-    'implemented': ['ready'],
-    'ready': ['released', 'polish'],
-    'polish': ['ready', 'released'],
-    'released': ['polish', 'legacy'],
-    'legacy': ['deprecated', 'released', 'archived'],
-    'deprecated': ['archived', 'legacy'],
-    'archived': ['deprecated', 'wishlist'],
-}
 
-ENGINEER_TRANSITIONS = {
-    'approved': ['planned'],
-    'blocked': ['planned', 'queued'],
-    'planned': ['queued', 'blocked'],
-    'queued': ['active', 'blocked', 'paused', 'planned'],
-    'broken': ['active', 'paused', 'blocked', 'queued'],
-    'paused': ['active', 'queued', 'blocked'],
-    'active': ['reviewing', 'paused', 'broken', 'blocked'],
-    'reviewing': ['active', 'broken'],
-    'implemented': ['reviewing', 'broken'],
-    'ready': ['reviewing'],
-    'polish': ['reviewing'],
-    'released': ['broken'],
-}
+def create_checkbox_pixmap(color_hex: str, checked: bool) -> QPixmap:
+    """Create a custom checkbox pixmap with white checkmark on colored background."""
+    size = 18
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.transparent)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.Antialiasing)
+
+    if checked:
+        # Draw colored background with border
+        painter.setBrush(QBrush(QColor(color_hex)))
+        painter.setPen(QPen(QColor(color_hex), 1))
+        painter.drawRoundedRect(0, 0, size-1, size-1, 3, 3)
+
+        # Draw white checkmark
+        painter.setPen(QPen(QColor(Qt.white), 2.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        # Checkmark path
+        painter.drawLine(4, 9, 7, 13)
+        painter.drawLine(7, 13, 14, 4)
+    else:
+        # Draw white background with gray border
+        painter.setBrush(QBrush(QColor(Qt.white)))
+        painter.setPen(QPen(QColor('#999999'), 1))
+        painter.drawRoundedRect(0, 0, size-1, size-1, 3, 3)
+
+    painter.end()
+    return pixmap
+
+
+class ColoredCheckBox(QCheckBox):
+    """Custom checkbox with colored background and white checkmark when checked."""
+
+    def __init__(self, text: str, color: str, parent=None):
+        super().__init__(text, parent)
+        self.status_color = color
+        self.checkbox_size = 18
+        self.checkbox_margin = 4
+
+    def paintEvent(self, event):
+        """Custom paint to draw checkbox with colored background and white checkmark."""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        # Calculate positions
+        indicator_y = (self.height() - self.checkbox_size) // 2
+        text_x = self.checkbox_margin + self.checkbox_size + 8  # 8px spacing
+
+        # Draw custom checkbox indicator
+        if self.isChecked():
+            # Draw colored background
+            painter.setBrush(QBrush(QColor(self.status_color)))
+            painter.setPen(QPen(QColor(self.status_color), 1))
+            painter.drawRoundedRect(self.checkbox_margin, indicator_y, self.checkbox_size - 1, self.checkbox_size - 1, 3, 3)
+
+            # Draw white checkmark
+            painter.setPen(QPen(QColor(Qt.white), 2.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+            painter.drawLine(self.checkbox_margin + 4, indicator_y + 9,
+                           self.checkbox_margin + 7, indicator_y + 13)
+            painter.drawLine(self.checkbox_margin + 7, indicator_y + 13,
+                           self.checkbox_margin + 14, indicator_y + 4)
+        else:
+            # Draw white background with gray border
+            painter.setBrush(QBrush(QColor(Qt.white)))
+            painter.setPen(QPen(QColor('#999999'), 1))
+            painter.drawRoundedRect(self.checkbox_margin, indicator_y, self.checkbox_size - 1, self.checkbox_size - 1, 3, 3)
+
+        # Draw text in status color
+        painter.setPen(QColor(self.status_color))
+        font = self.font()
+        painter.setFont(font)
+        text_rect = self.rect()
+        text_rect.setLeft(text_x)
+        painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, self.text())
+
+        painter.end()
+
+    def hitButton(self, pos):
+        """Override to make the entire widget clickable."""
+        return self.rect().contains(pos)
+
+    def sizeHint(self):
+        """Calculate proper size for checkbox and text."""
+        fm = self.fontMetrics()
+        text_width = fm.horizontalAdvance(self.text())
+        width = self.checkbox_margin + self.checkbox_size + 8 + text_width + 5
+        height = max(self.checkbox_size + 4, fm.height())
+        return QSize(width, height)
 
 
 class StoryNode:
@@ -111,47 +177,37 @@ class StoryNode:
         self.children: List['StoryNode'] = []
 
 
-class StatusChangeDialog(tk.Toplevel):
+class StatusChangeDialog(QDialog):
     """Dialog for entering notes when changing story status."""
 
     def __init__(self, parent, node_id: str, new_status: str, mandatory: bool = False):
         super().__init__(parent)
-        self.result: Optional[str] = None
-        self.mandatory = mandatory
         self.node_id = node_id
         self.new_status = new_status
+        self.mandatory = mandatory
+        self.result_notes: Optional[str] = None
 
-        # Configure dialog
-        self.title(f"Change Status to '{new_status}'")
-        self.geometry("400x250")
-        self.resizable(False, False)
-        self.transient(parent)
-        self.grab_set()
+        self.setWindowTitle(f"Change Status to '{new_status}'")
+        self.setFixedSize(400, 250)
+        self.setModal(True)
 
         self._setup_ui()
 
-        # Center on parent
-        self.update_idletasks()
-        x = parent.winfo_rootx() + (parent.winfo_width() - self.winfo_width()) // 2
-        y = parent.winfo_rooty() + (parent.winfo_height() - self.winfo_height()) // 2
-        self.geometry(f"+{x}+{y}")
-
-        # Bind escape key
-        self.bind('<Escape>', lambda e: self._on_cancel())
-
-        # Wait for dialog to close
-        self.wait_window()
-
     def _setup_ui(self):
         """Set up the dialog UI."""
-        main_frame = ttk.Frame(self, padding="10")
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        layout = QVBoxLayout(self)
 
         # Header
         header_text = f"Changing '{self.node_id}' to status: {self.new_status}"
-        ttk.Label(main_frame, text=header_text, font=('TkDefaultFont', 10, 'bold')).pack(anchor=tk.W)
+        header_label = QLabel(header_text)
+        header_label.setStyleSheet("font-weight: bold; font-size: 10pt;")
+        layout.addWidget(header_label)
 
-        ttk.Separator(main_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+        # Separator line
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+        layout.addWidget(line)
 
         # Prompt text based on status
         if self.new_status == 'approved':
@@ -161,98 +217,113 @@ class StatusChangeDialog(tk.Toplevel):
         else:
             prompt_text = "Add a note about this decision (optional):"
 
-        ttk.Label(main_frame, text=prompt_text).pack(anchor=tk.W, pady=(0, 5))
+        layout.addWidget(QLabel(prompt_text))
 
         # Text area for notes
-        text_frame = ttk.Frame(main_frame)
-        text_frame.pack(fill=tk.BOTH, expand=True)
-
-        self.notes_text = tk.Text(text_frame, height=6, wrap=tk.WORD)
-        self.notes_text.pack(fill=tk.BOTH, expand=True, side=tk.LEFT)
-
-        scrollbar = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=self.notes_text.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.notes_text.configure(yscrollcommand=scrollbar.set)
-
-        # Focus on text area
-        self.notes_text.focus_set()
+        self.notes_text = QTextEdit()
+        self.notes_text.setPlaceholderText("Enter notes here...")
+        layout.addWidget(self.notes_text)
 
         # Buttons
-        btn_frame = ttk.Frame(main_frame)
-        btn_frame.pack(fill=tk.X, pady=(10, 0))
-
-        ttk.Button(btn_frame, text="Cancel", command=self._on_cancel).pack(side=tk.RIGHT, padx=(5, 0))
-        ttk.Button(btn_frame, text="Confirm", command=self._on_confirm).pack(side=tk.RIGHT)
-
-        # Bind Enter key (Ctrl+Enter for confirm with text)
-        self.bind('<Control-Return>', lambda e: self._on_confirm())
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self._on_confirm)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
 
     def _on_confirm(self):
         """Handle confirm button click."""
-        notes = self.notes_text.get('1.0', tk.END).strip()
+        notes = self.notes_text.toPlainText().strip()
 
         if self.mandatory and not notes:
-            messagebox.showwarning(
+            QMessageBox.warning(
+                self,
                 "Notes Required",
-                f"Notes are required when changing status to '{self.new_status}'.",
-                parent=self
+                f"Notes are required when changing status to '{self.new_status}'."
             )
-            self.notes_text.focus_set()
+            self.notes_text.setFocus()
             return
 
-        self.result = notes
-        self.destroy()
+        self.result_notes = notes
+        self.accept()
 
-    def _on_cancel(self):
-        """Handle cancel button click."""
-        self.result = None
-        self.destroy()
+    def get_notes(self) -> Optional[str]:
+        """Return the entered notes if dialog was accepted."""
+        return self.result_notes
 
 
-class DetailView(ttk.Frame):
+class ClickableLabel(QLabel):
+    """A QLabel that emits a signal when double-clicked."""
+    doubleClicked = Signal(str)
+
+    def __init__(self, text: str, node_id: str, parent=None):
+        super().__init__(text, parent)
+        self.node_id = node_id
+        self.setCursor(Qt.PointingHandCursor)
+        self.setStyleSheet("color: #0066CC;")
+
+    def mouseDoubleClickEvent(self, event):
+        self.doubleClicked.emit(self.node_id)
+
+    def enterEvent(self, event):
+        font = self.font()
+        font.setUnderline(True)
+        self.setFont(font)
+
+    def leaveEvent(self, event):
+        font = self.font()
+        font.setUnderline(False)
+        self.setFont(font)
+
+
+class DetailView(QWidget):
     """Detail view panel showing all information about a story node."""
+    closeRequested = Signal()
 
-    def __init__(self, parent, app: 'XstoryExplorer'):
+    def __init__(self, app: 'XstoryExplorer', parent=None):
         super().__init__(parent)
         self.app = app
-        self.history: List[str] = []  # Navigation history
-        self.history_index: int = -1  # Current position in history
+        self.history: List[str] = []
+        self.history_index: int = -1
         self.current_node_id: Optional[str] = None
 
         self._setup_ui()
 
     def _setup_ui(self):
         """Set up the detail view UI."""
+        main_layout = QVBoxLayout(self)
+
         # Navigation toolbar
-        nav_frame = ttk.Frame(self)
-        nav_frame.pack(fill=tk.X, pady=(0, 10))
+        nav_layout = QHBoxLayout()
+        self.back_btn = QPushButton("< Back")
+        self.back_btn.clicked.connect(self._go_back)
+        self.back_btn.setFixedWidth(80)
+        nav_layout.addWidget(self.back_btn)
 
-        self.back_btn = ttk.Button(nav_frame, text="< Back", command=self._go_back, width=8)
-        self.back_btn.pack(side=tk.LEFT, padx=2)
+        self.forward_btn = QPushButton("Forward >")
+        self.forward_btn.clicked.connect(self._go_forward)
+        self.forward_btn.setFixedWidth(80)
+        nav_layout.addWidget(self.forward_btn)
 
-        self.forward_btn = ttk.Button(nav_frame, text="Forward >", command=self._go_forward, width=8)
-        self.forward_btn.pack(side=tk.LEFT, padx=2)
+        nav_layout.addStretch()
 
-        ttk.Button(nav_frame, text="Close", command=self._close, width=8).pack(side=tk.RIGHT, padx=2)
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self._close)
+        close_btn.setFixedWidth(80)
+        nav_layout.addWidget(close_btn)
+
+        main_layout.addLayout(nav_layout)
 
         # Scrollable content area
-        canvas = tk.Canvas(self, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(self, orient=tk.VERTICAL, command=canvas.yview)
-        self.content_frame = ttk.Frame(canvas)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.NoFrame)
 
-        self.content_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
+        self.content_widget = QWidget()
+        self.content_layout = QVBoxLayout(self.content_widget)
+        self.content_layout.setAlignment(Qt.AlignTop)
 
-        canvas.create_window((0, 0), window=self.content_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        # Bind mouse wheel
-        canvas.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
+        scroll_area.setWidget(self.content_widget)
+        main_layout.addWidget(scroll_area)
 
         self._update_nav_buttons()
 
@@ -266,7 +337,6 @@ class DetailView(ttk.Frame):
 
         # Update history
         if add_to_history:
-            # Remove any forward history
             if self.history_index < len(self.history) - 1:
                 self.history = self.history[:self.history_index + 1]
             self.history.append(node_id)
@@ -275,23 +345,26 @@ class DetailView(ttk.Frame):
         self._update_nav_buttons()
 
         # Clear content
-        for widget in self.content_frame.winfo_children():
-            widget.destroy()
+        while self.content_layout.count():
+            item = self.content_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
 
         # Node ID and Title header
-        header = ttk.Frame(self.content_frame)
-        header.pack(fill=tk.X, pady=(0, 10))
+        id_label = QLabel(node.id)
+        id_label.setStyleSheet("font-weight: bold; font-size: 14pt;")
+        self.content_layout.addWidget(id_label)
 
-        id_label = ttk.Label(header, text=node.id, font=('TkDefaultFont', 14, 'bold'))
-        id_label.pack(anchor=tk.W)
+        title_label = QLabel(node.title)
+        title_label.setStyleSheet("font-size: 12pt;")
+        title_label.setWordWrap(True)
+        self.content_layout.addWidget(title_label)
 
-        title_label = ttk.Label(header, text=node.title, font=('TkDefaultFont', 12))
-        title_label.pack(anchor=tk.W)
-
-        ttk.Separator(self.content_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=5)
+        self._add_separator()
 
         # Status with color
-        self._add_field("Status", node.status, color=STATUS_COLORS.get(node.status))
+        status_color = STATUS_COLORS.get(node.status, '#000000')
+        self._add_field("Status", node.status, color=status_color)
 
         # Capacity
         capacity_text = str(node.capacity) if node.capacity is not None else "dynamic"
@@ -300,7 +373,7 @@ class DetailView(ttk.Frame):
         # Depth
         self._add_field("Depth", str(node.depth))
 
-        ttk.Separator(self.content_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=5)
+        self._add_separator()
 
         # Parent (clickable)
         if node.parent_id:
@@ -310,16 +383,16 @@ class DetailView(ttk.Frame):
 
         # Children (clickable list)
         if node.children:
-            children_frame = ttk.Frame(self.content_frame)
-            children_frame.pack(fill=tk.X, pady=2)
-            ttk.Label(children_frame, text="Children:", font=('TkDefaultFont', 9, 'bold')).pack(anchor=tk.W)
+            children_label = QLabel("Children:")
+            children_label.setStyleSheet("font-weight: bold;")
+            self.content_layout.addWidget(children_label)
 
             for child in node.children:
-                self._add_child_link(children_frame, child)
+                self._add_child_link(child)
         else:
             self._add_field("Children", "(none)")
 
-        ttk.Separator(self.content_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=5)
+        self._add_separator()
 
         # Description
         self._add_text_field("Description", node.description or "(no description)")
@@ -332,7 +405,7 @@ class DetailView(ttk.Frame):
         if node.project_path:
             self._add_field("Project Path", node.project_path)
 
-        ttk.Separator(self.content_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=5)
+        self._add_separator()
 
         # Timestamps
         if node.created_at:
@@ -342,75 +415,80 @@ class DetailView(ttk.Frame):
         if node.last_implemented:
             self._add_field("Last Implemented", node.last_implemented)
 
+        # Add stretch at the end
+        self.content_layout.addStretch()
+
+    def _add_separator(self):
+        """Add a horizontal line separator."""
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+        self.content_layout.addWidget(line)
+
     def _add_field(self, label: str, value: str, color: Optional[str] = None):
         """Add a simple label: value field."""
-        frame = ttk.Frame(self.content_frame)
-        frame.pack(fill=tk.X, pady=2)
+        row_layout = QHBoxLayout()
+        label_widget = QLabel(f"{label}:")
+        label_widget.setStyleSheet("font-weight: bold;")
+        label_widget.setFixedWidth(120)
+        row_layout.addWidget(label_widget)
 
-        ttk.Label(frame, text=f"{label}:", font=('TkDefaultFont', 9, 'bold'), width=15).pack(side=tk.LEFT, anchor=tk.N)
-
-        value_label = ttk.Label(frame, text=value, wraplength=400)
+        value_widget = QLabel(value)
+        value_widget.setWordWrap(True)
         if color:
-            value_label.configure(foreground=color)
-        value_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            value_widget.setStyleSheet(f"color: {color};")
+        row_layout.addWidget(value_widget)
+        row_layout.addStretch()
+
+        self.content_layout.addLayout(row_layout)
 
     def _add_link_field(self, label: str, node_id: str):
         """Add a clickable link field."""
-        frame = ttk.Frame(self.content_frame)
-        frame.pack(fill=tk.X, pady=2)
-
-        ttk.Label(frame, text=f"{label}:", font=('TkDefaultFont', 9, 'bold'), width=15).pack(side=tk.LEFT, anchor=tk.N)
+        row_layout = QHBoxLayout()
+        label_widget = QLabel(f"{label}:")
+        label_widget.setStyleSheet("font-weight: bold;")
+        label_widget.setFixedWidth(120)
+        row_layout.addWidget(label_widget)
 
         node = self.app.nodes.get(node_id)
-        link_text = f"{node_id}"
+        link_text = node_id
         if node:
-            link_text += f" - {node.title[:40]}{'...' if len(node.title) > 40 else ''}"
+            title = node.title[:40] + '...' if len(node.title) > 40 else node.title
+            link_text = f"{node_id} - {title}"
 
-        link = tk.Label(frame, text=link_text, fg='#0066CC', cursor='hand2')
-        link.pack(side=tk.LEFT)
-        link.bind('<Double-Button-1>', lambda e, nid=node_id: self.show_node(nid))
-        link.bind('<Enter>', lambda e: e.widget.configure(font=('TkDefaultFont', 9, 'underline')))
-        link.bind('<Leave>', lambda e: e.widget.configure(font=('TkDefaultFont', 9)))
+        link = ClickableLabel(link_text, node_id)
+        link.doubleClicked.connect(self.show_node)
+        row_layout.addWidget(link)
+        row_layout.addStretch()
 
-    def _add_child_link(self, parent_frame: ttk.Frame, child: StoryNode):
+        self.content_layout.addLayout(row_layout)
+
+    def _add_child_link(self, child: StoryNode):
         """Add a clickable child link."""
-        child_frame = ttk.Frame(parent_frame)
-        child_frame.pack(fill=tk.X, padx=(20, 0))
+        title = child.title[:50] + '...' if len(child.title) > 50 else child.title
+        link_text = f"  {child.id} [{child.status}] - {title}"
 
-        status_color = STATUS_COLORS.get(child.status, '#000000')
-        link_text = f"{child.id} [{child.status}] - {child.title[:50]}{'...' if len(child.title) > 50 else ''}"
-
-        link = tk.Label(child_frame, text=link_text, fg='#0066CC', cursor='hand2')
-        link.pack(anchor=tk.W)
-        link.bind('<Double-Button-1>', lambda e, nid=child.id: self.show_node(nid))
-        link.bind('<Enter>', lambda e: e.widget.configure(font=('TkDefaultFont', 9, 'underline')))
-        link.bind('<Leave>', lambda e: e.widget.configure(font=('TkDefaultFont', 9)))
+        link = ClickableLabel(link_text, child.id)
+        link.doubleClicked.connect(self.show_node)
+        self.content_layout.addWidget(link)
 
     def _add_text_field(self, label: str, text: str):
         """Add a multi-line text field."""
-        frame = ttk.Frame(self.content_frame)
-        frame.pack(fill=tk.X, pady=2)
+        label_widget = QLabel(f"{label}:")
+        label_widget.setStyleSheet("font-weight: bold;")
+        self.content_layout.addWidget(label_widget)
 
-        ttk.Label(frame, text=f"{label}:", font=('TkDefaultFont', 9, 'bold')).pack(anchor=tk.W)
-
-        text_widget = tk.Text(frame, height=4, wrap=tk.WORD, relief=tk.FLAT, bg='#f5f5f5')
-        text_widget.insert('1.0', text)
-        text_widget.configure(state=tk.DISABLED)
-        text_widget.pack(fill=tk.X, pady=(2, 0))
+        text_widget = QTextEdit()
+        text_widget.setPlainText(text)
+        text_widget.setReadOnly(True)
+        text_widget.setMaximumHeight(100)
+        text_widget.setStyleSheet("background-color: #f5f5f5;")
+        self.content_layout.addWidget(text_widget)
 
     def _update_nav_buttons(self):
         """Update the state of navigation buttons."""
-        # Back button
-        if self.history_index > 0:
-            self.back_btn.configure(state=tk.NORMAL)
-        else:
-            self.back_btn.configure(state=tk.DISABLED)
-
-        # Forward button
-        if self.history_index < len(self.history) - 1:
-            self.forward_btn.configure(state=tk.NORMAL)
-        else:
-            self.forward_btn.configure(state=tk.DISABLED)
+        self.back_btn.setEnabled(self.history_index > 0)
+        self.forward_btn.setEnabled(self.history_index < len(self.history) - 1)
 
     def _go_back(self):
         """Navigate to previous node in history."""
@@ -426,7 +504,7 @@ class DetailView(ttk.Frame):
 
     def _close(self):
         """Close detail view and return to tree view."""
-        self.app.show_tree_view()
+        self.closeRequested.emit()
 
     def reset_history(self):
         """Reset navigation history."""
@@ -435,217 +513,230 @@ class DetailView(ttk.Frame):
         self.current_node_id = None
 
 
-class XstoryExplorer:
+class XstoryExplorer(QMainWindow):
     """Main application class."""
 
-    def __init__(self, root: tk.Tk):
-        self.root = root
-        self.root.title("Xstory")
-        self.root.geometry("900x600")
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Xstory v1.2 (PySide6)")
+        self.setGeometry(100, 100, 1000, 700)
 
         self.db_path: Optional[str] = None
         self.nodes: Dict[str, StoryNode] = {}
-        self.status_vars: Dict[str, tk.BooleanVar] = {}
-        self.tree_items: Dict[str, str] = {}  # node_id -> tree item id
-        self.current_role: str = 'designer'  # 'designer' or 'engineer'
+        self.status_checkboxes: Dict[str, QCheckBox] = {}
+        self.tree_items: Dict[str, QTreeWidgetItem] = {}  # Maps node_id to QTreeWidgetItem
 
         self._setup_ui()
         self._try_auto_detect_db()
 
     def _setup_ui(self):
         """Set up the user interface."""
-        # Main container
-        self.main_frame = ttk.Frame(self.root, padding="5")
-        self.main_frame.pack(fill=tk.BOTH, expand=True)
+        # Central widget with stacked layout for switching views
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        self.main_layout = QVBoxLayout(self.central_widget)
 
         # Top toolbar
-        toolbar = ttk.Frame(self.main_frame)
-        toolbar.pack(fill=tk.X, pady=(0, 5))
+        toolbar_layout = QHBoxLayout()
 
-        self.open_db_btn = ttk.Button(toolbar, text="Open Database...", command=self._open_database)
-        self.open_db_btn.pack(side=tk.LEFT, padx=2)
-        self.refresh_btn = ttk.Button(toolbar, text="Refresh", command=self._refresh)
-        self.refresh_btn.pack(side=tk.LEFT, padx=2)
+        self.open_btn = QPushButton("Open Database...")
+        self.open_btn.clicked.connect(self._open_database)
+        toolbar_layout.addWidget(self.open_btn)
 
-        self.db_label = ttk.Label(toolbar, text="No database loaded")
-        self.db_label.pack(side=tk.LEFT, padx=10)
+        self.refresh_btn = QPushButton("Refresh")
+        self.refresh_btn.clicked.connect(self._refresh)
+        toolbar_layout.addWidget(self.refresh_btn)
 
-        # Role toggle (Designer/Engineer)
-        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
-        ttk.Label(toolbar, text="Role:").pack(side=tk.LEFT, padx=(0, 5))
-        self.role_button = ttk.Button(toolbar, text="Designer", width=10, command=self._toggle_role)
-        self.role_button.pack(side=tk.LEFT, padx=2)
+        self.db_label = QLabel("No database loaded")
+        toolbar_layout.addWidget(self.db_label)
+        toolbar_layout.addStretch()
+
+        self.main_layout.addLayout(toolbar_layout)
 
         # Container for switchable views
-        self.view_container = ttk.Frame(self.main_frame)
-        self.view_container.pack(fill=tk.BOTH, expand=True)
+        self.view_container = QWidget()
+        self.view_layout = QVBoxLayout(self.view_container)
+        self.view_layout.setContentsMargins(0, 0, 0, 0)
 
         # Tree view frame
-        self.tree_view_frame = ttk.Frame(self.view_container)
+        self.tree_view_frame = QWidget()
+        tree_view_layout = QVBoxLayout(self.tree_view_frame)
+        tree_view_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Paned window for tree and filters
-        paned = ttk.PanedWindow(self.tree_view_frame, orient=tk.HORIZONTAL)
-        paned.pack(fill=tk.BOTH, expand=True)
+        # Splitter for tree and filters
+        splitter = QSplitter(Qt.Horizontal)
 
         # Left panel: Tree view
-        tree_frame = ttk.Frame(paned)
-        paned.add(tree_frame, weight=3)
+        tree_container = QWidget()
+        tree_container_layout = QVBoxLayout(tree_container)
+        tree_container_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Tree with scrollbars
-        tree_container = ttk.Frame(tree_frame)
-        tree_container.pack(fill=tk.BOTH, expand=True)
+        self.tree = QTreeWidget()
+        self.tree.setHeaderLabels(["ID", "Status", "Title"])
+        self.tree.setColumnCount(3)
+        self.tree.setColumnWidth(0, 180)
+        self.tree.setColumnWidth(1, 100)
+        self.tree.setColumnWidth(2, 400)
+        self.tree.setAlternatingRowColors(True)
+        self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self._on_tree_right_click)
+        self.tree.itemSelectionChanged.connect(self._on_tree_select)
+        self.tree.itemDoubleClicked.connect(self._on_tree_double_click)
 
-        self.tree = ttk.Treeview(tree_container, columns=('status', 'title'), show='tree headings')
-        self.tree.heading('#0', text='ID', anchor=tk.W)
-        self.tree.heading('status', text='Status', anchor=tk.W)
-        self.tree.heading('title', text='Title', anchor=tk.W)
-
-        self.tree.column('#0', width=120, minwidth=80)
-        self.tree.column('status', width=100, minwidth=80)
-        self.tree.column('title', width=400, minwidth=200)
-
-        # Scrollbars
-        vsb = ttk.Scrollbar(tree_container, orient=tk.VERTICAL, command=self.tree.yview)
-        hsb = ttk.Scrollbar(tree_container, orient=tk.HORIZONTAL, command=self.tree.xview)
-        self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-
-        self.tree.grid(row=0, column=0, sticky='nsew')
-        vsb.grid(row=0, column=1, sticky='ns')
-        hsb.grid(row=1, column=0, sticky='ew')
-
-        tree_container.grid_rowconfigure(0, weight=1)
-        tree_container.grid_columnconfigure(0, weight=1)
+        tree_container_layout.addWidget(self.tree)
+        splitter.addWidget(tree_container)
 
         # Right panel: Filters
-        filter_frame = ttk.LabelFrame(paned, text="Status Filters", padding="5")
-        paned.add(filter_frame, weight=1)
+        filter_group = QGroupBox("Status Filters")
+        filter_layout = QVBoxLayout(filter_group)
 
         # Select All / None buttons
-        btn_frame = ttk.Frame(filter_frame)
-        btn_frame.pack(fill=tk.X, pady=(0, 5))
-        ttk.Button(btn_frame, text="All", command=self._select_all_statuses, width=6).pack(side=tk.LEFT, padx=2)
-        ttk.Button(btn_frame, text="None", command=self._select_no_statuses, width=6).pack(side=tk.LEFT, padx=2)
+        btn_layout = QHBoxLayout()
+        all_btn = QPushButton("All")
+        all_btn.clicked.connect(self._select_all_statuses)
+        all_btn.setFixedWidth(60)
+        btn_layout.addWidget(all_btn)
 
-        # Status checkboxes
+        none_btn = QPushButton("None")
+        none_btn.clicked.connect(self._select_no_statuses)
+        none_btn.setFixedWidth(60)
+        btn_layout.addWidget(none_btn)
+        btn_layout.addStretch()
+        filter_layout.addLayout(btn_layout)
+
+        # Status checkboxes (with custom colored indicators)
         for status in ALL_STATUSES:
-            var = tk.BooleanVar(value=True)
-            self.status_vars[status] = var
-            cb = ttk.Checkbutton(filter_frame, text=status, variable=var,
-                                command=self._apply_filters)
-            cb.pack(anchor=tk.W)
+            color = STATUS_COLORS.get(status, '#000000')
+
+            # Create custom checkbox with colored background
+            cb = ColoredCheckBox(status, color)
+            cb.setChecked(True)
+
+            # Hide the default indicator since we draw everything custom
+            cb.setStyleSheet("""
+                QCheckBox::indicator {
+                    width: 0px;
+                    height: 0px;
+                }
+            """)
+
+            # Connect state change to trigger repaint and apply filters
+            cb.stateChanged.connect(lambda state, checkbox=cb: (checkbox.update(), self._apply_filters()))
+
+            self.status_checkboxes[status] = cb
+            filter_layout.addWidget(cb)
+
+        filter_layout.addStretch()
+        splitter.addWidget(filter_group)
+
+        # Set splitter proportions (3:1)
+        splitter.setSizes([750, 250])
+        tree_view_layout.addWidget(splitter)
 
         # Description panel at bottom of tree view
-        desc_frame = ttk.LabelFrame(self.tree_view_frame, text="Description (double-click node for details)", padding="5")
-        desc_frame.pack(fill=tk.X, pady=(5, 0))
+        desc_group = QGroupBox("Description (double-click node for details)")
+        desc_layout = QVBoxLayout(desc_group)
+        self.desc_text = QTextEdit()
+        self.desc_text.setReadOnly(True)
+        self.desc_text.setMaximumHeight(100)
+        desc_layout.addWidget(self.desc_text)
+        tree_view_layout.addWidget(desc_group)
 
-        self.desc_text = tk.Text(desc_frame, height=4, wrap=tk.WORD, state=tk.DISABLED)
-        self.desc_text.pack(fill=tk.X)
-
-        # Bind tree events
-        self.tree.bind('<<TreeviewSelect>>', self._on_tree_select)
-        self.tree.bind('<Double-Button-1>', self._on_tree_double_click)
-        self.tree.bind('<Button-3>', self._on_tree_right_click)  # Right-click context menu
-
-        # Create context menu (initially empty, populated on right-click)
-        self.context_menu = tk.Menu(self.root, tearoff=0)
+        self.view_layout.addWidget(self.tree_view_frame)
 
         # Detail view frame
-        self.detail_view = DetailView(self.view_container, self)
+        self.detail_view = DetailView(self)
+        self.detail_view.closeRequested.connect(self.show_tree_view)
+        self.view_layout.addWidget(self.detail_view)
+
+        self.main_layout.addWidget(self.view_container)
 
         # Status bar
-        self.status_bar = ttk.Label(self.main_frame, text="Ready", relief=tk.SUNKEN, anchor=tk.W)
-        self.status_bar.pack(fill=tk.X, pady=(5, 0))
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        self.status_bar.showMessage("Ready")
 
         # Show tree view by default
         self.show_tree_view()
 
-    def _toggle_role(self):
-        """Toggle between Designer and Engineer roles."""
-        if self.current_role == 'designer':
-            self.current_role = 'engineer'
-            self.role_button.config(text="Engineer")
-        else:
-            self.current_role = 'designer'
-            self.role_button.config(text="Designer")
-        self.status_bar.config(text=f"Switched to {self.current_role.capitalize()} mode")
-
     def show_tree_view(self):
         """Switch to tree view."""
-        self.detail_view.pack_forget()
-        self.tree_view_frame.pack(fill=tk.BOTH, expand=True)
+        self.detail_view.hide()
+        self.tree_view_frame.show()
         # Show toolbar buttons
-        self.open_db_btn.pack(side=tk.LEFT, padx=2, before=self.db_label)
-        self.refresh_btn.pack(side=tk.LEFT, padx=2, before=self.db_label)
-        self.status_bar.config(text=f"Loaded {len(self.nodes)} nodes" if self.nodes else "Ready")
+        self.open_btn.show()
+        self.refresh_btn.show()
+        msg = f"Loaded {len(self.nodes)} nodes" if self.nodes else "Ready"
+        self.status_bar.showMessage(msg)
 
     def show_detail_view(self, node_id: str):
         """Switch to detail view for a specific node."""
-        self.tree_view_frame.pack_forget()
+        self.tree_view_frame.hide()
         # Hide toolbar buttons
-        self.open_db_btn.pack_forget()
-        self.refresh_btn.pack_forget()
-        self.detail_view.pack(fill=tk.BOTH, expand=True)
+        self.open_btn.hide()
+        self.refresh_btn.hide()
+        self.detail_view.show()
         self.detail_view.show_node(node_id)
         node = self.nodes.get(node_id)
         if node:
-            self.status_bar.config(text=f"Viewing: {node_id} - {node.title}")
+            self.status_bar.showMessage(f"Viewing: {node_id} - {node.title}")
 
-    def _on_tree_double_click(self, event):
-        """Handle double-click to open detail view."""
-        item_id = self.tree.identify_row(event.y)
-        if item_id:
-            node_id = self.tree.item(item_id, 'text')
-            if node_id in self.nodes:
-                self.detail_view.reset_history()
-                self.show_detail_view(node_id)
-
-    def _on_tree_right_click(self, event):
-        """Handle right-click to show context menu."""
-        item_id = self.tree.identify_row(event.y)
-        if not item_id:
+    def _on_tree_select(self):
+        """Handle tree selection to show description."""
+        items = self.tree.selectedItems()
+        if not items:
             return
 
-        # Select the item under cursor
-        self.tree.selection_set(item_id)
+        item = items[0]
+        node_id = item.text(0)
+        node = self.nodes.get(node_id)
 
-        node_id = self.tree.item(item_id, 'text')
+        if node:
+            desc = node.description if node.description else '(no description)'
+            self.desc_text.setPlainText(desc)
+
+    def _on_tree_double_click(self, item: QTreeWidgetItem, column: int):
+        """Handle double-click to open detail view."""
+        node_id = item.text(0)
+        if node_id in self.nodes:
+            self.detail_view.reset_history()
+            self.show_detail_view(node_id)
+
+    def _on_tree_right_click(self, position):
+        """Handle right-click to show context menu."""
+        item = self.tree.itemAt(position)
+        if not item:
+            return
+
+        node_id = item.text(0)
         node = self.nodes.get(node_id)
         if not node:
             return
 
-        # Clear existing menu items
-        self.context_menu.delete(0, tk.END)
+        menu = QMenu(self)
 
-        # Get transitions based on current role
-        transitions = DESIGNER_TRANSITIONS if self.current_role == 'designer' else ENGINEER_TRANSITIONS
-        available_transitions = transitions.get(node.status, [])
+        if node.status == 'concept':
+            approve_action = QAction("Approve", self)
+            approve_action.triggered.connect(lambda: self._change_node_status(node_id, 'approved'))
+            menu.addAction(approve_action)
 
-        # Show header with current status and role
-        self.context_menu.add_command(
-            label=f"[{node.status}] ({self.current_role.capitalize()})",
-            state=tk.DISABLED
-        )
-        self.context_menu.add_separator()
+            reject_action = QAction("Reject", self)
+            reject_action.triggered.connect(lambda: self._change_node_status(node_id, 'rejected'))
+            menu.addAction(reject_action)
 
-        # Add transition options
-        if available_transitions:
-            for target_status in available_transitions:
-                # Use closure properly to capture target_status value
-                self.context_menu.add_command(
-                    label=f"→ {target_status}",
-                    command=lambda nid=node_id, ts=target_status: self._change_node_status(nid, ts)
-                )
+            wishlist_action = QAction("Wishlist", self)
+            wishlist_action.triggered.connect(lambda: self._change_node_status(node_id, 'wishlist'))
+            menu.addAction(wishlist_action)
+
+            refine_action = QAction("Refine", self)
+            refine_action.triggered.connect(lambda: self._change_node_status(node_id, 'refine'))
+            menu.addAction(refine_action)
         else:
-            self.context_menu.add_command(
-                label="(no transitions available)",
-                state=tk.DISABLED
-            )
+            status_action = QAction(f"Status: {node.status}", self)
+            status_action.setEnabled(False)
+            menu.addAction(status_action)
 
-        # Show context menu at cursor position
-        try:
-            self.context_menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            self.context_menu.grab_release()
+        menu.exec(self.tree.mapToGlobal(position))
 
     def _change_node_status(self, node_id: str, new_status: str):
         """Change a node's status with a notes dialog."""
@@ -657,17 +748,15 @@ class XstoryExplorer:
         mandatory = (new_status == 'refine')
 
         # Show dialog
-        dialog = StatusChangeDialog(self.root, node_id, new_status, mandatory=mandatory)
-
-        # Check if user confirmed (result is not None)
-        if dialog.result is not None:
-            notes = dialog.result
-            self._update_node_status_in_db(node_id, new_status, notes)
+        dialog = StatusChangeDialog(self, node_id, new_status, mandatory=mandatory)
+        if dialog.exec() == QDialog.Accepted:
+            notes = dialog.get_notes()
+            self._update_node_status_in_db(node_id, new_status, notes or '')
 
     def _update_node_status_in_db(self, node_id: str, new_status: str, notes: str):
         """Update node status and notes in the database."""
         if not self.db_path:
-            messagebox.showerror("Error", "No database loaded.")
+            QMessageBox.critical(self, "Error", "No database loaded.")
             return
 
         try:
@@ -701,23 +790,19 @@ class XstoryExplorer:
             conn.commit()
             conn.close()
 
-            self.status_bar.config(text=f"Updated '{node_id}' status to '{new_status}'")
+            self.status_bar.showMessage(f"Updated '{node_id}' status to '{new_status}'")
 
             # Refresh the tree to show updated status
             self._refresh()
 
         except Exception as e:
-            messagebox.showerror("Database Error", f"Failed to update status:\n{e}")
+            QMessageBox.critical(self, "Database Error", f"Failed to update status:\n{e}")
 
     def _try_auto_detect_db(self):
         """Try to auto-detect the database file."""
-        # Look for database relative to script location
         possible_paths = [
-            # Relative to script
             Path(__file__).parent.parent.parent / '.claude' / 'data' / 'story-tree.db',
-            # Relative to CWD
             Path.cwd() / '.claude' / 'data' / 'story-tree.db',
-            # Up from CWD
             Path.cwd().parent / '.claude' / 'data' / 'story-tree.db',
         ]
 
@@ -726,14 +811,15 @@ class XstoryExplorer:
                 self._load_database(str(path.resolve()))
                 return
 
-        self.status_bar.config(text="No database auto-detected. Use 'Open Database...' to load one.")
+        self.status_bar.showMessage("No database auto-detected. Use 'Open Database...' to load one.")
 
     def _open_database(self):
         """Open a database file via file dialog."""
-        path = filedialog.askopenfilename(
-            title="Open Story Tree Database",
-            filetypes=[("SQLite Database", "*.db"), ("All Files", "*.*")],
-            initialdir=Path.cwd()
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open Story Tree Database",
+            str(Path.cwd()),
+            "SQLite Database (*.db);;All Files (*.*)"
         )
         if path:
             self._load_database(path)
@@ -741,11 +827,11 @@ class XstoryExplorer:
     def _load_database(self, path: str):
         """Load a database file."""
         if not os.path.exists(path):
-            messagebox.showerror("Error", f"Database file not found:\n{path}")
+            QMessageBox.critical(self, "Error", f"Database file not found:\n{path}")
             return
 
         self.db_path = path
-        self.db_label.config(text=os.path.basename(path))
+        self.db_label.setText(os.path.basename(path))
         self._refresh()
 
     def _refresh(self):
@@ -755,12 +841,11 @@ class XstoryExplorer:
 
         try:
             self._load_nodes_from_db()
-            self._build_tree()
             self._apply_filters()
-            self.status_bar.config(text=f"Loaded {len(self.nodes)} nodes from {os.path.basename(self.db_path)}")
+            self.status_bar.showMessage(f"Loaded {len(self.nodes)} nodes from {os.path.basename(self.db_path)}")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to load database:\n{e}")
-            self.status_bar.config(text=f"Error: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to load database:\n{e}")
+            self.status_bar.showMessage(f"Error: {e}")
 
     def _load_nodes_from_db(self):
         """Load all nodes from the database."""
@@ -770,7 +855,6 @@ class XstoryExplorer:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        # Get all nodes with their depth, parent, and all fields
         query = """
             SELECT
                 s.id, s.title, s.status, s.capacity, s.description,
@@ -825,45 +909,18 @@ class XstoryExplorer:
         except ValueError:
             return (2, node_id)
 
-    def _build_tree(self):
-        """Build the tree view from loaded nodes."""
-        # Clear existing tree
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        self.tree_items.clear()
-
-        # Find root nodes (nodes with no parent or parent not in nodes)
-        root_nodes = [n for n in self.nodes.values()
-                     if not n.parent_id or n.parent_id not in self.nodes]
-        root_nodes.sort(key=lambda n: self._sort_key(n.id))
-
-        # Build tree recursively
-        for node in root_nodes:
-            self._add_node_to_tree(node, '')
-
-    def _add_node_to_tree(self, node: StoryNode, parent_item: str):
-        """Add a node and its children to the tree."""
-        item_id = self.tree.insert(
-            parent_item, 'end',
-            text=node.id,
-            values=(node.status, node.title),
-            open=True
-        )
-        self.tree_items[node.id] = item_id
-
-        # Add children
-        for child in node.children:
-            self._add_node_to_tree(child, item_id)
+    def _get_ancestors(self, node_id: str) -> set:
+        """Get all ancestor node IDs for a given node."""
+        ancestors = set()
+        node = self.nodes.get(node_id)
+        while node and node.parent_id:
+            ancestors.add(node.parent_id)
+            node = self.nodes.get(node.parent_id)
+        return ancestors
 
     def _apply_filters(self):
-        """Apply status filters to show/hide nodes with ancestry display.
-
-        When filtering:
-        - Nodes matching filter: display normally
-        - Ancestor nodes of matching nodes: display faded (even if they don't match)
-        - Non-matching nodes with no matching descendants: hide completely
-        """
-        visible_statuses = {s for s, var in self.status_vars.items() if var.get()}
+        """Apply status filters and color the tree."""
+        visible_statuses = {s for s, cb in self.status_checkboxes.items() if cb.isChecked()}
 
         # Step 1: Find all nodes that directly match the filter
         matching_nodes = {node_id for node_id, node in self.nodes.items()
@@ -879,89 +936,91 @@ class XstoryExplorer:
         # Ancestor-only nodes (shown faded)
         faded_nodes = ancestor_nodes - matching_nodes
 
-        # Configure faded tag: gray italic for ancestor-only nodes
-        # Note: tkinter Treeview doesn't support per-column styling,
-        # so we apply gray+italic to the entire row for faded nodes
-        self.tree.tag_configure('faded', foreground='#999999', font=('TkDefaultFont', 9, 'italic'))
+        # Clear the tree
+        self.tree.clear()
+        self.tree_items.clear()
 
-        for node_id, item_id in self.tree_items.items():
-            node = self.nodes.get(node_id)
-            if not node:
-                continue
+        # Find root nodes that are visible
+        root_nodes = [n for n in self.nodes.values()
+                     if (not n.parent_id or n.parent_id not in self.nodes)
+                     and n.id in visible_nodes]
+        root_nodes.sort(key=lambda n: self._sort_key(n.id))
 
-            if node_id in visible_nodes:
-                # Show node - reattach if detached
-                try:
-                    self.tree.reattach(item_id, self._get_parent_item(node), 'end')
-                except tk.TclError:
-                    pass  # Already attached
+        # Build filtered tree
+        for node in root_nodes:
+            self._add_filtered_node(node, None, visible_nodes, faded_nodes)
 
-                # Apply appropriate tags
-                if node_id in faded_nodes:
-                    # Ancestor-only: gray italic
-                    self.tree.item(item_id, tags=('faded',))
-                else:
-                    # Matching node: default styling (black text)
-                    self.tree.item(item_id, tags=())
-            else:
-                # Hide node
-                try:
-                    self.tree.detach(item_id)
-                except tk.TclError:
-                    pass  # Already detached
+        # Expand all nodes
+        self.tree.expandAll()
 
-    def _get_parent_item(self, node: StoryNode) -> str:
-        """Get the tree item ID for a node's parent."""
-        if node.parent_id and node.parent_id in self.tree_items:
-            return self.tree_items[node.parent_id]
-        return ''
+    def _add_filtered_node(self, node: StoryNode, parent_item: Optional[QTreeWidgetItem],
+                           visible_nodes: set, faded_nodes: set):
+        """Add a node to the filtered tree with appropriate coloring."""
+        if node.id not in visible_nodes:
+            return
 
-    def _get_ancestors(self, node_id: str) -> set:
-        """Get all ancestor node IDs for a given node."""
-        ancestors = set()
-        node = self.nodes.get(node_id)
-        while node and node.parent_id:
-            ancestors.add(node.parent_id)
-            node = self.nodes.get(node.parent_id)
-        return ancestors
+        # Create tree item
+        item = QTreeWidgetItem([node.id, node.status, node.title])
+
+        # Get status color
+        status_color = STATUS_COLORS.get(node.status, '#000000')
+
+        if node.id in faded_nodes:
+            # Faded ancestor: gray text for ID and Title, keep status color
+            gray_brush = QBrush(QColor('#999999'))
+            status_brush = QBrush(QColor(status_color))
+
+            item.setForeground(0, gray_brush)  # ID column
+            item.setForeground(1, status_brush)  # Status column
+            item.setForeground(2, gray_brush)  # Title column
+
+            # Set italic font for faded items
+            italic_font = QFont()
+            italic_font.setItalic(True)
+            item.setFont(0, italic_font)
+            item.setFont(2, italic_font)
+        else:
+            # Normal node: colored status, black ID and title
+            black_brush = QBrush(QColor('#000000'))
+            status_brush = QBrush(QColor(status_color))
+
+            item.setForeground(0, black_brush)  # ID column
+            item.setForeground(1, status_brush)  # Status column
+            item.setForeground(2, black_brush)  # Title column
+
+        # Add to tree
+        if parent_item:
+            parent_item.addChild(item)
+        else:
+            self.tree.addTopLevelItem(item)
+
+        # Store reference
+        self.tree_items[node.id] = item
+
+        # Add visible children
+        visible_children = [c for c in node.children if c.id in visible_nodes]
+        visible_children.sort(key=lambda n: self._sort_key(n.id))
+
+        for child in visible_children:
+            self._add_filtered_node(child, item, visible_nodes, faded_nodes)
 
     def _select_all_statuses(self):
         """Select all status filters."""
-        for var in self.status_vars.values():
-            var.set(True)
-        self._apply_filters()
+        for cb in self.status_checkboxes.values():
+            cb.setChecked(True)
 
     def _select_no_statuses(self):
         """Deselect all status filters."""
-        for var in self.status_vars.values():
-            var.set(False)
-        self._apply_filters()
-
-    def _on_tree_select(self, event):
-        """Handle tree selection to show description."""
-        selection = self.tree.selection()
-        if not selection:
-            return
-
-        item_id = selection[0]
-        node_id = self.tree.item(item_id, 'text')
-        node = self.nodes.get(node_id)
-
-        self.desc_text.config(state=tk.NORMAL)
-        self.desc_text.delete('1.0', tk.END)
-
-        if node:
-            desc = node.description if node.description else '(no description)'
-            self.desc_text.insert('1.0', desc)
-
-        self.desc_text.config(state=tk.DISABLED)
+        for cb in self.status_checkboxes.values():
+            cb.setChecked(False)
 
 
 def main():
     """Main entry point."""
-    root = tk.Tk()
-    app = XstoryExplorer(root)
-    root.mainloop()
+    app = QApplication(sys.argv)
+    window = XstoryExplorer()
+    window.show()
+    sys.exit(app.exec())
 
 
 if __name__ == '__main__':
