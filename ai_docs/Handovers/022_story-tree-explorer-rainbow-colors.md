@@ -1,14 +1,14 @@
-# Handover: Story Tree Explorer - Rainbow Color Implementation
+# Handover: Xstory - Rainbow Color Implementation
 
 ## Task
-Update story-tree-explorer v1.1 to display all 23 statuses with optimized rainbow colors in both the tree view and status filter checkboxes.
+Update xstory v1.1 to display all 23 statuses with optimized rainbow colors in both the tree view and status filter checkboxes.
 
 ## Status: COMPLETE
 
 ## What Was Done
 
 ### 1. Color Scheme Migration
-Updated `STATUS_COLORS` in `dev-tools\story-tree-explorer\story_tree_explorer-1-1.py` with optimized rainbow spectrum:
+Updated `STATUS_COLORS` in `dev-tools\xstory\xstory-1-1.py` with optimized rainbow spectrum:
 - Red → Orange → Yellow → Green → Cyan → Blue → Purple → Magenta → Pink
 - 23 evenly-distributed colors for maximum visibility
 - Full color table preserved in this handover (see below)
@@ -19,29 +19,29 @@ Updated `STATUS_COLORS` in `dev-tools\story-tree-explorer\story_tree_explorer-1-
 - Removed `bg=filter_frame.cget('background')` (ttk.LabelFrame doesn't support this)
 
 ### 3. Bash Launcher
-Created `explore-stories` bash script at project root:
+Created `Xstory` bash script at project root:
 ```bash
 #!/bin/bash
 cd "$(dirname "$0")"
 source venv/Scripts/activate
-python dev-tools/story-tree-explorer/story_tree_explorer-1-1.py
+python dev-tools/xstory/xstory-1-1.py
 ```
 
 ## Key Files
 
 ### Working Files
-- **`dev-tools\story-tree-explorer\story_tree_explorer-1-1.py`** - Production file with tksheet + 23-status colors
-- **`explore-stories`** - Bash launcher script
+- **`dev-tools\xstory\xstory-1-1.py`** - Production file with tksheet + 23-status colors
+- **`Xstory`** - Bash launcher script
 
 ### Reference Files
 - `ai_docs\Handovers\021_story-tree-v2-status-expansion.md` - 23-status system definition
-- `ai_docs\Handovers\Completed\020_story-tree-explorer-treeview-display.md` - tksheet implementation notes
+- `ai_docs\Handovers\Completed\020_xstory-treeview-display.md` - tksheet implementation notes
 - `.claude\skills\story-tree\references\schema.sql` - Database schema with 23 statuses
 
 ## Red Herrings (Don't Modify)
 
-- **`story_tree_explorer.py`** - Main file uses ttk.Treeview (NO per-cell coloring). Has 23 statuses but colors only in detail panel.
-- **`story_tree_explorer-1-0.py`** - Old ttk.Treeview version backup
+- **`xstory.py`** - Main file uses ttk.Treeview (NO per-cell coloring). Has 23 statuses but colors only in detail panel.
+- **`xstory-1-0.py`** - Old ttk.Treeview version backup
 - **`build.py`** - PyInstaller build script (not updated, still references main file)
 
 ## Optimized Rainbow Color Palette
@@ -97,14 +97,14 @@ STATUS_COLORS = {
 
 ## Next Steps (If Continuing)
 
-- Update `story_tree_explorer.py` (main file) with new colors for consistency
+- Update `xstory.py` (main file) with new colors for consistency
 - Update `build.py` to build from v1.1 instead of main file
 - Consider upstreaming color palette to `.claude\skills\story-tree\SKILL.md`
-- Sync colors with `dev-tools\story-tree-explorer\story_tree_explorer.py` detail panel
+- Sync colors with `dev-tools\xstory\xstory.py` detail panel
 
 ## Verification
 
-Run `./explore-stories` and verify:
+Run `./Xstory` and verify:
 - [ ] All 23 statuses visible in Status Filters panel
 - [ ] Checkbox text displays in rainbow colors (red → orange → yellow → green → cyan → blue → purple → magenta → pink)
 - [ ] Tree cells colored by status

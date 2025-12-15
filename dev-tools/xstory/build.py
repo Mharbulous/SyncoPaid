@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build script for Story Tree Explorer.
+Build script for Xstory.
 Creates a standalone executable using PyInstaller.
 """
 
@@ -13,7 +13,7 @@ from pathlib import Path
 def main():
     """Build the executable."""
     script_dir = Path(__file__).parent
-    main_script = script_dir / 'story_tree_explorer.py'
+    main_script = script_dir / 'xstory.py'
     dist_dir = script_dir / 'dist'
     build_dir = script_dir / 'build'
 
@@ -35,7 +35,7 @@ def main():
         sys.executable, '-m', 'PyInstaller',
         '--onefile',
         '--windowed',
-        '--name', 'StoryTreeExplorer',
+        '--name', 'Xstory',
         '--distpath', str(dist_dir),
         '--workpath', str(build_dir),
         '--specpath', str(build_dir),
@@ -48,13 +48,13 @@ def main():
     result = subprocess.run(cmd, cwd=script_dir)
 
     if result.returncode == 0:
-        exe_path = dist_dir / 'StoryTreeExplorer.exe'
+        exe_path = dist_dir / 'Xstory.exe'
         if exe_path.exists():
             print(f"\nBuild successful!")
             print(f"Executable: {exe_path}")
         else:
             # On Linux, it won't have .exe extension
-            exe_path = dist_dir / 'StoryTreeExplorer'
+            exe_path = dist_dir / 'Xstory'
             if exe_path.exists():
                 print(f"\nBuild successful!")
                 print(f"Executable: {exe_path}")

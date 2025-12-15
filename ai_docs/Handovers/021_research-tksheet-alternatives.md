@@ -73,11 +73,11 @@ Find Python GUI libraries/widgets that can display hierarchical tree data with p
 
 ## Context: Current Application
 
-**Story Tree Explorer** - Desktop app for viewing hierarchical story data from SQLite database.
+**Xstory** - Desktop app for viewing hierarchical story data from SQLite database.
 
 Current implementation:
-- `dev-tools\story-tree-explorer\story_tree_explorer-1-0.py` - ttk.Treeview version (working tree structure, but no per-cell coloring)
-- `dev-tools\story-tree-explorer\story_tree_explorer-1-1.py` - tksheet version (has per-cell coloring, but arrow direction is wrong)
+- `dev-tools\xstory\xstory-1-0.py` - ttk.Treeview version (working tree structure, but no per-cell coloring)
+- `dev-tools\xstory\xstory-1-1.py` - tksheet version (has per-cell coloring, but arrow direction is wrong)
 
 ### Per-cell coloring use case
 - **Status column**: Colored by status (green for implemented, blue for active, gray for concept, etc.)

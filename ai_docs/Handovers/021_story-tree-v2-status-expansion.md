@@ -84,8 +84,8 @@ Refactor story-tree skill to support expanded 23-status system with rainbow colo
 - Add color output support (consider `colorama` or ANSI codes)
 - Update status legend
 
-### 4. Story-Tree-Explorer (Dev Tool)
-**File:** `dev-tools/story-tree-explorer/story_tree_explorer.py`
+### 4. Xstory (Dev Tool)
+**File:** `dev-tools/xstory/xstory.py`
 - Add color-coded status display using hex values
 - Update filter options for new statuses
 - Consider status grouping by color zone
@@ -124,8 +124,8 @@ New statuses with no v1 equivalent:
 - ❌ `ai_docs/story-tree-skill-overview.md` - High-level only, no implementation details
 - ❌ `ai_docs/Plans/story-tree-ascii-visualizer.md` - Old plan, not current
 - ❌ `.claude/commands/generate-stories.md` - Just invokes skill, not skill code
-- ❌ `dev-tools/story-tree-explorer/story_tree_explorer-1-0.py` - Old version
-- ❌ `dev-tools/story-tree-explorer/story_tree_explorer-1-1.py` - Old version
+- ❌ `dev-tools/xstory/xstory-1-0.py` - Old version
+- ❌ `dev-tools/xstory/xstory-1-1.py` - Old version
 
 ## Key Reference Files
 
@@ -171,7 +171,7 @@ released → legacy → deprecated → archived
 - [ ] Update SKILL.md documentation
 - [ ] Add new status symbols to tree-view.py
 - [ ] Implement color output in tree-view.py
-- [ ] Update story-tree-explorer.py with color coding
+- [ ] Update xstory.py with color coding
 - [ ] Create migration script
 - [ ] Test migration on backup database
 - [ ] Run migration on production database

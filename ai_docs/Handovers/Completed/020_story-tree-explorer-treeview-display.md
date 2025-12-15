@@ -1,4 +1,4 @@
-# Story Tree Explorer: Treeview Display - FIXED
+# Xstory: Treeview Display - FIXED
 
 ## Problem (Resolved)
 tksheet displayed data as flat table rows instead of hierarchical tree with collapsible nodes.
@@ -22,9 +22,9 @@ In tksheet treeview mode, the tree hierarchy (indentation, expand/collapse contr
 - `itemrow(iid)` = get row number from iid
 
 ## Files
-- `dev-tools\story-tree-explorer\story_tree_explorer-1-1.py` - **Active prototype** with fix
-- `dev-tools\story-tree-explorer\story_tree_explorer-1-0.py` - Backup (ttk.Treeview version)
-- `dev-tools\story-tree-explorer\story_tree_explorer.py` - Production file (v1.0 code)
+- `dev-tools\xstory\xstory-1-1.py` - **Active prototype** with fix
+- `dev-tools\xstory\xstory-1-0.py` - Backup (ttk.Treeview version)
+- `dev-tools\xstory\xstory.py` - Production file (v1.0 code)
 
 ## Testing Required
 Run the explorer and verify:

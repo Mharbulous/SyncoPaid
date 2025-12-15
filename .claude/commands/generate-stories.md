@@ -2,10 +2,10 @@ Generate new user story concepts for the backlog using the story-tree skill.
 
 ## Steps
 
-1. Launch the Story Tree Explorer GUI in the background:
+1. Launch the Xstory GUI in the background:
 
 ```bash
-venv\Scripts\activate && python dev-tools\story-tree-explorer\story_tree_explorer.py
+venv\Scripts\activate && python dev-tools\xstory\xstory.py
 ```
 
 2. Delegate story generation to a subagent using the Task tool:
@@ -35,4 +35,4 @@ IMPORTANT:
 )
 ```
 
-3. Present the returned report to the user. The Story Tree Explorer GUI will already be open for them to review and approve/reject the new concept stories.
+3. Present the returned report to the user. The Xstory GUI will already be open for them to review and approve/reject the new concept stories.
