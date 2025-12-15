@@ -9,7 +9,7 @@ description: Use when user says "anticipate", "update vision", "what's my vision
 
 Synthesize the user's **product vision** from the story-tree database by analyzing:
 - **Approved stories** → What the user wants to build (`user-vision.md`)
-- **Rejected stories with notes** → What the user explicitly doesn't want (`user-vision-is-not.md`)
+- **Rejected stories with notes** → What the user explicitly doesn't want (`user-anti-vision.md`)
 
 This creates living documentation that evolves as users approve/reject more stories.
 
@@ -18,7 +18,7 @@ This creates living documentation that evolves as users approve/reject more stor
 | File | Location | Content |
 |------|----------|---------|
 | `user-vision.md` | `.claude/data/user-vision.md` | Concise bullet-point summary of what the user is building |
-| `user-vision-is-not.md` | `.claude/data/user-vision-is-not.md` | Bullet-point summary of what the vision explicitly excludes |
+| `user-anti-vision.md` | `.claude/data/user-anti-vision.md` | Bullet-point summary of what the vision explicitly excludes |
 
 ## When to Use
 
@@ -134,10 +134,10 @@ Prompt for Agent 2:
 You are synthesizing what the user's product vision explicitly EXCLUDES based on rejected stories.
 
 DATABASE: .claude/data/story-tree.db
-OUTPUT FILE: .claude/data/user-vision-is-not.md
+OUTPUT FILE: .claude/data/user-anti-vision.md
 
 STEPS:
-1. Read existing .claude/data/user-vision-is-not.md if it exists (to preserve context)
+1. Read existing .claude/data/user-anti-vision.md if it exists (to preserve context)
 2. Query all rejected stories WITH notes from the database:
 
    python -c "
@@ -163,7 +163,7 @@ STEPS:
    - Features deemed unnecessary (YAGNI)
    - Philosophical boundaries
 
-4. Write .claude/data/user-vision-is-not.md with this structure:
+4. Write .claude/data/user-anti-vision.md with this structure:
 
    # What This Product is NOT
 
