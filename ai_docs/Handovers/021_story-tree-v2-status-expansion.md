@@ -1,7 +1,7 @@
-# Handover: Story-Tree v2 - 22-Status System with Database Migration
+# Handover: Story-Tree v2 - 23-Status System with Database Migration
 
 ## Task
-Refactor story-tree skill to support expanded 22-status system with rainbow color scheme. Migrate existing data from v1 database to new schema without data loss.
+Refactor story-tree skill to support expanded 23-status system with rainbow color scheme. Migrate existing data from v1 database to new schema without data loss.
 
 ## Critical Context
 
@@ -13,7 +13,7 @@ Refactor story-tree skill to support expanded 22-status system with rainbow colo
 
 ## Status System Design (This Session)
 
-### Complete 22-Status List - Rainbow Ordered by Production Proximity
+### Complete 23-Status List - Rainbow Ordered by Production Proximity
 
 | # | Status | Color | Hex | Unicode | ASCII | Description |
 |---|--------|-------|-----|---------|-------|-------------|
@@ -37,12 +37,19 @@ Refactor story-tree skill to support expanded 22-status system with rainbow colo
 | 18 | `ready` | Blue | `#0000FF` | ✔ | # | Production ready, tested |
 | 19 | **`polish`** | **Cobalt Blue** | **`#0047AB`** | **◇** | **p** | **Final refinements before release** ⭐ NEW |
 | 20 | `released` | Royal Blue | `#4169E1` | 🚀 | ^ | Deployed to production ⭐ NEW |
-| 21 | `deprecated` | Dark Violet | `#9400D3` | ⊘ | - | No longer relevant |
-| 22 | `archived` | Purple | `#800080` | 📦 | A | Deprecated and archived ⭐ NEW |
+| 21 | **`legacy`** | **Indigo** | **`#4B0082`** | **◊** | **L** | **Superseded, still works, dependencies need checking** ⭐ NEW |
+| 22 | `deprecated` | Dark Violet | `#9400D3` | ⊘ | - | Dependencies checked, ready for removal |
+| 23 | `archived` | Purple | `#800080` | 📦 | A | Removed from production ⭐ NEW |
 
-**Key Insight - Two Refinement Stages:**
-- **`refine`** (early) - Concept/idea needs rework before approval
-- **`polish`** (late) - Working feature needs final touches before release
+**Key Insights:**
+1. **Two Refinement Stages:**
+   - **`refine`** (early) - Concept/idea needs rework before approval
+   - **`polish`** (late) - Working feature needs final touches before release
+
+2. **End-of-Life Progression:**
+   - **`legacy`** - Superseded but working, dependencies need checking
+   - **`deprecated`** - Dependencies migrated, ready for removal
+   - **`archived`** - Removed from production
 
 ### Color Zones
 
@@ -54,26 +61,26 @@ Refactor story-tree skill to support expanded 22-status system with rainbow colo
 🟢 Green (Development): active → in-progress
 💙 Cyan-Blue (Testing): reviewing → implemented
 💙 Blue (Production): ready → polish → released
-🟣 Violet (Post-Production): deprecated → archived
+🟣 Violet (Post-Production): legacy → deprecated → archived
 ```
 
 ## Files to Modify
 
 ### 1. Schema (PRIMARY)
 **File:** `.claude/skills/story-tree/references/schema.sql`
-- Update status CHECK constraint (line ~21-36) to include 22 statuses
+- Update status CHECK constraint (line ~21-36) to include 23 statuses
 - Consider adding `color` column to story_nodes table for UI support
 - Bump version to 3.0.0
 
 ### 2. Main Skill
 **File:** `.claude/skills/story-tree/SKILL.md`
-- Update status documentation with new 22-status table
+- Update status documentation with new 23-status table
 - Add color scheme documentation
 - Update default status logic if needed
 
 ### 3. Tree View Script
 **File:** `.claude/skills/story-tree/scripts/tree-view.py`
-- Add Unicode/ASCII symbols for 8 new statuses
+- Add Unicode/ASCII symbols for 9 new statuses
 - Add color output support (consider `colorama` or ANSI codes)
 - Update status legend
 
@@ -108,7 +115,7 @@ v1 → v2 (new defaults):
   infeasible (keep)
 
 New statuses with no v1 equivalent:
-  refine, blocked, deferred, paused, reviewing, polish, released, archived
+  refine, blocked, deferred, paused, reviewing, polish, released, legacy, archived
   (These won't exist in migrated data)
 ```
 
@@ -146,11 +153,20 @@ New statuses with no v1 equivalent:
 2. **Rejected "iterating"** - Too technical/jargon
 3. **Chose "refine"** - Clear, positive, appropriate for concepts
 4. **Chose "polish"** - Distinct from refine, implies near-completion
-5. **Rainbow ordering** - Production proximity determines color (red=furthest, blue=closest, violet=past)
+5. **Added "legacy"** - End-of-life stage between released and deprecated
+6. **Rainbow ordering** - Production proximity determines color (red=furthest, blue=closest, violet=past)
+
+### End-of-Life Path (Key Insight)
+```
+released → legacy → deprecated → archived
+```
+- **`legacy`** - Superseded by newer version, still works, but dependencies need to be checked/migrated
+- **`deprecated`** - Dependencies checked/migrated, officially marked for removal, ready to remove
+- **`archived`** - Removed from production entirely
 
 ## Implementation Checklist
 
-- [ ] Update schema.sql with 22-status CHECK constraint
+- [ ] Update schema.sql with 23-status CHECK constraint
 - [ ] Consider adding `color` column to story_nodes
 - [ ] Update SKILL.md documentation
 - [ ] Add new status symbols to tree-view.py
