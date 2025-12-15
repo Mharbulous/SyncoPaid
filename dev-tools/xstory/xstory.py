@@ -13,7 +13,7 @@ from tkinter import ttk, filedialog, messagebox, simpledialog
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-# Status colors (23-status rainbow system - ordered by production proximity)
+# Status colors (21-status rainbow system - ordered by production proximity)
 STATUS_COLORS = {
     # Red Zone (Can't/Won't) - Furthest from production
     'infeasible': '#8B0000',   # Deep Red
@@ -21,20 +21,17 @@ STATUS_COLORS = {
     'wishlist': '#FF8C00',     # Orange
     # Orange-Yellow Zone (Concept)
     'concept': '#FFA500',      # Yellow-Orange
-    'broken': '#FFB347',       # Sandy (was 'refine')
-    'refine': '#FFD700',       # Gold (was 'approved')
-    'approved': '#FFDB58',     # Light Gold (was 'epic')
-    'epic': '#F0E68C',         # Khaki (was 'planned')
+    'refine': '#FFD700',       # Gold
+    'deferred': '#9ACD32',     # Yellow-Green
+    'approved': '#FFDB58',     # Light Gold
     # Yellow Zone (Planning)
-    'planned': '#B8860B',      # Dark Goldenrod (was 'blocked')
-    'blocked': '#EEE8AA',      # Light Goldenrod (was 'deferred')
-    'deferred': '#9ACD32',     # Yellow-Green (was 'queued')
-    # Yellow-Green Zone (Ready)
-    'queued': '#DAA520',       # Goldenrod (was 'bugged')
+    'blocked': '#EEE8AA',      # Light Goldenrod
+    'planned': '#B8860B',      # Dark Goldenrod
+    'queued': '#DAA520',       # Goldenrod
+    'broken': '#FFB347',       # Sandy (bug/issue indicator)
     'paused': '#BDB76B',       # Dark Khaki
     # Green Zone (Development)
     'active': '#32CD32',       # Lime Green
-    'in-progress': '#00FA9A',  # Medium Spring Green
     # Cyan-Blue Zone (Testing)
     'reviewing': '#40E0D0',    # Turquoise
     'implemented': '#4169E1',  # Royal Blue
@@ -48,25 +45,49 @@ STATUS_COLORS = {
     'archived': '#800080',     # Purple
 }
 
-# All possible statuses (23-status rainbow system - ordered by production proximity)
+# All possible statuses (21-status system - canonical order)
 ALL_STATUSES = [
-    # Red Zone (Can't/Won't)
-    'infeasible', 'rejected', 'wishlist',
-    # Orange-Yellow Zone (Concept)
-    'concept', 'broken', 'refine', 'approved', 'epic',
-    # Yellow Zone (Planning)
-    'planned', 'blocked', 'deferred',
-    # Yellow-Green Zone (Ready)
-    'queued', 'paused',
-    # Green Zone (Development)
-    'active', 'in-progress',
-    # Cyan-Blue Zone (Testing)
-    'reviewing', 'implemented',
-    # Blue Zone (Production)
-    'ready', 'polish', 'released',
-    # Violet Zone (Post-Production/End-of-Life)
-    'legacy', 'deprecated', 'archived',
+    'infeasible', 'rejected', 'wishlist', 'concept', 'refine', 'deferred', 'approved',
+    'blocked', 'planned', 'queued', 'broken', 'paused', 'active', 'reviewing',
+    'implemented', 'ready', 'polish', 'released', 'legacy', 'deprecated', 'archived',
 ]
+
+# Role-based status transitions
+DESIGNER_TRANSITIONS = {
+    'infeasible': ['concept', 'wishlist', 'archived'],
+    'rejected': ['concept', 'wishlist', 'archived'],
+    'wishlist': ['concept', 'rejected', 'archived'],
+    'concept': ['approved', 'rejected', 'wishlist', 'refine'],
+    'refine': ['concept', 'rejected', 'wishlist'],
+    'deferred': ['approved', 'wishlist', 'rejected'],
+    'approved': ['deferred', 'rejected'],
+    'blocked': ['deferred'],
+    'planned': ['deferred', 'approved'],
+    'paused': ['deferred'],
+    'reviewing': ['implemented'],
+    'implemented': ['ready'],
+    'ready': ['released', 'polish'],
+    'polish': ['ready', 'released'],
+    'released': ['polish', 'legacy'],
+    'legacy': ['deprecated', 'released', 'archived'],
+    'deprecated': ['archived', 'legacy'],
+    'archived': ['deprecated', 'wishlist'],
+}
+
+ENGINEER_TRANSITIONS = {
+    'approved': ['planned'],
+    'blocked': ['planned', 'queued'],
+    'planned': ['queued', 'blocked'],
+    'queued': ['active', 'blocked', 'paused', 'planned'],
+    'broken': ['active', 'paused', 'blocked', 'queued'],
+    'paused': ['active', 'queued', 'blocked'],
+    'active': ['reviewing', 'paused', 'broken', 'blocked'],
+    'reviewing': ['active', 'broken'],
+    'implemented': ['reviewing', 'broken'],
+    'ready': ['reviewing'],
+    'polish': ['reviewing'],
+    'released': ['broken'],
+}
 
 
 class StoryNode:
@@ -426,6 +447,7 @@ class XstoryExplorer:
         self.nodes: Dict[str, StoryNode] = {}
         self.status_vars: Dict[str, tk.BooleanVar] = {}
         self.tree_items: Dict[str, str] = {}  # node_id -> tree item id
+        self.current_role: str = 'designer'  # 'designer' or 'engineer'
 
         self._setup_ui()
         self._try_auto_detect_db()
@@ -445,6 +467,12 @@ class XstoryExplorer:
 
         self.db_label = ttk.Label(toolbar, text="No database loaded")
         self.db_label.pack(side=tk.LEFT, padx=10)
+
+        # Role toggle (Designer/Engineer)
+        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill=tk.Y)
+        ttk.Label(toolbar, text="Role:").pack(side=tk.LEFT, padx=(0, 5))
+        self.role_button = ttk.Button(toolbar, text="Designer", width=10, command=self._toggle_role)
+        self.role_button.pack(side=tk.LEFT, padx=2)
 
         # Container for switchable views
         self.view_container = ttk.Frame(self.main_frame)
@@ -529,6 +557,16 @@ class XstoryExplorer:
         # Show tree view by default
         self.show_tree_view()
 
+    def _toggle_role(self):
+        """Toggle between Designer and Engineer roles."""
+        if self.current_role == 'designer':
+            self.current_role = 'engineer'
+            self.role_button.config(text="Engineer")
+        else:
+            self.current_role = 'designer'
+            self.role_button.config(text="Designer")
+        self.status_bar.config(text=f"Switched to {self.current_role.capitalize()} mode")
+
     def show_tree_view(self):
         """Switch to tree view."""
         self.detail_view.pack_forget()
@@ -570,28 +608,28 @@ class XstoryExplorer:
         # Clear existing menu items
         self.context_menu.delete(0, tk.END)
 
-        # Build context menu based on status
-        if node.status == 'concept':
-            self.context_menu.add_command(
-                label="Approve",
-                command=lambda: self._change_node_status(node_id, 'approved')
-            )
-            self.context_menu.add_command(
-                label="Reject",
-                command=lambda: self._change_node_status(node_id, 'rejected')
-            )
-            self.context_menu.add_command(
-                label="Wishlist",
-                command=lambda: self._change_node_status(node_id, 'wishlist')
-            )
-            self.context_menu.add_command(
-                label="Refine",
-                command=lambda: self._change_node_status(node_id, 'refine')
-            )
+        # Get transitions based on current role
+        transitions = DESIGNER_TRANSITIONS if self.current_role == 'designer' else ENGINEER_TRANSITIONS
+        available_transitions = transitions.get(node.status, [])
+
+        # Show header with current status and role
+        self.context_menu.add_command(
+            label=f"[{node.status}] ({self.current_role.capitalize()})",
+            state=tk.DISABLED
+        )
+        self.context_menu.add_separator()
+
+        # Add transition options
+        if available_transitions:
+            for target_status in available_transitions:
+                # Use closure properly to capture target_status value
+                self.context_menu.add_command(
+                    label=f"→ {target_status}",
+                    command=lambda nid=node_id, ts=target_status: self._change_node_status(nid, ts)
+                )
         else:
-            # For non-concept nodes, show current status (disabled)
             self.context_menu.add_command(
-                label=f"Status: {node.status}",
+                label="(no transitions available)",
                 state=tk.DISABLED
             )
 
