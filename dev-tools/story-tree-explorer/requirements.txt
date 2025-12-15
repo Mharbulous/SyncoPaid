@@ -1,5 +1,8 @@
 # Story Tree Explorer Dependencies
-# Note: tkinter and sqlite3 are part of Python stdlib
+# Note: sqlite3 is part of Python stdlib
+
+# PySide6 for GUI (v1.2+)
+PySide6>=6.6.0
 
 # For building standalone executables
 pyinstaller>=6.0
