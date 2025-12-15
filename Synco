@@ -1,0 +1,5 @@
+#!/bin/bash
+# SyncoPaid App Launcher
+cd "$(dirname "$0")"
+source venv/Scripts/activate
+python -m SyncoPaid
