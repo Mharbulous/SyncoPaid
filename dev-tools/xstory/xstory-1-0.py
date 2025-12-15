@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Story Tree Explorer - A simple desktop app to explore story-tree databases.
+Xstory - A simple desktop app to explore story-tree databases.
 Uses tkinter for GUI and SQLite for database access.
 """
 
@@ -162,7 +162,7 @@ class StatusChangeDialog(tk.Toplevel):
 class DetailView(ttk.Frame):
     """Detail view panel showing all information about a story node."""
 
-    def __init__(self, parent, app: 'StoryTreeExplorer'):
+    def __init__(self, parent, app: 'XstoryExplorer'):
         super().__init__(parent)
         self.app = app
         self.history: List[str] = []  # Navigation history
@@ -385,12 +385,12 @@ class DetailView(ttk.Frame):
         self.current_node_id = None
 
 
-class StoryTreeExplorer:
+class XstoryExplorer:
     """Main application class."""
 
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("Story Tree Explorer")
+        self.root.title("Xstory")
         self.root.geometry("900x600")
 
         self.db_path: Optional[str] = None
@@ -885,7 +885,7 @@ class StoryTreeExplorer:
 def main():
     """Main entry point."""
     root = tk.Tk()
-    app = StoryTreeExplorer(root)
+    app = XstoryExplorer(root)
     root.mainloop()
 
 
