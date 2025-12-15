@@ -86,7 +86,7 @@ print(f'Anti-vision file exists: {has_anti_vision}')
 **If vision files do NOT exist:**
 - Skip vision-based filtering
 - Generate stories based purely on git commits and gap analysis
-- Consider suggesting the user run the `anticipate` skill to create vision files
+- Consider suggesting the user run the `interpret-vision` skill to create vision files
 
 **Action:** Check for files, read them if they exist, then proceed to context gathering.
 
@@ -497,7 +497,7 @@ Before finalizing any story generation:
 
 **Related context**: Commits abc123, def456 added task creation flow. Gap analysis shows no keyboard-driven path exists, which is common in task management apps for power users.
 
-**Note**: No vision files found. Consider running `anticipate` skill to create them.
+**Note**: No vision files found. Consider running `interpret-vision` skill to create them.
 ```
 
 ### Bad Story Example (Vision Violation - if anti-vision exists)
@@ -559,4 +559,4 @@ Before finalizing any story generation:
 - **Story Tree Skill:** `.claude/skills/story-tree/SKILL.md`
 - **Schema:** `.claude/skills/story-tree/references/schema.sql`
 - **21-Status System:** See story-tree skill SKILL.md for full status definitions
-- **Anticipate Skill:** `.claude/skills/anticipate/SKILL.md` - Use to generate vision files if they don't exist
+- **Interpret Vision Skill:** `.claude/skills/interpret-vision/SKILL.md` - Use to generate vision files if they don't exist
