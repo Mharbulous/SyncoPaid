@@ -1,9 +1,9 @@
 ---
-name: brainstorm-story
-description: Use when user says "brainstorm stories", "generate story ideas", "brainstorm features", "create stories for [node]", or asks for new story ideas - generates evidence-based user stories for a given node based on git commit analysis, existing children, and gap analysis. Works with story-tree database to create concept stories with proper user story format and acceptance criteria.
+name: propose-stories
+description: Use when user says "propose stories", "suggest stories", "generate story ideas", "create stories for [node]", or asks for new story ideas - generates evidence-based user stories for a given node based on git commit analysis, existing children, and gap analysis. Works with story-tree database to create concept stories with proper user story format and acceptance criteria.
 ---
 
-# Brainstorm Story - Story Idea Generator
+# Propose Stories - Story Idea Generator
 
 ## Purpose
 
@@ -394,7 +394,7 @@ User: "Brainstorm stories for node 1.2"
 
 **Invoked by story-tree:**
 ```
-story-tree identifies under-capacity node → calls brainstorm-story → inserts results
+story-tree identifies under-capacity node → calls propose-stories → inserts results
 ```
 
 ## Story Status Lifecycle

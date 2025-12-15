@@ -59,13 +59,13 @@ conn.close()
 
 When user says "update story tree":
 1. Run complete workflow (Steps 1-7) without asking permission
-2. Invoke brainstorm-story skill for identified priority target
+2. Invoke propose-stories skill for identified priority target
 3. Output complete report when finished
 4. Ask for clarification ONLY when: over-capacity detected, multiple equal priorities, or ambiguous git history
 
-When user says "generate stories" or "brainstorm features":
-1. Delegate to brainstorm-story skill (this is now its primary purpose)
-2. If no node specified, story-tree can identify priority target first, then invoke brainstorm-story
+When user says "generate stories" or "propose features":
+1. Delegate to propose-stories skill (this is now its primary purpose)
+2. If no node specified, story-tree can identify priority target first, then invoke propose-stories
 
 ### Auto-Update on Staleness
 
@@ -178,26 +178,26 @@ LIMIT 1;
 
 **Dynamic capacity:** `effective_capacity = capacity_override OR (3 + implemented/ready children)`
 
-### Step 4: Generate Stories (Delegate to brainstorm-story skill)
+### Step 4: Generate Stories (Delegate to propose-stories skill)
 
-At this point, invoke the `brainstorm-story` skill to generate stories for the priority target node:
+At this point, invoke the `propose-stories` skill to generate stories for the priority target node:
 
-**Invocation:** Use the brainstorm-story skill with the parent node ID from Step 3.
+**Invocation:** Use the propose-stories skill with the parent node ID from Step 3.
 
-The brainstorm-story skill will:
+The propose-stories skill will:
 - Analyze git commits relevant to the parent node
 - Identify gaps in functionality
 - Generate max 3 evidence-based user stories
 - Insert them into the database with `status: 'concept'`
 - Return a generation report
 
-**Note:** New stories start with `status: 'concept'` (pending human approval). When user explicitly requests "generate stories for [node-id]", brainstorm-story creates them with `status: 'approved'` instead.
+**Note:** New stories start with `status: 'concept'` (pending human approval). When user explicitly requests "generate stories for [node-id]", propose-stories creates them with `status: 'approved'` instead.
 
-**See:** `.claude/skills/brainstorm-story/SKILL.md` for full story generation workflow.
+**See:** `.claude/skills/propose-stories/SKILL.md` for full story generation workflow.
 
-### Step 5: Story Insertion (Handled by brainstorm-story)
+### Step 5: Story Insertion (Handled by propose-stories)
 
-Story insertion into the database is handled by the `brainstorm-story` skill (invoked in Step 4). The brainstorm-story skill:
+Story insertion into the database is handled by the `propose-stories` skill (invoked in Step 4). The propose-stories skill:
 - Inserts each generated story into `story_nodes` table
 - Populates the `story_paths` closure table to maintain hierarchy
 - Sets `capacity` to NULL (enables dynamic capacity calculation)
@@ -287,13 +287,13 @@ The script automatically handles UTF-8 encoding on Windows. Use `--force-ascii` 
 
 | Command | Action |
 |---------|--------|
-| "Update story tree" | Run full workflow (analyze commits, find under-capacity nodes, invoke brainstorm-story) |
+| "Update story tree" | Run full workflow (analyze commits, find under-capacity nodes, invoke propose-stories) |
 | "Show story tree" | Visualize current tree |
 | "Tree status" | Show metrics only |
 | "Set capacity for [id] to [N]" | Adjust capacity |
 | "Mark [id] as [status]" | Change status |
-| "Generate stories for [id]" | Invoke brainstorm-story skill for specific node |
-| "Brainstorm stories" / "Brainstorm features" | Invoke brainstorm-story skill (see brainstorm-story skill) |
+| "Generate stories for [id]" | Invoke propose-stories skill for specific node |
+| "Propose stories" / "Suggest stories" | Invoke propose-stories skill (see propose-stories skill) |
 | "Initialize story tree" | Create new database |
 
 ## Quality Checks
@@ -302,11 +302,11 @@ Before completing the workflow, verify:
 - [ ] Database initialization successful (if first run)
 - [ ] Git commits analyzed and checkpoint updated
 - [ ] Priority target identified correctly
-- [ ] brainstorm-story skill invoked and completed
+- [ ] propose-stories skill invoked and completed
 - [ ] Tree visualization displays correctly
 - [ ] Report includes all workflow steps
 
-**Story quality checks:** See `.claude/skills/brainstorm-story/SKILL.md` for story-specific quality criteria.
+**Story quality checks:** See `.claude/skills/propose-stories/SKILL.md` for story-specific quality criteria.
 
 ## Common Mistakes (STOP Before Making These)
 
@@ -330,4 +330,4 @@ Before completing the workflow, verify:
 - **`references/common-mistakes.md`** - Error prevention
 - **`references/rationales.md`** - Design decisions
 - **`references/epic-decomposition.md`** - Epic/wishlist workflow
-- **`.claude/skills/brainstorm-story/SKILL.md`** - Story generation skill (extracted from story-tree)
+- **`.claude/skills/propose-stories/SKILL.md`** - Story generation skill (extracted from story-tree)
