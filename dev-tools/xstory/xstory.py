@@ -667,6 +667,7 @@ class XstoryExplorer(QMainWindow):
         # Show toolbar buttons
         self.open_btn.show()
         self.refresh_btn.show()
+        self.setWindowTitle("Xstory v1.2 (PySide6)")
         msg = f"Loaded {len(self.nodes)} nodes" if self.nodes else "Ready"
         self.status_bar.showMessage(msg)
 
@@ -678,6 +679,7 @@ class XstoryExplorer(QMainWindow):
         self.refresh_btn.hide()
         self.detail_view.show()
         self.detail_view.show_node(node_id)
+        self.setWindowTitle("Feature Details")
         node = self.nodes.get(node_id)
         if node:
             self.status_bar.showMessage(f"Viewing: {node_id} - {node.title}")
