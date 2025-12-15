@@ -811,10 +811,13 @@ class XstoryExplorer(QMainWindow):
         self.refresh_btn.hide()
         self.detail_view.show()
         self.detail_view.show_node(node_id)
-        self.setWindowTitle("Feature Details")
         node = self.nodes.get(node_id)
         if node:
+            # Window title shows hierarchy context
+            self.setWindowTitle(f"Feature: {node.title}")
             self.status_bar.showMessage(f"Viewing: {node_id} - {node.title}")
+        else:
+            self.setWindowTitle("Feature Details")
 
     def _on_tree_select(self):
         """Handle tree selection to show description."""
@@ -1177,6 +1180,21 @@ class XstoryExplorer(QMainWindow):
         """Deselect all status filters."""
         for cb in self.status_checkboxes.values():
             cb.setChecked(False)
+
+    def closeEvent(self, event):
+        """Handle window close - return to tree view if in detail view."""
+        if self.detail_view.isVisible():
+            event.ignore()
+            self.show_tree_view()
+        else:
+            event.accept()
+
+    def keyPressEvent(self, event):
+        """Handle key presses - Escape returns to tree view from detail view."""
+        if event.key() == Qt.Key_Escape and self.detail_view.isVisible():
+            self.show_tree_view()
+        else:
+            super().keyPressEvent(event)
 
 
 def main():
