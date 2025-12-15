@@ -37,6 +37,7 @@ STATUS_SYMBOLS_UNICODE = {
     'wishlist': '?',     # Question mark - Rejected for now, may reconsider
     # Orange-Yellow Zone (Concept)
     'concept': '·',      # Middle dot - Idea, not yet approved
+    'broken': '⚠',       # Warning sign - Major bug, non-functional
     'refine': '◈',       # White diamond with dot - Concept needs rework
     'approved': '✓',     # Check mark - Human approved
     'epic': '◆',         # Black diamond - Needs decomposition
@@ -46,7 +47,6 @@ STATUS_SYMBOLS_UNICODE = {
     'deferred': '⏸',     # Pause symbol - Intentionally postponed
     # Yellow-Green Zone (Ready)
     'queued': '◎',       # Bullseye - Ready, dependencies met
-    'bugged': '⚠',       # Warning sign - Needs debugging
     'paused': '⏸',       # Pause symbol - Temporarily on hold
     # Green Zone (Development)
     'active': '●',       # Black circle - Currently being worked on
@@ -71,6 +71,7 @@ STATUS_SYMBOLS_ASCII = {
     'wishlist': 'W',     # W - Wishlist (may reconsider)
     # Orange-Yellow Zone (Concept)
     'concept': '.',      # Dot - Idea, not yet approved
+    'broken': '!',       # ! - Major bug, non-functional
     'refine': 'r',       # r - Concept needs rework
     'approved': 'v',     # v - Human approved
     'epic': 'E',         # E - Epic (needs decomposition)
@@ -80,7 +81,6 @@ STATUS_SYMBOLS_ASCII = {
     'deferred': '=',     # = - Intentionally postponed
     # Yellow-Green Zone (Ready)
     'queued': '@',       # @ - Ready, dependencies met
-    'bugged': '!',       # ! - Needs debugging
     'paused': '|',       # | - Temporarily on hold
     # Green Zone (Development)
     'active': 'O',       # O - Currently being worked on
@@ -106,16 +106,16 @@ ANSI_COLORS = {
     'wishlist': '\033[38;2;255;140;0m',    # Orange #FF8C00
     # Orange-Yellow Zone (Concept)
     'concept': '\033[38;2;255;165;0m',     # Yellow-Orange #FFA500
-    'refine': '\033[38;2;255;179;71m',     # Sandy #FFB347
-    'approved': '\033[38;2;255;215;0m',    # Gold #FFD700
-    'epic': '\033[38;2;255;219;88m',       # Light Gold #FFDB58
+    'broken': '\033[38;2;255;179;71m',     # Sandy #FFB347 (was 'refine')
+    'refine': '\033[38;2;255;215;0m',      # Gold #FFD700 (was 'approved')
+    'approved': '\033[38;2;255;219;88m',   # Light Gold #FFDB58 (was 'epic')
+    'epic': '\033[38;2;240;230;140m',      # Khaki #F0E68C (was 'planned')
     # Yellow Zone (Planning)
-    'planned': '\033[38;2;240;230;140m',   # Khaki #F0E68C
-    'blocked': '\033[38;2;184;134;11m',    # Dark Goldenrod #B8860B
-    'deferred': '\033[38;2;238;232;170m',  # Light Goldenrod #EEE8AA
+    'planned': '\033[38;2;184;134;11m',    # Dark Goldenrod #B8860B (was 'blocked')
+    'blocked': '\033[38;2;238;232;170m',   # Light Goldenrod #EEE8AA (was 'deferred')
+    'deferred': '\033[38;2;154;205;50m',   # Yellow-Green #9ACD32 (was 'queued')
     # Yellow-Green Zone (Ready)
-    'queued': '\033[38;2;154;205;50m',     # Yellow-Green #9ACD32
-    'bugged': '\033[38;2;218;165;32m',     # Goldenrod #DAA520
+    'queued': '\033[38;2;218;165;32m',     # Goldenrod #DAA520 (was 'bugged')
     'paused': '\033[38;2;189;183;107m',    # Dark Khaki #BDB76B
     # Green Zone (Development)
     'active': '\033[38;2;50;205;50m',      # Lime Green #32CD32

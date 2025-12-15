@@ -26,14 +26,14 @@ STATUS_COLORS = {
     'rejected': '#CC3300',     # Red-Orange
     'wishlist': '#CC6600',     # Pumpkin Orange
     'concept': '#CC9900',      # Goldenrod
-    'refine': '#CCCC00',       # Dark Gold / Olive
-    'approved': '#99CC00',     # Lime Green
-    'epic': '#66CC00',         # Chartreuse
-    'planned': '#33CC00',      # Kelly Green
-    'blocked': '#00CC00',      # Pure Green
-    'deferred': '#00CC33',     # Spring Green
-    'queued': '#00CC66',       # Emerald
-    'bugged': '#00CC99',       # Teal Green
+    'broken': '#CCCC00',       # Dark Gold / Olive (was 'refine')
+    'refine': '#99CC00',       # Lime Green (was 'approved')
+    'approved': '#66CC00',     # Chartreuse (was 'epic')
+    'epic': '#33CC00',         # Kelly Green (was 'planned')
+    'planned': '#00CC00',      # Pure Green (was 'blocked')
+    'blocked': '#00CC33',      # Spring Green (was 'deferred')
+    'deferred': '#00CC66',     # Emerald (was 'queued')
+    'queued': '#00CC99',       # Teal Green (was 'bugged')
     'paused': '#00CCCC',       # Dark Cyan
     'active': '#0099CC',       # Cerulean
     'in-progress': '#0066CC',  # Azure
@@ -50,9 +50,9 @@ STATUS_COLORS = {
 # All possible statuses (23-status rainbow system)
 ALL_STATUSES = [
     'infeasible', 'rejected', 'wishlist',
-    'concept', 'refine', 'approved', 'epic',
+    'concept', 'broken', 'refine', 'approved', 'epic',
     'planned', 'blocked', 'deferred',
-    'queued', 'bugged', 'paused',
+    'queued', 'paused',
     'active', 'in-progress',
     'reviewing', 'implemented',
     'ready', 'polish', 'released',

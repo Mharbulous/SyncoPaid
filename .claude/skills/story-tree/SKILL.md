@@ -149,7 +149,7 @@ Match commits to stories using keyword similarity (see `references/sql-queries.m
 
 ### Step 3: Identify Priority Target
 
-**Excluded statuses:** `concept`, `refine`, `rejected`, `wishlist`, `epic`, `deprecated`, `archived`, `infeasible`, `bugged`, `legacy`
+**Excluded statuses:** `concept`, `broken`, `refine`, `rejected`, `wishlist`, `epic`, `deprecated`, `archived`, `infeasible`, `legacy`
 
 **Priority algorithm** - find under-capacity nodes, shallower first:
 
@@ -162,7 +162,7 @@ SELECT s.*,
          WHERE sp.ancestor_id = s.id AND sp.depth = 1
          AND child.status IN ('implemented', 'ready'))) as effective_capacity
 FROM story_nodes s
-WHERE s.status NOT IN ('concept', 'refine', 'rejected', 'wishlist', 'epic', 'deprecated', 'archived', 'infeasible', 'bugged', 'legacy')
+WHERE s.status NOT IN ('concept', 'broken', 'refine', 'rejected', 'wishlist', 'epic', 'deprecated', 'archived', 'infeasible', 'legacy')
   AND (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) <
       COALESCE(s.capacity, 3 + (SELECT COUNT(*) FROM story_paths sp
            JOIN story_nodes child ON sp.descendant_id = child.id
@@ -257,14 +257,14 @@ The script automatically handles UTF-8 encoding on Windows. Use `--force-ascii` 
 | 🔴 Red | rejected | `✗` | `x` | #FF4500 |
 | 🔴 Red | wishlist | `?` | `W` | #FF8C00 |
 | 🟠 Orange | concept | `·` | `.` | #FFA500 |
-| 🟠 Orange | refine | `◈` | `r` | #FFB347 |
-| 🟡 Gold | approved | `✓` | `v` | #FFD700 |
-| 🟡 Gold | epic | `◆` | `E` | #FFDB58 |
-| 🟡 Yellow | planned | `○` | `o` | #F0E68C |
-| 🟡 Yellow | blocked | `⊗` | `X` | #B8860B |
-| 🟡 Yellow | deferred | `⏸` | `=` | #EEE8AA |
-| 🟢 Yellow-Green | queued | `◎` | `@` | #9ACD32 |
-| 🟢 Yellow-Green | bugged | `⚠` | `!` | #DAA520 |
+| 🟠 Orange | broken | `⚠` | `!` | #FFB347 |
+| 🟠 Orange | refine | `◈` | `r` | #FFD700 |
+| 🟡 Gold | approved | `✓` | `v` | #FFDB58 |
+| 🟡 Gold | epic | `◆` | `E` | #F0E68C |
+| 🟡 Yellow | planned | `○` | `o` | #B8860B |
+| 🟡 Yellow | blocked | `⊗` | `X` | #EEE8AA |
+| 🟡 Yellow | deferred | `⏸` | `=` | #9ACD32 |
+| 🟢 Yellow-Green | queued | `◎` | `@` | #DAA520 |
 | 🟢 Yellow-Green | paused | `⏸` | `\|` | #BDB76B |
 | 🟢 Green | active | `●` | `O` | #32CD32 |
 | 🟢 Green | in-progress | `◐` | `D` | #00FA9A |

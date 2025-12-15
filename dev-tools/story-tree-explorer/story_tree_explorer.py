@@ -21,16 +21,16 @@ STATUS_COLORS = {
     'wishlist': '#FF8C00',     # Orange
     # Orange-Yellow Zone (Concept)
     'concept': '#FFA500',      # Yellow-Orange
-    'refine': '#FFB347',       # Sandy
-    'approved': '#FFD700',     # Gold
-    'epic': '#FFDB58',         # Light Gold
+    'broken': '#FFB347',       # Sandy (was 'refine')
+    'refine': '#FFD700',       # Gold (was 'approved')
+    'approved': '#FFDB58',     # Light Gold (was 'epic')
+    'epic': '#F0E68C',         # Khaki (was 'planned')
     # Yellow Zone (Planning)
-    'planned': '#F0E68C',      # Khaki
-    'blocked': '#B8860B',      # Dark Goldenrod
-    'deferred': '#EEE8AA',     # Light Goldenrod
+    'planned': '#B8860B',      # Dark Goldenrod (was 'blocked')
+    'blocked': '#EEE8AA',      # Light Goldenrod (was 'deferred')
+    'deferred': '#9ACD32',     # Yellow-Green (was 'queued')
     # Yellow-Green Zone (Ready)
-    'queued': '#9ACD32',       # Yellow-Green
-    'bugged': '#DAA520',       # Goldenrod
+    'queued': '#DAA520',       # Goldenrod (was 'bugged')
     'paused': '#BDB76B',       # Dark Khaki
     # Green Zone (Development)
     'active': '#32CD32',       # Lime Green
@@ -53,11 +53,11 @@ ALL_STATUSES = [
     # Red Zone (Can't/Won't)
     'infeasible', 'rejected', 'wishlist',
     # Orange-Yellow Zone (Concept)
-    'concept', 'refine', 'approved', 'epic',
+    'concept', 'broken', 'refine', 'approved', 'epic',
     # Yellow Zone (Planning)
     'planned', 'blocked', 'deferred',
     # Yellow-Green Zone (Ready)
-    'queued', 'bugged', 'paused',
+    'queued', 'paused',
     # Green Zone (Development)
     'active', 'in-progress',
     # Cyan-Blue Zone (Testing)

@@ -26,7 +26,7 @@ STATUS_COLORS = {
     'epic': '#FF8C00',         # Dark orange
     'wishlist': '#DDA0DD',     # Plum
     'rejected': '#DC143C',     # Crimson
-    'bugged': '#FF4500',       # Orange red
+    'broken': '#FF4500',       # Orange red (was 'bugged')
     'deprecated': '#A9A9A9',   # Dark gray
     'infeasible': '#696969',   # Dim gray
     'revising': '#DAA520',     # Goldenrod (needs attention)
@@ -35,7 +35,7 @@ STATUS_COLORS = {
 # All possible statuses
 ALL_STATUSES = [
     'active', 'in-progress', 'queued', 'planned', 'approved', 'concept',
-    'epic', 'wishlist', 'implemented', 'ready', 'rejected', 'bugged',
+    'epic', 'wishlist', 'implemented', 'ready', 'rejected', 'broken',
     'deprecated', 'infeasible', 'revising'
 ]
 

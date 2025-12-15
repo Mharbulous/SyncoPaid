@@ -23,8 +23,8 @@ try:
         QFileDialog, QMessageBox, QScrollArea, QFrame, QStatusBar,
         QMenu, QLineEdit
     )
-    from PySide6.QtCore import Qt, Signal
-    from PySide6.QtGui import QBrush, QColor, QFont, QAction
+    from PySide6.QtCore import Qt, Signal, QSize
+    from PySide6.QtGui import QBrush, QColor, QFont, QAction, QPixmap, QPainter, QPen, QIcon
 except ImportError:
     print("Error: PySide6 is required. Install with: pip install PySide6")
     sys.exit(1)
@@ -35,18 +35,18 @@ STATUS_COLORS = {
     'rejected': '#CC3300',     # Red-Orange
     'wishlist': '#CC6600',     # Pumpkin Orange
     'concept': '#CC9900',      # Goldenrod
-    'refine': '#CCCC00',       # Dark Gold / Olive
-    'approved': '#99CC00',     # Lime Green
-    'epic': '#66CC00',         # Chartreuse
-    'planned': '#33CC00',      # Kelly Green
-    'blocked': '#00CC00',      # Pure Green
-    'deferred': '#00CC33',     # Spring Green
-    'queued': '#00CC66',       # Emerald
-    'bugged': '#00CC99',       # Teal Green
+    'broken': '#CCCC00',       # Dark Gold / Olive
+    'deferred': '#99CC00',     # Lime Green (was 'refine')
+    'refine': '#66CC00',       # Chartreuse (was 'approved')
+    'approved': '#33CC00',     # Kelly Green (was 'epic')
+    'epic': '#00CC00',         # Pure Green (was 'planned')
+    'planned': '#00CC33',      # Spring Green (was 'blocked')
+    'blocked': '#00CC66',      # Emerald (was 'deferred')
+    'queued': '#00CC99',       # Teal Green
     'paused': '#00CCCC',       # Dark Cyan
     'active': '#0099CC',       # Cerulean
-    'in-progress': '#0066CC',  # Azure
-    'reviewing': '#0033CC',    # Cobalt Blue
+    'reviewing': '#0066CC',    # Azure (was 'in-progress')
+    'in-progress': '#0033CC',  # Cobalt Blue (was 'reviewing')
     'implemented': '#0000CC',  # Pure Blue
     'ready': '#3300CC',        # Electric Indigo
     'polish': '#6600CC',       # Violet
@@ -59,14 +59,104 @@ STATUS_COLORS = {
 # All possible statuses (23-status rainbow system)
 ALL_STATUSES = [
     'infeasible', 'rejected', 'wishlist',
-    'concept', 'refine', 'approved', 'epic',
-    'planned', 'blocked', 'deferred',
-    'queued', 'bugged', 'paused',
-    'active', 'in-progress',
-    'reviewing', 'implemented',
+    'concept', 'broken', 'deferred', 'refine', 'approved', 'epic',
+    'planned', 'blocked',
+    'queued', 'paused',
+    'active', 'reviewing', 'in-progress',
+    'implemented',
     'ready', 'polish', 'released',
     'legacy', 'deprecated', 'archived'
 ]
+
+
+def create_checkbox_pixmap(color_hex: str, checked: bool) -> QPixmap:
+    """Create a custom checkbox pixmap with white checkmark on colored background."""
+    size = 18
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.transparent)
+
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.Antialiasing)
+
+    if checked:
+        # Draw colored background with border
+        painter.setBrush(QBrush(QColor(color_hex)))
+        painter.setPen(QPen(QColor(color_hex), 1))
+        painter.drawRoundedRect(0, 0, size-1, size-1, 3, 3)
+
+        # Draw white checkmark
+        painter.setPen(QPen(QColor(Qt.white), 2.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        # Checkmark path
+        painter.drawLine(4, 9, 7, 13)
+        painter.drawLine(7, 13, 14, 4)
+    else:
+        # Draw white background with gray border
+        painter.setBrush(QBrush(QColor(Qt.white)))
+        painter.setPen(QPen(QColor('#999999'), 1))
+        painter.drawRoundedRect(0, 0, size-1, size-1, 3, 3)
+
+    painter.end()
+    return pixmap
+
+
+class ColoredCheckBox(QCheckBox):
+    """Custom checkbox with colored background and white checkmark when checked."""
+
+    def __init__(self, text: str, color: str, parent=None):
+        super().__init__(text, parent)
+        self.status_color = color
+        self.checkbox_size = 18
+        self.checkbox_margin = 4
+
+    def paintEvent(self, event):
+        """Custom paint to draw checkbox with colored background and white checkmark."""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        # Calculate positions
+        indicator_y = (self.height() - self.checkbox_size) // 2
+        text_x = self.checkbox_margin + self.checkbox_size + 8  # 8px spacing
+
+        # Draw custom checkbox indicator
+        if self.isChecked():
+            # Draw colored background
+            painter.setBrush(QBrush(QColor(self.status_color)))
+            painter.setPen(QPen(QColor(self.status_color), 1))
+            painter.drawRoundedRect(self.checkbox_margin, indicator_y, self.checkbox_size - 1, self.checkbox_size - 1, 3, 3)
+
+            # Draw white checkmark
+            painter.setPen(QPen(QColor(Qt.white), 2.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+            painter.drawLine(self.checkbox_margin + 4, indicator_y + 9,
+                           self.checkbox_margin + 7, indicator_y + 13)
+            painter.drawLine(self.checkbox_margin + 7, indicator_y + 13,
+                           self.checkbox_margin + 14, indicator_y + 4)
+        else:
+            # Draw white background with gray border
+            painter.setBrush(QBrush(QColor(Qt.white)))
+            painter.setPen(QPen(QColor('#999999'), 1))
+            painter.drawRoundedRect(self.checkbox_margin, indicator_y, self.checkbox_size - 1, self.checkbox_size - 1, 3, 3)
+
+        # Draw text in status color
+        painter.setPen(QColor(self.status_color))
+        font = self.font()
+        painter.setFont(font)
+        text_rect = self.rect()
+        text_rect.setLeft(text_x)
+        painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, self.text())
+
+        painter.end()
+
+    def hitButton(self, pos):
+        """Override to make the entire widget clickable."""
+        return self.rect().contains(pos)
+
+    def sizeHint(self):
+        """Calculate proper size for checkbox and text."""
+        fm = self.fontMetrics()
+        text_width = fm.horizontalAdvance(self.text())
+        width = self.checkbox_margin + self.checkbox_size + 8 + text_width + 5
+        height = max(self.checkbox_size + 4, fm.height())
+        return QSize(width, height)
 
 
 class StoryNode:
@@ -517,13 +607,25 @@ class StoryTreeExplorer(QMainWindow):
         btn_layout.addStretch()
         filter_layout.addLayout(btn_layout)
 
-        # Status checkboxes (with rainbow colors)
+        # Status checkboxes (with custom colored indicators)
         for status in ALL_STATUSES:
-            cb = QCheckBox(status)
-            cb.setChecked(True)
             color = STATUS_COLORS.get(status, '#000000')
-            cb.setStyleSheet(f"color: {color};")
-            cb.stateChanged.connect(self._apply_filters)
+
+            # Create custom checkbox with colored background
+            cb = ColoredCheckBox(status, color)
+            cb.setChecked(True)
+
+            # Hide the default indicator since we draw everything custom
+            cb.setStyleSheet("""
+                QCheckBox::indicator {
+                    width: 0px;
+                    height: 0px;
+                }
+            """)
+
+            # Connect state change to trigger repaint and apply filters
+            cb.stateChanged.connect(lambda state, checkbox=cb: (checkbox.update(), self._apply_filters()))
+
             self.status_checkboxes[status] = cb
             filter_layout.addWidget(cb)
 
