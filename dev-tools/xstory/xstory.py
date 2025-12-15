@@ -13,22 +13,22 @@ from tkinter import ttk, filedialog, messagebox, simpledialog
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-# Status colors (21-status rainbow system - ordered by production proximity)
+# Status colors (21-status rainbow system - reordered while preserving color sequence)
 STATUS_COLORS = {
-    # Red Zone (Can't/Won't) - Furthest from production
+    # Red Zone (Can't/Won't)
     'infeasible': '#8B0000',   # Deep Red
     'rejected': '#FF4500',     # Red-Orange
     'wishlist': '#FF8C00',     # Orange
-    # Orange-Yellow Zone (Concept)
+    # Orange-Yellow Zone (Concept & Blocked)
     'concept': '#FFA500',      # Yellow-Orange
-    'refine': '#FFD700',       # Gold
-    'deferred': '#9ACD32',     # Yellow-Green
-    'approved': '#FFDB58',     # Light Gold
+    'blocked': '#FFD700',      # Gold
+    'broken': '#9ACD32',       # Yellow-Green
+    'refine': '#FFDB58',       # Light Gold
     # Yellow Zone (Planning)
-    'blocked': '#EEE8AA',      # Light Goldenrod
-    'planned': '#B8860B',      # Dark Goldenrod
-    'queued': '#DAA520',       # Goldenrod
-    'broken': '#FFB347',       # Sandy (bug/issue indicator)
+    'deferred': '#EEE8AA',     # Light Goldenrod
+    'approved': '#B8860B',     # Dark Goldenrod
+    'planned': '#DAA520',      # Goldenrod
+    'queued': '#FFB347',       # Sandy
     'paused': '#BDB76B',       # Dark Khaki
     # Green Zone (Development)
     'active': '#32CD32',       # Lime Green
@@ -47,8 +47,8 @@ STATUS_COLORS = {
 
 # All possible statuses (21-status system - canonical order)
 ALL_STATUSES = [
-    'infeasible', 'rejected', 'wishlist', 'concept', 'refine', 'deferred', 'approved',
-    'blocked', 'planned', 'queued', 'broken', 'paused', 'active', 'reviewing',
+    'infeasible', 'rejected', 'wishlist', 'concept', 'blocked', 'broken', 'refine',
+    'deferred', 'approved', 'planned', 'queued', 'paused', 'active', 'reviewing',
     'implemented', 'ready', 'polish', 'released', 'legacy', 'deprecated', 'archived',
 ]
 

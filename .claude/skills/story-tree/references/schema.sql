@@ -19,20 +19,20 @@ CREATE TABLE IF NOT EXISTS story_nodes (
     capacity INTEGER,  -- NULL = dynamic: 3 + implemented/ready children
     status TEXT NOT NULL DEFAULT 'concept'
         CHECK (status IN (
-            -- Red Zone (Can't/Won't) - Furthest from production
+            -- Red Zone (Can't/Won't)
             'infeasible',   -- Cannot be built
             'rejected',     -- Human rejected
             'wishlist',     -- Rejected for now, may reconsider later
-            -- Orange-Yellow Zone (Concept)
+            -- Orange-Yellow Zone (Concept & Blocked)
             'concept',      -- Idea, not yet approved
+            'blocked',      -- Planned but blocked by external dependencies
+            'broken',       -- Needs debugging (major bug, non-functional)
             'refine',       -- Concept needs rework before approval
+            -- Yellow Zone (Planning)
             'deferred',     -- Approved but intentionally postponed
             'approved',     -- Human approved, not yet planned
-            -- Yellow Zone (Planning)
-            'blocked',      -- Planned but blocked by external dependencies
             'planned',      -- Implementation plan created
             'queued',       -- Ready, dependencies met
-            'broken',       -- Needs debugging (major bug, non-functional)
             'paused',       -- Was active but temporarily on hold
             -- Green Zone (Development)
             'active',       -- Currently being worked on
