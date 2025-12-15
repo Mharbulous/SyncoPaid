@@ -453,6 +453,9 @@ class DetailView(QWidget):
         if node.last_implemented:
             self._add_field("Last Implemented", node.last_implemented)
 
+        # Add status action buttons
+        self._add_status_actions(node)
+
         # Add stretch at the end
         self.content_layout.addStretch()
 
@@ -523,6 +526,87 @@ class DetailView(QWidget):
             "background-color: #f5f5f5; padding: 8px; border-radius: 4px;"
         )
         self.content_layout.addWidget(text_widget)
+
+    def _add_status_actions(self, node: StoryNode):
+        """Add context-aware status action buttons based on current role."""
+        self._add_separator()
+
+        # Get available transitions based on current role
+        current_role = self.app.current_role
+        if current_role == 'designer':
+            transitions = DESIGNER_TRANSITIONS.get(node.status, [])
+        else:
+            transitions = ENGINEER_TRANSITIONS.get(node.status, [])
+
+        # Header showing current status and role
+        header_layout = QHBoxLayout()
+        header_label = QLabel("Status Actions:")
+        header_label.setStyleSheet("font-weight: bold;")
+        header_layout.addWidget(header_label)
+
+        # Role indicator
+        role_color = '#9900CC' if current_role == 'designer' else '#0099CC'
+        role_label = QLabel(f"({current_role.title()} mode)")
+        role_label.setStyleSheet(f"color: {role_color}; font-style: italic;")
+        header_layout.addWidget(role_label)
+        header_layout.addStretch()
+        self.content_layout.addLayout(header_layout)
+
+        if not transitions:
+            no_actions_label = QLabel("No status transitions available in this mode")
+            no_actions_label.setStyleSheet("color: #666666; font-style: italic; padding: 8px;")
+            self.content_layout.addWidget(no_actions_label)
+            return
+
+        # Create buttons container
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(8)
+
+        for target_status in transitions:
+            status_color = STATUS_COLORS.get(target_status, '#666666')
+            btn = QPushButton(f"→ {target_status}")
+            btn.setFixedHeight(32)
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {status_color};
+                    color: white;
+                    font-weight: bold;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 4px 12px;
+                }}
+                QPushButton:hover {{
+                    background-color: {self._darken_color(status_color)};
+                }}
+                QPushButton:pressed {{
+                    background-color: {self._darken_color(status_color, 0.7)};
+                }}
+            """)
+            btn.clicked.connect(
+                lambda checked, ns=target_status, nid=node.id: self._on_status_button_clicked(nid, ns)
+            )
+            buttons_layout.addWidget(btn)
+
+        buttons_layout.addStretch()
+        self.content_layout.addLayout(buttons_layout)
+
+    def _darken_color(self, hex_color: str, factor: float = 0.85) -> str:
+        """Darken a hex color by the given factor."""
+        hex_color = hex_color.lstrip('#')
+        r = int(hex_color[0:2], 16)
+        g = int(hex_color[2:4], 16)
+        b = int(hex_color[4:6], 16)
+        r = int(r * factor)
+        g = int(g * factor)
+        b = int(b * factor)
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def _on_status_button_clicked(self, node_id: str, new_status: str):
+        """Handle status button click - change status and refresh view."""
+        self.app._change_node_status(node_id, new_status)
+        # Refresh the detail view to show updated status
+        if self.current_node_id:
+            self.show_node(self.current_node_id, add_to_history=False)
 
     def _update_nav_buttons(self):
         """Update the state of navigation buttons."""
