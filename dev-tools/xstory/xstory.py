@@ -70,7 +70,7 @@ DESIGNER_TRANSITIONS = {
     'infeasible': ['concept', 'wishlist', 'archived'],
     'rejected': ['concept', 'wishlist', 'archived'],
     'wishlist': ['concept', 'rejected', 'archived'],
-    'concept': ['approved', 'rejected', 'wishlist', 'refine'],
+    'concept': ['approved', 'deferred', 'rejected', 'wishlist', 'refine'],
     'refine': ['concept', 'rejected', 'wishlist'],
     'deferred': ['approved', 'wishlist', 'rejected'],
     'approved': ['deferred', 'rejected'],
@@ -344,11 +344,6 @@ class DetailView(QWidget):
 
         nav_layout.addStretch()
 
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(self._close)
-        close_btn.setFixedWidth(80)
-        nav_layout.addWidget(close_btn)
-
         main_layout.addLayout(nav_layout)
 
         # Scrollable content area
@@ -362,6 +357,27 @@ class DetailView(QWidget):
 
         scroll_area.setWidget(self.content_widget)
         main_layout.addWidget(scroll_area)
+
+        # Footer with status buttons (left) and Close button (right)
+        self.footer_layout = QHBoxLayout()
+        self.footer_layout.setSpacing(8)
+
+        # Container for status buttons (left-aligned)
+        self.status_buttons_widget = QWidget()
+        self.status_buttons_layout = QHBoxLayout(self.status_buttons_widget)
+        self.status_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        self.status_buttons_layout.setSpacing(8)
+        self.footer_layout.addWidget(self.status_buttons_widget)
+
+        self.footer_layout.addStretch()
+
+        # Close button (right-aligned)
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(self._close)
+        close_btn.setFixedWidth(80)
+        self.footer_layout.addWidget(close_btn)
+
+        main_layout.addLayout(self.footer_layout)
 
         self._update_nav_buttons()
 
@@ -530,8 +546,9 @@ class DetailView(QWidget):
         self.content_layout.addWidget(text_widget)
 
     def _add_status_actions(self, node: StoryNode):
-        """Add context-aware status action buttons based on current role."""
-        self._add_separator()
+        """Add context-aware status action buttons to footer based on current role."""
+        # Clear existing status buttons from footer
+        self._clear_status_buttons()
 
         # Get available transitions based on current role
         current_role = self.app.current_role
@@ -540,30 +557,10 @@ class DetailView(QWidget):
         else:
             transitions = ENGINEER_TRANSITIONS.get(node.status, [])
 
-        # Header showing current status and role
-        header_layout = QHBoxLayout()
-        header_label = QLabel("Status Actions:")
-        header_label.setStyleSheet("font-weight: bold;")
-        header_layout.addWidget(header_label)
-
-        # Role indicator
-        role_color = '#9900CC' if current_role == 'designer' else '#0099CC'
-        role_label = QLabel(f"({current_role.title()} mode)")
-        role_label.setStyleSheet(f"color: {role_color}; font-style: italic;")
-        header_layout.addWidget(role_label)
-        header_layout.addStretch()
-        self.content_layout.addLayout(header_layout)
-
         if not transitions:
-            no_actions_label = QLabel("No status transitions available in this mode")
-            no_actions_label.setStyleSheet("color: #666666; font-style: italic; padding: 8px;")
-            self.content_layout.addWidget(no_actions_label)
             return
 
-        # Create buttons container
-        buttons_layout = QHBoxLayout()
-        buttons_layout.setSpacing(8)
-
+        # Add status buttons to footer
         for target_status in transitions:
             status_color = STATUS_COLORS.get(target_status, '#666666')
             btn = QPushButton(f"→ {target_status}")
@@ -587,10 +584,14 @@ class DetailView(QWidget):
             btn.clicked.connect(
                 lambda checked, ns=target_status, nid=node.id: self._on_status_button_clicked(nid, ns)
             )
-            buttons_layout.addWidget(btn)
+            self.status_buttons_layout.addWidget(btn)
 
-        buttons_layout.addStretch()
-        self.content_layout.addLayout(buttons_layout)
+    def _clear_status_buttons(self):
+        """Clear all status buttons from the footer."""
+        while self.status_buttons_layout.count():
+            item = self.status_buttons_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
 
     def _darken_color(self, hex_color: str, factor: float = 0.85) -> str:
         """Darken a hex color by the given factor."""
