@@ -462,8 +462,10 @@ class XstoryExplorer:
         toolbar = ttk.Frame(self.main_frame)
         toolbar.pack(fill=tk.X, pady=(0, 5))
 
-        ttk.Button(toolbar, text="Open Database...", command=self._open_database).pack(side=tk.LEFT, padx=2)
-        ttk.Button(toolbar, text="Refresh", command=self._refresh).pack(side=tk.LEFT, padx=2)
+        self.open_db_btn = ttk.Button(toolbar, text="Open Database...", command=self._open_database)
+        self.open_db_btn.pack(side=tk.LEFT, padx=2)
+        self.refresh_btn = ttk.Button(toolbar, text="Refresh", command=self._refresh)
+        self.refresh_btn.pack(side=tk.LEFT, padx=2)
 
         self.db_label = ttk.Label(toolbar, text="No database loaded")
         self.db_label.pack(side=tk.LEFT, padx=10)
@@ -571,11 +573,17 @@ class XstoryExplorer:
         """Switch to tree view."""
         self.detail_view.pack_forget()
         self.tree_view_frame.pack(fill=tk.BOTH, expand=True)
+        # Show toolbar buttons
+        self.open_db_btn.pack(side=tk.LEFT, padx=2, before=self.db_label)
+        self.refresh_btn.pack(side=tk.LEFT, padx=2, before=self.db_label)
         self.status_bar.config(text=f"Loaded {len(self.nodes)} nodes" if self.nodes else "Ready")
 
     def show_detail_view(self, node_id: str):
         """Switch to detail view for a specific node."""
         self.tree_view_frame.pack_forget()
+        # Hide toolbar buttons
+        self.open_db_btn.pack_forget()
+        self.refresh_btn.pack_forget()
         self.detail_view.pack(fill=tk.BOTH, expand=True)
         self.detail_view.show_node(node_id)
         node = self.nodes.get(node_id)

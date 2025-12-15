@@ -539,13 +539,13 @@ class XstoryExplorer(QMainWindow):
         # Top toolbar
         toolbar_layout = QHBoxLayout()
 
-        open_btn = QPushButton("Open Database...")
-        open_btn.clicked.connect(self._open_database)
-        toolbar_layout.addWidget(open_btn)
+        self.open_btn = QPushButton("Open Database...")
+        self.open_btn.clicked.connect(self._open_database)
+        toolbar_layout.addWidget(self.open_btn)
 
-        refresh_btn = QPushButton("Refresh")
-        refresh_btn.clicked.connect(self._refresh)
-        toolbar_layout.addWidget(refresh_btn)
+        self.refresh_btn = QPushButton("Refresh")
+        self.refresh_btn.clicked.connect(self._refresh)
+        toolbar_layout.addWidget(self.refresh_btn)
 
         self.db_label = QLabel("No database loaded")
         toolbar_layout.addWidget(self.db_label)
@@ -663,12 +663,18 @@ class XstoryExplorer(QMainWindow):
         """Switch to tree view."""
         self.detail_view.hide()
         self.tree_view_frame.show()
+        # Show toolbar buttons
+        self.open_btn.show()
+        self.refresh_btn.show()
         msg = f"Loaded {len(self.nodes)} nodes" if self.nodes else "Ready"
         self.status_bar.showMessage(msg)
 
     def show_detail_view(self, node_id: str):
         """Switch to detail view for a specific node."""
         self.tree_view_frame.hide()
+        # Hide toolbar buttons
+        self.open_btn.hide()
+        self.refresh_btn.hide()
         self.detail_view.show()
         self.detail_view.show_node(node_id)
         node = self.nodes.get(node_id)
