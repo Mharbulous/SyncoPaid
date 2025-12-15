@@ -1,6 +1,6 @@
 ---
 name: story-tree
-description: Use when user says "generate stories", "brainstorm features", "update story tree", "what should we build", "show story tree", "show me a map", "story map", "tree diagram", "show stories", "view stories", "list stories", or asks for feature ideas or story visualization - autonomously maintains hierarchical story backlog by analyzing git commits, identifying under-capacity nodes, and generating evidence-based stories to fill gaps. Works with SQLite database using closure table pattern, prioritizes shallower nodes first, and tracks implementation status through commit analysis.
+description: Use when user says "update story tree", "show story tree", "show me a map", "story map", "tree diagram", "show stories", "view stories", "list stories", or asks for story visualization or tree status - autonomously maintains hierarchical story backlog by analyzing git commits, identifying under-capacity nodes, and coordinating story generation to fill gaps. Works with SQLite database using closure table pattern, prioritizes shallower nodes first, and tracks implementation status through commit analysis.
 ---
 
 # Story Tree - Autonomous Hierarchical Backlog Manager
@@ -57,11 +57,15 @@ conn.close()
 
 ## Autonomous Operation
 
-When user says "update story tree" or "generate stories":
+When user says "update story tree":
 1. Run complete workflow (Steps 1-7) without asking permission
-2. Generate stories based on git analysis and priority algorithm
+2. Invoke brainstorm-story skill for identified priority target
 3. Output complete report when finished
 4. Ask for clarification ONLY when: over-capacity detected, multiple equal priorities, or ambiguous git history
+
+When user says "generate stories" or "brainstorm features":
+1. Delegate to brainstorm-story skill (this is now its primary purpose)
+2. If no node specified, story-tree can identify priority target first, then invoke brainstorm-story
 
 ### Auto-Update on Staleness
 
@@ -174,28 +178,32 @@ LIMIT 1;
 
 **Dynamic capacity:** `effective_capacity = capacity_override OR (3 + implemented/ready children)`
 
-### Step 4: Generate Stories (Max 3 per node)
+### Step 4: Generate Stories (Delegate to brainstorm-story skill)
 
-**Story format:**
+At this point, invoke the `brainstorm-story` skill to generate stories for the priority target node:
 
-```markdown
-### [ID]: [Title]
+**Invocation:** Use the brainstorm-story skill with the parent node ID from Step 3.
 
-**As a** [specific user role]
-**I want** [specific capability]
-**So that** [specific benefit]
+The brainstorm-story skill will:
+- Analyze git commits relevant to the parent node
+- Identify gaps in functionality
+- Generate max 3 evidence-based user stories
+- Insert them into the database with `status: 'concept'`
+- Return a generation report
 
-**Acceptance Criteria:**
-- [ ] [Specific, testable criterion]
-- [ ] [Specific, testable criterion]
+**Note:** New stories start with `status: 'concept'` (pending human approval). When user explicitly requests "generate stories for [node-id]", brainstorm-story creates them with `status: 'approved'` instead.
 
-**Related context**: [Git commits or patterns]
-```
+**See:** `.claude/skills/brainstorm-story/SKILL.md` for full story generation workflow.
 
-New nodes start with `status: 'concept'`. When user explicitly requests "generate stories for [node-id]", create with `status: 'approved'` instead.
+### Step 5: Story Insertion (Handled by brainstorm-story)
 
-### Step 5: Insert Stories
+Story insertion into the database is handled by the `brainstorm-story` skill (invoked in Step 4). The brainstorm-story skill:
+- Inserts each generated story into `story_nodes` table
+- Populates the `story_paths` closure table to maintain hierarchy
+- Sets `capacity` to NULL (enables dynamic capacity calculation)
+- Sets initial `status` to 'concept' (or 'approved' if explicitly requested)
 
+**For reference, the SQL pattern used:**
 ```sql
 -- Insert story (capacity NULL = dynamic)
 INSERT INTO story_nodes (id, title, description, status, created_at, updated_at)
@@ -279,22 +287,26 @@ The script automatically handles UTF-8 encoding on Windows. Use `--force-ascii` 
 
 | Command | Action |
 |---------|--------|
-| "Update story tree" | Run full workflow |
+| "Update story tree" | Run full workflow (analyze commits, find under-capacity nodes, invoke brainstorm-story) |
 | "Show story tree" | Visualize current tree |
 | "Tree status" | Show metrics only |
 | "Set capacity for [id] to [N]" | Adjust capacity |
 | "Mark [id] as [status]" | Change status |
-| "Generate stories for [id]" | Force generation for node |
+| "Generate stories for [id]" | Invoke brainstorm-story skill for specific node |
+| "Brainstorm stories" / "Brainstorm features" | Invoke brainstorm-story skill (see brainstorm-story skill) |
 | "Initialize story tree" | Create new database |
 
 ## Quality Checks
 
-Before outputting stories, verify:
-- [ ] Each story has clear basis in commits or gap analysis
-- [ ] Stories are specific and actionable
-- [ ] Acceptance criteria are testable
-- [ ] No duplicates
-- [ ] User story format complete
+Before completing the workflow, verify:
+- [ ] Database initialization successful (if first run)
+- [ ] Git commits analyzed and checkpoint updated
+- [ ] Priority target identified correctly
+- [ ] brainstorm-story skill invoked and completed
+- [ ] Tree visualization displays correctly
+- [ ] Report includes all workflow steps
+
+**Story quality checks:** See `.claude/skills/brainstorm-story/SKILL.md` for story-specific quality criteria.
 
 ## Common Mistakes (STOP Before Making These)
 
@@ -318,3 +330,4 @@ Before outputting stories, verify:
 - **`references/common-mistakes.md`** - Error prevention
 - **`references/rationales.md`** - Design decisions
 - **`references/epic-decomposition.md`** - Epic/wishlist workflow
+- **`.claude/skills/brainstorm-story/SKILL.md`** - Story generation skill (extracted from story-tree)
