@@ -52,6 +52,26 @@ conn.close()
 
 ## Story Generation Workflow
 
+### Step 0: Review Product Vision (CRITICAL - Do This First)
+
+**BEFORE generating any story ideas**, review the vision files to understand what the product IS and what it is NOT:
+
+**Vision Files:**
+- `.claude/data/user-vision.md` - Product direction, target user, core capabilities, guiding principles
+- `.claude/data/user-anti-vision.md` - Explicit exclusions, anti-patterns, YAGNI items
+
+**Read and internalize:**
+1. **What the product IS**: Target user, core capabilities, guiding principles
+2. **What the product is NOT**: Explicit exclusions, anti-patterns to avoid
+3. **Philosophical boundaries**: What kinds of features align vs. conflict with product vision
+
+**Why this matters:**
+- Stories that align with vision = higher approval rate
+- Stories that conflict with anti-vision = instant rejection
+- Understanding boundaries = better gap identification
+
+**Action:** Read both files before proceeding to context gathering.
+
 ### Step 1: Gather Context for Parent Node
 
 Query the parent node and its existing children:
@@ -130,13 +150,33 @@ print('\n'.join([f\"{c['hash']} - {c['message']}\" for c in commits]))
 
 Match commits to parent node scope using keyword similarity.
 
-### Step 3: Identify Story Gaps
+### Step 3: Identify Story Gaps (Vision-Aware)
 
-Analyze what's missing:
+Analyze what's missing while respecting product vision:
+
+**Gap Analysis Types:**
 1. **Functional gaps**: Features mentioned in parent but not covered by children
 2. **Pattern gaps**: Commit patterns showing work without corresponding stories
 3. **User journey gaps**: Steps in user workflows not yet addressed
 4. **Technical gaps**: Infrastructure or foundation work needed
+
+**Vision-Aware Filtering:**
+- **Cross-check against user-vision.md**: Does this gap align with core capabilities and guiding principles?
+- **Cross-check against user-anti-vision.md**: Does this gap fall into explicit exclusions or anti-patterns?
+- **Reject speculative features**: If gap isn't grounded in vision OR commits, don't create a story
+
+**Red Flags (Skip These Gaps):**
+- Features that conflict with "un-intrusive background app" principle
+- Analytics/reporting dashboards not tied to core time-tracking workflow
+- Configuration complexity without clear value (YAGNI items)
+- Features the user explicitly rejected or listed in anti-vision
+
+**Green Flags (Prioritize These Gaps):**
+- Improves AI-powered categorization accuracy
+- Reduces manual effort for lawyers
+- Better context capture (URLs, email subjects, folder paths)
+- Non-intrusive prompting at natural work breaks
+- Learning and improvement capabilities
 
 **Generate max 3 stories per invocation** to prevent overwhelming the backlog.
 
@@ -164,9 +204,9 @@ For each identified gap, create a properly formatted user story:
 **Story ID Format:** `[parent-id].[N]` where N is next available child number
 
 **Story Quality Guidelines:**
-- **Specific user role**: Not "user" - be precise (e.g., "developer", "end user", "administrator")
+- **Specific user role**: Not "user" - be precise (e.g., "lawyer", "developer", "end user")
 - **Concrete capability**: What exactly can they do? (e.g., "configure polling interval" not "change settings")
-- **Measurable benefit**: Why does this matter? (e.g., "reduce CPU usage" not "improve performance")
+- **Measurable benefit**: Why does this matter? (e.g., "reduce manual time entry" not "improve experience")
 - **Testable criteria**: Each criterion must be verifiable (e.g., "Settings persist after restart" not "Settings work correctly")
 
 **Evidence-based requirements:**
@@ -174,9 +214,17 @@ For each identified gap, create a properly formatted user story:
 - Avoid speculative features not grounded in actual development patterns
 - Stories should decompose parent scope, not add new scope
 
+**Vision Alignment Requirements:**
+- **Aligns with product vision**: Story must support core capabilities (automatic capture, AI categorization, non-intrusive prompting, etc.)
+- **Respects anti-vision boundaries**: Story must NOT be an explicit exclusion (analytics dashboards, screenshot galleries, intrusive UI, etc.)
+- **Follows guiding principles**: "Minimize manual effort", "non-intrusive intelligence", "preserve all history", "learn and improve", "lawyer-specific workflows"
+- **Target user focus**: Story should benefit lawyers tracking billable hours, not generic productivity users
+
 ### Step 5: Validate Stories
 
 Before inserting, verify:
+
+**Evidence & Format:**
 - [ ] Each story has clear basis in commits or gap analysis
 - [ ] Stories are specific and actionable
 - [ ] Acceptance criteria are testable
@@ -184,6 +232,24 @@ Before inserting, verify:
 - [ ] User story format is complete (As a/I want/So that)
 - [ ] IDs follow [parent-id].[N] format
 - [ ] Story scope fits within parent's description
+
+**Vision Alignment (CRITICAL):**
+- [ ] Story aligns with at least one core capability from user-vision.md
+- [ ] Story does NOT conflict with any explicit exclusion in user-anti-vision.md
+- [ ] Story follows guiding principles (minimize manual effort, non-intrusive, etc.)
+- [ ] Story benefits target user (lawyers tracking billable hours)
+- [ ] Story does NOT introduce anti-patterns (intrusive UI, feature bloat, rebuilding existing tools)
+- [ ] Story does NOT implement YAGNI items unless explicitly requested
+
+**Vision Red Flag Check:**
+Ask yourself: "Would this story be rejected based on the anti-vision file?"
+- Analytics/reporting dashboard? → REJECT
+- Standalone screenshot gallery? → REJECT (unless AI-assisted clarification workflow)
+- Global hotkeys or popup overlays? → REJECT
+- Configuration complexity without clear value? → REJECT
+- Rebuilding what lawyers already have elsewhere? → REJECT
+
+If any red flag triggers, do NOT create the story.
 
 ### Step 6: Insert Stories into Database
 
@@ -228,6 +294,13 @@ Repeat for each generated story (max 3).
 **Generated:** [ISO timestamp]
 **Parent Node:** [ID] - "[Title]"
 
+## Vision Alignment Summary
+
+**Product Vision Review:** ✓ Completed
+- Core capabilities considered: [list relevant capabilities from user-vision.md]
+- Anti-patterns avoided: [list any anti-vision items that were filtered out]
+- Guiding principles applied: [list relevant principles]
+
 ## Context Analysis
 
 **Existing Children:** [N] stories
@@ -241,8 +314,16 @@ Repeat for each generated story (max 3).
 ## Gaps Identified
 
 1. [Gap description and why it needs a story]
+   - **Vision alignment**: [How this gap supports product vision]
 2. [Gap description and why it needs a story]
+   - **Vision alignment**: [How this gap supports product vision]
 3. [Gap description and why it needs a story]
+   - **Vision alignment**: [How this gap supports product vision]
+
+## Gaps Rejected (Vision Conflicts)
+
+[List any gaps that were identified but rejected due to anti-vision conflicts]
+- [Gap description] - **Reason**: Conflicts with [specific anti-vision item]
 
 ## Generated Stories
 
@@ -303,6 +384,7 @@ Human approval required to move from `concept` to `approved`.
 
 Before finalizing any story generation:
 
+**Evidence & Format:**
 - [ ] Each story has clear evidence (commits or gaps)
 - [ ] User story format is complete (As a/I want/So that)
 - [ ] Acceptance criteria are specific and testable (3+ criteria)
@@ -313,6 +395,16 @@ Before finalizing any story generation:
 - [ ] IDs follow proper hierarchy format
 - [ ] Maximum 3 stories generated per invocation
 
+**Vision Alignment (CRITICAL - DO NOT SKIP):**
+- [ ] Reviewed user-vision.md before generating stories
+- [ ] Reviewed user-anti-vision.md before generating stories
+- [ ] Each story aligns with at least one core capability
+- [ ] No story conflicts with explicit exclusions
+- [ ] No story introduces anti-patterns (intrusive UI, feature bloat, etc.)
+- [ ] No story implements YAGNI items without explicit request
+- [ ] Stories follow guiding principles (minimize manual effort, non-intrusive, etc.)
+- [ ] Stories benefit target user (lawyers tracking billable hours)
+
 ## Common Mistakes (STOP Before Making These)
 
 | Mistake | Why It Happens | What To Do Instead |
@@ -320,34 +412,70 @@ Before finalizing any story generation:
 | Using `sqlite3` CLI command | Copy-pasting shell-looking examples | Use Python's sqlite3 module (see Environment Requirements) |
 | Generating >3 stories | Trying to be thorough | Limit to 3 - story-tree will call again if needed |
 | Speculative features | Not grounding in evidence | Every story must reference commits OR specific gap |
-| Generic user roles | "As a user" is too vague | Be specific: "developer", "end user", "admin" |
+| Generic user roles | "As a user" is too vague | Be specific: "lawyer", "developer", "end user" |
 | Vague acceptance criteria | "Feature works correctly" | Make testable: "Setting persists after restart" |
 | Adding new scope | Expanding beyond parent | Stories decompose parent, don't expand it |
+| **Skipping vision review** | Rushing to generate stories | **ALWAYS read vision files FIRST (Step 0)** |
+| **Analytics/dashboard stories** | Assuming users want reporting | Check anti-vision: explicitly excluded unless AI workflow |
+| **Intrusive UI features** | Building what seems helpful | Check guiding principles: "non-intrusive intelligence" |
+| **Screenshot gallery/viewer** | Assuming users need browsing | Check anti-vision: rejected unless AI-assisted clarification |
+| **Complex configuration** | Over-engineering settings | Check anti-vision: avoid YAGNI items |
+| **Generic productivity features** | Forgetting target user | Focus on lawyers tracking billable hours |
 
 ## Examples
 
-### Good Story Example
+### Good Story Example (Vision-Aligned)
 
 ```markdown
-### 1.2.3: Add idle time threshold configuration
+### 1.2.3: Detect email subject changes for automatic matter switching
 
-**As a** developer
-**I want** to configure the idle detection threshold in seconds
-**So that** I can tune when the app stops tracking inactive periods
+**As a** lawyer using Outlook
+**I want** the app to detect when I switch between emails with different subjects
+**So that** the AI can automatically prompt me to categorize time spent on each matter
 
 **Acceptance Criteria:**
-- [ ] Config file includes `idle_threshold_seconds` parameter
-- [ ] Default value is 300 seconds (5 minutes)
-- [ ] Changes to config are loaded on app restart
-- [ ] Invalid values (negative, non-numeric) log error and use default
+- [ ] App captures email subject line when Outlook window is active
+- [ ] Subject changes trigger new activity events in database
+- [ ] Subject data is included in JSON export for AI categorization
+- [ ] Works with both legacy Outlook and new Outlook (where supported)
 
-**Related context**: Commits abc123, def456 show hardcoded 300s value causing issues for users wanting different thresholds
+**Related context**: Commits abc123, def456 added basic Outlook tracking, but gap analysis shows email subjects aren't captured for matter detection. Aligns with "context-aware categorization" and "capture rich contextual data" principles from user-vision.md.
+
+**Vision alignment**:
+- Core capability: Automatic activity capture, AI-powered categorization
+- Guiding principle: Context-aware categorization (URLs, email subjects, folder paths)
+- Target user: Lawyers tracking billable hours across multiple matters
 ```
 
-### Bad Story Example (Don't Do This)
+### Bad Story Example (Don't Do This - Vision Violation)
 
 ```markdown
-### 1.2.3: Improve settings
+### 1.2.3: Add productivity analytics dashboard
+
+**As a** user
+**I want** to view charts and graphs showing my productivity over time
+**So that** I can see how much time I spend in each application
+
+**Acceptance Criteria:**
+- [ ] Dashboard shows pie charts of app usage
+- [ ] Weekly/monthly view toggles
+- [ ] Export charts as PNG
+
+**Related context**: Users might want to see productivity analytics
+```
+
+**Problems:**
+- **CRITICAL: Violates anti-vision** - Analytics dashboards are explicitly excluded in user-anti-vision.md
+- Generic role ("user" instead of "lawyer")
+- Rebuilding existing tools (productivity analytics exist elsewhere)
+- Not grounded in evidence ("might want" is speculation)
+- Doesn't benefit target user's core need (billable time tracking, not productivity analytics)
+- Violates guiding principle: "Use AI to save lawyers time, not rebuild what already exists elsewhere"
+
+### Another Bad Example (Format Issues)
+
+```markdown
+### 1.2.4: Improve settings
 
 **As a** user
 **I want** better settings
@@ -370,6 +498,11 @@ Before finalizing any story generation:
 
 ## References
 
+**Vision Files (READ FIRST):**
+- **Product Vision:** `.claude/data/user-vision.md` - What the product IS (target user, core capabilities, guiding principles)
+- **Anti-Vision:** `.claude/data/user-anti-vision.md` - What the product is NOT (explicit exclusions, anti-patterns, YAGNI items)
+
+**Story Tree System:**
 - **Story Tree Database:** `.claude/data/story-tree.db`
 - **Story Tree Skill:** `.claude/skills/story-tree/SKILL.md`
 - **Schema:** `.claude/skills/story-tree/references/schema.sql`
