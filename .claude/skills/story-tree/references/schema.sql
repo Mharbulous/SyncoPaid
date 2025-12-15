@@ -23,10 +23,10 @@ CREATE TABLE IF NOT EXISTS story_nodes (
             'infeasible',   -- Cannot be built
             'rejected',     -- Human rejected
             'wishlist',     -- Rejected for now, may reconsider later
-            -- Orange-Yellow Zone (Concept & Blocked)
+            -- Orange-Yellow Zone (Concept & Broken)
             'concept',      -- Idea, not yet approved
-            'blocked',      -- Planned but blocked by external dependencies
             'broken',       -- Needs debugging (major bug, non-functional)
+            'blocked',      -- Planned but blocked by external dependencies
             'refine',       -- Concept needs rework before approval
             -- Yellow Zone (Planning)
             'deferred',     -- Approved but intentionally postponed

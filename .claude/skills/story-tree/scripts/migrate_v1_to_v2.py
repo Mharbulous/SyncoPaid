@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Story Tree Migration Script: v2.x → v3.0 (23-Status System)
+Story Tree Migration Script: v2.x → v3.0 (21-Status System)
 
 Migrates existing story-tree database from the 14-status system to the new
-23-status rainbow system. All existing statuses map directly (no changes needed).
+21-status rainbow system. All existing statuses map directly (no changes needed).
 
 New statuses not in v1:
-- refine, blocked, deferred, paused, reviewing, polish, released, legacy, archived
+- refine, blocked, broken, deferred, paused, reviewing, polish, released, legacy, archived
 
 Usage:
     python migrate_v1_to_v2.py [OPTIONS]
@@ -37,18 +37,16 @@ OLD_STATUSES = [
     'deprecated', 'infeasible'
 ]
 
-# New statuses (v3.0 - 23 statuses)
+# New statuses (v3.0 - 21 statuses - canonical order)
 NEW_STATUSES = [
     # Red Zone (Can't/Won't)
     'infeasible', 'rejected', 'wishlist',
-    # Orange-Yellow Zone (Concept)
-    'concept', 'refine', 'approved', 'epic',
+    # Orange-Yellow Zone (Concept & Broken)
+    'concept', 'broken', 'blocked', 'refine',
     # Yellow Zone (Planning)
-    'planned', 'blocked', 'deferred',
-    # Yellow-Green Zone (Ready)
-    'queued', 'bugged', 'paused',
+    'deferred', 'approved', 'planned', 'queued', 'paused',
     # Green Zone (Development)
-    'active', 'in-progress',
+    'active',
     # Cyan-Blue Zone (Testing)
     'reviewing', 'implemented',
     # Blue Zone (Production)
@@ -57,7 +55,7 @@ NEW_STATUSES = [
     'legacy', 'deprecated', 'archived',
 ]
 
-# New schema with 23 statuses
+# New schema with 21 statuses
 NEW_SCHEMA = """
 -- Story Tree SQLite Schema
 -- Version: 3.0.0
@@ -75,13 +73,19 @@ CREATE TABLE IF NOT EXISTS story_nodes (
     capacity INTEGER,
     status TEXT NOT NULL DEFAULT 'concept'
         CHECK (status IN (
+            -- Red Zone (Can't/Won't)
             'infeasible', 'rejected', 'wishlist',
-            'concept', 'refine', 'approved', 'epic',
-            'planned', 'blocked', 'deferred',
-            'queued', 'bugged', 'paused',
-            'active', 'in-progress',
+            -- Orange-Yellow Zone (Concept & Broken)
+            'concept', 'broken', 'blocked', 'refine',
+            -- Yellow Zone (Planning)
+            'deferred', 'approved', 'planned', 'queued', 'paused',
+            -- Green Zone (Development)
+            'active',
+            -- Cyan-Blue Zone (Testing)
             'reviewing', 'implemented',
+            -- Blue Zone (Production)
             'ready', 'polish', 'released',
+            -- Violet Zone (Post-Production/End-of-Life)
             'legacy', 'deprecated', 'archived'
         )),
     project_path TEXT,

@@ -19,10 +19,10 @@ STATUS_COLORS = {
     'infeasible': '#8B0000',   # Deep Red
     'rejected': '#FF4500',     # Red-Orange
     'wishlist': '#FF8C00',     # Orange
-    # Orange-Yellow Zone (Concept & Blocked)
+    # Orange-Yellow Zone (Concept & Broken)
     'concept': '#FFA500',      # Yellow-Orange
-    'blocked': '#FFD700',      # Gold
-    'broken': '#9ACD32',       # Yellow-Green
+    'broken': '#FFD700',       # Gold
+    'blocked': '#9ACD32',      # Yellow-Green
     'refine': '#FFDB58',       # Light Gold
     # Yellow Zone (Planning)
     'deferred': '#EEE8AA',     # Light Goldenrod
@@ -47,7 +47,7 @@ STATUS_COLORS = {
 
 # All possible statuses (21-status system - canonical order)
 ALL_STATUSES = [
-    'infeasible', 'rejected', 'wishlist', 'concept', 'blocked', 'broken', 'refine',
+    'infeasible', 'rejected', 'wishlist', 'concept', 'broken', 'blocked', 'refine',
     'deferred', 'approved', 'planned', 'queued', 'paused', 'active', 'reviewing',
     'implemented', 'ready', 'polish', 'released', 'legacy', 'deprecated', 'archived',
 ]

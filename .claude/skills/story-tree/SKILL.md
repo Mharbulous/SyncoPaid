@@ -257,13 +257,13 @@ The script automatically handles UTF-8 encoding on Windows. Use `--force-ascii` 
 | 🔴 Red | rejected | `✗` | `x` | #FF4500 |
 | 🔴 Red | wishlist | `?` | `W` | #FF8C00 |
 | 🟠 Orange | concept | `·` | `.` | #FFA500 |
-| 🟠 Orange | refine | `◈` | `r` | #FFB347 |
-| 🟠 Orange | deferred | `⏸` | `=` | #FFD700 |
-| 🟡 Gold | approved | `✓` | `v` | #FFDB58 |
-| 🟡 Yellow | blocked | `⊗` | `X` | #B8860B |
-| 🟡 Yellow | planned | `○` | `o` | #EEE8AA |
-| 🟡 Yellow | queued | `◎` | `@` | #9ACD32 |
-| 🟢 Yellow-Green | broken | `⚠` | `!` | #DAA520 |
+| 🟠 Orange | broken | `⚠` | `!` | #FFD700 |
+| 🟠 Orange | blocked | `⊗` | `X` | #9ACD32 |
+| 🟡 Gold | refine | `◈` | `r` | #FFDB58 |
+| 🟡 Yellow | deferred | `⏸` | `=` | #EEE8AA |
+| 🟡 Yellow | approved | `✓` | `v` | #B8860B |
+| 🟡 Yellow | planned | `○` | `o` | #DAA520 |
+| 🟡 Yellow | queued | `◎` | `@` | #FFB347 |
 | 🟢 Yellow-Green | paused | `⏸` | `\|` | #BDB76B |
 | 🟢 Green | active | `●` | `O` | #32CD32 |
 | 💙 Cyan | reviewing | `👁` | `R` | #40E0D0 |

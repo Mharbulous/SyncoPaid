@@ -35,16 +35,16 @@ STATUS_COLORS = {
     'rejected': '#CC3300',     # Red-Orange
     'wishlist': '#CC6600',     # Pumpkin Orange
     'concept': '#CC9900',      # Goldenrod
-    'refine': '#CCCC00',       # Dark Gold / Olive (was 'broken')
-    'deferred': '#99CC00',     # Lime Green (was 'refine')
-    'approved': '#66CC00',     # Chartreuse (was 'approved')
-    'blocked': '#00CC00',      # Pure Green (was 'epic')
-    'planned': '#00CC33',      # Spring Green (was 'planned')
-    'queued': '#00CC66',       # Emerald (was 'blocked')
-    'broken': '#00CC99',       # Teal Green (was 'queued')
+    'broken': '#CCCC00',       # Dark Gold / Olive
+    'blocked': '#99CC00',      # Lime Green
+    'refine': '#66CC00',       # Chartreuse
+    'deferred': '#00CC00',     # Pure Green
+    'approved': '#00CC33',     # Spring Green
+    'planned': '#00CC66',      # Emerald
+    'queued': '#00CC99',       # Teal Green
     'paused': '#00CCCC',       # Dark Cyan
     'active': '#0099CC',       # Cerulean
-    'reviewing': '#0066CC',    # Azure (was 'reviewing')
+    'reviewing': '#0066CC',    # Azure
     'implemented': '#0000CC',  # Pure Blue
     'ready': '#3300CC',        # Electric Indigo
     'polish': '#6600CC',       # Violet
@@ -54,11 +54,11 @@ STATUS_COLORS = {
     'archived': '#CC0066',     # Deep Pink
 }
 
-# All possible statuses (21-status rainbow system)
+# All possible statuses (21-status rainbow system - canonical order)
 ALL_STATUSES = [
     'infeasible', 'rejected', 'wishlist',
-    'concept', 'refine', 'deferred', 'approved',
-    'blocked', 'planned', 'queued', 'broken', 'paused',
+    'concept', 'broken', 'blocked', 'refine',
+    'deferred', 'approved', 'planned', 'queued', 'paused',
     'active', 'reviewing',
     'implemented',
     'ready', 'polish', 'released',
