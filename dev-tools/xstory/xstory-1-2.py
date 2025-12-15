@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Story Tree Explorer v1.2 - PySide6 Migration
+Xstory v1.2 - PySide6 Migration
 A desktop app to explore story-tree databases.
 Uses PySide6 (Qt for Python) under the LGPL v3 license.
 
@@ -192,7 +192,7 @@ class DetailView(QWidget):
     """Detail view panel showing all information about a story node."""
     closeRequested = Signal()
 
-    def __init__(self, app: 'StoryTreeExplorer', parent=None):
+    def __init__(self, app: 'XstoryExplorer', parent=None):
         super().__init__(parent)
         self.app = app
         self.history: List[str] = []
@@ -426,12 +426,12 @@ class DetailView(QWidget):
         self.current_node_id = None
 
 
-class StoryTreeExplorer(QMainWindow):
+class XstoryExplorer(QMainWindow):
     """Main application class."""
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Story Tree Explorer v1.2 (PySide6)")
+        self.setWindowTitle("Xstory v1.2 (PySide6)")
         self.setGeometry(100, 100, 1000, 700)
 
         self.db_path: Optional[str] = None
@@ -913,7 +913,7 @@ class StoryTreeExplorer(QMainWindow):
 def main():
     """Main entry point."""
     app = QApplication(sys.argv)
-    window = StoryTreeExplorer()
+    window = XstoryExplorer()
     window.show()
     sys.exit(app.exec())
 

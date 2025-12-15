@@ -1,7 +1,7 @@
-# Handover: Story Tree Explorer - PySide6 Migration
+# Handover: Xstory - PySide6 Migration
 
 ## Task
-Migrate story-tree-explorer from tkinter+tksheet to PySide6 (QTreeWidget) for native per-cell coloring, better performance, and standard arrow conventions.
+Migrate Xstory from tkinter+tksheet to PySide6 (QTreeWidget) for native per-cell coloring, better performance, and standard arrow conventions.
 
 ## Status: PENDING
 
@@ -14,7 +14,7 @@ Current implementation (v1.1) uses tkinter+tksheet to display hierarchical story
 **Include in source file header:**
 ```python
 """
-Story Tree Explorer - A desktop app to explore story-tree databases.
+Xstory - A desktop app to explore story-tree databases.
 Uses PySide6 (Qt for Python) under the LGPL v3 license.
 
 PySide6 License: LGPL v3 (https://www.gnu.org/licenses/lgpl-3.0.html)
@@ -25,20 +25,20 @@ Qt for Python: https://www.qt.io/qt-for-python
 ## Key Files
 
 ### Current Implementation
-- **`dev-tools\story-tree-explorer\story_tree_explorer-1-1.py`** - Current tksheet version with rainbow colors (START HERE)
-- **`dev-tools\story-tree-explorer\requirements.txt`** - Add `PySide6` to dependencies
+- **`dev-tools\xstory\xstory-1-1.py`** - Current tksheet version with rainbow colors (START HERE)
+- **`dev-tools\xstory\requirements.txt`** - Add `PySide6` to dependencies
 
 ### Source Material
 - **`ai_docs\Research\2025-12-14-Python-frameworks-research.md`** - Full framework comparison with PySide6 recommendation
 - **`ai_docs\Handovers\022_story-tree-explorer-rainbow-colors.md`** - Current 23-status color palette
 
 ### Red Herrings (Don't Touch)
-- `story_tree_explorer.py` - ttk.Treeview version (old main file, lacks per-cell coloring)
-- `story_tree_explorer-1-0.py` - Backup of pre-tksheet version
+- `xstory.py` - ttk.Treeview version (old main file, lacks per-cell coloring)
+- `xstory-1-0.py` - Backup of pre-tksheet version
 
 ## What Needs to Be Done
 
-1. **Create new version**: `story_tree_explorer-1-2.py` (PySide6 implementation)
+1. **Create new version**: `xstory-1-2.py` (PySide6 implementation)
 2. **Preserve all features**:
    - 23-status rainbow color system (exact hex values from v1.1)
    - Status filter checkboxes with colored labels

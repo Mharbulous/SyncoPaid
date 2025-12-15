@@ -1,4 +1,4 @@
-# Story Tree Explorer: tksheet Migration for Per-Cell Coloring
+# Xstory: tksheet Migration for Per-Cell Coloring
 
 ## Problem
 ttk.Treeview doesn't support per-column styling - tags apply to entire rows. User wants Status column colored by status while ID/Title columns use black (or gray when faded for ancestor-only nodes).
@@ -7,9 +7,9 @@ ttk.Treeview doesn't support per-column styling - tags apply to entire rows. Use
 Migrating from ttk.Treeview to tksheet which supports per-cell coloring via `sheet.highlight(row=iid, column=col, fg=color)`.
 
 ### Files
-- `dev-tools\story-tree-explorer\story_tree_explorer.py` - Main file (currently v1.0 code)
-- `dev-tools\story-tree-explorer\story_tree_explorer-1-0.py` - Backup of ttk.Treeview version
-- `dev-tools\story-tree-explorer\story_tree_explorer-1-1.py` - **Active prototype using tksheet**
+- `dev-tools\xstory\xstory.py` - Main file (currently v1.0 code)
+- `dev-tools\xstory\xstory-1-0.py` - Backup of ttk.Treeview version
+- `dev-tools\xstory\xstory-1-1.py` - **Active prototype using tksheet**
 
 ## Issue Being Fixed
 Filters and Refresh cause "iid 'root' already exists" error. Just applied fix using `sheet.tree_reset()` to clear treeview before rebuilding. **Needs testing.**
@@ -53,4 +53,4 @@ Coloring logic in `_add_filtered_node()` around line 860.
 1. Test if `tree_reset()` fix works for filters and Refresh
 2. Verify per-cell highlighting applies correctly
 3. Test right-click context menu, double-click detail view
-4. If working, update main `story_tree_explorer.py` with v1.1 code
+4. If working, update main `xstory.py` with v1.1 code

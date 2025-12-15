@@ -1,7 +1,7 @@
-# Story Tree Explorer: Filter with Ancestry Display
+# Xstory: Filter with Ancestry Display
 
 ## Problem
-Status filter in Story Tree Explorer hides nodes completely when unchecked. When filtering to show only "concept" status, nothing displays because concept nodes have non-concept parents (e.g., epic or approved parents).
+Status filter in Xstory hides nodes completely when unchecked. When filtering to show only "concept" status, nothing displays because concept nodes have non-concept parents (e.g., epic or approved parents).
 
 ## Required Behavior
 When a status filter is applied:
@@ -10,7 +10,7 @@ When a status filter is applied:
 3. Nodes not matching filter AND having no matching descendants: hide completely
 
 ## Source File
-`dev-tools\story-tree-explorer\story_tree_explorer.py`
+`dev-tools\xstory\xstory.py`
 
 ## Key Code Locations
 - `_apply_filters()` at ~line 680: current filter logic using `tree.detach()`/`tree.reattach()`
