@@ -29,24 +29,22 @@ except ImportError:
     print("Error: PySide6 is required. Install with: pip install PySide6")
     sys.exit(1)
 
-# Status colors (23-status rainbow system - optimized for visibility)
+# Status colors (21-status rainbow system - optimized for visibility)
 STATUS_COLORS = {
     'infeasible': '#CC0000',   # Deep Red
     'rejected': '#CC3300',     # Red-Orange
     'wishlist': '#CC6600',     # Pumpkin Orange
     'concept': '#CC9900',      # Goldenrod
-    'broken': '#CCCC00',       # Dark Gold / Olive
+    'refine': '#CCCC00',       # Dark Gold / Olive (was 'broken')
     'deferred': '#99CC00',     # Lime Green (was 'refine')
-    'refine': '#66CC00',       # Chartreuse (was 'approved')
-    'approved': '#33CC00',     # Kelly Green (was 'epic')
-    'epic': '#00CC00',         # Pure Green (was 'planned')
-    'planned': '#00CC33',      # Spring Green (was 'blocked')
-    'blocked': '#00CC66',      # Emerald (was 'deferred')
-    'queued': '#00CC99',       # Teal Green
+    'approved': '#66CC00',     # Chartreuse (was 'approved')
+    'blocked': '#00CC00',      # Pure Green (was 'epic')
+    'planned': '#00CC33',      # Spring Green (was 'planned')
+    'queued': '#00CC66',       # Emerald (was 'blocked')
+    'broken': '#00CC99',       # Teal Green (was 'queued')
     'paused': '#00CCCC',       # Dark Cyan
     'active': '#0099CC',       # Cerulean
-    'reviewing': '#0066CC',    # Azure (was 'in-progress')
-    'in-progress': '#0033CC',  # Cobalt Blue (was 'reviewing')
+    'reviewing': '#0066CC',    # Azure (was 'reviewing')
     'implemented': '#0000CC',  # Pure Blue
     'ready': '#3300CC',        # Electric Indigo
     'polish': '#6600CC',       # Violet
@@ -56,13 +54,12 @@ STATUS_COLORS = {
     'archived': '#CC0066',     # Deep Pink
 }
 
-# All possible statuses (23-status rainbow system)
+# All possible statuses (21-status rainbow system)
 ALL_STATUSES = [
     'infeasible', 'rejected', 'wishlist',
-    'concept', 'broken', 'deferred', 'refine', 'approved', 'epic',
-    'planned', 'blocked',
-    'queued', 'paused',
-    'active', 'reviewing', 'in-progress',
+    'concept', 'refine', 'deferred', 'approved',
+    'blocked', 'planned', 'queued', 'broken', 'paused',
+    'active', 'reviewing',
     'implemented',
     'ready', 'polish', 'released',
     'legacy', 'deprecated', 'archived'

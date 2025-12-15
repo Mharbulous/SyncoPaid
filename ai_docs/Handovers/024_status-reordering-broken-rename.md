@@ -70,7 +70,7 @@ User suggested creating a mapping that keeps colors in the same order but swaps 
 5:  broken     → #CCCC00
 6:  refine     → #99CC00
 7:  approved   → #66CC00
-8:  epic       → #33CC00
+8:  epic       → 
 9:  planned    → #00CC00
 10: blocked    → #00CC33
 11: deferred   → #00CC66
@@ -78,7 +78,7 @@ User suggested creating a mapping that keeps colors in the same order but swaps 
 13: paused     → #00CCCC
 14: active     → #0099CC
 15: in-progress→ #0066CC
-16: reviewing  → #0033CC
+16: reviewing  → 
 17: implemented→ #0000CC
 ```
 

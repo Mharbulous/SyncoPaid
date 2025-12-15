@@ -26,19 +26,16 @@ CREATE TABLE IF NOT EXISTS story_nodes (
             -- Orange-Yellow Zone (Concept)
             'concept',      -- Idea, not yet approved
             'refine',       -- Concept needs rework before approval
-            'approved',     -- Human approved, not yet planned
-            'epic',         -- Approved but too complex; needs decomposition
-            -- Yellow Zone (Planning)
-            'planned',      -- Implementation plan created
-            'blocked',      -- Planned but blocked by external dependencies
             'deferred',     -- Approved but intentionally postponed
-            -- Yellow-Green Zone (Ready)
+            'approved',     -- Human approved, not yet planned
+            -- Yellow Zone (Planning)
+            'blocked',      -- Planned but blocked by external dependencies
+            'planned',      -- Implementation plan created
             'queued',       -- Ready, dependencies met
-            'bugged',       -- Needs debugging
+            'broken',       -- Needs debugging (major bug, non-functional)
             'paused',       -- Was active but temporarily on hold
             -- Green Zone (Development)
             'active',       -- Currently being worked on
-            'in-progress',  -- Partially complete
             -- Cyan-Blue Zone (Testing)
             'reviewing',    -- Implemented, under review/testing
             'implemented',  -- Complete/done

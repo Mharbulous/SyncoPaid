@@ -149,7 +149,7 @@ Match commits to stories using keyword similarity (see `references/sql-queries.m
 
 ### Step 3: Identify Priority Target
 
-**Excluded statuses:** `concept`, `broken`, `refine`, `rejected`, `wishlist`, `epic`, `deprecated`, `archived`, `infeasible`, `legacy`
+**Excluded statuses:** `concept`, `broken`, `refine`, `rejected`, `wishlist`, `deprecated`, `archived`, `infeasible`, `legacy`
 
 **Priority algorithm** - find under-capacity nodes, shallower first:
 
@@ -162,7 +162,7 @@ SELECT s.*,
          WHERE sp.ancestor_id = s.id AND sp.depth = 1
          AND child.status IN ('implemented', 'ready'))) as effective_capacity
 FROM story_nodes s
-WHERE s.status NOT IN ('concept', 'broken', 'refine', 'rejected', 'wishlist', 'epic', 'deprecated', 'archived', 'infeasible', 'legacy')
+WHERE s.status NOT IN ('concept', 'broken', 'refine', 'rejected', 'wishlist', 'deprecated', 'archived', 'infeasible', 'legacy')
   AND (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) <
       COALESCE(s.capacity, 3 + (SELECT COUNT(*) FROM story_paths sp
            JOIN story_nodes child ON sp.descendant_id = child.id
@@ -249,7 +249,7 @@ python .claude/skills/story-tree/scripts/tree-view.py --show-capacity
 
 The script automatically handles UTF-8 encoding on Windows. Use `--force-ascii` only if Unicode rendering fails.
 
-**Status symbols (23-status rainbow system):**
+**Status symbols (21-status rainbow system):**
 
 | Zone | Status | Unicode | ASCII | Hex Color |
 |------|--------|---------|-------|-----------|
@@ -257,17 +257,15 @@ The script automatically handles UTF-8 encoding on Windows. Use `--force-ascii` 
 | 🔴 Red | rejected | `✗` | `x` | #FF4500 |
 | 🔴 Red | wishlist | `?` | `W` | #FF8C00 |
 | 🟠 Orange | concept | `·` | `.` | #FFA500 |
-| 🟠 Orange | broken | `⚠` | `!` | #FFB347 |
-| 🟠 Orange | refine | `◈` | `r` | #FFD700 |
+| 🟠 Orange | refine | `◈` | `r` | #FFB347 |
+| 🟠 Orange | deferred | `⏸` | `=` | #FFD700 |
 | 🟡 Gold | approved | `✓` | `v` | #FFDB58 |
-| 🟡 Gold | epic | `◆` | `E` | #F0E68C |
-| 🟡 Yellow | planned | `○` | `o` | #B8860B |
-| 🟡 Yellow | blocked | `⊗` | `X` | #EEE8AA |
-| 🟡 Yellow | deferred | `⏸` | `=` | #9ACD32 |
-| 🟢 Yellow-Green | queued | `◎` | `@` | #DAA520 |
+| 🟡 Yellow | blocked | `⊗` | `X` | #B8860B |
+| 🟡 Yellow | planned | `○` | `o` | #EEE8AA |
+| 🟡 Yellow | queued | `◎` | `@` | #9ACD32 |
+| 🟢 Yellow-Green | broken | `⚠` | `!` | #DAA520 |
 | 🟢 Yellow-Green | paused | `⏸` | `\|` | #BDB76B |
 | 🟢 Green | active | `●` | `O` | #32CD32 |
-| 🟢 Green | in-progress | `◐` | `D` | #00FA9A |
 | 💙 Cyan | reviewing | `👁` | `R` | #40E0D0 |
 | 💙 Blue | implemented | `★` | `+` | #4169E1 |
 | 💙 Blue | ready | `✔` | `#` | #0000FF |

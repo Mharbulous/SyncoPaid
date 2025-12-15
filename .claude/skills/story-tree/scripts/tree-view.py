@@ -29,7 +29,7 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 
-# Status indicators - Unicode and ASCII fallbacks (23-status rainbow system)
+# Status indicators - Unicode and ASCII fallbacks (21-status rainbow system)
 STATUS_SYMBOLS_UNICODE = {
     # Red Zone (Can't/Won't) - Furthest from production
     'infeasible': '∅',   # Empty set - Cannot be built
@@ -37,20 +37,17 @@ STATUS_SYMBOLS_UNICODE = {
     'wishlist': '?',     # Question mark - Rejected for now, may reconsider
     # Orange-Yellow Zone (Concept)
     'concept': '·',      # Middle dot - Idea, not yet approved
-    'broken': '⚠',       # Warning sign - Major bug, non-functional
     'refine': '◈',       # White diamond with dot - Concept needs rework
-    'approved': '✓',     # Check mark - Human approved
-    'epic': '◆',         # Black diamond - Needs decomposition
-    # Yellow Zone (Planning)
-    'planned': '○',      # White circle - Implementation plan created
-    'blocked': '⊗',      # Circled X - Blocked by external dependencies
     'deferred': '⏸',     # Pause symbol - Intentionally postponed
-    # Yellow-Green Zone (Ready)
+    'approved': '✓',     # Check mark - Human approved
+    # Yellow Zone (Planning)
+    'blocked': '⊗',      # Circled X - Blocked by external dependencies
+    'planned': '○',      # White circle - Implementation plan created
     'queued': '◎',       # Bullseye - Ready, dependencies met
+    'broken': '⚠',       # Warning sign - Major bug, non-functional
     'paused': '⏸',       # Pause symbol - Temporarily on hold
     # Green Zone (Development)
     'active': '●',       # Black circle - Currently being worked on
-    'in-progress': '◐',  # Half circle - Partially complete
     # Cyan-Blue Zone (Testing)
     'reviewing': '👁',    # Eye - Under review/testing
     'implemented': '★',  # Black star - Complete/done
@@ -71,20 +68,17 @@ STATUS_SYMBOLS_ASCII = {
     'wishlist': 'W',     # W - Wishlist (may reconsider)
     # Orange-Yellow Zone (Concept)
     'concept': '.',      # Dot - Idea, not yet approved
-    'broken': '!',       # ! - Major bug, non-functional
     'refine': 'r',       # r - Concept needs rework
-    'approved': 'v',     # v - Human approved
-    'epic': 'E',         # E - Epic (needs decomposition)
-    # Yellow Zone (Planning)
-    'planned': 'o',      # o - Implementation plan created
-    'blocked': 'X',      # X - Blocked by dependencies
     'deferred': '=',     # = - Intentionally postponed
-    # Yellow-Green Zone (Ready)
+    'approved': 'v',     # v - Human approved
+    # Yellow Zone (Planning)
+    'blocked': 'X',      # X - Blocked by dependencies
+    'planned': 'o',      # o - Implementation plan created
     'queued': '@',       # @ - Ready, dependencies met
+    'broken': '!',       # ! - Major bug, non-functional
     'paused': '|',       # | - Temporarily on hold
     # Green Zone (Development)
     'active': 'O',       # O - Currently being worked on
-    'in-progress': 'D',  # D - Partially complete
     # Cyan-Blue Zone (Testing)
     'reviewing': 'R',    # R - Under review/testing
     'implemented': '+',  # + - Complete/done
@@ -98,7 +92,7 @@ STATUS_SYMBOLS_ASCII = {
     'archived': 'A',     # A - Archived (removed)
 }
 
-# ANSI colors for 23-status rainbow system
+# ANSI colors for 21-status rainbow system
 ANSI_COLORS = {
     # Red Zone (Can't/Won't)
     'infeasible': '\033[38;2;139;0;0m',    # Deep Red #8B0000
@@ -106,20 +100,17 @@ ANSI_COLORS = {
     'wishlist': '\033[38;2;255;140;0m',    # Orange #FF8C00
     # Orange-Yellow Zone (Concept)
     'concept': '\033[38;2;255;165;0m',     # Yellow-Orange #FFA500
-    'broken': '\033[38;2;255;179;71m',     # Sandy #FFB347 (was 'refine')
-    'refine': '\033[38;2;255;215;0m',      # Gold #FFD700 (was 'approved')
-    'approved': '\033[38;2;255;219;88m',   # Light Gold #FFDB58 (was 'epic')
-    'epic': '\033[38;2;240;230;140m',      # Khaki #F0E68C (was 'planned')
+    'refine': '\033[38;2;255;179;71m',     # Sandy #FFB347 (was 'broken')
+    'deferred': '\033[38;2;255;215;0m',    # Gold #FFD700 (was 'refine')
+    'approved': '\033[38;2;255;219;88m',   # Light Gold #FFDB58 (was 'approved')
     # Yellow Zone (Planning)
-    'planned': '\033[38;2;184;134;11m',    # Dark Goldenrod #B8860B (was 'blocked')
-    'blocked': '\033[38;2;238;232;170m',   # Light Goldenrod #EEE8AA (was 'deferred')
-    'deferred': '\033[38;2;154;205;50m',   # Yellow-Green #9ACD32 (was 'queued')
-    # Yellow-Green Zone (Ready)
-    'queued': '\033[38;2;218;165;32m',     # Goldenrod #DAA520 (was 'bugged')
+    'blocked': '\033[38;2;184;134;11m',    # Dark Goldenrod #B8860B (was 'planned')
+    'planned': '\033[38;2;238;232;170m',   # Light Goldenrod #EEE8AA (was 'blocked')
+    'queued': '\033[38;2;154;205;50m',     # Yellow-Green #9ACD32 (was 'deferred')
+    'broken': '\033[38;2;218;165;32m',     # Goldenrod #DAA520 (was 'queued')
     'paused': '\033[38;2;189;183;107m',    # Dark Khaki #BDB76B
     # Green Zone (Development)
     'active': '\033[38;2;50;205;50m',      # Lime Green #32CD32
-    'in-progress': '\033[38;2;0;250;154m', # Medium Spring Green #00FA9A
     # Cyan-Blue Zone (Testing)
     'reviewing': '\033[38;2;64;224;208m',  # Turquoise #40E0D0
     'implemented': '\033[38;2;65;105;225m', # Royal Blue #4169E1
