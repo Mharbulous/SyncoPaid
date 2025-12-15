@@ -473,16 +473,17 @@ class DetailView(QWidget):
         self.content_layout.addWidget(link)
 
     def _add_text_field(self, label: str, text: str):
-        """Add a multi-line text field."""
+        """Add a multi-line text field that expands to fit content."""
         label_widget = QLabel(f"{label}:")
         label_widget.setStyleSheet("font-weight: bold;")
         self.content_layout.addWidget(label_widget)
 
-        text_widget = QTextEdit()
-        text_widget.setPlainText(text)
-        text_widget.setReadOnly(True)
-        text_widget.setMaximumHeight(100)
-        text_widget.setStyleSheet("background-color: #f5f5f5;")
+        text_widget = QLabel(text)
+        text_widget.setWordWrap(True)
+        text_widget.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        text_widget.setStyleSheet(
+            "background-color: #f5f5f5; padding: 8px; border-radius: 4px;"
+        )
         self.content_layout.addWidget(text_widget)
 
     def _update_nav_buttons(self):
