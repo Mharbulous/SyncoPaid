@@ -2,4 +2,4 @@
 # Xstory Launcher
 cd "$(dirname "$0")"
 source venv/Scripts/activate
-python dev-tools/xstory/Xstory.py
+python dev-tools/xstory/xstory.py
