@@ -382,11 +382,13 @@ class DetailView(QWidget):
 
         self._update_nav_buttons()
 
-        # Clear content
+        # Clear content (widgets AND layouts)
         while self.content_layout.count():
             item = self.content_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
+            elif item.layout():
+                self._clear_layout(item.layout())
 
         # Node ID and Title header
         id_label = QLabel(node.id)
@@ -634,6 +636,15 @@ class DetailView(QWidget):
         self.history.clear()
         self.history_index = -1
         self.current_node_id = None
+
+    def _clear_layout(self, layout):
+        """Recursively clear and delete a layout and its contents."""
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                self._clear_layout(item.layout())
 
 
 class XstoryExplorer(QMainWindow):
