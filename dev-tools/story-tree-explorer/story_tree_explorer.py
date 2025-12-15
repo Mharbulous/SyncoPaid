@@ -13,30 +13,59 @@ from tkinter import ttk, filedialog, messagebox, simpledialog
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-# Status colors (muted, readable on both light and dark backgrounds)
+# Status colors (23-status rainbow system - ordered by production proximity)
 STATUS_COLORS = {
-    'implemented': '#228B22',  # Forest green
-    'ready': '#2E8B57',        # Sea green
-    'active': '#4169E1',       # Royal blue
-    'in-progress': '#6495ED',  # Cornflower blue
-    'queued': '#9370DB',       # Medium purple
-    'planned': '#708090',      # Slate gray
-    'approved': '#32CD32',     # Lime green
-    'concept': '#808080',      # Gray
-    'epic': '#FF8C00',         # Dark orange
-    'wishlist': '#DDA0DD',     # Plum
-    'rejected': '#DC143C',     # Crimson
-    'bugged': '#FF4500',       # Orange red
-    'deprecated': '#A9A9A9',   # Dark gray
-    'infeasible': '#696969',   # Dim gray
-    'revising': '#DAA520',     # Goldenrod (needs attention)
+    # Red Zone (Can't/Won't) - Furthest from production
+    'infeasible': '#8B0000',   # Deep Red
+    'rejected': '#FF4500',     # Red-Orange
+    'wishlist': '#FF8C00',     # Orange
+    # Orange-Yellow Zone (Concept)
+    'concept': '#FFA500',      # Yellow-Orange
+    'refine': '#FFB347',       # Sandy
+    'approved': '#FFD700',     # Gold
+    'epic': '#FFDB58',         # Light Gold
+    # Yellow Zone (Planning)
+    'planned': '#F0E68C',      # Khaki
+    'blocked': '#B8860B',      # Dark Goldenrod
+    'deferred': '#EEE8AA',     # Light Goldenrod
+    # Yellow-Green Zone (Ready)
+    'queued': '#9ACD32',       # Yellow-Green
+    'bugged': '#DAA520',       # Goldenrod
+    'paused': '#BDB76B',       # Dark Khaki
+    # Green Zone (Development)
+    'active': '#32CD32',       # Lime Green
+    'in-progress': '#00FA9A',  # Medium Spring Green
+    # Cyan-Blue Zone (Testing)
+    'reviewing': '#40E0D0',    # Turquoise
+    'implemented': '#4169E1',  # Royal Blue
+    # Blue Zone (Production)
+    'ready': '#0000FF',        # Blue
+    'polish': '#0047AB',       # Cobalt Blue
+    'released': '#4169E1',     # Royal Blue
+    # Violet Zone (Post-Production/End-of-Life)
+    'legacy': '#4B0082',       # Indigo
+    'deprecated': '#9400D3',   # Dark Violet
+    'archived': '#800080',     # Purple
 }
 
-# All possible statuses
+# All possible statuses (23-status rainbow system - ordered by production proximity)
 ALL_STATUSES = [
-    'active', 'in-progress', 'queued', 'planned', 'approved', 'concept',
-    'epic', 'wishlist', 'implemented', 'ready', 'rejected', 'bugged',
-    'deprecated', 'infeasible', 'revising'
+    # Red Zone (Can't/Won't)
+    'infeasible', 'rejected', 'wishlist',
+    # Orange-Yellow Zone (Concept)
+    'concept', 'refine', 'approved', 'epic',
+    # Yellow Zone (Planning)
+    'planned', 'blocked', 'deferred',
+    # Yellow-Green Zone (Ready)
+    'queued', 'bugged', 'paused',
+    # Green Zone (Development)
+    'active', 'in-progress',
+    # Cyan-Blue Zone (Testing)
+    'reviewing', 'implemented',
+    # Blue Zone (Production)
+    'ready', 'polish', 'released',
+    # Violet Zone (Post-Production/End-of-Life)
+    'legacy', 'deprecated', 'archived',
 ]
 
 
@@ -106,8 +135,8 @@ class StatusChangeDialog(tk.Toplevel):
         # Prompt text based on status
         if self.new_status == 'approved':
             prompt_text = "Please note how high a priority this story is:"
-        elif self.new_status == 'revising':
-            prompt_text = "Please explain what needs to be revised (required):"
+        elif self.new_status == 'refine':
+            prompt_text = "Please explain what needs to be refined (required):"
         else:
             prompt_text = "Add a note about this decision (optional):"
 
@@ -556,8 +585,8 @@ class StoryTreeExplorer:
                 command=lambda: self._change_node_status(node_id, 'wishlist')
             )
             self.context_menu.add_command(
-                label="Revise",
-                command=lambda: self._change_node_status(node_id, 'revising')
+                label="Refine",
+                command=lambda: self._change_node_status(node_id, 'refine')
             )
         else:
             # For non-concept nodes, show current status (disabled)
@@ -579,7 +608,7 @@ class StoryTreeExplorer:
             return
 
         # Determine if notes are mandatory
-        mandatory = (new_status == 'revising')
+        mandatory = (new_status == 'refine')
 
         # Show dialog
         dialog = StatusChangeDialog(self.root, node_id, new_status, mandatory=mandatory)
