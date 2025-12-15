@@ -29,56 +29,108 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 
-# Status indicators - Unicode and ASCII fallbacks
+# Status indicators - Unicode and ASCII fallbacks (23-status rainbow system)
 STATUS_SYMBOLS_UNICODE = {
-    'concept': '·',      # Middle dot - Idea, not yet approved
-    'approved': '✓',     # Check mark - Human reviewed and approved
-    'epic': '◆',         # Black diamond - Approved but needs decomposition
-    'rejected': '✗',     # Ballot X - Human reviewed and rejected
+    # Red Zone (Can't/Won't) - Furthest from production
+    'infeasible': '∅',   # Empty set - Cannot be built
+    'rejected': '✗',     # Ballot X - Human rejected
     'wishlist': '?',     # Question mark - Rejected for now, may reconsider
+    # Orange-Yellow Zone (Concept)
+    'concept': '·',      # Middle dot - Idea, not yet approved
+    'refine': '◈',       # White diamond with dot - Concept needs rework
+    'approved': '✓',     # Check mark - Human approved
+    'epic': '◆',         # Black diamond - Needs decomposition
+    # Yellow Zone (Planning)
     'planned': '○',      # White circle - Implementation plan created
-    'queued': '◎',       # Bullseye - Plan ready, all dependencies implemented
-    'active': '◐',       # Circle left half black - Currently being worked on
-    'in-progress': '◐',  # Circle left half black - Partially complete
-    'bugged': '⚠',       # Warning sign - In need of debugging
+    'blocked': '⊗',      # Circled X - Blocked by external dependencies
+    'deferred': '⏸',     # Pause symbol - Intentionally postponed
+    # Yellow-Green Zone (Ready)
+    'queued': '◎',       # Bullseye - Ready, dependencies met
+    'bugged': '⚠',       # Warning sign - Needs debugging
+    'paused': '⏸',       # Pause symbol - Temporarily on hold
+    # Green Zone (Development)
+    'active': '●',       # Black circle - Currently being worked on
+    'in-progress': '◐',  # Half circle - Partially complete
+    # Cyan-Blue Zone (Testing)
+    'reviewing': '👁',    # Eye - Under review/testing
     'implemented': '★',  # Black star - Complete/done
-    'ready': '✓',        # Check mark - Production ready
-    'deprecated': '⊘',   # Circled division slash - No longer relevant
-    'infeasible': '∅',   # Empty set - Couldn't build it
+    # Blue Zone (Production)
+    'ready': '✔',        # Heavy check - Production ready, tested
+    'polish': '◇',       # White diamond - Final refinements
+    'released': '🚀',     # Rocket - Deployed to production
+    # Violet Zone (Post-Production/End-of-Life)
+    'legacy': '◊',       # Lozenge - Superseded, still works
+    'deprecated': '⊘',   # Circled slash - Ready for removal
+    'archived': '📦',     # Package - Removed from production
 }
 
 STATUS_SYMBOLS_ASCII = {
-    'concept': '.',      # Idea, not yet approved
-    'approved': 'v',     # Human reviewed and approved, not yet planned
-    'epic': 'E',         # Approved but needs decomposition
-    'rejected': 'x',     # Human reviewed and rejected
-    'wishlist': '?',     # Rejected for now, may reconsider
-    'planned': 'o',      # Implementation plan created
-    'queued': '@',       # Plan ready, all dependencies implemented
-    'active': 'O',       # Currently being worked on (resembles â—)
-    'in-progress': 'D',  # Partially complete (resembles â—)
-    'bugged': '!',       # In need of debugging
-    'implemented': '+',  # Complete/done
-    'ready': '#',        # Production ready, implemented and tested
-    'deprecated': '-',   # No longer relevant
-    'infeasible': '0',   # Couldn't build it
+    # Red Zone (Can't/Won't)
+    'infeasible': '0',   # Zero - Cannot be built
+    'rejected': 'x',     # X - Human rejected
+    'wishlist': 'W',     # W - Wishlist (may reconsider)
+    # Orange-Yellow Zone (Concept)
+    'concept': '.',      # Dot - Idea, not yet approved
+    'refine': 'r',       # r - Concept needs rework
+    'approved': 'v',     # v - Human approved
+    'epic': 'E',         # E - Epic (needs decomposition)
+    # Yellow Zone (Planning)
+    'planned': 'o',      # o - Implementation plan created
+    'blocked': 'X',      # X - Blocked by dependencies
+    'deferred': '=',     # = - Intentionally postponed
+    # Yellow-Green Zone (Ready)
+    'queued': '@',       # @ - Ready, dependencies met
+    'bugged': '!',       # ! - Needs debugging
+    'paused': '|',       # | - Temporarily on hold
+    # Green Zone (Development)
+    'active': 'O',       # O - Currently being worked on
+    'in-progress': 'D',  # D - Partially complete
+    # Cyan-Blue Zone (Testing)
+    'reviewing': 'R',    # R - Under review/testing
+    'implemented': '+',  # + - Complete/done
+    # Blue Zone (Production)
+    'ready': '#',        # # - Production ready, tested
+    'polish': 'p',       # p - Final refinements
+    'released': '^',     # ^ - Deployed to production
+    # Violet Zone (Post-Production/End-of-Life)
+    'legacy': 'L',       # L - Legacy (superseded)
+    'deprecated': '-',   # - - Ready for removal
+    'archived': 'A',     # A - Archived (removed)
 }
 
+# ANSI colors for 23-status rainbow system
 ANSI_COLORS = {
-    'concept': '\033[97m',      # White (dim idea)
-    'approved': '\033[96m',     # Cyan
-    'epic': '\033[95m',         # Magenta (needs decomposition)
-    'rejected': '\033[91m',     # Red
-    'wishlist': '\033[90m',     # Gray (parked for later)
-    'planned': '\033[96m',      # Cyan
-    'queued': '\033[93m',       # Yellow
-    'active': '\033[94m',       # Blue
-    'in-progress': '\033[93m',  # Yellow
-    'bugged': '\033[91m',       # Red
-    'implemented': '\033[92m',  # Green
-    'ready': '\033[32m',        # Bright green
-    'deprecated': '\033[90m',   # Gray
-    'infeasible': '\033[91m',   # Red
+    # Red Zone (Can't/Won't)
+    'infeasible': '\033[38;2;139;0;0m',    # Deep Red #8B0000
+    'rejected': '\033[38;2;255;69;0m',     # Red-Orange #FF4500
+    'wishlist': '\033[38;2;255;140;0m',    # Orange #FF8C00
+    # Orange-Yellow Zone (Concept)
+    'concept': '\033[38;2;255;165;0m',     # Yellow-Orange #FFA500
+    'refine': '\033[38;2;255;179;71m',     # Sandy #FFB347
+    'approved': '\033[38;2;255;215;0m',    # Gold #FFD700
+    'epic': '\033[38;2;255;219;88m',       # Light Gold #FFDB58
+    # Yellow Zone (Planning)
+    'planned': '\033[38;2;240;230;140m',   # Khaki #F0E68C
+    'blocked': '\033[38;2;184;134;11m',    # Dark Goldenrod #B8860B
+    'deferred': '\033[38;2;238;232;170m',  # Light Goldenrod #EEE8AA
+    # Yellow-Green Zone (Ready)
+    'queued': '\033[38;2;154;205;50m',     # Yellow-Green #9ACD32
+    'bugged': '\033[38;2;218;165;32m',     # Goldenrod #DAA520
+    'paused': '\033[38;2;189;183;107m',    # Dark Khaki #BDB76B
+    # Green Zone (Development)
+    'active': '\033[38;2;50;205;50m',      # Lime Green #32CD32
+    'in-progress': '\033[38;2;0;250;154m', # Medium Spring Green #00FA9A
+    # Cyan-Blue Zone (Testing)
+    'reviewing': '\033[38;2;64;224;208m',  # Turquoise #40E0D0
+    'implemented': '\033[38;2;65;105;225m', # Royal Blue #4169E1
+    # Blue Zone (Production)
+    'ready': '\033[38;2;0;0;255m',         # Blue #0000FF
+    'polish': '\033[38;2;0;71;171m',       # Cobalt Blue #0047AB
+    'released': '\033[38;2;65;105;225m',   # Royal Blue #4169E1
+    # Violet Zone (Post-Production/End-of-Life)
+    'legacy': '\033[38;2;75;0;130m',       # Indigo #4B0082
+    'deprecated': '\033[38;2;148;0;211m',  # Dark Violet #9400D3
+    'archived': '\033[38;2;128;0;128m',    # Purple #800080
     'reset': '\033[0m',
 }
 
@@ -106,7 +158,7 @@ def can_use_unicode() -> bool:
             return True  # Redirected output can handle UTF-8
         try:
             # Try to encode a test character
-            'â—'.encode(sys.stdout.encoding or 'utf-8')
+            '●'.encode(sys.stdout.encoding or 'utf-8')
             return True
         except (UnicodeEncodeError, LookupError):
             return False

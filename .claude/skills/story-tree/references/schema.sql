@@ -1,5 +1,5 @@
 -- Story Tree SQLite Schema
--- Version: 2.4.0
+-- Version: 3.0.0
 -- Pattern: Closure table for hierarchical data
 -- Location: .claude/data/story-tree.db
 
@@ -19,20 +19,37 @@ CREATE TABLE IF NOT EXISTS story_nodes (
     capacity INTEGER,  -- NULL = dynamic: 3 + implemented/ready children
     status TEXT NOT NULL DEFAULT 'concept'
         CHECK (status IN (
-            'concept',      -- Idea, not yet approved
-            'approved',     -- Human approved, not yet planned
-            'epic',         -- Approved but too complex; needs decomposition into child concepts
+            -- Red Zone (Can't/Won't) - Furthest from production
+            'infeasible',   -- Cannot be built
             'rejected',     -- Human rejected
             'wishlist',     -- Rejected for now, may reconsider later
+            -- Orange-Yellow Zone (Concept)
+            'concept',      -- Idea, not yet approved
+            'refine',       -- Concept needs rework before approval
+            'approved',     -- Human approved, not yet planned
+            'epic',         -- Approved but too complex; needs decomposition
+            -- Yellow Zone (Planning)
             'planned',      -- Implementation plan created
+            'blocked',      -- Planned but blocked by external dependencies
+            'deferred',     -- Approved but intentionally postponed
+            -- Yellow-Green Zone (Ready)
             'queued',       -- Ready, dependencies met
+            'bugged',       -- Needs debugging
+            'paused',       -- Was active but temporarily on hold
+            -- Green Zone (Development)
             'active',       -- Currently being worked on
             'in-progress',  -- Partially complete
-            'bugged',       -- Needs debugging
+            -- Cyan-Blue Zone (Testing)
+            'reviewing',    -- Implemented, under review/testing
             'implemented',  -- Complete/done
+            -- Blue Zone (Production)
             'ready',        -- Production ready, tested
-            'deprecated',   -- No longer relevant
-            'infeasible'    -- Cannot be built
+            'polish',       -- Final refinements before release
+            'released',     -- Deployed to production
+            -- Violet Zone (Post-Production/End-of-Life)
+            'legacy',       -- Superseded, still works, dependencies need checking
+            'deprecated',   -- Dependencies checked, ready for removal
+            'archived'      -- Removed from production
         )),
     project_path TEXT,
     last_implemented TEXT,
