@@ -7,11 +7,11 @@ Generate new user story concepts using the brainstorm-story skill.
 
 ## Default Behavior (No Arguments)
 
-When invoked without arguments, automatically find nodes that have capacity for new concepts and generate up to 10 total user stories.
+When invoked without arguments, automatically find nodes that have capacity for new concepts and generate up to 2 total user stories.
 
 ### Step 1: Find Nodes with Capacity
 
-Query the story-tree database to find up to 10 nodes that can accept new concept stories:
+Query the story-tree database to find up to 2 nodes that can accept new concept stories:
 
 ```python
 python -c "
@@ -39,7 +39,7 @@ cursor.execute('''
                WHERE sp.ancestor_id = s.id AND sp.depth = 1
                AND child.status IN ('implemented', 'ready')))
     ORDER BY node_depth ASC
-    LIMIT 10
+    LIMIT 2
 ''')
 
 nodes = [dict(row) for row in cursor.fetchall()]
@@ -50,13 +50,13 @@ conn.close()
 
 ### Step 2: Generate Stories
 
-For each node found (up to 10 total stories across all nodes):
+For each node found (up to 2 total stories across all nodes):
 
 1. Use the Skill tool to invoke `brainstorm-story`
 2. Pass the node ID and request stories be generated
-3. Track story count to stop at 10 total
+3. Track story count to stop at 2 total
 
-**Distribution strategy**: Generate stories round-robin across discovered nodes until 10 stories are created, prioritizing shallower nodes.
+**Distribution strategy**: Generate stories round-robin across discovered nodes until 2 stories are created, prioritizing shallower nodes.
 
 ### Step 3: Report Results
 
@@ -69,9 +69,12 @@ Output a summary showing:
 
 When arguments are provided, pass them directly to the brainstorm-story skill as instructions.
 
+**Maximum limit**: Even with arguments, never generate more than 10 stories total. If the user requests more than 10, cap at 10 and inform them of the limit.
+
 **Examples:**
 - `/write-stories for node 1.2` → Generate stories specifically for node 1.2
 - `/write-stories focus on user authentication features` → Generate stories related to authentication
 - `/write-stories 3 stories for the export module` → Generate 3 stories for export functionality
+- `/write-stories 10 stories for node 1` → Generate 10 stories (maximum allowed)
 
 Use the Skill tool to invoke `brainstorm-story` with the user's instructions.
