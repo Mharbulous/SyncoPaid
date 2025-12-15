@@ -60,18 +60,19 @@ git log --since="30 days ago" --pretty=format:"%h|%s" --no-merges
 
 ---
 
-## 4. Uniform Capacity
+## 4. Setting Static Capacity
 
-**Wrong:** Every story gets capacity 5.
+**Wrong:** Setting fixed capacity values like `capacity = 5`.
 
-**Right:**
+**Right:** Leave capacity as NULL (dynamic calculation).
 
-| Story Type | Capacity |
-|------------|----------|
-| Simple UI component | 2-3 |
-| Feature with workflow | 5-8 |
-| Major feature area | 8-12 |
-| Cross-cutting concern | 10-15 |
+Dynamic capacity formula: `effective_capacity = 3 + (implemented/ready children)`
+
+This means:
+- New nodes start with capacity 3
+- Capacity grows automatically as children are completed
+- Forces depth-first growth over breadth-first speculation
+- Only override capacity when you have a specific reason
 
 ---
 
@@ -160,7 +161,7 @@ Before outputting stories:
 - [ ] Stories are specific with testable criteria
 - [ ] Used priority algorithm (shallower first)
 - [ ] Matched commits before generating new stories
-- [ ] Capacity estimates vary by complexity
+- [ ] Capacity left as NULL (dynamic) unless override needed
 - [ ] All quality checks passed
 - [ ] Used real git data
 - [ ] SQL queries validated

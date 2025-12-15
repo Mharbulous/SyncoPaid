@@ -168,6 +168,8 @@ print('\n'.join([f\"{c['hash']} - {c['message']}\" for c in commits]))
 
 Match commits to parent node scope using keyword similarity.
 
+**For detailed pattern matching algorithm:** See `.claude/skills/story-tree/references/sql-queries.md#pattern-matching` for keyword extraction rules, commit type detection patterns, and Jaccard similarity thresholds.
+
 ### Step 3: Identify Story Gaps
 
 Analyze what's missing based on evidence:
