@@ -439,11 +439,13 @@ class StoryTreeExplorer:
         paned.add(tree_frame, weight=3)
 
         # Create tksheet with treeview mode
+        # In treeview mode, the row index shows the tree hierarchy (via 'text' param)
+        # The 'values' populate the data columns
         self.sheet = Sheet(
             tree_frame,
             treeview=True,
-            headers=["ID", "Status", "Title"],
-            show_row_index=False,
+            headers=["Status", "Title"],
+            show_row_index=True,  # Required for tree hierarchy display
             show_header=True,
             height=500,
             width=700
@@ -459,10 +461,11 @@ class StoryTreeExplorer:
         ))
         self.sheet.pack(fill=tk.BOTH, expand=True)
 
-        # Set column widths
-        self.sheet.column_width(column=0, width=150)
-        self.sheet.column_width(column=1, width=100)
-        self.sheet.column_width(column=2, width=400)
+        # Set column widths (Status=col 0, Title=col 1; ID is in row index)
+        self.sheet.column_width(column=0, width=100)
+        self.sheet.column_width(column=1, width=400)
+        # Set row index width for tree display (shows node IDs with hierarchy)
+        self.sheet.set_options(index_width=180)
 
         # Bind events
         self.sheet.bind("<<SheetSelect>>", self._on_sheet_select)
@@ -537,9 +540,10 @@ class StoryTreeExplorer:
         except:
             return
 
-        # Get node_id from the first column
+        # Get node_id from the row (treeview mode)
         try:
-            node_id = self.sheet.get_cell_data(row, 0)
+            # In treeview mode, use rowitem() to get the iid (node ID) from row
+            node_id = self.sheet.rowitem(row)
             node = self.nodes.get(node_id)
 
             self.desc_text.config(state=tk.NORMAL)
@@ -562,7 +566,8 @@ class StoryTreeExplorer:
         try:
             if hasattr(selected, 'row') and selected.row is not None:
                 row = selected.row
-                node_id = self.sheet.get_cell_data(row, 0)
+                # Get node_id using rowitem() in treeview mode
+                node_id = self.sheet.rowitem(row)
                 if node_id in self.nodes:
                     self.detail_view.reset_history()
                     self.show_detail_view(node_id)
@@ -577,7 +582,8 @@ class StoryTreeExplorer:
             if row is None:
                 return
 
-            node_id = self.sheet.get_cell_data(row, 0)
+            # Get node_id using rowitem() in treeview mode
+            node_id = self.sheet.rowitem(row)
             node = self.nodes.get(node_id)
             if not node:
                 return
@@ -859,11 +865,13 @@ class StoryTreeExplorer:
             return row_index
 
         # Insert the node
+        # text = row index display (tree hierarchy with node ID)
+        # values = data columns (Status, Title)
         self.sheet.insert(
             parent=parent,
             iid=node.id,
             text=node.id,
-            values=[node.id, node.status, node.title]
+            values=[node.status, node.title]
         )
 
         # Get the row index for this node
@@ -871,19 +879,17 @@ class StoryTreeExplorer:
             # Get row index from iid for highlighting
             row_idx = self.sheet.itemrow(node.id)
             if row_idx is not None:
-                # Apply coloring to status cell (column 1)
+                # Column mapping: Status=0, Title=1 (ID is in row index)
                 status_color = STATUS_COLORS.get(node.status, '#000000')
 
                 if node.id in faded_nodes:
-                    # Faded ancestor: gray text for ID and Title, but keep status color
-                    self.sheet.highlight((row_idx, 0), fg='#999999')
-                    self.sheet.highlight((row_idx, 1), fg=status_color)
-                    self.sheet.highlight((row_idx, 2), fg='#999999')
+                    # Faded ancestor: gray text for Title, but keep status color
+                    self.sheet.highlight((row_idx, 0), fg=status_color)
+                    self.sheet.highlight((row_idx, 1), fg='#999999')
                 else:
-                    # Normal node: black text, colored status
-                    self.sheet.highlight((row_idx, 0), fg='#000000')
-                    self.sheet.highlight((row_idx, 1), fg=status_color)
-                    self.sheet.highlight((row_idx, 2), fg='#000000')
+                    # Normal node: colored status, black title
+                    self.sheet.highlight((row_idx, 0), fg=status_color)
+                    self.sheet.highlight((row_idx, 1), fg='#000000')
         except Exception as e:
             print(f"Highlight error for {node.id}: {e}")
 

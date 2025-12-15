@@ -1,49 +1,41 @@
-# Story Tree Explorer: Treeview Display Not Working
+# Story Tree Explorer: Treeview Display - FIXED
 
-## Current Problem
-tksheet displays data as flat table rows, not hierarchical tree with collapsible nodes. Per-cell coloring now works correctly.
+## Problem (Resolved)
+tksheet displayed data as flat table rows instead of hierarchical tree with collapsible nodes.
 
-## What's Fixed
-- Highlight API: Changed from `sheet.highlight(row=iid, column=col, fg=color)` to `sheet.highlight((row_idx, col), fg=color)` using `sheet.itemrow(iid)` to convert iid to row index
-- No more "iid already exists" errors on filter/refresh (tree_reset() fix works)
-- Per-cell coloring applies correctly (Status colored, ID/Title black or gray for faded ancestors)
+## Root Cause
+In tksheet treeview mode, the tree hierarchy (indentation, expand/collapse controls) is rendered in the **row index column** using the `text` parameter. The code had `show_row_index=False`, which hid the entire tree structure.
+
+## Fix Applied (2024-12-14)
+1. **Show row index**: Changed `show_row_index=False` to `show_row_index=True`
+2. **Column restructure**:
+   - `text` parameter now holds node ID (displayed in row index with tree hierarchy)
+   - `values` array now contains only [status, title] (2 columns instead of 3)
+3. **Headers updated**: Changed from ["ID", "Status", "Title"] to ["Status", "Title"]
+4. **Column widths**: Adjusted for 2-column layout + index_width=180 for tree column
+5. **Event handlers**: Changed from `get_index_data(row)` to `rowitem(row)` to get node iid
+
+## tksheet Treeview Key Concepts
+- `text` parameter = displayed in row index (tree column with hierarchy)
+- `values` parameter = displayed in data columns
+- `rowitem(row)` = get iid from row number
+- `itemrow(iid)` = get row number from iid
 
 ## Files
-- `dev-tools\story-tree-explorer\story_tree_explorer-1-1.py` - **Active prototype** - fix treeview display here
-- `dev-tools\story-tree-explorer\story_tree_explorer-1-0.py` - Backup of working ttk.Treeview version (has tree structure but no per-cell coloring)
-- `dev-tools\story-tree-explorer\story_tree_explorer.py` - Production file (currently v1.0 code)
+- `dev-tools\story-tree-explorer\story_tree_explorer-1-1.py` - **Active prototype** with fix
+- `dev-tools\story-tree-explorer\story_tree_explorer-1-0.py` - Backup (ttk.Treeview version)
+- `dev-tools\story-tree-explorer\story_tree_explorer.py` - Production file (v1.0 code)
 
-## Root Cause Investigation Needed
-The sheet is initialized with `treeview=True` but nodes display flat. Compare how v1.0 (ttk.Treeview) builds hierarchy vs v1.1 (tksheet).
+## Testing Required
+Run the explorer and verify:
+- [ ] Tree structure shows with indentation
+- [ ] Expand/collapse controls work
+- [ ] Node selection shows description
+- [ ] Double-click opens detail view
+- [ ] Right-click context menu works
+- [ ] Status filters work (matching nodes + faded ancestors)
+- [ ] Per-cell coloring applies correctly
 
-Check these tksheet treeview APIs:
-- `sheet.insert(parent=parent_iid, iid=node_id, ...)` - parent param may not be working as expected
-- Tree expansion: `sheet.tree_set_open()`
-- Treeview mode initialization options
-
-## Key tksheet Documentation
+## Reference
 - **Wiki (Version 7)**: https://github.com/ragardner/tksheet/wiki/Version-7
 - **Full docs**: https://ragardner.github.io/tksheet/DOCUMENTATION.html
-- **GitHub**: https://github.com/ragardner/tksheet
-
-## Technical Notes from Research
-```python
-# Correct cell highlighting (WORKS)
-row_idx = sheet.itemrow(iid)
-sheet.highlight((row_idx, col), fg=color)
-
-# Treeview insert (verify parent param works)
-sheet.insert(parent="parent_iid", iid="child_iid", text="Display", values=[...])
-
-# Clear tree before rebuild
-sheet.tree_reset()
-
-# Expand nodes
-sheet.tree_set_open(sheet.get_children())
-```
-
-## Next Steps
-1. Compare v1.0 ttk.Treeview insert logic with v1.1 tksheet insert
-2. Verify `parent=` parameter in `sheet.insert()` creates hierarchy
-3. Check if tksheet treeview mode requires additional config for tree display
-4. May need to check tksheet wiki for treeview-specific examples
