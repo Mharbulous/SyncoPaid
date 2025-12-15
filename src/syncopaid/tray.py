@@ -216,11 +216,11 @@ class TrayIcon:
         # Paused: orange stopwatch (user clicked pause)
         # Inactive: faded stopwatch with sleep emoji overlay (5min idle)
         if state == "inactive":
-            ico_path = Path(__file__).parent / "stopwatch-pictogram-faded.ico"
+            ico_path = Path(__file__).parent / "assets" / "stopwatch-pictogram-faded.ico"
         elif state == "paused":
-            ico_path = Path(__file__).parent / "stopwatch-pictogram-orange.ico"
+            ico_path = Path(__file__).parent / "assets" / "stopwatch-pictogram-orange.ico"
         else:  # "on" or default
-            ico_path = Path(__file__).parent / "stopwatch-pictogram-green.ico"
+            ico_path = Path(__file__).parent / "assets" / "stopwatch-pictogram-green.ico"
 
         image = None
         if ico_path.exists():

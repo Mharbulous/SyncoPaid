@@ -30,11 +30,11 @@ from syncopaid.screenshot import ScreenshotWorker, get_screenshot_directory
 from syncopaid.action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
 
 # Paths to the application icons
-_ICON_VIEWTIME_ICO_PATH = Path(__file__).parent / "stopwatch-pictogram-gold.ico"
+_ICON_VIEWTIME_ICO_PATH = Path(__file__).parent / "assets" / "SYNCOPaiD.ico"
 
 
 def _set_window_icon(root: tk.Tk) -> None:
-    """Set the SyncoPaid gold icon on a tkinter window (View Time window)."""
+    """Set the SyncoPaid icon on a tkinter window (View Time window)."""
     try:
         if sys.platform == 'win32' and _ICON_VIEWTIME_ICO_PATH.exists():
             root.iconbitmap(str(_ICON_VIEWTIME_ICO_PATH))

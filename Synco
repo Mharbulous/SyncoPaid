@@ -2,4 +2,4 @@
 # SyncoPaid App Launcher
 cd "$(dirname "$0")"
 source venv/Scripts/activate
-python -m SyncoPaid
+PYTHONPATH=src python -m syncopaid
