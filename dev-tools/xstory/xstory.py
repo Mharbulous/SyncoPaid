@@ -422,6 +422,9 @@ class DetailView(QWidget):
         status_color = STATUS_COLORS.get(node.status, '#000000')
         self._add_field("Status", node.status, color=status_color)
 
+        # Status navigation (Previous/Next buttons for same status)
+        self._add_status_navigation(node)
+
         # Capacity
         capacity_text = str(node.capacity) if node.capacity is not None else "dynamic"
         self._add_field("Capacity", capacity_text)
@@ -646,6 +649,55 @@ class DetailView(QWidget):
                 item.widget().deleteLater()
             elif item.layout():
                 self._clear_layout(item.layout())
+
+    def _get_nodes_with_status(self, status: str) -> List[str]:
+        """Get all node IDs with the given status, sorted in tree order."""
+        matching_nodes = [
+            node_id for node_id, node in self.app.nodes.items()
+            if node.status == status
+        ]
+        # Sort by tree order (same as the tree display order)
+        matching_nodes.sort(key=lambda nid: self.app._sort_key(nid))
+        return matching_nodes
+
+    def _add_status_navigation(self, node: StoryNode):
+        """Add Previous/Next buttons to navigate between nodes with the same status."""
+        nodes_with_status = self._get_nodes_with_status(node.status)
+
+        if len(nodes_with_status) <= 1:
+            # No navigation needed if only one node with this status
+            return
+
+        current_index = nodes_with_status.index(node.id) if node.id in nodes_with_status else -1
+
+        nav_layout = QHBoxLayout()
+        nav_layout.setContentsMargins(120, 0, 0, 0)  # Align with value column (label width is 120)
+
+        # Previous button
+        self.prev_status_btn = QPushButton("[ Previous ]")
+        self.prev_status_btn.setFixedWidth(100)
+        self.prev_status_btn.setEnabled(current_index > 0)
+        if current_index > 0:
+            prev_id = nodes_with_status[current_index - 1]
+            self.prev_status_btn.clicked.connect(lambda: self.show_node(prev_id))
+        nav_layout.addWidget(self.prev_status_btn)
+
+        # Next button
+        self.next_status_btn = QPushButton("[ Next ]")
+        self.next_status_btn.setFixedWidth(100)
+        self.next_status_btn.setEnabled(current_index < len(nodes_with_status) - 1)
+        if current_index < len(nodes_with_status) - 1:
+            next_id = nodes_with_status[current_index + 1]
+            self.next_status_btn.clicked.connect(lambda: self.show_node(next_id))
+        nav_layout.addWidget(self.next_status_btn)
+
+        # Position indicator
+        position_label = QLabel(f"({current_index + 1} of {len(nodes_with_status)})")
+        position_label.setStyleSheet("color: #666666; font-size: 10pt;")
+        nav_layout.addWidget(position_label)
+
+        nav_layout.addStretch()
+        self.content_layout.addLayout(nav_layout)
 
 
 class XstoryExplorer(QMainWindow):
