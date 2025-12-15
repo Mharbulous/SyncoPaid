@@ -41,6 +41,32 @@ except ImportError:
 
 
 # ============================================================================
+# PYINSTALLER RESOURCE PATH HELPER
+# ============================================================================
+
+def get_resource_path(relative_path: str) -> Path:
+    """
+    Get absolute path to resource, works for dev and for PyInstaller.
+
+    In development: uses __file__ to locate resources relative to source
+    In PyInstaller exe: uses sys._MEIPASS to locate bundled resources
+
+    Args:
+        relative_path: Path relative to syncopaid package (e.g., "assets/icon.ico")
+
+    Returns:
+        Absolute Path to the resource
+    """
+    if getattr(sys, 'frozen', False):
+        # Running as PyInstaller bundle
+        base_path = Path(sys._MEIPASS)
+        return base_path / "syncopaid" / relative_path
+    else:
+        # Running in development
+        return Path(__file__).parent / relative_path
+
+
+# ============================================================================
 # WINDOWS STARTUP REGISTRY HELPERS
 # ============================================================================
 
@@ -216,11 +242,11 @@ class TrayIcon:
         # Paused: orange stopwatch (user clicked pause)
         # Inactive: faded stopwatch with sleep emoji overlay (5min idle)
         if state == "inactive":
-            ico_path = Path(__file__).parent / "assets" / "stopwatch-pictogram-faded.ico"
+            ico_path = get_resource_path("assets/stopwatch-pictogram-faded.ico")
         elif state == "paused":
-            ico_path = Path(__file__).parent / "assets" / "stopwatch-pictogram-orange.ico"
+            ico_path = get_resource_path("assets/stopwatch-pictogram-orange.ico")
         else:  # "on" or default
-            ico_path = Path(__file__).parent / "assets" / "stopwatch-pictogram-green.ico"
+            ico_path = get_resource_path("assets/stopwatch-pictogram-green.ico")
 
         image = None
         if ico_path.exists():

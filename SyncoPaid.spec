@@ -6,7 +6,10 @@ a = Analysis(
     pathex=['src'],
     binaries=[],
     datas=[
-        ('SyncoPaid.ico', '.'),  # Include icon in root of bundle
+        ('src/syncopaid/assets/SYNCOPaiD.ico', '.'),  # Include icon in root of bundle
+        ('src/syncopaid/assets/stopwatch-pictogram-faded.ico', 'syncopaid/assets'),
+        ('src/syncopaid/assets/stopwatch-pictogram-orange.ico', 'syncopaid/assets'),
+        ('src/syncopaid/assets/stopwatch-pictogram-green.ico', 'syncopaid/assets'),
     ],
     hiddenimports=[
         'win32timezone',  # pywin32 hidden dependency
@@ -39,6 +42,6 @@ exe = EXE(
     target_arch=None,
     coerce_macros=True,
     entitlements_file=None,
-    icon='SyncoPaid.ico',
+    icon='src/syncopaid/assets/SYNCOPaiD.ico',
     version='version_info.txt',
 )

@@ -251,29 +251,29 @@ The script automatically handles UTF-8 encoding on Windows. Use `--force-ascii` 
 
 **Status symbols (21-status rainbow system):**
 
-| Zone | Status | Unicode | ASCII | Hex Color |
-|------|--------|---------|-------|-----------|
-| 🔴 Red | infeasible | `∅` | `0` | #8B0000 |
-| 🔴 Red | rejected | `✗` | `x` | #FF4500 |
-| 🔴 Red | wishlist | `?` | `W` | #FF8C00 |
-| 🟠 Orange | concept | `·` | `.` | #FFA500 |
-| 🟠 Orange | broken | `⚠` | `!` | #FFD700 |
-| 🟠 Orange | blocked | `⊗` | `X` | #9ACD32 |
-| 🟡 Gold | refine | `◈` | `r` | #FFDB58 |
-| 🟡 Yellow | deferred | `⏸` | `=` | #EEE8AA |
-| 🟡 Yellow | approved | `✓` | `v` | #B8860B |
-| 🟡 Yellow | planned | `○` | `o` | #DAA520 |
-| 🟡 Yellow | queued | `◎` | `@` | #FFB347 |
-| 🟢 Yellow-Green | paused | `⏸` | `\|` | #BDB76B |
-| 🟢 Green | active | `●` | `O` | #32CD32 |
-| 💙 Cyan | reviewing | `👁` | `R` | #40E0D0 |
-| 💙 Blue | implemented | `★` | `+` | #4169E1 |
-| 💙 Blue | ready | `✔` | `#` | #0000FF |
-| 💙 Blue | polish | `◇` | `p` | #0047AB |
-| 💙 Blue | released | `🚀` | `^` | #4169E1 |
-| 🟣 Violet | legacy | `◊` | `L` | #4B0082 |
-| 🟣 Violet | deprecated | `⊘` | `-` | #9400D3 |
-| 🟣 Violet | archived | `📦` | `A` | #800080 |
+| Order | Status | Hex Color | Definition |
+|-------|--------|-----------|------------|
+| 1 | infeasible | #CC0000 | Cannot be implemented due to technical or resource constraints |
+| 2 | rejected | #CC3300 | Explicitly declined or not wanted |
+| 3 | wishlist | #CC6600 | Nice to have, low priority idea |
+| 4 | concept | #CC9900 | Initial idea, not yet approved |
+| 5 | broken | #CCCC00 | Was working, now broken or regressed |
+| 6 | blocked | #99CC00 | Cannot proceed due to dependencies |
+| 7 | refine | #66CC00 | Needs more detail or clarification |
+| 8 | deferred | #00CC00 | Postponed to later date |
+| 9 | approved | #00CC33 | Accepted and ready to plan |
+| 10 | planned | #00CC66 | Implementation plan exists |
+| 11 | queued | #00CC99 | In backlog, ready to start |
+| 12 | paused | #00CCCC | Work started but temporarily stopped |
+| 13 | active | #0099CC | Currently being worked on |
+| 14 | reviewing | #0066CC | Under review or testing |
+| 15 | implemented | #0000CC | Code complete, not yet released |
+| 16 | ready | #3300CC | Tested and ready for release |
+| 17 | polish | #6600CC | Minor refinements or improvements |
+| 18 | released | #9900CC | Deployed to production |
+| 19 | legacy | #CC00CC | Old code still in use |
+| 20 | deprecated | #CC0099 | Marked for removal |
+| 21 | archived | #CC0066 | Removed or no longer relevant |
 
 ## User Commands
 

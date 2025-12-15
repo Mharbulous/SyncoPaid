@@ -1,5 +1,5 @@
 #!/bin/bash
-# Xstory Launcher (v1.2 - PySide6 with QTreeWidget)
+# Xstory Launcher
 cd "$(dirname "$0")"
 source venv/Scripts/activate
-python dev-tools/xstory/xstory-1-2.py
+python dev-tools/xstory/Xstory.py
