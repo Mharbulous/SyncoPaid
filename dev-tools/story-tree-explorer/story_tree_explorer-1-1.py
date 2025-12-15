@@ -20,30 +20,43 @@ except ImportError:
     print("Error: tksheet is required. Install with: pip install tksheet")
     sys.exit(1)
 
-# Status colors (muted, readable on both light and dark backgrounds)
+# Status colors (23-status rainbow system - optimized for visibility)
 STATUS_COLORS = {
-    'implemented': '#228B22',  # Forest green
-    'ready': '#2E8B57',        # Sea green
-    'active': '#4169E1',       # Royal blue
-    'in-progress': '#6495ED',  # Cornflower blue
-    'queued': '#9370DB',       # Medium purple
-    'planned': '#708090',      # Slate gray
-    'approved': '#32CD32',     # Lime green
-    'concept': '#808080',      # Gray
-    'epic': '#FF8C00',         # Dark orange
-    'wishlist': '#DDA0DD',     # Plum
-    'rejected': '#DC143C',     # Crimson
-    'bugged': '#FF4500',       # Orange red
-    'deprecated': '#A9A9A9',   # Dark gray
-    'infeasible': '#696969',   # Dim gray
-    'revising': '#DAA520',     # Goldenrod (needs attention)
+    'infeasible': '#CC0000',   # Deep Red
+    'rejected': '#CC3300',     # Red-Orange
+    'wishlist': '#CC6600',     # Pumpkin Orange
+    'concept': '#CC9900',      # Goldenrod
+    'refine': '#CCCC00',       # Dark Gold / Olive
+    'approved': '#99CC00',     # Lime Green
+    'epic': '#66CC00',         # Chartreuse
+    'planned': '#33CC00',      # Kelly Green
+    'blocked': '#00CC00',      # Pure Green
+    'deferred': '#00CC33',     # Spring Green
+    'queued': '#00CC66',       # Emerald
+    'bugged': '#00CC99',       # Teal Green
+    'paused': '#00CCCC',       # Dark Cyan
+    'active': '#0099CC',       # Cerulean
+    'in-progress': '#0066CC',  # Azure
+    'reviewing': '#0033CC',    # Cobalt Blue
+    'implemented': '#0000CC',  # Pure Blue
+    'ready': '#3300CC',        # Electric Indigo
+    'polish': '#6600CC',       # Violet
+    'released': '#9900CC',     # Purple
+    'legacy': '#CC00CC',       # Magenta
+    'deprecated': '#CC0099',   # Fuchsia
+    'archived': '#CC0066',     # Deep Pink
 }
 
-# All possible statuses
+# All possible statuses (23-status rainbow system)
 ALL_STATUSES = [
-    'active', 'in-progress', 'queued', 'planned', 'approved', 'concept',
-    'epic', 'wishlist', 'implemented', 'ready', 'rejected', 'bugged',
-    'deprecated', 'infeasible', 'revising'
+    'infeasible', 'rejected', 'wishlist',
+    'concept', 'refine', 'approved', 'epic',
+    'planned', 'blocked', 'deferred',
+    'queued', 'bugged', 'paused',
+    'active', 'in-progress',
+    'reviewing', 'implemented',
+    'ready', 'polish', 'released',
+    'legacy', 'deprecated', 'archived'
 ]
 
 
@@ -482,12 +495,15 @@ class StoryTreeExplorer:
         ttk.Button(btn_frame, text="All", command=self._select_all_statuses, width=6).pack(side=tk.LEFT, padx=2)
         ttk.Button(btn_frame, text="None", command=self._select_no_statuses, width=6).pack(side=tk.LEFT, padx=2)
 
-        # Status checkboxes
+        # Status checkboxes (with rainbow colors)
         for status in ALL_STATUSES:
             var = tk.BooleanVar(value=True)
             self.status_vars[status] = var
-            cb = ttk.Checkbutton(filter_frame, text=status, variable=var,
-                                command=self._apply_filters)
+            color = STATUS_COLORS.get(status, '#000000')
+            # Use tk.Checkbutton instead of ttk.Checkbutton to support foreground color
+            cb = tk.Checkbutton(filter_frame, text=status, variable=var,
+                               command=self._apply_filters, fg=color,
+                               anchor=tk.W)
             cb.pack(anchor=tk.W)
 
         # Description panel at bottom of tree view
