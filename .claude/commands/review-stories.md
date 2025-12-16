@@ -1,14 +1,8 @@
 Review user story concepts one at a time for approval.
 
-## Purpose
+## Query Concept Stories
 
-Present the most suitable concept story for user review, allowing them to approve, reject, refine, or wishlist it.
-
-## Workflow
-
-### Step 1: Find Concept Stories
-
-Query the story-tree database for all stories with status 'concept', prioritizing by depth (shallower first) and creation date (oldest first):
+Prioritize by depth (shallower first), then creation date (oldest first):
 
 ```python
 python -c "
@@ -46,9 +40,7 @@ else:
 "
 ```
 
-### Step 2: Present Story for Review
-
-If a concept story is found, present it in this format:
+## Present for Review
 
 ```markdown
 ## Story for Review: **[Title]**
@@ -62,37 +54,20 @@ If a concept story is found, present it in this format:
 
 ### User Story
 
-[Full description from database]
+[Full description]
 
 ---
 
-**Your options:**
-- **Approve** → Story is ready for planning/implementation
-- **Reject** → Story is not wanted (provide reason)
-- **Refine** → Story needs more detail or clarification
-- **Wishlist** → Nice to have, low priority
+**Options:** Approve | Reject | Refine | Wishlist
 ```
 
-### Step 3: Handle User Response
+## Handle Response
 
-Wait for user input. Based on their response:
+- **Approve**: Ask for refinements first, then mark approved
+- **Reject**: Ask for reason (optional), mark rejected
+- **Refine**: Mark as refine
+- **Wishlist**: Mark as wishlist
 
-**If user wants to approve:**
-- Ask if they have any refinements to make first
-- If yes, make the edits then mark as approved
-- If no, mark as approved directly
-
-**If user wants to reject:**
-- Ask for reason (optional)
-- Mark as rejected
-
-**If user wants to refine:**
-- Mark as refine (needs more detail)
-
-**If user wants to wishlist:**
-- Mark as wishlist (low priority)
-
-**Update query:**
 ```python
 python -c "
 import sqlite3
@@ -109,25 +84,15 @@ print('Story [STORY_ID] marked as [NEW_STATUS]')
 "
 ```
 
-### Step 4: Commit Changes
-
-After updating the story status, commit and push:
-- `git add .claude/data/story-tree.db`
-- Commit with message: `feat(stories): [action] story [id] - [title]`
-- Push to current branch
-
-### If No Concepts Found
-
-If no concept stories exist, inform the user:
+## Commit
 
 ```
-No concept stories awaiting review.
-
-To generate new stories, use `/write-stories` or invoke the `story-writing` skill.
+git add .claude/data/story-tree.db
+git commit -m "feat(stories): [action] story [id] - [title]"
+git push
 ```
 
-## Notes
+## Constraints
 
-- Review only ONE story per invocation to keep reviews focused
-- Always present the full story description so user has complete context
-- Encourage user to suggest refinements before approving
+- Review ONE story per invocation
+- If no concepts: suggest `/write-stories` or `story-writing` skill
