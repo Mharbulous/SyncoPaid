@@ -1,0 +1,27 @@
+name: Daily Story Generation
+
+# Run at 2:00 AM PST (10:00 AM UTC) every day
+on:
+  schedule:
+    - cron: '0 10 * * *'
+  # Allow manual triggering for testing
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  write-stories:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Claude Code /write-stories
+        uses: anthropic/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: "/write-stories"
+          allowed_tools: "Bash,Read,Write,Edit,Glob,Grep,Task,Skill,TodoWrite"
+          timeout_minutes: 30
