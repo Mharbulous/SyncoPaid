@@ -38,62 +38,52 @@ jobs:
           # Show full output for debugging
           show_full_output: true
 
-          # Direct prompt mode for scheduled automation
+          # Direct prompt mode for scheduled automation (CI-optimized)
           prompt: |
-            REPO: ${{ github.repository }}
-            MODE: Daily Story Planning (YOLO mode - fully autonomous)
+            MODE: Daily Story Planning (CI - fully autonomous)
 
-            You are running the automated story planning workflow for SyncoPaid.
-            This is a scheduled CI run - complete all tasks autonomously without user interaction.
+            ## Step 1: Early Exit Check
 
-            ## Primary Task: Create Implementation Plan
+            First, check if there are approved stories:
+            ```python
+            python -c "
+            import sqlite3
+            conn = sqlite3.connect('.claude/data/story-tree.db')
+            count = conn.execute('SELECT COUNT(*) FROM story_nodes WHERE status=\"approved\"').fetchone()[0]
+            print(f'Approved stories: {count}')
+            conn.close()
+            "
+            ```
 
-            Run the /plan-story slash command to create an implementation plan for the highest-priority approved story.
+            If count is 0, output "✓ No approved stories available for planning" and exit successfully.
 
-            Key behaviors for YOLO mode:
-            - Skip all approval steps - do NOT wait for user confirmation
-            - Plan the single highest-priority approved story
-            - Create commits directly with clear messages
-            - No interactive prompts - complete the workflow autonomously
+            ## Step 2: Plan Story (if approved stories exist)
 
-            ## Workflow Steps:
+            Use the CI-optimized story-planning skill:
+            ```
+            Skill(skill="story-planning-ci")
+            ```
 
-            1. Execute the /plan-story command which will:
-               - Find approved stories in the story-tree database
-               - Prioritize and select the best candidate
-               - Use the story-planning skill to create a detailed plan
-               - Save the plan to ai_docs/Plans/
-               - Update the story's status to 'planned'
-            2. Commit and push any changes (see "Git Operations" section below)
+            Follow the skill workflow to:
+            - Query and prioritize approved stories
+            - Create compact TDD plan in ai_docs/Plans/
+            - Update story status to 'planned'
 
-            ## Git Operations (REQUIRED for ANY file changes):
+            ## Step 3: Git Operations
 
-            **You MUST complete these steps for ANY changes made**:
+            After creating the plan:
+            ```bash
+            git checkout main && git pull origin main
+            git add -A
+            git commit -m "planning: create implementation plan for story $(date -u +'%Y-%m-%d')"
+            git push origin main
+            ```
 
-            1. Ensure you are on main branch and pull latest:
-               ```bash
-               git checkout main
-               git pull origin main
-               ```
-            2. Stage and commit all changes:
-               ```bash
-               git add -A
-               git commit -m "planning: create implementation plan for story $(date -u +'%Y-%m-%d')"
-               ```
-            3. Push directly to main:
-               ```bash
-               git push origin main
-               ```
+            **CRITICAL**: Push changes before exiting.
 
-            **CRITICAL**: Do NOT exit without pushing changes. Any local commits that are not pushed will be lost.
-
-            ## Important Constraints:
+            ## Constraints
             - Plan only 1 story per run
-            - Only plan stories with status 'approved'
-            - Plans are saved in ai_docs/Plans/ folder
-            - 30-minute timeout - stop if exceeded
-
-            If no approved stories exist, exit successfully without making any commits.
+            - 30-minute timeout
 
           # Tool permissions for file operations, database access, and git
           claude_args: |

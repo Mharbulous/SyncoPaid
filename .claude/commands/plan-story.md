@@ -4,6 +4,14 @@ Create implementation plans for approved story-nodes using the story-planning sk
 
 $Arguments
 
+## CI Mode
+
+For automated workflows (GitHub Actions), use the `story-planning-ci` skill directly instead of this command:
+```
+Skill(skill="story-planning-ci")
+```
+This CI-optimized skill reduces token usage by ~60% with compact output and streamlined templates.
+
 ## Instructions
 
 Invoke the `story-planning` skill to create implementation plans for approved stories.
