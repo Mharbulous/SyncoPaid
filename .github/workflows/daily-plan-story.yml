@@ -22,7 +22,7 @@ jobs:
       - name: Run Claude Code to plan stories
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             Run the /plan-story slash command to create an implementation plan for the highest-priority approved story.
 

@@ -21,7 +21,7 @@ jobs:
       - name: Run Claude Code /write-stories
         uses: anthropic/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: "/write-stories"
           allowed_tools: "Bash,Read,Write,Edit,Glob,Grep,Task,Skill,TodoWrite"
           timeout_minutes: 30
