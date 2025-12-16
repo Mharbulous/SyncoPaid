@@ -30,6 +30,19 @@ Generate **evidence-based user stories** for a given parent node by:
 - Manually creating 1-2 specific stories (just add them directly to the database)
 - Projects without git history (stories need evidence)
 
+## Multi-Node Batching (CI Optimization)
+
+When called with multiple node IDs (e.g., "Generate stories for nodes: 1.2, 1.3"):
+
+1. **Parse all node IDs** from the instruction
+2. **Perform Steps 0-2 once** (vision check, git analysis) - these are shared context
+3. **Loop through nodes for Steps 3-6**: For each node, run context gathering, gap analysis, and story generation
+4. **Output single combined report** (or minimal CI output) covering all nodes
+
+**Token savings:** Processing N nodes in one invocation avoids loading this skill document N times, saving ~2,800 tokens per additional node.
+
+**Distribution rule:** Generate max 1 story per node when batching, total max 2 stories across all nodes unless explicitly told otherwise.
+
 ## Storage
 
 **Database:** `.claude/data/story-tree.db`
@@ -387,11 +400,18 @@ Consider running the `anticipate` skill to create vision files for better story 
 
 **When running in CI/automation context** (e.g., scheduled GitHub Actions), use this minimal output format instead of the full report:
 
+**Single node:**
 ```
 ✓ Generated [N] stories for node [PARENT_ID]:
   - [STORY_ID_1]: [Title 1]
   - [STORY_ID_2]: [Title 2]
-  - [STORY_ID_3]: [Title 3]
+```
+
+**Multi-node batch:**
+```
+✓ Generated [N] stories across [M] nodes:
+  [NODE_1]: [STORY_ID_1] - [Title 1]
+  [NODE_2]: [STORY_ID_2] - [Title 2]
 ```
 
 **CI mode indicators:**
