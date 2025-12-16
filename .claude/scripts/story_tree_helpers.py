@@ -21,8 +21,8 @@ def get_prerequisites():
         'db_exists': os.path.exists(DB_PATH),
         'approved_count': 0,
         'rejected_with_notes_count': 0,
-        'vision_exists': os.path.exists(f'{XSTORY_DIR}/{today}-user-vision.md'),
-        'anti_vision_exists': os.path.exists(f'{XSTORY_DIR}/{today}-user-anti-vision.md'),
+        'goals_exists': os.path.exists(f'{XSTORY_DIR}/{today}-goals.md'),
+        'non_goals_exists': os.path.exists(f'{XSTORY_DIR}/{today}-non-goals.md'),
     }
 
     if result['db_exists']:
@@ -39,7 +39,7 @@ def get_prerequisites():
 
 
 def get_approved_stories():
-    """Output approved stories for vision synthesis."""
+    """Output approved stories for goal synthesis."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
@@ -56,7 +56,7 @@ def get_approved_stories():
 
 
 def get_rejected_stories():
-    """Output rejected stories with notes for anti-vision synthesis."""
+    """Output rejected stories with notes for non-goals synthesis."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
