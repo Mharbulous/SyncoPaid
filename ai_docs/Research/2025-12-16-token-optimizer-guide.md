@@ -65,12 +65,12 @@ CLAUDE.md is automatically loaded into the `claudeMd` system context on every co
 # Step 1: Check existence
 python -c "
 import os
-vision_path = 'ai_docs/user-vision.md'
-anti_vision_path = 'ai_docs/user-anti-vision.md'
+vision_path = 'ai_docs/non-goals.md'
+anti_vision_path = 'ai_docs/user-non-goals.md'
 has_vision = os.path.exists(vision_path)
 has_anti_vision = os.path.exists(anti_vision_path)
 print(f'Vision file exists: {has_vision}')
-print(f'Anti-vision file exists: {has_anti_vision}')
+print(f'non-goals file exists: {has_anti_vision}')
 "
 
 # Step 2: If exists, read file (another tool call)
@@ -83,7 +83,7 @@ print(f'Anti-vision file exists: {has_anti_vision}')
 python -c "
 import os, json
 result = {'vision': None, 'anti_vision': None, 'has_vision': False, 'has_anti_vision': False}
-for key, path in [('vision', 'ai_docs/user-vision.md'), ('anti_vision', 'ai_docs/user-anti-vision.md')]:
+for key, path in [('vision', 'ai_docs/non-goals.md'), ('anti_vision', 'ai_docs/user-non-goals.md')]:
     if os.path.exists(path):
         result[f'has_{key}'] = True
         with open(path) as f:

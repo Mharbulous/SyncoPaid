@@ -105,7 +105,7 @@ prompt: |
 
 ```python
 # Step 0.1: Check existence
-python -c "import os; print(os.path.exists('ai_docs/user-vision.md'))"
+python -c "import os; print(os.path.exists('ai_docs/non-goals.md'))"
 
 # Step 0.2: If exists, read file
 # (separate operation)
@@ -118,7 +118,7 @@ python -c "import os; print(os.path.exists('ai_docs/user-vision.md'))"
 python -c "
 import os, json
 result = {'vision': None, 'anti_vision': None}
-for name, path in [('vision', 'ai_docs/user-vision.md'), ('anti_vision', 'ai_docs/user-anti-vision.md')]:
+for name, path in [('vision', 'ai_docs/non-goals.md'), ('anti_vision', 'ai_docs/user-non-goals.md')]:
     if os.path.exists(path):
         with open(path) as f: result[name] = f.read()
 print(json.dumps(result))

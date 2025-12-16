@@ -39,7 +39,7 @@ The `visualize.yml` GitHub Action workflow consumes ~32,000 tokens and costs $0.
 
 ### 3. Hardcoded Date Example Causes Agent Errors (Est. -1,500 tokens)
 
-**Issue**: Agent prompts contain `2025-12-15` as example date. The anti-vision agent created a file with wrong date, requiring 6 extra tool calls to detect and fix.
+**Issue**: Agent prompts contain `2025-12-15` as example date. The non-goals agent created a file with wrong date, requiring 6 extra tool calls to detect and fix.
 
 **Location**: Skill file lines 97, 159
 
@@ -91,8 +91,8 @@ def get_prerequisites():
         'db_exists': os.path.exists(DB_PATH),
         'approved_count': 0,
         'rejected_with_notes_count': 0,
-        'vision_exists': os.path.exists(f'{XSTORY_DIR}/{today}-user-vision.md'),
-        'anti_vision_exists': os.path.exists(f'{XSTORY_DIR}/{today}-user-anti-vision.md'),
+        'vision_exists': os.path.exists(f'{XSTORY_DIR}/{today}-non-goals.md'),
+        'anti_vision_exists': os.path.exists(f'{XSTORY_DIR}/{today}-user-non-goals.md'),
     }
 
     if result['db_exists']:
@@ -123,7 +123,7 @@ def get_approved_stories():
     conn.close()
 
 def get_rejected_stories():
-    """Output rejected stories with notes for anti-vision synthesis."""
+    """Output rejected stories with notes for non-goals synthesis."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
@@ -176,12 +176,12 @@ Reduce `.claude/skills/visualization/SKILL.md` to essential instructions:
 ```markdown
 ---
 name: visualization
-description: Generate vision docs from story-tree database (approved → vision, rejected → anti-vision)
+description: Generate vision docs from story-tree database (approved → vision, rejected → non-goals)
 ---
 
 # Visualization Skill
 
-Generate `YYYY-MM-DD-user-vision.md` and `YYYY-MM-DD-user-anti-vision.md` in `ai_docs/Xstory/`.
+Generate `YYYY-MM-DD-non-goals.md` and `YYYY-MM-DD-user-non-goals.md` in `ai_docs/Xstory/`.
 
 ## Workflow
 
@@ -198,7 +198,7 @@ Launch TWO Task agents simultaneously (use haiku model):
 
 **Agent 1 (vision)**: Query approved stories with `python .claude/scripts/story_tree_helpers.py approved`, synthesize into vision doc with sections: What We're Building, Target User, Core Capabilities, Guiding Principles.
 
-**Agent 2 (anti-vision)**: Query rejected stories with `python .claude/scripts/story_tree_helpers.py rejected`, synthesize into anti-vision doc with sections: Explicit Exclusions, Anti-Patterns, YAGNI Items, Philosophical Boundaries.
+**Agent 2 (non-goals)**: Query rejected stories with `python .claude/scripts/story_tree_helpers.py rejected`, synthesize into non-goals doc with sections: Explicit Exclusions, Anti-Patterns, YAGNI Items, Philosophical Boundaries.
 
 Both agents should read the most recent existing file first to preserve context.
 
