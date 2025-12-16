@@ -1,26 +1,28 @@
-# Story Tree Meta-Workflow Design
+# Story Tree Meta-Workflow Design (v4)
 
-This document describes the orchestration strategy for running multiple story-tree automation workflows sequentially, avoiding database conflicts while maintaining a simple enable/disable mechanism.
+This document describes the orchestration strategy for running story-tree automation in a loop until the pipeline is drained.
 
 ## Problem Statement
 
-The project has three GitHub Actions workflows that all modify the same SQLite database:
+The project has story-tree automation workflows that need coordination:
 
-| Workflow | Purpose | Current Schedule |
-|----------|---------|------------------|
-| `write-stories.yml` | Generate new concept stories | 2:00 AM PST |
-| `plan-stories.yml` | Create implementation plans for approved stories | 2:30 AM PST |
-| `synthesize-goals-non-goals.yml` | Generate vision documentation | 5:00 AM PST |
+| Workflow | Purpose | Cadence |
+|----------|---------|---------|
+| `plan-stories.yml` | Create implementation plans for approved stories | Part of loop |
+| `write-stories.yml` | Generate new concept stories | Part of loop |
+| `synthesize-goals-non-goals.yml` | Generate vision documentation | Separate (daily) |
 
-**Risks with independent scheduling:**
-- Database merge conflicts if workflows overlap
-- No coordination between workflows
-- No way to detect "no work available" state
-- No single control point to enable/disable automation
+**Problems with v3 approach:**
+- Wrong pipeline order: write→plan creates concept glut
+- Single cycle per night leaves work undone
+- Synthesize-goals in loop wastes cycles (only changes with user input)
 
-## Solution: Orchestrator Workflow
+## Solution: Looping Orchestrator
 
-Create a single **orchestrator workflow** that runs the three tasks sequentially as jobs within one workflow run.
+Create an **orchestrator workflow** that loops until the pipeline is idle:
+- **Plan first**: Drain approved stories before adding new ones
+- **Loop until idle**: Keep cycling until NO_APPROVED AND NO_CAPACITY
+- **Synthesize separately**: Keep goal synthesis as independent daily workflow
 
 ### Architecture
 
@@ -37,48 +39,49 @@ Create a single **orchestrator workflow** that runs the three tasks sequentially
                     │    is enabled        │
                     └──────────┬───────────┘
                                │
-              ┌────────────────┼────────────────┐
-              │                │                │
-         [DISABLED]      [ENABLED]        [ENABLED]
-              │                │           (manual)
-              ▼                ▼                │
-        ┌──────────┐  ┌───────────────────┐    │
-        │   EXIT   │  │   write-stories   │◄───┘
-        │ (skip)   │  │ Generate concepts │
-        └──────────┘  └─────────┬─────────┘
-                                │
-                     ┌──────────┴──────────┐
-                     │                     │
-                [SUCCESS]            [NO_CAPACITY]
-                     │                     │
-                     └──────────┬──────────┘
-                                │
-                                ▼
-                    ┌───────────────────────┐
-                    │    plan-stories       │
-                    │  Create impl plans    │
-                    │  (pulls latest first) │
-                    └─────────┬─────────────┘
-                              │
-                   ┌─────────┴─────────┐
-                   │                   │
-              [SUCCESS]          [NO_APPROVED]
-                   │                   │
-                   └─────────┬─────────┘
-                             │
-                             ▼
-                   ┌───────────────────────┐
-                   │   synthesize-goals    │
-                   │   Update docs         │
-                   │   (pulls latest)      │
-                   └─────────┬─────────────┘
-                             │
-                             ▼
-                   ┌───────────────────────┐
-                   │       summary         │
-                   │   Report results to   │
-                   │   GITHUB_STEP_SUMMARY │
-                   └───────────────────────┘
+              ┌────────────────┴────────────────┐
+              │                                 │
+         [DISABLED]                       [ENABLED]
+              │                                 │
+              ▼                                 ▼
+        ┌──────────┐              ┌─────────────────────────────┐
+        │   EXIT   │              │      drain-pipeline         │
+        │ (skip)   │              │   (loop until idle)         │
+        └──────────┘              └─────────────┬───────────────┘
+                                                │
+                                  ┌─────────────┴─────────────┐
+                                  │                           │
+                                  │  ┌──────────────────────┐ │
+                                  │  │    plan-stories      │ │
+                                  │  │  (drain approved)    │ │
+                                  │  └──────────┬───────────┘ │
+                                  │             │             │
+                                  │             ▼             │
+                                  │  ┌──────────────────────┐ │
+                                  │  │   write-stories      │ │
+                                  │  │  (fill capacity)     │ │
+                                  │  └──────────┬───────────┘ │
+                                  │             │             │
+                                  │    ┌────────┴────────┐    │
+                                  │    │ Both idle?      │    │
+                                  │    │ NO_APPROVED &&  │    │
+                                  │    │ NO_CAPACITY     │    │
+                                  │    └────────┬────────┘    │
+                                  │             │             │
+                                  │      ┌──────┴──────┐      │
+                                  │    [NO]          [YES]    │
+                                  │      │             │      │
+                                  │      │ (loop)      │      │
+                                  │      └─────────────│──────│
+                                  │                    │      │
+                                  └────────────────────│──────┘
+                                                       │
+                                                       ▼
+                                            ┌───────────────────────┐
+                                            │       summary         │
+                                            │   Report loop results │
+                                            │   GITHUB_STEP_SUMMARY │
+                                            └───────────────────────┘
 ```
 
 ### Key Design Decisions
@@ -96,17 +99,30 @@ Location: Settings > Secrets and variables > Actions > Variables
 
 When set to `false`, the gate job exits early and all subsequent jobs are skipped.
 
-#### 2. Sequential Jobs with Git Sync
+#### 2. Pipeline Order: Drain Before Fill
 
-Each job in the sequence:
-1. Checks out the repository fresh
-2. Pulls latest from main (to get previous job's changes)
-3. Does its work
-4. Commits and pushes if changes were made
+**Principle**: Clear downstream work before creating upstream work.
 
-This ensures each job sees the previous job's commits without conflicts.
+```
+Plan first → Write second
+(drain)      (fill)
+```
 
-#### 3. Concurrency Group
+This prevents "concept glut" where approved stories pile up waiting for planning while new concepts keep being added.
+
+#### 3. Loop Until Idle
+
+The orchestrator loops internally until **both** conditions are true:
+- `NO_APPROVED`: No approved stories waiting for planning
+- `NO_CAPACITY`: All tree nodes at capacity
+
+| Exit Condition | Meaning |
+|----------------|---------|
+| `IDLE` | Both NO_APPROVED and NO_CAPACITY in same cycle |
+| `MAX_CYCLES` | Safety limit reached (default: 10) |
+| `ERROR` | Script or Claude failure |
+
+#### 4. Concurrency Group
 
 ```yaml
 concurrency:
@@ -116,17 +132,9 @@ concurrency:
 
 This prevents multiple orchestrator runs from overlapping.
 
-#### 4. Early Exit on No Work
+#### 5. Synthesize-Goals is Separate
 
-Each job can detect "no work available":
-
-| Job | No-Work Signal | Meaning |
-|-----|----------------|---------|
-| write-stories | `NO_CAPACITY` | All tree nodes are at capacity |
-| plan-stories | `NO_APPROVED` | No stories with status=approved |
-| synthesize-goals | `NO_CHANGES` | Documentation already up to date |
-
-When a job detects no work, it exits successfully and the next job continues. This is simpler than tracking "idle runs" - each run is cheap since it exits early.
+Goal synthesis only changes when the user acts (approves/rejects stories). Since there's no user input during CI, it runs as a separate daily workflow, not part of the loop.
 
 ## State Diagram
 
@@ -169,64 +177,67 @@ gate:
         fi
 ```
 
-### Job 2: write-stories
+### Job 2: drain-pipeline
 
-**Purpose:** Generate new concept stories for under-capacity nodes
+**Purpose:** Loop plan→write until pipeline is idle
 
-**Triggers:** Runs if gate.enabled=true and not skipped via input
+**Triggers:** Runs if gate.enabled=true
 
-**Steps:**
-1. Checkout with full git history
-2. Run `python .claude/scripts/story_workflow.py --ci`
-3. If output is `NO_CAPACITY`, set result output and skip Claude
-4. Otherwise, run Claude Code to generate one story
-5. Insert story via `insert_story.py`
-6. Commit and push changes
+**Loop Logic (pseudo-code):**
+```python
+cycle = 0
+max_cycles = inputs.max_cycles or 10
 
-**Outputs:**
-- `result`: `SUCCESS` | `NO_CAPACITY` | `ERROR`
-- `stories_created`: 0 or 1
+while cycle < max_cycles:
+    # Step 1: Plan stories (drain approved backlog)
+    approved_count = query_db("SELECT COUNT(*) FROM stories WHERE status='approved'")
+    if approved_count > 0:
+        run_claude_code("story-planning-ci skill")
+        git_commit_push_if_changes()
+        plan_result = "SUCCESS"
+    else:
+        plan_result = "NO_APPROVED"
 
-### Job 3: plan-stories
+    # Step 2: Write stories (fill capacity)
+    capacity_output = run("story_workflow.py --ci")
+    if "NO_CAPACITY" not in capacity_output:
+        run_claude_code("generate story")
+        run("insert_story.py")
+        git_commit_push_if_changes()
+        write_result = "SUCCESS"
+    else:
+        write_result = "NO_CAPACITY"
 
-**Purpose:** Create implementation plans for approved stories
+    # Check exit condition
+    if plan_result == "NO_APPROVED" and write_result == "NO_CAPACITY":
+        exit_reason = "IDLE"
+        break
 
-**Triggers:** Runs after write-stories (success or no-capacity), if gate.enabled=true
+    cycle += 1
 
-**Steps:**
-1. Checkout and pull latest (to get write-stories changes)
-2. Query database for approved stories count
-3. If count=0, set `NO_APPROVED` and skip Claude
-4. Otherwise, run Claude Code with `story-planning-ci` skill
-5. Commit and push changes
-
-**Outputs:**
-- `result`: `SUCCESS` | `NO_APPROVED` | `ERROR`
-- `plans_created`: 0 or 1
-
-### Job 4: synthesize-goals
-
-**Purpose:** Update vision documentation from story tree
-
-**Triggers:** Runs after plan-stories (success or no-approved), if gate.enabled=true
-
-**Steps:**
-1. Checkout and pull latest
-2. Run Claude Code with `/visualize` command
-3. Commit and push if changes made
+if cycle >= max_cycles:
+    exit_reason = "MAX_CYCLES"
+```
 
 **Outputs:**
-- `result`: `SUCCESS` | `NO_CHANGES` | `ERROR`
+- `cycles_completed`: Number of iterations run
+- `plans_created`: Total plans created across all cycles
+- `stories_created`: Total stories created across all cycles
+- `exit_reason`: `IDLE` | `MAX_CYCLES` | `ERROR`
 
-### Job 5: summary
+### Job 3: summary
 
 **Purpose:** Generate pipeline summary
 
-**Triggers:** Always runs after all other jobs
+**Triggers:** Always runs after drain-pipeline
 
 **Steps:**
-1. Collect results from all jobs
-2. Write summary to `GITHUB_STEP_SUMMARY`
+1. Collect results from drain-pipeline
+2. Write summary to `GITHUB_STEP_SUMMARY` showing:
+   - Cycles completed
+   - Stories created
+   - Plans created
+   - Exit reason
 
 ## Usage
 
@@ -242,28 +253,23 @@ To re-enable:
 
 ### Manual Trigger with Options
 
-The orchestrator supports manual dispatch with skip options:
+The orchestrator supports manual dispatch:
 
 ```yaml
 workflow_dispatch:
   inputs:
-    skip_write:
-      type: boolean
-      default: false
-      description: Skip story writing step
-    skip_plan:
-      type: boolean
-      default: false
-      description: Skip story planning step
-    skip_synthesize:
-      type: boolean
-      default: false
-      description: Skip goal synthesis step
+    max_cycles:
+      type: number
+      default: 10
+      description: Maximum loop iterations (safety limit)
 ```
 
 ### Running Individual Workflows
 
-The original workflows (`write-stories.yml`, `plan-stories.yml`, `synthesize-goals-non-goals.yml`) can still be triggered manually via `workflow_dispatch` for testing or one-off runs.
+The original workflows can still be triggered manually via `workflow_dispatch`:
+- `write-stories.yml` - One-off story generation
+- `plan-stories.yml` - One-off planning
+- `synthesize-goals-non-goals.yml` - Runs on its own daily schedule (not part of loop)
 
 ## Implementation Files
 
@@ -272,7 +278,7 @@ The original workflows (`write-stories.yml`, `plan-stories.yml`, `synthesize-goa
 | `.github/workflows/story-tree-orchestrator.yml` | Main orchestrator (to be created) |
 | `.github/workflows/write-stories.yml` | Existing - kept for manual runs |
 | `.github/workflows/plan-stories.yml` | Existing - kept for manual runs |
-| `.github/workflows/synthesize-goals-non-goals.yml` | Existing - kept for manual runs |
+| `.github/workflows/synthesize-goals-non-goals.yml` | Separate daily workflow (not part of loop) |
 
 ## Design Evolution
 
@@ -287,8 +293,16 @@ The original workflows (`write-stories.yml`, `plan-stories.yml`, `synthesize-goa
 - **Flaw:** State files require commits, adding git history noise
 - **Flaw:** PAUSED state added unnecessary complexity
 
-### Version 3 (Final)
+### Version 3
 - Simplified to two states: ENABLED and DISABLED
 - No persistent state files - early exit is sufficient
 - Single repository variable as master switch
-- Each job pulls latest before committing to avoid conflicts
+- **Flaw:** Wrong pipeline order (write→plan) creates concept glut
+- **Flaw:** Single cycle per night leaves work undone
+- **Flaw:** synthesize-goals in loop (wrong cadence)
+
+### Version 4 (Current)
+- **Reversed pipeline order**: plan-stories FIRST, then write-stories
+- **Loop until idle**: Continue until NO_CAPACITY AND NO_APPROVED
+- **Removed synthesize-goals from loop**: Runs as separate daily workflow
+- Single drain-pipeline job with internal shell loop
