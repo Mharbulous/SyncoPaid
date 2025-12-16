@@ -60,20 +60,21 @@ conn.close()
 - `ai_docs/user-vision.md` - Product direction, target user, core capabilities, guiding principles
 - `ai_docs/user-anti-vision.md` - Explicit exclusions, anti-patterns, YAGNI items
 
-**Check for existence:**
+**Check and load vision files in one step:**
 ```python
 python -c "
-import os
-vision_path = 'ai_docs/user-vision.md'
-anti_vision_path = 'ai_docs/user-anti-vision.md'
-has_vision = os.path.exists(vision_path)
-has_anti_vision = os.path.exists(anti_vision_path)
-print(f'Vision file exists: {has_vision}')
-print(f'Anti-vision file exists: {has_anti_vision}')
+import os, json
+result = {'vision': None, 'anti_vision': None, 'has_vision': False, 'has_anti_vision': False}
+for key, path in [('vision', 'ai_docs/user-vision.md'), ('anti_vision', 'ai_docs/user-anti-vision.md')]:
+    if os.path.exists(path):
+        result[f'has_{key}'] = True
+        with open(path) as f:
+            result[key] = f.read()
+print(json.dumps(result, indent=2))
 "
 ```
 
-**If vision files exist**, read and internalize:
+**Using the result**, internalize:
 1. **What the product IS**: Target user, core capabilities, guiding principles
 2. **What the product is NOT**: Explicit exclusions, anti-patterns to avoid
 3. **Philosophical boundaries**: What kinds of features align vs. conflict with product vision
@@ -381,6 +382,24 @@ Consider running the `anticipate` skill to create vision files for better story 
 - Use `story-tree` to update status: "Mark [story-id] as approved"
 - Generated stories will appear in next tree visualization
 ```
+
+### Step 7 (CI Mode): Minimal Output
+
+**When running in CI/automation context** (e.g., scheduled GitHub Actions), use this minimal output format instead of the full report:
+
+```
+✓ Generated [N] stories for node [PARENT_ID]:
+  - [STORY_ID_1]: [Title 1]
+  - [STORY_ID_2]: [Title 2]
+  - [STORY_ID_3]: [Title 3]
+```
+
+**CI mode indicators:**
+- Running via GitHub Actions workflow
+- Called by `/write-stories` command in autonomous mode
+- No interactive user session
+
+**Benefits:** Reduces token usage by ~500 tokens per invocation while preserving essential feedback.
 
 ## Integration with Story-Tree
 

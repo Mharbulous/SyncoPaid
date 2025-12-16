@@ -58,12 +58,11 @@ jobs:
 
             ## Workflow Steps:
 
-            1. Read CLAUDE.md for project conventions
-            2. Execute the /write-stories command which will:
+            1. Execute the /write-stories command which will:
                - Query the story-tree database for nodes with capacity
                - Use the brainstorm-story skill to generate stories
                - Insert new concept stories into the database
-            3. Commit and push any changes (see "Git Operations" section below)
+            2. Commit and push any changes (see "Git Operations" section below)
 
             ## Git Operations (REQUIRED for ANY file changes):
 
