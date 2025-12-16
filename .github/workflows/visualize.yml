@@ -41,59 +41,19 @@ jobs:
 
           # Direct prompt mode for scheduled automation
           prompt: |
-            REPO: ${{ github.repository }}
-            MODE: Daily Visualization Update (YOLO mode - fully autonomous)
+            MODE: Daily Visualization Update (autonomous)
 
-            You are running the automated visualization workflow for SyncoPaid.
-            This is a scheduled CI run - complete all tasks autonomously without user interaction.
+            Execute /visualize to generate vision docs from story-tree database.
 
-            ## Primary Task: Generate Vision Documentation
+            YOLO mode behaviors:
+            - No approval steps - complete autonomously
+            - Skip TodoWrite - steps are predictable
+            - Commit with: "docs: auto-update visualization YYYY-MM-DD"
+            - Push to main
 
-            Run the /visualize slash command to generate/update vision documentation based on the story-tree database.
+            Git workflow: git checkout main && git pull && [run /visualize] && git add -A && git commit && git push
 
-            Key behaviors for YOLO mode:
-            - Skip all approval steps - do NOT wait for user confirmation
-            - Generate vision documentation from approved story nodes
-            - Create commits directly with clear messages
-            - No interactive prompts - complete the workflow autonomously
-
-            ## Workflow Steps:
-
-            1. Read CLAUDE.md for project conventions
-            2. Execute the /visualize command which will:
-               - Use the visualization skill to analyze the story-tree database
-               - Generate vision documentation in ai_docs/
-               - Summarize what the vision IS (from approved nodes)
-               - Summarize what the vision is NOT (from rejected nodes with notes)
-            3. Commit and push any changes (see "Git Operations" section below)
-
-            ## Git Operations (REQUIRED for ANY file changes):
-
-            **You MUST complete these steps for ANY changes made**:
-
-            1. Ensure you are on main branch and pull latest:
-               ```bash
-               git checkout main
-               git pull origin main
-               ```
-            2. Stage and commit all changes:
-               ```bash
-               git add -A
-               git commit -m "docs: auto-update visualization $(date -u +'%Y-%m-%d')"
-               ```
-            3. Push directly to main:
-               ```bash
-               git push origin main
-               ```
-
-            **CRITICAL**: Do NOT exit without pushing changes. Any local commits that are not pushed will be lost.
-
-            ## Important Constraints:
-            - Update vision documentation based on current story-tree state
-            - Output files go in ai_docs/ folder
-            - 30-minute timeout - stop if exceeded
-
-            If the story-tree database doesn't exist or has no relevant data, exit successfully without making any commits.
+            If no story data exists, exit without commits.
 
           # Tool permissions for file operations, database access, and git
           claude_args: |
