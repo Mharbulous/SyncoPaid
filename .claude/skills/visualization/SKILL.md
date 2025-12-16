@@ -1,9 +1,9 @@
 ---
-name: anticipate
-description: Use when user says "anticipate", "update vision", "what's my vision", "show vision", "vision summary", "what am I building", "project direction", or asks about the overall direction or intent of the project - generates two markdown files summarizing the user's vision based on approved story nodes (what the vision IS) and rejected story nodes with notes (what the vision is NOT).
+name: visualization
+description: Use when user says "visualize", "update vision", "what's my vision", "show vision", "vision summary", "what am I building", "project direction", or asks about the overall direction or intent of the project - generates two markdown files summarizing the user's vision based on approved story nodes (what the vision IS) and rejected story nodes with notes (what the vision is NOT).
 ---
 
-# Anticipate - Vision Synthesis Skill
+# Visualization - Vision Synthesis Skill
 
 ## Purpose
 
@@ -205,7 +205,7 @@ Files location: `ai_docs/`
 
 ## Example Execution
 
-When user says "anticipate" or "update vision":
+When user says "visualize" or "update vision":
 
 ```
 1. Check database has approved/rejected stories ✓
