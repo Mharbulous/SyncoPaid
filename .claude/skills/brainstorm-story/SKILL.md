@@ -100,7 +100,7 @@ print(json.dumps(result, indent=2))
 **If vision files do NOT exist:**
 - Skip vision-based filtering
 - Generate stories based purely on git commits and gap analysis
-- Consider suggesting the user run the `anticipate` skill to create vision files
+- Consider suggesting the user run the `visualization` skill to create vision files
 
 **Action:** Check for files, read them if they exist, then proceed to context gathering.
 
@@ -338,7 +338,7 @@ Repeat for each generated story (max 3).
 ## Note on Vision Files
 
 Vision files not found. Stories generated based on git commits and gap analysis only.
-Consider running the `anticipate` skill to create vision files for better story alignment.
+Consider running the `visualization` skill to create vision files for better story alignment.
 
 ## Context Analysis
 
@@ -476,7 +476,7 @@ Before finalizing any story generation:
 **If vision files do NOT exist:**
 - [ ] Stories are grounded in git commits or clear functional gaps
 - [ ] No speculative features without evidence
-- [ ] Consider recommending the `anticipate` skill to the user
+- [ ] Consider recommending the `visualization` skill to the user
 
 ## Common Mistakes (STOP Before Making These)
 
@@ -536,7 +536,7 @@ Before finalizing any story generation:
 
 **Related context**: Commits abc123, def456 added task creation flow. Gap analysis shows no keyboard-driven path exists, which is common in task management apps for power users.
 
-**Note**: No vision files found. Consider running `anticipate` skill to create them.
+**Note**: No vision files found. Consider running `visualization` skill to create them.
 ```
 
 ### Bad Story Example (Vision Violation - if anti-vision exists)
@@ -598,4 +598,4 @@ Before finalizing any story generation:
 - **Story Tree Skill:** `.claude/skills/story-tree/SKILL.md`
 - **Schema:** `.claude/skills/story-tree/references/schema.sql`
 - **21-Status System:** See story-tree skill SKILL.md for full status definitions
-- **Anticipate Skill:** `.claude/skills/anticipate/SKILL.md` - Use to generate vision files if they don't exist
+- **visualization Skill:** `.claude/skills/visualization/SKILL.md` - Use to generate vision files if they don't exist
