@@ -8,17 +8,17 @@ description: Use when user says "visualize", "update vision", "what's my vision"
 ## Purpose
 
 Synthesize the user's **product vision** from the story-tree database by analyzing:
-- **Approved stories** → What the user wants to build (`user-vision.md`)
-- **Rejected stories with notes** → What the user explicitly doesn't want (`user-anti-vision.md`)
+- **Approved stories** → What the user wants to build (`YYYY-MM-DD-user-vision.md`)
+- **Rejected stories with notes** → What the user explicitly doesn't want (`YYYY-MM-DD-user-anti-vision.md`)
 
-This creates living documentation that evolves as users approve/reject more stories.
+This creates living documentation that evolves as users approve/reject more stories. Files are saved with date prefixes in `ai_docs/Xstory/` and are not updated if files from today already exist.
 
 ## Output Files
 
 | File | Location | Content |
 |------|----------|---------|
-| `user-vision.md` | `ai_docs/user-vision.md` | Concise bullet-point summary of what the user is building |
-| `user-anti-vision.md` | `ai_docs/user-anti-vision.md` | Bullet-point summary of what the vision explicitly excludes |
+| `YYYY-MM-DD-user-vision.md` | `ai_docs/Xstory/YYYY-MM-DD-user-vision.md` | Concise bullet-point summary of what the user is building |
+| `YYYY-MM-DD-user-anti-vision.md` | `ai_docs/Xstory/YYYY-MM-DD-user-anti-vision.md` | Bullet-point summary of what the vision explicitly excludes |
 
 ## When to Use
 
@@ -37,9 +37,9 @@ This creates living documentation that evolves as users approve/reject more stor
 
 **CRITICAL:** For token efficiency, spawn TWO parallel agents using the Task tool. Each agent handles one vision file independently.
 
-### Step 1: Check Prerequisites
+### Step 1: Check Prerequisites and Today's Files
 
-Verify story-tree database exists and has relevant data:
+First, verify story-tree database exists and has relevant data:
 
 ```python
 python -c "
@@ -61,11 +61,31 @@ conn.close()
 
 If both counts are 0, inform user there's insufficient data to generate vision summaries.
 
+Then, check if today's vision files already exist:
+
+```python
+import os
+from datetime import date
+
+today = date.today().strftime('%Y-%m-%d')
+xstory_dir = 'ai_docs/Xstory'
+vision_file = f'{xstory_dir}/{today}-user-vision.md'
+anti_vision_file = f'{xstory_dir}/{today}-user-anti-vision.md'
+
+vision_exists = os.path.exists(vision_file)
+anti_vision_exists = os.path.exists(anti_vision_file)
+
+print(f'Vision file exists for today: {vision_exists}')
+print(f'Anti-vision file exists for today: {anti_vision_exists}')
+```
+
+If BOTH files already exist for today's date, inform the user that the vision files are already up-to-date for today and skip the parallel agents. If only one exists, proceed to update only the missing file.
+
 ### Step 2: Spawn Parallel Vision Agents
 
 Use the Task tool to spawn TWO agents simultaneously:
 
-#### Agent 1: Vision Synthesis (user-vision.md)
+#### Agent 1: Vision Synthesis (YYYY-MM-DD-user-vision.md)
 
 ```
 Prompt for Agent 1:
@@ -73,10 +93,11 @@ Prompt for Agent 1:
 You are synthesizing the user's product vision from approved story nodes.
 
 DATABASE: .claude/data/story-tree.db
-OUTPUT FILE: ai_docs/user-vision.md
+OUTPUT FILE: ai_docs/Xstory/YYYY-MM-DD-user-vision.md
+  (Replace YYYY-MM-DD with today's date in format: 2025-12-15)
 
 STEPS:
-1. Read existing ai_docs/user-vision.md if it exists (to preserve context)
+1. Read the most recent ai_docs/Xstory/*-user-vision.md file if it exists (to preserve context)
 2. Query all approved stories from the database:
 
    python -c "
@@ -102,7 +123,7 @@ STEPS:
    - Key capabilities being built
    - Underlying values and priorities
 
-4. Write ai_docs/user-vision.md with this structure:
+4. Write ai_docs/Xstory/YYYY-MM-DD-user-vision.md with this structure (using today's date):
 
    # Product Vision
 
@@ -126,7 +147,7 @@ STEPS:
 ---
 ```
 
-#### Agent 2: Anti-Vision Synthesis (user-vision-is-not.md)
+#### Agent 2: Anti-Vision Synthesis (YYYY-MM-DD-user-anti-vision.md)
 
 ```
 Prompt for Agent 2:
@@ -134,10 +155,11 @@ Prompt for Agent 2:
 You are synthesizing what the user's product vision explicitly EXCLUDES based on rejected stories.
 
 DATABASE: .claude/data/story-tree.db
-OUTPUT FILE: ai_docs/user-anti-vision.md
+OUTPUT FILE: ai_docs/Xstory/YYYY-MM-DD-user-anti-vision.md
+  (Replace YYYY-MM-DD with today's date in format: 2025-12-15)
 
 STEPS:
-1. Read existing ai_docs/user-anti-vision.md if it exists (to preserve context)
+1. Read the most recent ai_docs/Xstory/*-user-anti-vision.md file if it exists (to preserve context)
 2. Query all rejected stories WITH notes from the database:
 
    python -c "
@@ -163,7 +185,7 @@ STEPS:
    - Features deemed unnecessary (YAGNI)
    - Philosophical boundaries
 
-4. Write ai_docs/user-anti-vision.md with this structure:
+4. Write ai_docs/Xstory/YYYY-MM-DD-user-anti-vision.md with this structure (using today's date):
 
    # What This Product is NOT
 
@@ -194,13 +216,13 @@ After both agents complete, summarize:
 ```markdown
 # Vision Files Updated
 
-## user-vision.md
+## YYYY-MM-DD-user-vision.md
 [Summary from Agent 1]
 
-## user-vision-is-not.md
+## YYYY-MM-DD-user-anti-vision.md
 [Summary from Agent 2]
 
-Files location: `ai_docs/`
+Files location: `ai_docs/Xstory/`
 ```
 
 ## Example Execution
