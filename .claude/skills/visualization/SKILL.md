@@ -3,247 +3,69 @@ name: visualization
 description: Use when user says "visualize", "update vision", "what's my vision", "show vision", "vision summary", "what am I building", "project direction", or asks about the overall direction or intent of the project - generates two markdown files summarizing the user's vision based on approved story nodes (what the vision IS) and rejected story nodes with notes (what the vision is NOT).
 ---
 
-# Visualization - Vision Synthesis Skill
+# Visualization Skill
 
-## Purpose
-
-Synthesize the user's **product vision** from the story-tree database by analyzing:
-- **Approved stories** → What the user wants to build (`YYYY-MM-DD-user-vision.md`)
-- **Rejected stories with notes** → What the user explicitly doesn't want (`YYYY-MM-DD-user-anti-vision.md`)
-
-This creates living documentation that evolves as users approve/reject more stories. Files are saved with date prefixes in `ai_docs/Xstory/` and are not updated if files from today already exist.
-
-## Output Files
-
-| File | Location | Content |
-|------|----------|---------|
-| `YYYY-MM-DD-user-vision.md` | `ai_docs/Xstory/YYYY-MM-DD-user-vision.md` | Concise bullet-point summary of what the user is building |
-| `YYYY-MM-DD-user-anti-vision.md` | `ai_docs/Xstory/YYYY-MM-DD-user-anti-vision.md` | Bullet-point summary of what the vision explicitly excludes |
-
-## When to Use
-
-- User explicitly asks about vision or project direction
-- Before generating new stories (to ensure alignment)
-- After significant batch of approvals/rejections
-- When onboarding to understand project intent
-
-## When NOT to Use
-
-- No approved or rejected stories exist yet
-- User wants to manually write vision documentation
-- Just starting a fresh project (use story-tree first)
+Generate `{today}-user-vision.md` and `{today}-user-anti-vision.md` in `ai_docs/Xstory/`.
 
 ## Workflow
 
-**CRITICAL:** For token efficiency, spawn TWO parallel agents using the Task tool. Each agent handles one vision file independently.
+### Step 1: Check Prerequisites
 
-### Step 1: Check Prerequisites and Today's Files
-
-First, verify story-tree database exists and has relevant data:
-
-```python
-python -c "
-import sqlite3
-conn = sqlite3.connect('.claude/data/story-tree.db')
-cursor = conn.cursor()
-
-cursor.execute(\"SELECT COUNT(*) FROM story_nodes WHERE status = 'approved'\")
-approved = cursor.fetchone()[0]
-
-cursor.execute(\"SELECT COUNT(*) FROM story_nodes WHERE status = 'rejected' AND notes IS NOT NULL AND notes != ''\")
-rejected_with_notes = cursor.fetchone()[0]
-
-print(f'Approved stories: {approved}')
-print(f'Rejected stories with notes: {rejected_with_notes}')
-conn.close()
-"
+```bash
+python .claude/scripts/story_tree_helpers.py prereq
 ```
 
-If both counts are 0, inform user there's insufficient data to generate vision summaries.
+Returns JSON with: `today`, `db_exists`, `approved_count`, `rejected_with_notes_count`, `vision_exists`, `anti_vision_exists`.
 
-Then, check if today's vision files already exist:
+**Exit early if**:
+- Both files exist for today, OR
+- No story data (`approved_count` = 0 AND `rejected_with_notes_count` = 0)
 
-```python
-import os
-from datetime import date
+### Step 2: Spawn Parallel Agents
 
-today = date.today().strftime('%Y-%m-%d')
-xstory_dir = 'ai_docs/Xstory'
-vision_file = f'{xstory_dir}/{today}-user-vision.md'
-anti_vision_file = f'{xstory_dir}/{today}-user-anti-vision.md'
+Launch TWO Task agents simultaneously (use haiku model for both):
 
-vision_exists = os.path.exists(vision_file)
-anti_vision_exists = os.path.exists(anti_vision_file)
+**Agent 1 (vision)** - Only if `vision_exists` is false:
+```
+Query approved stories: python .claude/scripts/story_tree_helpers.py approved
 
-print(f'Vision file exists for today: {vision_exists}')
-print(f'Anti-vision file exists for today: {anti_vision_exists}')
+Read most recent ai_docs/Xstory/*-user-vision.md to preserve context.
+
+Write ai_docs/Xstory/{today}-user-vision.md with sections:
+- What We're Building (1-2 sentences)
+- Target User
+- Core Capabilities (bullets)
+- Guiding Principles (bullets)
+- Footer: *Auto-generated from approved story nodes. Last updated: {timestamp}*
+
+Return brief summary.
 ```
 
-If BOTH files already exist for today's date, inform the user that the vision files are already up-to-date for today and skip the parallel agents. If only one exists, proceed to update only the missing file.
-
-### Step 2: Spawn Parallel Vision Agents
-
-Use the Task tool to spawn TWO agents simultaneously:
-
-#### Agent 1: Vision Synthesis (YYYY-MM-DD-user-vision.md)
-
+**Agent 2 (anti-vision)** - Only if `anti_vision_exists` is false:
 ```
-Prompt for Agent 1:
----
-You are synthesizing the user's product vision from approved story nodes.
+Query rejected stories: python .claude/scripts/story_tree_helpers.py rejected
 
-DATABASE: .claude/data/story-tree.db
-OUTPUT FILE: ai_docs/Xstory/YYYY-MM-DD-user-vision.md
-  (Replace YYYY-MM-DD with today's date in format: 2025-12-15)
+Read most recent ai_docs/Xstory/*-user-anti-vision.md to preserve context.
 
-STEPS:
-1. Read the most recent ai_docs/Xstory/*-user-vision.md file if it exists (to preserve context)
-2. Query all approved stories from the database:
+Write ai_docs/Xstory/{today}-user-anti-vision.md with sections:
+- Explicit Exclusions (with rejection reasons)
+- Anti-Patterns to Avoid
+- YAGNI Items
+- Philosophical Boundaries
+- Footer: *Auto-generated from rejected story nodes. Last updated: {timestamp}*
 
-   python -c "
-   import sqlite3
-   conn = sqlite3.connect('.claude/data/story-tree.db')
-   cursor = conn.cursor()
-   cursor.execute('''
-       SELECT id, title, description, notes FROM story_nodes
-       WHERE status = 'approved'
-       ORDER BY id
-   ''')
-   for row in cursor.fetchall():
-       print(f'=== {row[0]}: {row[1]} ===')
-       print(row[2])
-       if row[3]: print(f'Notes: {row[3]}')
-       print()
-   conn.close()
-   "
-
-3. Analyze the approved stories to identify:
-   - Core product purpose
-   - Target user persona
-   - Key capabilities being built
-   - Underlying values and priorities
-
-4. Write ai_docs/Xstory/YYYY-MM-DD-user-vision.md with this structure (using today's date):
-
-   # Product Vision
-
-   ## What We're Building
-   [1-2 sentence summary of the product]
-
-   ## Target User
-   [Who this is for]
-
-   ## Core Capabilities
-   - [Bullet point for each major capability area]
-   - [Derived from approved story themes]
-
-   ## Guiding Principles
-   - [Values inferred from what's been approved]
-
-   ---
-   *Auto-generated from approved story nodes. Last updated: [timestamp]*
-
-5. Return a brief summary of what you synthesized.
----
+Return brief summary.
 ```
 
-#### Agent 2: Anti-Vision Synthesis (YYYY-MM-DD-user-anti-vision.md)
-
-```
-Prompt for Agent 2:
----
-You are synthesizing what the user's product vision explicitly EXCLUDES based on rejected stories.
-
-DATABASE: .claude/data/story-tree.db
-OUTPUT FILE: ai_docs/Xstory/YYYY-MM-DD-user-anti-vision.md
-  (Replace YYYY-MM-DD with today's date in format: 2025-12-15)
-
-STEPS:
-1. Read the most recent ai_docs/Xstory/*-user-anti-vision.md file if it exists (to preserve context)
-2. Query all rejected stories WITH notes from the database:
-
-   python -c "
-   import sqlite3
-   conn = sqlite3.connect('.claude/data/story-tree.db')
-   cursor = conn.cursor()
-   cursor.execute('''
-       SELECT id, title, description, notes FROM story_nodes
-       WHERE status = 'rejected' AND notes IS NOT NULL AND notes != ''
-       ORDER BY id
-   ''')
-   for row in cursor.fetchall():
-       print(f'=== {row[0]}: {row[1]} ===')
-       print(row[2])
-       print(f'REJECTION REASON: {row[3]}')
-       print()
-   conn.close()
-   "
-
-3. Analyze the rejection notes to identify:
-   - Explicit exclusions (what the product won't do)
-   - Anti-patterns the user wants to avoid
-   - Features deemed unnecessary (YAGNI)
-   - Philosophical boundaries
-
-4. Write ai_docs/Xstory/YYYY-MM-DD-user-anti-vision.md with this structure (using today's date):
-
-   # What This Product is NOT
-
-   ## Explicit Exclusions
-   - [Feature/capability explicitly rejected]
-     - *Reason: [from rejection notes]*
-
-   ## Anti-Patterns to Avoid
-   - [Pattern the user doesn't want]
-
-   ## YAGNI Items
-   - [Features marked as unnecessary complexity]
-
-   ## Philosophical Boundaries
-   - [Higher-level principles about what NOT to build]
-
-   ---
-   *Auto-generated from rejected story nodes. Last updated: [timestamp]*
-
-5. Return a brief summary of what exclusions you identified.
----
-```
+**Important**: Replace `{today}` with the date from Step 1 prerequisites (format: YYYY-MM-DD).
 
 ### Step 3: Report Results
 
-After both agents complete, summarize:
+Summarize what was generated, listing created files.
 
-```markdown
-# Vision Files Updated
+## Key Rules
 
-## YYYY-MM-DD-user-vision.md
-[Summary from Agent 1]
-
-## YYYY-MM-DD-user-anti-vision.md
-[Summary from Agent 2]
-
-Files location: `ai_docs/Xstory/`
-```
-
-## Example Execution
-
-When user says "visualize" or "update vision":
-
-```
-1. Check database has approved/rejected stories ✓
-2. Spawn Agent 1 (vision synthesis) and Agent 2 (anti-vision synthesis) in PARALLEL
-3. Wait for both to complete
-4. Report summaries to user
-```
-
-## Important Notes
-
-- **Always spawn both agents in parallel** - do not run sequentially
-- **Preserve existing content** - agents should read existing files first to maintain context
-- **Only include rejected stories with notes** - stories without rejection reasons don't inform the anti-vision
-- **Use Python sqlite3** - never use sqlite3 CLI (see story-tree skill for details)
-
-## References
-
-- Story-tree database: `.claude/data/story-tree.db`
-- Story-tree skill: `.claude/skills/story-tree/SKILL.md`
+- **Spawn agents in parallel** - never sequentially
+- **Use Python sqlite3** - not sqlite3 CLI
+- **Include rejection reasons** in anti-vision bullets
+- **Read existing files first** to preserve accumulated context
