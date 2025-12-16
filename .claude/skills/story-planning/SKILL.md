@@ -162,9 +162,21 @@ Where `[slug]` is the story title converted to lowercase-kebab-case (max 40 char
 ```markdown
 # [Story Title] - Implementation Plan
 
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Goal:** [One sentence from story description]
+
+**Architecture:** [2-3 sentences about implementation approach]
+
+**Tech Stack:** [Key modules/libraries involved]
+
+---
+
 **Story ID:** [ID]
 **Created:** [YYYY-MM-DD]
 **Status:** planned
+
+---
 
 ## Story
 
@@ -194,30 +206,55 @@ Where `[slug]` is the story title converted to lowercase-kebab-case (max 40 char
 
 ## Implementation Tasks
 
-### Task 1: [First task title]
+### Task N: [Component Name]
 
-**Files:** `path/to/file.py`
+**Files:**
+- Create: `exact/path/to/file.py`
+- Modify: `exact/path/to/existing.py:123-145`
+- Test: `tests/exact/path/to/test.py`
 
-[Detailed description of what to do]
+**Step 1: Write the failing test**
 
 ```python
-# Example code or pseudocode showing the approach
+def test_specific_behavior():
+    """Test that [behavior] works correctly."""
+    result = function(input)
+    assert result == expected
 ```
 
-**Verification:** [How to verify this task is complete]
+**Step 2: Run test to verify it fails**
 
-### Task 2: [Second task title]
+Run: `python -m pytest tests/path/test.py::test_specific_behavior -v`
+Expected: FAIL with "function not defined" or similar
 
-**Files:** `path/to/file.py`
+**Step 3: Write minimal implementation**
 
-[Continue for all tasks...]
+```python
+def function(input):
+    """[Docstring]."""
+    return expected
+```
+
+**Step 4: Run test to verify it passes**
+
+Run: `python -m pytest tests/path/test.py::test_specific_behavior -v`
+Expected: PASS
+
+**Step 5: Commit**
+
+```bash
+git add tests/path/test.py src/path/file.py
+git commit -m "feat: add specific feature"
+```
+
+[Repeat Task N+1, N+2... for all implementation tasks]
 
 ## Testing Plan
 
-- [ ] [Manual test step 1]
-- [ ] [Manual test step 2]
-- [ ] Run: `python -m syncopaid.<module>`
-- [ ] Verify no regressions in existing functionality
+- [ ] All unit tests pass: `python -m pytest -v`
+- [ ] Module test passes: `python -m syncopaid.<module>`
+- [ ] Manual verification of feature behavior
+- [ ] No regressions in existing functionality
 
 ## Acceptance Criteria Checklist
 
@@ -297,18 +334,44 @@ print('Status updated to planned')
 **Summary:**
 [2-3 sentence summary of the plan]
 
-## Next Steps
+## Execution Handoff
 
-1. Review the implementation plan at `ai_docs/Plans/[filename]`
-2. When ready to implement, say "implement [story-id]"
-3. The story status is now `planned`
+Plan complete and saved to `ai_docs/Plans/[filename]`.
+
+**Two execution options:**
+
+**1. Subagent-Driven (this session)**
+- I dispatch fresh subagent per task
+- Code review between tasks
+- Fast iteration with quality gates
+- **REQUIRED SUB-SKILL:** superpowers:subagent-driven-development
+
+**2. Parallel Session (separate)**
+- Open new Claude Code session in this directory
+- Batch execution with checkpoints
+- **REQUIRED SUB-SKILL:** superpowers:executing-plans
+
+**Which approach?**
 ```
+
+## Remember
+
+When generating plans, always:
+- **Exact file paths** - never "somewhere in src/"
+- **Complete code** - not "add validation" but the actual validation code
+- **Exact commands with expected output** - not just "run tests"
+- **DRY, YAGNI, TDD** - test first, minimal code, frequent commits
+- **One action per step** - each step takes 2-5 minutes max
+- **Reference relevant skills** - use @ syntax for skill references
 
 ## Autonomous Operation
 
+**Announce at start:** "I'm using the story-planning skill to create the implementation plan."
+
 When user says "plan story" or "create implementation plan":
-1. Run complete workflow (Steps 1-8) without asking permission
-2. Only ask for clarification if:
+1. Announce you're using this skill
+2. Run complete workflow (Steps 1-8) without asking permission
+3. Only ask for clarification if:
    - Multiple stories have identical priority scores (offer top 3 choices)
    - No approved stories exist
    - Specified story ID doesn't exist or isn't approved
@@ -323,6 +386,11 @@ Before completing the workflow, verify:
 - [ ] Plan includes specific file paths and code examples
 - [ ] Story status was updated to `planned`
 - [ ] Notes field was updated with plan file path
+- [ ] Each task has exactly 5 steps: test, verify fail, implement, verify pass, commit
+- [ ] All code examples are complete and copy-paste ready
+- [ ] All commands include expected output
+- [ ] No vague instructions like "add validation" or "handle errors"
+- [ ] Execution handoff options are presented at end
 
 ## Common Mistakes
 
@@ -333,6 +401,11 @@ Before completing the workflow, verify:
 | Not updating story status | MUST update to `planned` after creating plan file |
 | Planning already-planned stories | Check status is `approved` before proceeding |
 | Skipping dependency analysis | Always check for blockers before selecting story |
+| Writing multi-step tasks | Break into single-action steps (test/verify/implement/verify/commit) |
+| Omitting expected output | Every command needs "Expected: [what success looks like]" |
+| Vague code examples | Write complete, copy-paste ready code |
+| Skipping execution handoff | Always offer subagent-driven vs parallel session choice |
+| Large commits at end | Commit after each task (RED-GREEN-REFACTOR cycle) |
 
 ## References
 
