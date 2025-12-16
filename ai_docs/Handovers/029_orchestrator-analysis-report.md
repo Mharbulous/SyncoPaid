@@ -134,8 +134,30 @@ Currently the workflow doesn't know which specific story was planned/created. Wo
 2. Monitor steady-state behavior over several daily runs
 3. Consider improvements above if issues arise
 
+## Improvements Implemented
+
+Based on this analysis, the following enhancements were made to the orchestrator:
+
+### 1. Progress File Tracking
+- Creates `ai_docs/Progress/YYYY-MM-DD-GitHub-Actions-Results.md` for each run
+- Records every step with: Story ID, Action, Files Changed, Input/Output Tokens, Cost, Commit Time
+- Committed to repo at end of run for permanent record
+
+### 2. Token Usage Reporting
+- Changed from `--print` to `--output-format json` to capture usage data
+- Parses `usage.input_tokens`, `usage.output_tokens`, `total_cost_usd` from JSON
+- Includes in both progress file and GitHub Step Summary
+
+### 3. Enhanced Summary Output
+- Now shows detailed step-by-step table in GitHub Actions summary
+- Links to full progress report in repo
+- Clearer exit reason for max_cycles=1 test runs
+
+### 4. Story ID Visibility
+- Pre-queries database to identify which story will be planned
+- Captures `next_id` from capacity check for write steps
+- Full audit trail of which stories were advanced
+
 ## Known Limitations
 
-- No visibility into which specific stories were created (only counts)
-- Exit reason message could be clearer for test runs
 - Each cycle takes ~2 minutes (Claude latency), so max_cycles=10 could take 20+ minutes
