@@ -1,0 +1,33 @@
+name: Daily Story Planning
+
+# Run at 2:30 AM PST (10:30 UTC) every day
+on:
+  schedule:
+    - cron: '30 10 * * *'
+  # Allow manual triggering for testing
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+
+jobs:
+  plan-story:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Claude Code to plan stories
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Run the /plan-story slash command to create an implementation plan for the highest-priority approved story.
+
+            After planning is complete:
+            1. Commit any new plan files created
+            2. Push the changes to the main branch
+          allowed_tools: "Bash,Read,Write,Edit,Glob,Grep,Task,Skill,SlashCommand"
+          max_turns: 50
