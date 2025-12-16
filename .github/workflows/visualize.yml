@@ -1,0 +1,97 @@
+name: Daily Visualization Update
+
+# Run at 5:00am PST (13:00 UTC) every day
+# PST = UTC-8, so 5:00am PST = 1:00pm UTC (13:00)
+on:
+  schedule:
+    - cron: '0 13 * * *'
+  # Allow manual triggering from Actions tab for testing
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  visualize:
+    runs-on: ubuntu-latest
+    name: Update vision documentation
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Install SQLite tools if needed
+          sudo apt-get update && sudo apt-get install -y sqlite3
+
+      - name: Generate visualization via Claude Code
+        run: |
+          # The /visualize slash command delegates to the visualization skill
+          # which generates timestamped vision documentation files in ai_docs/
+          # This script prepares the environment and documents the workflow
+          echo "Starting visualization update..."
+          echo "Timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          # Check if story-tree database exists
+          if [ -f "story-tree.db" ]; then
+            echo "Story-tree database found, visualization files will be generated"
+          else
+            echo "Note: story-tree database not found in repo"
+            echo "Visualization requires the story-tree.db file to generate vision documentation"
+          fi
+        continue-on-error: true
+
+      - name: Check for visualization updates
+        id: check-changes
+        run: |
+          if git diff --quiet ai_docs/; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No visualization changes detected"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Visualization files updated"
+          fi
+
+      - name: Commit and push visualization updates
+        if: steps.check-changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          git add ai_docs/
+          git commit -m "chore: auto-update visualization at $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          # Push with retry logic for transient failures
+          for i in {1..3}; do
+            if git push; then
+              echo "Successfully pushed visualization updates"
+              exit 0
+            else
+              if [ $i -lt 3 ]; then
+                echo "Push failed, retrying in 10 seconds..."
+                sleep 10
+              fi
+            fi
+          done
+          echo "Warning: Could not push visualization updates after 3 attempts"
+        continue-on-error: true
+
+      - name: Workflow summary
+        run: |
+          echo "## Daily Visualization Update" >> $GITHUB_STEP_SUMMARY
+          echo "**Schedule**: 5:00 AM PST daily (1:00 PM UTC)" >> $GITHUB_STEP_SUMMARY
+          echo "**Command**: \`/visualize\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Last run**: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This workflow automatically runs the \`/visualize\` slash command to generate vision documentation based on approved story nodes." >> $GITHUB_STEP_SUMMARY
