@@ -155,7 +155,7 @@ else:
               git pull origin main --rebase || true
 
               # Invoke Claude Code for planning with JSON output
-              claude_output=$(claude --dangerously-skip-permissions \
+              claude_output=$(claude --print --dangerously-skip-permissions \
                 --output-format json \
                 --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Skill,SlashCommand,TodoWrite" \
                 --model claude-sonnet-4-5-20250929 \
@@ -225,7 +225,7 @@ else:
               next_id=$(echo "$capacity_output" | jq -r '.next_id // "unknown"' 2>/dev/null || echo "unknown")
 
               # Invoke Claude Code for story generation with JSON output
-              claude_output=$(claude --dangerously-skip-permissions \
+              claude_output=$(claude --print --dangerously-skip-permissions \
                 --output-format json \
                 --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Skill,SlashCommand,TodoWrite" \
                 --model claude-sonnet-4-5-20250929 \
