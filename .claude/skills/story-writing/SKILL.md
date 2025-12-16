@@ -1,23 +1,28 @@
 ---
 name: story-writing
-description: Use when user says "brainstorm stories", "generate story ideas", "brainstorm features", "create stories for [node]", or asks for new story ideas - generates evidence-based user stories for a given node based on git commit analysis, existing children, and gap analysis. Works with story-tree database to create concept stories with proper user story format and acceptance criteria.
+description: Use when user says "brainstorm stories", "generate story ideas", "brainstorm features", "create stories for [node]", or asks for new story ideas - FIRST refines any existing stories with status='refine' before generating new stories. Then generates evidence-based user stories for nodes with capacity based on git commit analysis, existing children, and gap analysis. Works with story-tree database to create concept stories with proper user story format and acceptance criteria.
 ---
 
 # Brainstorm Story - Story Idea Generator
 
 ## Purpose
 
-Generate **evidence-based user stories** for a given parent node by:
+**Priority 1: Refine existing stories** with `status='refine'`:
+- Rework stories that need improvement before creating new ones
+- Update refined stories to `status='concept'` (pending human approval)
+
+**Priority 2: Generate new stories** for a given parent node by:
 - Analyzing git commit history for implementation patterns
 - Reviewing existing children to avoid duplication
 - Identifying gaps in functionality
 - Creating properly formatted user stories with acceptance criteria
 - Inserting new stories as `concept` status (pending human approval)
 
-**Design philosophy:** Stories should emerge from actual development patterns and real gaps, not speculation.
+**Design philosophy:** Stories should emerge from actual development patterns and real gaps, not speculation. Existing stories needing refinement take priority over new story generation.
 
 ## When to Use
 
+- **Refining existing stories** - When stories with `status='refine'` exist in the database (handled automatically as priority)
 - User explicitly requests story generation for a specific node
 - Called by `story-tree` skill during autonomous backlog maintenance
 - Brainstorming new features for an area of the codebase
@@ -65,7 +70,93 @@ conn.close()
 
 ## Story Generation Workflow
 
-### Step 0: Check for Product Goals Files (Optional but Recommended)
+### Step 0: Check for Stories Needing Refinement (PRIORITY)
+
+**BEFORE generating new stories**, check if any existing stories have `status='refine'`. These stories need to be reworked before creating new concept stories.
+
+```python
+python -c "
+import sqlite3
+import json
+
+conn = sqlite3.connect('.claude/data/story-tree.db')
+conn.row_factory = sqlite3.Row
+cursor = conn.cursor()
+
+# Find all stories with status='refine'
+cursor.execute('''
+    SELECT s.id, s.title, s.description, s.status, s.notes,
+           (SELECT ancestor_id FROM story_paths
+            WHERE descendant_id = s.id AND depth = 1) as parent_id
+    FROM story_nodes s
+    WHERE s.status = 'refine'
+    ORDER BY s.created_at
+''')
+
+refine_stories = [dict(row) for row in cursor.fetchall()]
+print(json.dumps({'count': len(refine_stories), 'stories': refine_stories}, indent=2))
+conn.close()
+"
+```
+
+**If stories with `status='refine'` exist:**
+
+1. **Process each story** - Read the story's description, notes, and any feedback
+2. **Identify what needs refinement** - Common issues:
+   - Vague acceptance criteria
+   - Missing evidence/context
+   - Too broad scope
+   - Unclear user role
+   - Needs alignment with goals
+3. **Rework the story** - Apply the same quality standards as new stories:
+   - Specific user role (from goals.md or codebase context)
+   - Concrete capability with testable criteria
+   - Evidence from git commits or gap analysis
+   - Goals alignment (if goals files exist)
+4. **Update the story** - Save the refined description and change status to 'concept':
+
+```python
+python -c "
+import sqlite3
+
+conn = sqlite3.connect('.claude/data/story-tree.db')
+cursor = conn.cursor()
+
+cursor.execute('''
+    UPDATE story_nodes
+    SET description = ?,
+        status = 'concept',
+        updated_at = datetime('now')
+    WHERE id = ?
+''', ('REFINED_DESCRIPTION_HERE', 'STORY_ID'))
+
+conn.commit()
+conn.close()
+print('Story refined and status updated to concept')
+"
+```
+
+5. **Output refinement report** for each refined story:
+
+```markdown
+## Refined Story: [ID] - [Title]
+
+**Previous issues:**
+- [What was wrong with the original]
+
+**Changes made:**
+- [Specific improvements]
+
+**Status:** refine → concept (pending approval)
+```
+
+**IMPORTANT:** Only proceed to Step 0a (goals check) and new story generation AFTER all `refine` status stories have been reworked. If there are multiple `refine` stories, process them all first.
+
+**If NO stories have `status='refine'`:** Proceed directly to Step 0a.
+
+---
+
+### Step 0a: Check for Product Goals Files (Optional but Recommended)
 
 **BEFORE generating story ideas**, check if goals files exist to understand what the product IS and what it is NOT:
 
@@ -452,6 +543,11 @@ Human approval required to move from `concept` to `approved`.
 
 Before finalizing any story generation:
 
+**Refinement Priority Check:**
+- [ ] Checked for stories with `status='refine'` FIRST (Step 0)
+- [ ] All `refine` stories processed before generating new stories
+- [ ] Refined stories updated to `status='concept'` with improved descriptions
+
 **Evidence & Format:**
 - [ ] Each story has clear evidence (commits or gaps)
 - [ ] User story format is complete (As a/I want/So that)
@@ -482,6 +578,7 @@ Before finalizing any story generation:
 
 | Mistake | Why It Happens | What To Do Instead |
 |---------|----------------|-------------------|
+| **Skipping refine check** | Eager to generate new stories | **ALWAYS check for `status='refine'` stories FIRST (Step 0)** |
 | Using `sqlite3` CLI command | Copy-pasting shell-looking examples | Use Python's sqlite3 module (see Environment Requirements) |
 | Generating >3 stories | Trying to be thorough | Limit to 3 - story-tree will call again if needed |
 | Speculative features | Not grounding in evidence | Every story must reference commits OR specific gap |
