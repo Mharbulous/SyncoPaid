@@ -692,7 +692,7 @@ class SyncoPaidApp:
         logging.info("SyncoPaid starting...")
 
         # Sync "Start with Windows" registry to match config setting
-        # This also migrates old TimeLawg entries and updates exe path if moved
+        # This also migrates old SyncoPaid entries and updates exe path if moved
         sync_startup_registry(self.config.start_on_boot)
 
         # Show welcome message

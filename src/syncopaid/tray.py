@@ -103,7 +103,7 @@ def _get_canonical_exe_path() -> str:
     """
     Get the canonical executable path for registry startup.
 
-    If running as an old executable name (e.g., TimeLawg.exe) but
+    If running as an old executable name (e.g., SyncoPaid.exe) but
     SyncoPaid.exe exists in the same directory, returns the path
     to SyncoPaid.exe instead. This enables seamless migration when
     both files are deployed to a shared location.
@@ -133,7 +133,7 @@ def enable_startup() -> bool:
     Enable the application to start with Windows.
 
     Adds a registry entry pointing to SyncoPaid.exe. If running as an
-    old executable (e.g., TimeLawg.exe), will point to SyncoPaid.exe
+    old executable (e.g., SyncoPaid.exe), will point to SyncoPaid.exe
     in the same directory if it exists.
 
     Returns:
@@ -213,9 +213,9 @@ def disable_startup() -> bool:
 
 def _migrate_old_startup_entry() -> bool:
     """
-    Migrate old TimeLawg registry entry to SyncoPaid.
+    Migrate old SyncoPaid registry entry to SyncoPaid.
 
-    Removes the old "TimeLawg" entry if it exists.
+    Removes the old "SyncoPaid" entry if it exists.
 
     Returns:
         True if migration was performed, False otherwise.
@@ -233,11 +233,11 @@ def _migrate_old_startup_entry() -> bool:
 
         try:
             # Check if old entry exists
-            winreg.QueryValueEx(key, "TimeLawg")
+            winreg.QueryValueEx(key, "SyncoPaid")
             # If we get here, old entry exists - delete it
-            winreg.DeleteValue(key, "TimeLawg")
+            winreg.DeleteValue(key, "SyncoPaid")
             winreg.CloseKey(key)
-            logging.info("Migrated: removed old TimeLawg registry entry")
+            logging.info("Migrated: removed old SyncoPaid registry entry")
             return True
         except FileNotFoundError:
             # Old entry doesn't exist - nothing to migrate
@@ -254,7 +254,7 @@ def sync_startup_registry(start_on_boot: bool) -> bool:
     Sync the Windows startup registry entry to match the config setting.
 
     This should be called on every app startup to ensure:
-    1. Old TimeLawg entries are migrated
+    1. Old SyncoPaid entries are migrated
     2. Registry matches the user's saved preference
     3. Executable path is current (handles moves/renames)
 
@@ -267,7 +267,7 @@ def sync_startup_registry(start_on_boot: bool) -> bool:
     if not WINDOWS:
         return False
 
-    # First, migrate any old TimeLawg entry
+    # First, migrate any old SyncoPaid entry
     _migrate_old_startup_entry()
 
     # Now sync registry to match config

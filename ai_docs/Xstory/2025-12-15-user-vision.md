@@ -1,7 +1,7 @@
 # Product Vision
 
 ## What We're Building
-TimeLawg is an intelligent time-tracking application for lawyers that automatically captures work activities and uses AI to transform raw activity data into billable time entries with minimal manual effort.
+SyncoPaid is an intelligent time-tracking application for lawyers that automatically captures work activities and uses AI to transform raw activity data into billable time entries with minimal manual effort.
 
 ## Target User
 Lawyers who need to track billable hours across multiple matters and clients, particularly those frustrated with manual time entry and seeking to reduce administrative overhead while maintaining accurate billing records.
