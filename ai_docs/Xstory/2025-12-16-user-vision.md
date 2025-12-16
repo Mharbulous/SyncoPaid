@@ -24,4 +24,4 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 - **Lawyer-Specific Workflows**: Built for legal billing conventions (6-minute increments, matter/client structures, legal research sources like Westlaw/CanLII)
 
 ---
-*Auto-generated from approved story nodes. Last updated: 2025-12-16 (Analyzed 8 approved stories covering core functionality)*
+*Auto-generated from approved story nodes. Last updated: 2025-12-16*

@@ -46,4 +46,4 @@
 
 ---
 *Auto-generated from rejected story nodes in story-tree.db*
-*Last updated: 2025-12-16 (verified: 4 rejected stories with notes)*
+*Last updated: 2025-12-16 13:19 UTC*
