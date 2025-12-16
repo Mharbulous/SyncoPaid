@@ -35,7 +35,7 @@ Generate **evidence-based user stories** for a given parent node by:
 When called with multiple node IDs (e.g., "Generate stories for nodes: 1.2, 1.3"):
 
 1. **Parse all node IDs** from the instruction
-2. **Perform Steps 0-2 once** (vision check, git analysis) - these are shared context
+2. **Perform Steps 0-2 once** (goals check, git analysis) - these are shared context
 3. **Loop through nodes for Steps 3-6**: For each node, run context gathering, gap analysis, and story generation
 4. **Output single combined report** (or minimal CI output) covering all nodes
 
@@ -65,20 +65,20 @@ conn.close()
 
 ## Story Generation Workflow
 
-### Step 0: Check for Product Vision Files (Optional but Recommended)
+### Step 0: Check for Product Goals Files (Optional but Recommended)
 
-**BEFORE generating story ideas**, check if vision files exist to understand what the product IS and what it is NOT:
+**BEFORE generating story ideas**, check if goals files exist to understand what the product IS and what it is NOT:
 
-**Vision Files (if they exist):**
-- `ai_docs/user-vision.md` - Product direction, target user, core capabilities, guiding principles
-- `ai_docs/user-anti-vision.md` - Explicit exclusions, anti-patterns, YAGNI items
+**Goals Files (if they exist):**
+- `ai_docs/goals.md` - Product direction, target user, core capabilities, guiding principles
+- `ai_docs/non-goals.md` - Explicit exclusions, anti-patterns, YAGNI items
 
-**Check and load vision files in one step:**
+**Check and load goals files in one step:**
 ```python
 python -c "
 import os, json
-result = {'vision': None, 'anti_vision': None, 'has_vision': False, 'has_anti_vision': False}
-for key, path in [('vision', 'ai_docs/user-vision.md'), ('anti_vision', 'ai_docs/user-anti-vision.md')]:
+result = {'goals': None, 'non_goals': None, 'has_goals': False, 'has_non_goals': False}
+for key, path in [('goals', 'ai_docs/goals.md'), ('non_goals', 'ai_docs/non-goals.md')]:
     if os.path.exists(path):
         result[f'has_{key}'] = True
         with open(path) as f:
@@ -90,17 +90,17 @@ print(json.dumps(result, indent=2))
 **Using the result**, internalize:
 1. **What the product IS**: Target user, core capabilities, guiding principles
 2. **What the product is NOT**: Explicit exclusions, anti-patterns to avoid
-3. **Philosophical boundaries**: What kinds of features align vs. conflict with product vision
+3. **Philosophical boundaries**: What kinds of features align vs. conflict with product goals
 
 **Why this matters:**
-- Stories that align with vision = higher approval rate
-- Stories that conflict with anti-vision = instant rejection
+- Stories that align with goals = higher approval rate
+- Stories that conflict with non-goals = instant rejection
 - Understanding boundaries = better gap identification
 
-**If vision files do NOT exist:**
-- Skip vision-based filtering
+**If goals files do NOT exist:**
+- Skip goals-based filtering
 - Generate stories based purely on git commits and gap analysis
-- Consider suggesting the user run the `visualization` skill to create vision files
+- Consider suggesting the user run the `goal-synthesis` skill to create goals files
 
 **Action:** Check for files, read them if they exist, then proceed to context gathering.
 
@@ -192,14 +192,14 @@ Analyze what's missing based on evidence:
 3. **User journey gaps**: Steps in user workflows not yet addressed
 4. **Technical gaps**: Infrastructure or foundation work needed
 
-**If vision files exist, apply Vision-Aware Filtering:**
-- **Cross-check against user-vision.md**: Does this gap align with core capabilities and guiding principles?
-- **Cross-check against user-anti-vision.md**: Does this gap fall into explicit exclusions or anti-patterns?
-- **Reject speculative features**: If gap isn't grounded in vision OR commits, don't create a story
-- **Red Flags**: Features that conflict with principles stated in user-vision.md, or are explicitly excluded in user-anti-vision.md
-- **Green Flags**: Features that directly support capabilities listed in user-vision.md
+**If goals files exist, apply Goals-Aware Filtering:**
+- **Cross-check against goals.md**: Does this gap align with core capabilities and guiding principles?
+- **Cross-check against non-goals.md**: Does this gap fall into explicit exclusions or anti-patterns?
+- **Reject speculative features**: If gap isn't grounded in goals OR commits, don't create a story
+- **Red Flags**: Features that conflict with principles stated in goals.md, or are explicitly excluded in non-goals.md
+- **Green Flags**: Features that directly support capabilities listed in goals.md
 
-**If vision files do NOT exist:**
+**If goals files do NOT exist:**
 - Focus purely on evidence from git commits and functional gaps
 - Avoid speculative features not grounded in actual development patterns
 - Ensure stories decompose parent scope without adding new scope
@@ -230,7 +230,7 @@ For each identified gap, create a properly formatted user story:
 **Story ID Format:** `[parent-id].[N]` where N is next available child number
 
 **Story Quality Guidelines:**
-- **Specific user role**: Not "user" - be precise based on who the product serves (derive from vision file if available, or from codebase context)
+- **Specific user role**: Not "user" - be precise based on who the product serves (derive from goals file if available, or from codebase context)
 - **Concrete capability**: What exactly can they do? (e.g., "configure polling interval" not "change settings")
 - **Measurable benefit**: Why does this matter? (e.g., "reduce manual time entry" not "improve experience")
 - **Testable criteria**: Each criterion must be verifiable (e.g., "Settings persist after restart" not "Settings work correctly")
@@ -240,11 +240,11 @@ For each identified gap, create a properly formatted user story:
 - Avoid speculative features not grounded in actual development patterns
 - Stories should decompose parent scope, not add new scope
 
-**Vision Alignment Requirements (if vision files exist):**
-- **Aligns with product vision**: Story must support core capabilities listed in user-vision.md
-- **Respects anti-vision boundaries**: Story must NOT be an explicit exclusion listed in user-anti-vision.md
-- **Follows guiding principles**: Adhere to principles stated in user-vision.md
-- **Target user focus**: Story should benefit the target user described in user-vision.md
+**Goals Alignment Requirements (if goals files exist):**
+- **Aligns with product goals**: Story must support core capabilities listed in goals.md
+- **Respects non-goals boundaries**: Story must NOT be an explicit exclusion listed in non-goals.md
+- **Follows guiding principles**: Adhere to principles stated in goals.md
+- **Target user focus**: Story should benefit the target user described in goals.md
 
 ### Step 5: Validate Stories
 
@@ -259,21 +259,21 @@ Before inserting, verify:
 - [ ] IDs follow [parent-id].[N] format
 - [ ] Story scope fits within parent's description
 
-**Vision Alignment (if vision files exist):**
-- [ ] Story aligns with at least one core capability from user-vision.md
-- [ ] Story does NOT conflict with any explicit exclusion in user-anti-vision.md
-- [ ] Story follows guiding principles stated in user-vision.md
-- [ ] Story benefits target user described in user-vision.md
-- [ ] Story does NOT introduce anti-patterns listed in user-anti-vision.md
+**Goals Alignment (if goals files exist):**
+- [ ] Story aligns with at least one core capability from goals.md
+- [ ] Story does NOT conflict with any explicit exclusion in non-goals.md
+- [ ] Story follows guiding principles stated in goals.md
+- [ ] Story benefits target user described in goals.md
+- [ ] Story does NOT introduce anti-patterns listed in non-goals.md
 - [ ] Story does NOT implement YAGNI items unless explicitly requested
 
-**Vision Red Flag Check (if user-anti-vision.md exists):**
-Ask yourself: "Would this story be rejected based on the anti-vision file?"
-- Review the explicit exclusions in user-anti-vision.md
+**Non-Goals Red Flag Check (if non-goals.md exists):**
+Ask yourself: "Would this story be rejected based on the non-goals file?"
+- Review the explicit exclusions in non-goals.md
 - Check if the story matches any anti-patterns listed
 - If any red flag triggers, do NOT create the story
 
-**If vision files do NOT exist:**
+**If goals files do NOT exist:**
 - Focus validation on evidence quality and format requirements
 - Ensure stories are grounded in git commits or clear functional gaps
 
@@ -320,25 +320,25 @@ Repeat for each generated story (max 3).
 **Generated:** [ISO timestamp]
 **Parent Node:** [ID] - "[Title]"
 
-## Vision Status
+## Goals Status
 
-**Vision files found:** [Yes/No]
-- `ai_docs/user-vision.md`: [Exists/Not found]
-- `ai_docs/user-anti-vision.md`: [Exists/Not found]
+**Goals files found:** [Yes/No]
+- `ai_docs/goals.md`: [Exists/Not found]
+- `ai_docs/non-goals.md`: [Exists/Not found]
 
-[If vision files exist, include:]
-## Vision Alignment Summary
+[If goals files exist, include:]
+## Goals Alignment Summary
 
-**Product Vision Review:** ✓ Completed
-- Core capabilities considered: [list relevant capabilities from user-vision.md]
-- Anti-patterns avoided: [list any anti-vision items that were filtered out]
+**Product Goals Review:** ✓ Completed
+- Core capabilities considered: [list relevant capabilities from goals.md]
+- Anti-patterns avoided: [list any non-goals items that were filtered out]
 - Guiding principles applied: [list relevant principles]
 
-[If vision files do NOT exist, include:]
-## Note on Vision Files
+[If goals files do NOT exist, include:]
+## Note on Goals Files
 
-Vision files not found. Stories generated based on git commits and gap analysis only.
-Consider running the `visualization` skill to create vision files for better story alignment.
+Goals files not found. Stories generated based on git commits and gap analysis only.
+Consider running the `goal-synthesis` skill to create goals files for better story alignment.
 
 ## Context Analysis
 
@@ -353,19 +353,19 @@ Consider running the `visualization` skill to create vision files for better sto
 ## Gaps Identified
 
 1. [Gap description and why it needs a story]
-   [If vision files exist:] - **Vision alignment**: [How this gap supports product vision]
+   [If goals files exist:] - **Goals alignment**: [How this gap supports product goals]
 2. [Gap description and why it needs a story]
-   [If vision files exist:] - **Vision alignment**: [How this gap supports product vision]
+   [If goals files exist:] - **Goals alignment**: [How this gap supports product goals]
 3. [Gap description and why it needs a story]
-   [If vision files exist:] - **Vision alignment**: [How this gap supports product vision]
+   [If goals files exist:] - **Goals alignment**: [How this gap supports product goals]
 
 ## Gaps Rejected
 
-[If vision files exist:]
-[List any gaps that were identified but rejected due to anti-vision conflicts]
-- [Gap description] - **Reason**: Conflicts with [specific anti-vision item]
+[If goals files exist:]
+[List any gaps that were identified but rejected due to non-goals conflicts]
+- [Gap description] - **Reason**: Conflicts with [specific non-goals item]
 
-[If vision files do NOT exist:]
+[If goals files do NOT exist:]
 [List any gaps rejected due to lack of evidence or scope creep]
 
 ## Generated Stories
@@ -463,20 +463,20 @@ Before finalizing any story generation:
 - [ ] IDs follow proper hierarchy format
 - [ ] Maximum 3 stories generated per invocation
 
-**Vision Alignment (if vision files exist):**
-- [ ] Checked for ai_docs/user-vision.md and ai_docs/user-anti-vision.md
-- [ ] Reviewed vision files before generating stories (if they exist)
-- [ ] Each story aligns with core capabilities from user-vision.md
-- [ ] No story conflicts with explicit exclusions from user-anti-vision.md
-- [ ] No story introduces anti-patterns listed in user-anti-vision.md
+**Goals Alignment (if goals files exist):**
+- [ ] Checked for ai_docs/goals.md and ai_docs/non-goals.md
+- [ ] Reviewed goals files before generating stories (if they exist)
+- [ ] Each story aligns with core capabilities from goals.md
+- [ ] No story conflicts with explicit exclusions from non-goals.md
+- [ ] No story introduces anti-patterns listed in non-goals.md
 - [ ] No story implements YAGNI items without explicit request
-- [ ] Stories follow guiding principles from user-vision.md
-- [ ] Stories benefit target user described in user-vision.md
+- [ ] Stories follow guiding principles from goals.md
+- [ ] Stories benefit target user described in goals.md
 
-**If vision files do NOT exist:**
+**If goals files do NOT exist:**
 - [ ] Stories are grounded in git commits or clear functional gaps
 - [ ] No speculative features without evidence
-- [ ] Consider recommending the `visualization` skill to the user
+- [ ] Consider recommending the `goal-synthesis` skill to the user
 
 ## Common Mistakes (STOP Before Making These)
 
@@ -485,18 +485,18 @@ Before finalizing any story generation:
 | Using `sqlite3` CLI command | Copy-pasting shell-looking examples | Use Python's sqlite3 module (see Environment Requirements) |
 | Generating >3 stories | Trying to be thorough | Limit to 3 - story-tree will call again if needed |
 | Speculative features | Not grounding in evidence | Every story must reference commits OR specific gap |
-| Generic user roles | "As a user" is too vague | Be specific based on target user from vision file or codebase context |
+| Generic user roles | "As a user" is too vague | Be specific based on target user from goals file or codebase context |
 | Vague acceptance criteria | "Feature works correctly" | Make testable: "Setting persists after restart" |
 | Adding new scope | Expanding beyond parent | Stories decompose parent, don't expand it |
-| **Skipping vision check** | Rushing to generate stories | **ALWAYS check for vision files FIRST (Step 0)** |
-| **Ignoring anti-vision** | Assuming features are wanted | If anti-vision exists, check exclusions before creating stories |
+| **Skipping goals check** | Rushing to generate stories | **ALWAYS check for goals files FIRST (Step 0)** |
+| **Ignoring non-goals** | Assuming features are wanted | If non-goals exists, check exclusions before creating stories |
 | **Features without evidence** | Building what seems helpful | Ground every story in git commits or functional gaps |
 | **Complex configuration** | Over-engineering settings | Avoid YAGNI items unless explicitly requested |
-| **Generic features** | Forgetting target user | Focus on target user described in vision file or inferred from codebase |
+| **Generic features** | Forgetting target user | Focus on target user described in goals file or inferred from codebase |
 
 ## Examples
 
-### Good Story Example (with vision files)
+### Good Story Example (with goals files)
 
 ```markdown
 ### 1.2.3: Add keyboard shortcut for quick task creation
@@ -511,15 +511,15 @@ Before finalizing any story generation:
 - [ ] Task is saved and appears in task list immediately
 - [ ] Shortcut is configurable in settings
 
-**Related context**: Commits abc123, def456 added task creation flow, but gap analysis shows no keyboard-driven path exists. Aligns with "quick capture" and "minimize workflow interruption" principles from user-vision.md.
+**Related context**: Commits abc123, def456 added task creation flow, but gap analysis shows no keyboard-driven path exists. Aligns with "quick capture" and "minimize workflow interruption" principles from goals.md.
 
-**Vision alignment**:
-- Core capability: Quick task capture (from user-vision.md)
+**Goals alignment**:
+- Core capability: Quick task capture (from goals.md)
 - Guiding principle: Minimize workflow interruption
-- Target user: Project managers (from user-vision.md)
+- Target user: Project managers (from goals.md)
 ```
 
-### Good Story Example (without vision files)
+### Good Story Example (without goals files)
 
 ```markdown
 ### 1.2.3: Add keyboard shortcut for quick task creation
@@ -536,10 +536,10 @@ Before finalizing any story generation:
 
 **Related context**: Commits abc123, def456 added task creation flow. Gap analysis shows no keyboard-driven path exists, which is common in task management apps for power users.
 
-**Note**: No vision files found. Consider running `visualization` skill to create them.
+**Note**: No goals files found. Consider running `goal-synthesis` skill to create them.
 ```
 
-### Bad Story Example (Vision Violation - if anti-vision exists)
+### Bad Story Example (Non-Goals Violation - if non-goals exists)
 
 ```markdown
 ### 1.2.3: Add analytics dashboard
@@ -557,10 +557,10 @@ Before finalizing any story generation:
 ```
 
 **Problems:**
-- **CRITICAL: Check anti-vision** - If analytics dashboards are excluded in user-anti-vision.md, this story should not be created
+- **CRITICAL: Check non-goals** - If analytics dashboards are excluded in non-goals.md, this story should not be created
 - Generic role ("user" instead of specific target user)
 - Not grounded in evidence ("might want" is speculation)
-- Check if this conflicts with guiding principles in user-vision.md
+- Check if this conflicts with guiding principles in goals.md
 
 ### Bad Story Example (Format Issues)
 
@@ -580,7 +580,7 @@ Before finalizing any story generation:
 
 **Problems:**
 - Vague title ("Improve settings")
-- Generic role ("user") - use target user from vision file or infer from codebase
+- Generic role ("user") - use target user from goals file or infer from codebase
 - Non-specific capability ("better settings")
 - Unmeasurable benefit ("works better")
 - Untestable criteria ("settings are good")
@@ -588,9 +588,9 @@ Before finalizing any story generation:
 
 ## References
 
-**Vision Files (check for existence first):**
-- **Product Vision:** `ai_docs/user-vision.md` - What the product IS (target user, core capabilities, guiding principles)
-- **Anti-Vision:** `ai_docs/user-anti-vision.md` - What the product is NOT (explicit exclusions, anti-patterns, YAGNI items)
+**Goals Files (check for existence first):**
+- **Product Goals:** `ai_docs/goals.md` - What the product IS (target user, core capabilities, guiding principles)
+- **Non-Goals:** `ai_docs/non-goals.md` - What the product is NOT (explicit exclusions, anti-patterns, YAGNI items)
 - **Note:** These files may not exist in all projects. Check for existence before attempting to read.
 
 **Story Tree System:**
@@ -598,4 +598,4 @@ Before finalizing any story generation:
 - **Story Tree Skill:** `.claude/skills/story-tree/SKILL.md`
 - **Schema:** `.claude/skills/story-tree/references/schema.sql`
 - **21-Status System:** See story-tree skill SKILL.md for full status definitions
-- **visualization Skill:** `.claude/skills/visualization/SKILL.md` - Use to generate vision files if they don't exist
+- **Goal Synthesis Skill:** `.claude/skills/goal-synthesis/SKILL.md` - Use to generate goals files if they don't exist

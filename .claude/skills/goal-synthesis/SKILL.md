@@ -1,11 +1,11 @@
 ---
-name: visualization
-description: Use when user says "visualize", "update vision", "what's my vision", "show vision", "vision summary", "what am I building", "project direction", or asks about the overall direction or intent of the project - generates two markdown files summarizing the user's vision based on approved story nodes (what the vision IS) and rejected story nodes with notes (what the vision is NOT).
+name: goal-synthesis
+description: Use when user says "synthesize goals", "show goals", "what are my goals", "update goals", "show non-goals", "what am I building", "project direction", or asks about the overall direction or intent of the project - generates two markdown files summarizing the user's goals based on approved story nodes (what the goals ARE) and rejected story nodes with notes (what the non-goals ARE).
 ---
 
-# Visualization Skill
+# Goal Synthesis Skill
 
-Generate `{today}-user-vision.md` and `{today}-user-anti-vision.md` in `ai_docs/Xstory/`.
+Generate `{today}-goals.md` and `{today}-non-goals.md` in `ai_docs/Xstory/`.
 
 ## Workflow
 
@@ -15,7 +15,7 @@ Generate `{today}-user-vision.md` and `{today}-user-anti-vision.md` in `ai_docs/
 python .claude/scripts/story_tree_helpers.py prereq
 ```
 
-Returns JSON with: `today`, `db_exists`, `approved_count`, `rejected_with_notes_count`, `vision_exists`, `anti_vision_exists`.
+Returns JSON with: `today`, `db_exists`, `approved_count`, `rejected_with_notes_count`, `goals_exists`, `non_goals_exists`.
 
 **Exit early if**:
 - Both files exist for today, OR
@@ -25,13 +25,13 @@ Returns JSON with: `today`, `db_exists`, `approved_count`, `rejected_with_notes_
 
 Launch TWO Task agents simultaneously (use haiku model for both):
 
-**Agent 1 (vision)** - Only if `vision_exists` is false:
+**Agent 1 (goals)** - Only if `goals_exists` is false:
 ```
 Query approved stories: python .claude/scripts/story_tree_helpers.py approved
 
-Read most recent ai_docs/Xstory/*-user-vision.md to preserve context.
+Read most recent ai_docs/Xstory/*-goals.md to preserve context.
 
-Write ai_docs/Xstory/{today}-user-vision.md with sections:
+Write ai_docs/Xstory/{today}-goals.md with sections:
 - What We're Building (1-2 sentences)
 - Target User
 - Core Capabilities (bullets)
@@ -41,13 +41,13 @@ Write ai_docs/Xstory/{today}-user-vision.md with sections:
 Return brief summary.
 ```
 
-**Agent 2 (anti-vision)** - Only if `anti_vision_exists` is false:
+**Agent 2 (non-goals)** - Only if `non_goals_exists` is false:
 ```
 Query rejected stories: python .claude/scripts/story_tree_helpers.py rejected
 
-Read most recent ai_docs/Xstory/*-user-anti-vision.md to preserve context.
+Read most recent ai_docs/Xstory/*-non-goals.md to preserve context.
 
-Write ai_docs/Xstory/{today}-user-anti-vision.md with sections:
+Write ai_docs/Xstory/{today}-non-goals.md with sections:
 - Explicit Exclusions (with rejection reasons)
 - Anti-Patterns to Avoid
 - YAGNI Items
@@ -67,5 +67,5 @@ Summarize what was generated, listing created files.
 
 - **Spawn agents in parallel** - never sequentially
 - **Use Python sqlite3** - not sqlite3 CLI
-- **Include rejection reasons** in anti-vision bullets
+- **Include rejection reasons** in non-goals bullets
 - **Read existing files first** to preserve accumulated context

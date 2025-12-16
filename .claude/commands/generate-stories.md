@@ -36,7 +36,7 @@ venv\Scripts\activate && python dev-tools\xstory\xstory.py
 
 Then invoke the `story-writing` skill which provides:
 - Detailed git commit analysis
-- Vision/anti-vision context
+- Goals/non-goals context
 - Rich story format with acceptance criteria
 
 ## Story Format
