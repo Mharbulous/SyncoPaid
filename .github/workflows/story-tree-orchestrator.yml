@@ -1,4 +1,4 @@
-name: Story Tree Orchestrator
+name: "Story Tree Orchestrator"
 
 # Looping workflow that drains the pipeline before adding new work (v4 design)
 # Runs: plan-stories FIRST (drain approved), then write-stories (fill capacity)
