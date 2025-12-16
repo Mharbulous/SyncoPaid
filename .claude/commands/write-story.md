@@ -14,8 +14,10 @@ When invoked without arguments, the command performs two distinct operations:
 ### Step 1: Discover All Nodes Needing Attention
 
 Query the story-tree database in a single call to find:
-- Up to 2 nodes with capacity for new stories
-- Up to 3 stories needing refinement (status 'refine')
+- Up to 1 node with capacity for new stories
+- Up to 2 stories needing refinement (status 'refine')
+
+**Note:** These limits are optimized for token efficiency. Refinements are more intensive (~2,000-2,500 tokens each) so we limit the batch size. The skill will be called again if more work remains.
 
 ```python
 python -c "
@@ -45,18 +47,18 @@ cursor.execute('''
                WHERE sp.ancestor_id = s.id AND sp.depth = 1
                AND child.status IN ('implemented', 'ready')))
     ORDER BY node_depth ASC
-    LIMIT 2
+    LIMIT 1
 ''')
 result['capacity_nodes'] = [dict(row) for row in cursor.fetchall()]
 
-# Find stories with 'refine' status (limit 3)
+# Find stories with 'refine' status (limit 2)
 cursor.execute('''
     SELECT s.id, s.title, s.description, s.notes,
         (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth
     FROM story_nodes s
     WHERE s.status = 'refine'
     ORDER BY s.updated_at ASC
-    LIMIT 3
+    LIMIT 2
 ''')
 result['refine_nodes'] = [dict(row) for row in cursor.fetchall()]
 
@@ -65,17 +67,15 @@ conn.close()
 "
 ```
 
-### Step 2: Generate New Stories for Under-Capacity Nodes (Batched)
+### Step 2: Generate New Story for Under-Capacity Node
 
-If `capacity_nodes` from Step 1 contains any nodes, invoke the `story-writing` skill **once** with all target nodes:
+If `capacity_nodes` from Step 1 contains a node, invoke the `story-writing` skill:
 
 1. Use the Skill tool to invoke `story-writing`
-2. Pass ALL discovered node IDs together (e.g., "Generate stories for nodes: 1.2, 1.3")
-3. Request 1 story per node, max 2 stories total
+2. Pass the discovered node ID (e.g., "Generate 1 story for node 1.2")
+3. Generate exactly 1 story
 
-**Why batch?** Invoking the skill once with multiple nodes avoids repeatedly loading skill instructions, saving ~1,400 tokens per additional node.
-
-**Distribution strategy**: The skill will generate stories round-robin across provided nodes, prioritizing shallower nodes, until 2 stories total are created.
+**Why limit to 1?** With refinements now prioritized, keeping new story generation minimal ensures quality focus. The skill gets called again if more capacity exists.
 
 ### Step 3: Refine Stories Needing Rework
 
@@ -181,15 +181,15 @@ print('Story refined and status updated to concept')
 
 Output a summary showing:
 
-#### New Stories Generated
-- Which nodes were identified as having capacity
-- How many stories were generated for each
-- Total new stories created
-
-#### Stories Refined
-- Which stories had status 'refine'
+#### Stories Refined (Priority)
+- Which stories had status 'refine' (up to 2)
 - Summary of feedback addressed for each
 - Confirmation that status changed to 'concept'
+
+#### New Story Generated
+- Which node was identified as having capacity (if any)
+- The story that was generated
+- Note if more capacity nodes exist for next run
 
 ## With Arguments
 
