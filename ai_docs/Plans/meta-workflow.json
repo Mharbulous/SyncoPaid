@@ -1,0 +1,303 @@
+{
+  "version": "3.0",
+  "name": "story-tree-orchestrator",
+  "description": "Simplified sequential workflow orchestration for story-tree automation",
+
+  "design_evolution": {
+    "v1_issues": [
+      "workflow_call misconception - doesn't provide true sequential runs",
+      "Output communication complexity with Claude Code action",
+      "State persistence challenges"
+    ],
+    "v2_issues": [
+      "Over-engineered PAUSED state with idle tracking",
+      "Git conflicts between sequential jobs",
+      "State file commits add noise to history"
+    ],
+    "v3_simplifications": [
+      "Single master switch via repository variable",
+      "No PAUSED state - early exit on no-work is sufficient",
+      "Artifacts for job-to-job communication within same run",
+      "Careful git sync between jobs with pull before each commit"
+    ]
+  },
+
+  "configuration": {
+    "repository_variables": {
+      "STORY_AUTOMATION_ENABLED": {
+        "type": "boolean_string",
+        "values": ["true", "false"],
+        "default": "true",
+        "description": "Master switch - set to 'false' to disable all story automation",
+        "how_to_change": "Settings > Secrets and variables > Actions > Variables"
+      }
+    },
+    "secrets_required": [
+      "CLAUDE_CODE_OAUTH_TOKEN",
+      "GITHUB_TOKEN (automatic)"
+    ]
+  },
+
+  "workflows": {
+    "orchestrator": {
+      "file": ".github/workflows/story-tree-orchestrator.yml",
+      "triggers": {
+        "schedule": {
+          "cron": "0 10 * * *",
+          "description": "Daily at 2:00 AM PST (10:00 UTC)"
+        },
+        "workflow_dispatch": {
+          "inputs": {
+            "skip_write": {
+              "type": "boolean",
+              "default": false,
+              "description": "Skip story writing step"
+            },
+            "skip_plan": {
+              "type": "boolean",
+              "default": false,
+              "description": "Skip story planning step"
+            },
+            "skip_synthesize": {
+              "type": "boolean",
+              "default": false,
+              "description": "Skip goal synthesis step"
+            }
+          }
+        }
+      },
+      "concurrency": {
+        "group": "story-tree-automation",
+        "cancel_in_progress": false
+      }
+    }
+  },
+
+  "job_sequence": [
+    {
+      "job": "gate",
+      "name": "Check if automation is enabled",
+      "runs_on": "ubuntu-latest",
+      "steps": [
+        {
+          "action": "Check STORY_AUTOMATION_ENABLED variable",
+          "on_false": "Exit with success, skip all subsequent jobs"
+        }
+      ],
+      "outputs": {
+        "enabled": "true if should continue, false otherwise"
+      }
+    },
+    {
+      "job": "write-stories",
+      "name": "Generate new story concepts",
+      "needs": ["gate"],
+      "condition": "needs.gate.outputs.enabled == 'true' && !inputs.skip_write",
+      "runs_on": "ubuntu-latest",
+      "steps": [
+        { "action": "checkout", "with": { "fetch_depth": 0 } },
+        { "action": "Run story_workflow.py --ci", "capture_output": true },
+        { "action": "Check for NO_CAPACITY", "on_no_capacity": "Set output, skip Claude" },
+        { "action": "Run Claude Code to generate story", "if": "has_capacity" },
+        { "action": "Run insert_story.py", "if": "story_generated" },
+        { "action": "git add && commit && push", "if": "changes_made" },
+        { "action": "Upload status artifact" }
+      ],
+      "outputs": {
+        "result": "SUCCESS | NO_CAPACITY | ERROR",
+        "stories_created": "0 or 1"
+      },
+      "error_signals": {
+        "NO_CAPACITY": "All nodes at capacity - tree is full",
+        "ERROR": "Script or Claude failure"
+      }
+    },
+    {
+      "job": "plan-stories",
+      "name": "Create implementation plans",
+      "needs": ["gate", "write-stories"],
+      "condition": "always() && needs.gate.outputs.enabled == 'true' && !inputs.skip_plan && needs.write-stories.result != 'failure'",
+      "runs_on": "ubuntu-latest",
+      "steps": [
+        { "action": "checkout", "with": { "fetch_depth": 0 } },
+        { "action": "git pull origin main", "reason": "Get any changes from write-stories" },
+        { "action": "Query DB for approved stories count" },
+        { "action": "Check for NO_APPROVED", "on_zero": "Set output, skip Claude" },
+        { "action": "Run Claude Code with story-planning-ci skill", "if": "has_approved" },
+        { "action": "git add && commit && push", "if": "changes_made" },
+        { "action": "Upload status artifact" }
+      ],
+      "outputs": {
+        "result": "SUCCESS | NO_APPROVED | ERROR",
+        "plans_created": "0 or 1"
+      },
+      "error_signals": {
+        "NO_APPROVED": "No approved stories available for planning",
+        "ERROR": "Script or Claude failure"
+      }
+    },
+    {
+      "job": "synthesize-goals",
+      "name": "Update vision documentation",
+      "needs": ["gate", "plan-stories"],
+      "condition": "always() && needs.gate.outputs.enabled == 'true' && !inputs.skip_synthesize && needs.plan-stories.result != 'failure'",
+      "runs_on": "ubuntu-latest",
+      "steps": [
+        { "action": "checkout", "with": { "fetch_depth": 0 } },
+        { "action": "git pull origin main", "reason": "Get any changes from plan-stories" },
+        { "action": "Run Claude Code with /visualize command" },
+        { "action": "git add && commit && push", "if": "changes_made" },
+        { "action": "Upload status artifact" }
+      ],
+      "outputs": {
+        "result": "SUCCESS | NO_CHANGES | ERROR"
+      }
+    },
+    {
+      "job": "summary",
+      "name": "Pipeline summary",
+      "needs": ["write-stories", "plan-stories", "synthesize-goals"],
+      "condition": "always()",
+      "runs_on": "ubuntu-latest",
+      "steps": [
+        { "action": "Download all status artifacts" },
+        { "action": "Generate GITHUB_STEP_SUMMARY with results" },
+        { "action": "Post summary comment if any work was done" }
+      ]
+    }
+  ],
+
+  "no_work_detection": {
+    "conditions": {
+      "completely_idle": "write-stories=NO_CAPACITY AND plan-stories=NO_APPROVED",
+      "partial_work": "Any job returns SUCCESS"
+    },
+    "behavior": {
+      "on_completely_idle": "Pipeline exits gracefully, no state change needed",
+      "rationale": "No need to track idle runs - each run is cheap since it exits early"
+    },
+    "user_notification": {
+      "via": "GITHUB_STEP_SUMMARY",
+      "message": "No work available. To add stories: 1) Increase node capacity, or 2) Approve concept stories"
+    }
+  },
+
+  "git_sync_strategy": {
+    "between_jobs": {
+      "each_job_starts_with": "git pull origin main",
+      "each_job_ends_with": "git push origin main (if changes)",
+      "rationale": "Ensures each job sees previous job's commits"
+    },
+    "conflict_prevention": {
+      "concurrency_group": "Prevents parallel orchestrator runs",
+      "sequential_jobs": "needs: dependencies ensure order",
+      "separate_files": "Each job modifies different files (stories vs plans vs docs)"
+    }
+  },
+
+  "state_diagram": {
+    "mermaid": [
+      "stateDiagram-v2",
+      "    [*] --> ENABLED: Repository created",
+      "    ",
+      "    ENABLED --> ENABLED: Scheduled run (work found)",
+      "    ENABLED --> ENABLED: Scheduled run (no work - exits early)",
+      "    ENABLED --> DISABLED: User sets STORY_AUTOMATION_ENABLED=false",
+      "    ",
+      "    DISABLED --> DISABLED: Scheduled run (gate blocks)",
+      "    DISABLED --> ENABLED: User sets STORY_AUTOMATION_ENABLED=true",
+      "    ",
+      "    note right of ENABLED: Always checks for work,\\nearly exit if none",
+      "    note right of DISABLED: Gate job blocks all\\nsubsequent jobs"
+    ]
+  },
+
+  "workflow_diagram": {
+    "ascii": [
+      "┌─────────────────────────────────────────────────────────────────┐",
+      "│                    story-tree-orchestrator                      │",
+      "│                  (runs daily at 2:00 AM PST)                    │",
+      "└──────────────────────────────┬──────────────────────────────────┘",
+      "                               │",
+      "                               ▼",
+      "                    ┌──────────────────────┐",
+      "                    │        GATE          │",
+      "                    │ Check if automation  │",
+      "                    │    is enabled        │",
+      "                    └──────────┬───────────┘",
+      "                               │",
+      "              ┌────────────────┼────────────────┐",
+      "              │                │                │",
+      "         [DISABLED]      [ENABLED]        [ENABLED]",
+      "              │                │           (manual)",
+      "              ▼                ▼                │",
+      "        ┌──────────┐  ┌───────────────────┐    │",
+      "        │   EXIT   │  │   write-stories   │◄───┘",
+      "        │ (skip)   │  │ Generate concepts │",
+      "        └──────────┘  └─────────┬─────────┘",
+      "                                │",
+      "                     ┌──────────┴──────────┐",
+      "                     │                     │",
+      "                [SUCCESS]            [NO_CAPACITY]",
+      "                     │                     │",
+      "                     └──────────┬──────────┘",
+      "                                │",
+      "                                ▼",
+      "                    ┌───────────────────────┐",
+      "                    │    plan-stories       │",
+      "                    │  Create impl plans    │",
+      "                    │  (pulls latest first) │",
+      "                    └─────────┬─────────────┘",
+      "                              │",
+      "                   ┌─────────┴─────────┐",
+      "                   │                   │",
+      "              [SUCCESS]          [NO_APPROVED]",
+      "                   │                   │",
+      "                   └─────────┬─────────┘",
+      "                             │",
+      "                             ▼",
+      "                   ┌───────────────────────┐",
+      "                   │   synthesize-goals    │",
+      "                   │   Update docs         │",
+      "                   │   (pulls latest)      │",
+      "                   └─────────┬─────────────┘",
+      "                             │",
+      "                             ▼",
+      "                   ┌───────────────────────┐",
+      "                   │       summary         │",
+      "                   │   Report results to   │",
+      "                   │   GITHUB_STEP_SUMMARY │",
+      "                   └───────────────────────┘"
+    ]
+  },
+
+  "child_workflow_changes": {
+    "write-stories.yml": {
+      "add": ["workflow_call trigger (optional)", "structured output for result"],
+      "keep": ["workflow_dispatch for manual runs", "concurrency group"],
+      "note": "Can be invoked standalone or as part of orchestrator"
+    },
+    "plan-stories.yml": {
+      "add": ["workflow_call trigger (optional)", "structured output for result"],
+      "keep": ["workflow_dispatch for manual runs", "concurrency group"]
+    },
+    "synthesize-goals-non-goals.yml": {
+      "add": ["workflow_call trigger (optional)", "structured output for result"],
+      "keep": ["workflow_dispatch for manual runs", "concurrency group"]
+    }
+  },
+
+  "implementation_notes": {
+    "option_a_inline": {
+      "description": "Embed all logic directly in orchestrator workflow",
+      "pros": ["Single file to maintain", "Clear sequential flow"],
+      "cons": ["Cannot run child workflows independently with same logic"]
+    },
+    "option_b_reusable": {
+      "description": "Make child workflows reusable via workflow_call",
+      "pros": ["Can run each workflow standalone or orchestrated"],
+      "cons": ["More complex setup", "workflow_call has limitations"]
+    },
+    "recommendation": "Option A - inline logic in orchestrator, keep existing workflows for manual use"
+  }
+}
