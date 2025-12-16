@@ -38,60 +38,32 @@ jobs:
           # Show full output for debugging
           show_full_output: true
 
-          # Direct prompt mode for scheduled automation
+          # Direct prompt mode for scheduled automation (optimized for token efficiency)
           prompt: |
             REPO: ${{ github.repository }}
-            MODE: Daily Story Generation (YOLO mode - fully autonomous)
+            MODE: Daily Story Generation (YOLO mode)
 
-            You are running the automated story generation workflow for SyncoPaid.
-            This is a scheduled CI run - complete all tasks autonomously without user interaction.
+            Skip TodoWrite - steps are predictable for this automated workflow.
 
-            ## Primary Task: Generate User Stories
+            ## Steps
 
-            Run the /write-stories slash command to generate new user story concepts.
-
-            Key behaviors for YOLO mode:
-            - Skip all approval steps - do NOT wait for user confirmation
-            - Generate up to 2 stories for nodes with capacity
-            - Create commits directly with clear messages
-            - No interactive prompts - complete the workflow autonomously
-
-            ## Workflow Steps:
-
-            1. Execute the /write-stories command which will:
-               - Query the story-tree database for nodes with capacity
-               - Use the brainstorm-story skill to generate stories
-               - Insert new concept stories into the database
-            2. Commit and push any changes (see "Git Operations" section below)
-
-            ## Git Operations (REQUIRED for ANY file changes):
-
-            **You MUST complete these steps for ANY changes made**:
-
-            1. Ensure you are on main branch and pull latest:
+            1. Run: `python .claude/scripts/story_workflow.py --ci`
+            2. If output is NO_CAPACITY, exit successfully with message "All nodes at capacity"
+            3. Parse JSON output to get target node context
+            4. Generate ONE user story based on target's description and gap analysis:
+               - Review existing children to avoid duplicates
+               - Format: As a [role] / I want [capability] / So that [benefit]
+               - Include 3-5 acceptance criteria
+            5. Insert story: `python .claude/scripts/insert_story.py "<next_id>" "<target.id>" "<title>" "<description>"`
+            6. Update commit: `python .claude/scripts/insert_story.py --update-commit "<newest_commit>"`
+            7. Commit and push:
                ```bash
-               git checkout main
-               git pull origin main
-               ```
-            2. Stage and commit all changes:
-               ```bash
-               git add -A
-               git commit -m "stories: auto-generate concept stories $(date -u +'%Y-%m-%d')"
-               ```
-            3. Push directly to main:
-               ```bash
-               git push origin main
+               git add -A && git commit -m "stories: auto-generate $(date -u +'%Y-%m-%d')" && git push origin main
                ```
 
-            **CRITICAL**: Do NOT exit without pushing changes. Any local commits that are not pushed will be lost.
+            Constraints: Max 1 story per run. Status: concept. 30-minute timeout.
 
-            ## Important Constraints:
-            - Maximum 2 stories per run
-            - Prioritize shallower nodes in the tree
-            - Stories are created with status 'concept'
-            - 30-minute timeout - stop if exceeded
-
-            If no nodes have capacity for new stories, exit successfully without making any commits.
+            If any step fails, report the error and exit - do not retry.
 
           # Tool permissions for file operations, database access, and git
           claude_args: |

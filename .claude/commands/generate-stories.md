@@ -1,38 +1,62 @@
-Generate new user story concepts for the backlog using the story-tree skill.
+Generate new user story concepts for the backlog using pre-built workflow scripts.
 
-## Steps
+## CI Mode (Automated)
 
-1. Launch the Xstory GUI in the background:
+When running in automated/YOLO mode (no user interaction):
+
+1. **Run workflow script** to get target node context:
+```bash
+python .claude/scripts/story_workflow.py --ci
+```
+
+2. **If NO_CAPACITY**, exit successfully - nothing to generate.
+
+3. **Generate story** based on the JSON output:
+   - Use target node's description to identify gaps
+   - Review existing children to avoid duplicates
+   - Create ONE story in user story format (As a/I want/So that)
+
+4. **Insert story** using:
+```bash
+python .claude/scripts/insert_story.py "<id>" "<parent_id>" "<title>" "<description>"
+```
+
+5. **Update commit checkpoint**:
+```bash
+python .claude/scripts/insert_story.py --update-commit "<newest_commit>"
+```
+
+## Interactive Mode
+
+For interactive use with full context gathering and rich output, launch the Xstory GUI:
 
 ```bash
 venv\Scripts\activate && python dev-tools\xstory\xstory.py
 ```
 
-2. Delegate story generation to a subagent using the Task tool:
+Then invoke the `brainstorm-story` skill which provides:
+- Detailed git commit analysis
+- Vision/anti-vision context
+- Rich story format with acceptance criteria
+
+## Story Format
 
 ```
-Task(
-  subagent_type="general-purpose",
-  description="Execute story-tree skill workflow",
-  prompt="""
-Read the skill file at `.claude/skills/story-tree/SKILL.md` and execute the complete 7-step workflow:
+Title: [Concise description]
 
-1. Initialize/Load Database (if needed)
-2. Analyze Git Commits (incremental from checkpoint)
-3. Identify Priority Target (using the SQL query in the skill)
-4. Generate Stories (max 3 per target node, in exact format specified)
-5. Insert Stories (using closure table pattern)
-6. Update Metadata (lastUpdated, lastAnalyzedCommit)
-7. Output Report (following the template in the skill)
+As a [role],
+I want [capability],
+So that [benefit].
 
-IMPORTANT:
-- Follow the skill instructions EXACTLY - do not improvise
-- Use Python sqlite3 module, NOT sqlite3 CLI
-- Scripts are in `.claude/skills/story-tree/scripts/`, not project root
-- Return ONLY the final "Story Tree Update Report" with tree visualization
-- Do NOT return intermediate debug output
-"""
-)
+Acceptance Criteria:
+- [ ] Criterion 1
+- [ ] Criterion 2
+- [ ] Criterion 3
 ```
 
-3. Present the returned report to the user. The Xstory GUI will already be open for them to review and approve/reject the new concept stories.
+## Output Format (CI)
+
+```
+Generated 1 story for node [PARENT_ID]:
+  - [STORY_ID]: [Title]
+```
