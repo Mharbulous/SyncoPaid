@@ -1,91 +1,104 @@
 name: Daily Visualization Update
 
-# Run at 5:00am PST (13:00 UTC) every day
-# PST = UTC-8, so 5:00am PST = 1:00pm UTC (13:00)
+# Run at 5:00 AM PST (13:00 UTC) every day
 on:
   schedule:
     - cron: '0 13 * * *'
-  # Allow manual triggering from Actions tab for testing
-  workflow_dispatch:
+  workflow_dispatch:  # Manual trigger for testing
+
+concurrency:
+  group: daily-visualization
+  cancel-in-progress: false
 
 permissions:
   contents: write
-  actions: read
+  issues: write
+  pull-requests: write
+  id-token: write
 
 jobs:
   visualize:
     runs-on: ubuntu-latest
     name: Update vision documentation
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0  # Full history for git operations
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Run Claude Code to generate visualization
+        uses: anthropics/claude-code-action@v1
         with:
-          python-version: '3.11'
+          # GitHub token for repository operations (required for scheduled workflows)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          # Install SQLite tools if needed
-          sudo apt-get update && sudo apt-get install -y sqlite3
+          # Use OAuth token for Max subscription
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
-      - name: Generate visualization via Claude Code
-        run: |
-          # The /visualize slash command delegates to the visualization skill
-          # which generates timestamped vision documentation files in ai_docs/
-          # This script prepares the environment and documents the workflow
-          echo "Starting visualization update..."
-          echo "Timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          # Show full output for debugging
+          show_full_output: true
 
-          # Check if story-tree database exists
-          if [ -f "story-tree.db" ]; then
-            echo "Story-tree database found, visualization files will be generated"
-          else
-            echo "Note: story-tree database not found in repo"
-            echo "Visualization requires the story-tree.db file to generate vision documentation"
-          fi
-        continue-on-error: true
+          # Direct prompt mode for scheduled automation
+          prompt: |
+            REPO: ${{ github.repository }}
+            MODE: Daily Visualization Update (YOLO mode - fully autonomous)
 
-      - name: Check for visualization updates
-        id: check-changes
-        run: |
-          if git diff --quiet ai_docs/; then
-            echo "changed=false" >> $GITHUB_OUTPUT
-            echo "No visualization changes detected"
-          else
-            echo "changed=true" >> $GITHUB_OUTPUT
-            echo "Visualization files updated"
-          fi
+            You are running the automated visualization workflow for SyncoPaid.
+            This is a scheduled CI run - complete all tasks autonomously without user interaction.
 
-      - name: Commit and push visualization updates
-        if: steps.check-changes.outputs.changed == 'true'
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
+            ## Primary Task: Generate Vision Documentation
 
-          git add ai_docs/
-          git commit -m "chore: auto-update visualization at $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            Run the /visualize slash command to generate/update vision documentation based on the story-tree database.
 
-          # Push with retry logic for transient failures
-          for i in {1..3}; do
-            if git push; then
-              echo "Successfully pushed visualization updates"
-              exit 0
-            else
-              if [ $i -lt 3 ]; then
-                echo "Push failed, retrying in 10 seconds..."
-                sleep 10
-              fi
-            fi
-          done
-          echo "Warning: Could not push visualization updates after 3 attempts"
-        continue-on-error: true
+            Key behaviors for YOLO mode:
+            - Skip all approval steps - do NOT wait for user confirmation
+            - Generate vision documentation from approved story nodes
+            - Create commits directly with clear messages
+            - No interactive prompts - complete the workflow autonomously
+
+            ## Workflow Steps:
+
+            1. Read CLAUDE.md for project conventions
+            2. Execute the /visualize command which will:
+               - Use the visualization skill to analyze the story-tree database
+               - Generate vision documentation in ai_docs/
+               - Summarize what the vision IS (from approved nodes)
+               - Summarize what the vision is NOT (from rejected nodes with notes)
+            3. Commit and push any changes (see "Git Operations" section below)
+
+            ## Git Operations (REQUIRED for ANY file changes):
+
+            **You MUST complete these steps for ANY changes made**:
+
+            1. Ensure you are on main branch and pull latest:
+               ```bash
+               git checkout main
+               git pull origin main
+               ```
+            2. Stage and commit all changes:
+               ```bash
+               git add -A
+               git commit -m "docs: auto-update visualization $(date -u +'%Y-%m-%d')"
+               ```
+            3. Push directly to main:
+               ```bash
+               git push origin main
+               ```
+
+            **CRITICAL**: Do NOT exit without pushing changes. Any local commits that are not pushed will be lost.
+
+            ## Important Constraints:
+            - Update vision documentation based on current story-tree state
+            - Output files go in ai_docs/ folder
+            - 30-minute timeout - stop if exceeded
+
+            If the story-tree database doesn't exist or has no relevant data, exit successfully without making any commits.
+
+          # Tool permissions for file operations, database access, and git
+          claude_args: |
+            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Skill,SlashCommand,TodoWrite"
+            --model claude-sonnet-4-5-20250929
 
       - name: Workflow summary
         run: |

@@ -4,24 +4,97 @@ name: Daily Story Generation
 on:
   schedule:
     - cron: '0 10 * * *'
-  # Allow manual triggering for testing
-  workflow_dispatch:
+  workflow_dispatch:  # Manual trigger for testing
+
+concurrency:
+  group: daily-story-generation
+  cancel-in-progress: false
 
 permissions:
   contents: write
+  issues: write
   pull-requests: write
+  id-token: write
 
 jobs:
   write-stories:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Run Claude Code /write-stories
-        uses: anthropic/claude-code-action@v1
+        uses: actions/checkout@v5
         with:
+          fetch-depth: 0  # Full history for git operations
+
+      - name: Run Claude Code to generate stories
+        uses: anthropics/claude-code-action@v1
+        with:
+          # GitHub token for repository operations (required for scheduled workflows)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Use OAuth token for Max subscription
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: "/write-stories"
-          allowed_tools: "Bash,Read,Write,Edit,Glob,Grep,Task,Skill,TodoWrite"
-          timeout_minutes: 30
+
+          # Show full output for debugging
+          show_full_output: true
+
+          # Direct prompt mode for scheduled automation
+          prompt: |
+            REPO: ${{ github.repository }}
+            MODE: Daily Story Generation (YOLO mode - fully autonomous)
+
+            You are running the automated story generation workflow for SyncoPaid.
+            This is a scheduled CI run - complete all tasks autonomously without user interaction.
+
+            ## Primary Task: Generate User Stories
+
+            Run the /write-stories slash command to generate new user story concepts.
+
+            Key behaviors for YOLO mode:
+            - Skip all approval steps - do NOT wait for user confirmation
+            - Generate up to 2 stories for nodes with capacity
+            - Create commits directly with clear messages
+            - No interactive prompts - complete the workflow autonomously
+
+            ## Workflow Steps:
+
+            1. Read CLAUDE.md for project conventions
+            2. Execute the /write-stories command which will:
+               - Query the story-tree database for nodes with capacity
+               - Use the brainstorm-story skill to generate stories
+               - Insert new concept stories into the database
+            3. Commit and push any changes (see "Git Operations" section below)
+
+            ## Git Operations (REQUIRED for ANY file changes):
+
+            **You MUST complete these steps for ANY changes made**:
+
+            1. Ensure you are on main branch and pull latest:
+               ```bash
+               git checkout main
+               git pull origin main
+               ```
+            2. Stage and commit all changes:
+               ```bash
+               git add -A
+               git commit -m "stories: auto-generate concept stories $(date -u +'%Y-%m-%d')"
+               ```
+            3. Push directly to main:
+               ```bash
+               git push origin main
+               ```
+
+            **CRITICAL**: Do NOT exit without pushing changes. Any local commits that are not pushed will be lost.
+
+            ## Important Constraints:
+            - Maximum 2 stories per run
+            - Prioritize shallower nodes in the tree
+            - Stories are created with status 'concept'
+            - 30-minute timeout - stop if exceeded
+
+            If no nodes have capacity for new stories, exit successfully without making any commits.
+
+          # Tool permissions for file operations, database access, and git
+          claude_args: |
+            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Skill,SlashCommand,TodoWrite"
+            --model claude-sonnet-4-5-20250929
