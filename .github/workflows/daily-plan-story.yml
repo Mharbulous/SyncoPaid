@@ -58,14 +58,13 @@ jobs:
 
             ## Workflow Steps:
 
-            1. Read CLAUDE.md for project conventions
-            2. Execute the /plan-story command which will:
+            1. Execute the /plan-story command which will:
                - Find approved stories in the story-tree database
                - Prioritize and select the best candidate
                - Use the story-planning skill to create a detailed plan
                - Save the plan to ai_docs/Plans/
                - Update the story's status to 'planned'
-            3. Commit and push any changes (see "Git Operations" section below)
+            2. Commit and push any changes (see "Git Operations" section below)
 
             ## Git Operations (REQUIRED for ANY file changes):
 
