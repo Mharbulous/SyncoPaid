@@ -2,7 +2,14 @@
 
 This guide consolidates lessons learned from optimizing token usage across custom skills, slash commands, and GitHub workflow actions in the SyncoPaid project. Total documented savings: **~3,800+ tokens per workflow run**.
 
+> **Scope:** This guide focuses on **CI/automation contexts** (GitHub Actions, scheduled workflows, autonomous agents). Strategies for interactive CLI usage are explicitly excluded. All recommendations assume:
+> - Fresh context per workflow run (no conversation history)
+> - No interactive user input during execution
+> - YOLO/autonomous execution mode
+
 ## Quick Reference: Token Savings by Optimization Type
+
+### Validated Optimizations (Parts 1-5)
 
 | Optimization | Token Savings | Complexity |
 |--------------|---------------|------------|
@@ -12,6 +19,18 @@ This guide consolidates lessons learned from optimizing token usage across custo
 | Consolidate SQL queries | ~400 tokens | Medium |
 | Batch skill invocations | ~1,400 tokens | Medium |
 | Optimize CLAUDE.md structure | ~1,000+ tokens | High |
+
+### Theoretical Optimizations (Part 6 - Untested)
+
+| Optimization | Claimed Savings | Complexity |
+|--------------|-----------------|------------|
+| Haiku model routing | 70% cost | Medium |
+| Explore subagent isolation | Context isolation | Low |
+| BatchPrompt technique | ~500/item | Medium |
+| Memory files for state | Unbounded workflows | Medium |
+| Skeleton-of-Thought prompting | 2.39x speed | High |
+
+> See [Part 6](#part-6-theoretical-optimizations-untested) for implementation details and testing requirements.
 
 ---
 
@@ -434,3 +453,231 @@ The most impactful optimizations are:
 5. **Keep CLAUDE.md lean** (~1,000+ tokens/session)
 
 Focus on batching and CI mode for the highest ROI. These changes compound across every automated run.
+
+---
+
+## Part 6: Theoretical Optimizations (Untested)
+
+> **IMPORTANT:** The strategies in this section are derived from internet research and external sources. They have NOT been validated through practical testing on the SyncoPaid repository. These suggestions should remain in this theoretical section until they have been tested and confirmed to provide measurable benefits in this specific codebase.
+>
+> **To promote a strategy to the validated sections above:**
+> 1. Implement the optimization in a test workflow or skill
+> 2. Measure baseline token usage before optimization
+> 3. Measure token usage after optimization
+> 4. Document the actual savings in a commit
+> 5. Move the strategy to the appropriate validated section
+
+---
+
+### 6.1 Haiku Model Routing for Subagents
+
+**Source:** [Anthropic - Claude Haiku 4.5](https://www.anthropic.com/claude/haiku), [Claude Code Subagents Docs](https://code.claude.com/docs/en/sub-agents)
+
+**Claimed benefit:** 70% cost reduction, 90% of Sonnet performance.
+
+**How it works:**
+- Use Haiku for simple, repetitive tasks (data gathering, file searches)
+- Reserve Sonnet/Opus for complex reasoning (story generation, planning)
+- Subagents automatically isolate context from main conversation
+
+**Implementation in workflow prompts:**
+```markdown
+### Step 2: Gather Context (Use Haiku)
+Use the Task tool with:
+  - subagent_type: Explore
+  - model: haiku
+  - prompt: "Find all files related to {feature}"
+```
+
+**Expected savings:** 70% cost reduction (Haiku: $1/$5 vs Sonnet: $3/$15 per million tokens)
+
+**Testing needed:** Modify brainstorm-story skill to use Haiku for data gathering steps, measure quality vs cost trade-off.
+
+---
+
+### 6.2 Explore Subagent for Context Isolation
+
+**Source:** [Claude Code Subagents Docs](https://code.claude.com/docs/en/sub-agents)
+
+**Claimed benefit:** Search results don't pollute main conversation context.
+
+**How it works:**
+- Explore subagent runs in isolated context
+- Returns summarized findings, not raw search results
+- Main workflow context stays focused on task
+
+**Implementation in skills:**
+```markdown
+### Step 2: Gather Context (Isolated)
+Use the Task tool with subagent_type=Explore:
+- prompt: "Find all files related to {feature}. Return file list with brief descriptions only."
+- model: haiku
+```
+
+**Contrast with anti-pattern:**
+```markdown
+# BAD - Search results enter main context
+Use Grep to find all references to {feature}
+# Results: 500+ lines of matches pollute context
+```
+
+**Expected savings:** Prevents 1000s of tokens from search results entering main context
+
+**Testing needed:** Compare token usage when using Explore subagent vs direct Grep/Glob in brainstorm-story skill.
+
+---
+
+### 6.3 BatchPrompt Technique for Multi-Item Processing
+
+**Source:** [Portkey - Token Efficiency](https://portkey.ai/blog/optimize-token-efficiency-in-prompts/)
+
+**Claimed benefit:** Eliminates repeated system prompts for each item.
+
+**How it works:**
+- Process multiple items in single prompt instead of sequential calls
+- Extends the batching pattern from section 1.4
+- Reduces tool invocation overhead
+
+**Enhanced implementation:**
+```markdown
+### Batch Processing Format
+Instead of:
+- Call skill for node 1 → output → call skill for node 2 → output → ...
+
+Use single skill call:
+- "Process ALL of the following nodes and return a single combined output:
+  1. Node A: {context}
+  2. Node B: {context}
+  3. Node C: {context}
+
+  Return results in format:
+  {node_id}: {result}"
+```
+
+**Expected savings:** ~500 tokens per additional item (eliminates repeated system prompt overhead)
+
+**Testing needed:** Enhance brainstorm-story to accept 3+ nodes in single batch, measure scaling efficiency.
+
+---
+
+### 6.4 Memory Files for Multi-Job Workflows
+
+**Source:** [Claude Context Editing Docs](https://platform.claude.com/docs/en/build-with-claude/context-editing)
+
+**Claimed benefit:** State persistence across multiple GitHub Actions jobs.
+
+**The problem:** Each GitHub Actions job starts with fresh context. Multi-step workflows lose state between jobs.
+
+**How it works:**
+- Job 1 writes findings to a memory file
+- Job 2 reads memory file to restore context
+- Enables arbitrary-length workflows without context degradation
+
+**Implementation:**
+```yaml
+# Job 1
+prompt: |
+  ## Task: Analyze codebase
+  ...
+  ## Final Step: Save State
+  Write findings to `ai_docs/workflow-state.md`:
+  - Key decisions made
+  - Files identified for modification
+  - Blockers encountered
+
+# Job 2 (depends on Job 1)
+prompt: |
+  ## Context Restoration
+  Read `ai_docs/workflow-state.md` for context from previous job.
+
+  ## Task: Implement changes based on analysis
+  ...
+```
+
+**Expected savings:** Enables multi-job workflows without redundant analysis
+
+**Testing needed:** Split visualization workflow into analyze + generate jobs, use memory file for state transfer.
+
+---
+
+### 6.5 Skeleton-of-Thought (SoT) Prompting
+
+**Source:** [Portkey - Token Efficiency](https://portkey.ai/blog/optimize-token-efficiency-in-prompts/)
+
+**Claimed benefit:** 2.39x faster generation through focused expansion.
+
+**How it works:**
+1. First: generate structured outline/skeleton only
+2. Second: expand skeleton into full output
+3. Skeleton constrains expansion, reducing iteration
+
+**Implementation for story generation:**
+```markdown
+### Phase 1: Generate Skeleton
+"For node {ID}, generate ONLY an outline:
+- Story title (one line)
+- 3 acceptance criteria headers (bullet points only)
+- Key implementation areas (3-5 words each)"
+
+### Phase 2: Expand Skeleton
+"Expand the following outline into full user story format:
+{skeleton from phase 1}
+
+Include full acceptance criteria with Given/When/Then format."
+```
+
+**Why this helps in CI:**
+- Skeleton provides structure before expensive generation
+- Reduces "wandering" in output generation
+- Easier to validate output format
+
+**Expected savings:** Faster generation, potentially fewer tokens through focused expansion
+
+**Testing needed:** Implement SoT pattern in brainstorm-story, compare generation time and quality.
+
+---
+
+## Theoretical Optimizations: Quick Reference
+
+| Strategy | Claimed Savings | Complexity | Applicable To |
+|----------|-----------------|------------|---------------|
+| Haiku model routing | 70% cost | Medium | Skills, Workflows |
+| Explore subagent isolation | Context isolation | Low | Skills, Workflows |
+| BatchPrompt technique | ~500/item | Medium | Skills |
+| Memory files for state | Multi-job workflows | Medium | GitHub Actions |
+| Skeleton-of-Thought | 2.39x speed | High | Skills |
+
+---
+
+## Excluded Strategies (CLI-Only)
+
+The following strategies from research are **not applicable** to CI workflows and are excluded from this guide:
+
+| Strategy | Reason for Exclusion |
+|----------|---------------------|
+| `/compact` command | CLI-only; CI jobs start fresh |
+| `/clear` between tasks | CI jobs already start fresh |
+| `/cost` monitoring | CLI-only command |
+| 75% utilization target | Requires `/cost`; CI jobs typically complete before context limits |
+| MCP server auditing | CLI-only; `/context` and `@server disable` not available in CI |
+| Token-efficient API beta | Requires API-level headers; unclear if claude-code-action exposes this |
+| Dynamic tool loading | API-level; requires SDK modifications |
+| Prompt caching | API-level; unclear if claude-code-action exposes this |
+
+> **Note:** If claude-code-action adds support for API-level features (beta headers, cache control), those strategies should be reconsidered.
+
+---
+
+## Validation Tracking
+
+Use this section to track which theoretical strategies have been tested:
+
+| Strategy | Test Date | Result | Moved to Section |
+|----------|-----------|--------|------------------|
+| _None validated yet_ | - | - | - |
+
+**To add a validation:**
+1. Test the strategy in a real workflow
+2. Document actual token savings
+3. Add row to this table
+4. Move strategy to appropriate validated section above
