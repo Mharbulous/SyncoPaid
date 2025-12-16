@@ -11,9 +11,11 @@ When invoked without arguments, the command performs two distinct operations:
 1. **Generate new stories** for nodes with capacity
 2. **Refine existing stories** that have status 'refine'
 
-### Step 1: Find Nodes with Capacity for New Stories
+### Step 1: Discover All Nodes Needing Attention
 
-Query the story-tree database to find up to 2 nodes that can accept new concept stories:
+Query the story-tree database in a single call to find:
+- Up to 2 nodes with capacity for new stories
+- Up to 3 stories needing refinement (status 'refine')
 
 ```python
 python -c "
@@ -24,7 +26,9 @@ conn = sqlite3.connect('.claude/data/story-tree.db')
 conn.row_factory = sqlite3.Row
 cursor = conn.cursor()
 
-# Find under-capacity nodes, shallower first
+result = {'capacity_nodes': [], 'refine_nodes': []}
+
+# Find under-capacity nodes, shallower first (limit 2)
 cursor.execute('''
     SELECT s.id, s.title, s.status,
         (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as child_count,
@@ -43,27 +47,9 @@ cursor.execute('''
     ORDER BY node_depth ASC
     LIMIT 2
 ''')
+result['capacity_nodes'] = [dict(row) for row in cursor.fetchall()]
 
-nodes = [dict(row) for row in cursor.fetchall()]
-print(json.dumps(nodes, indent=2))
-conn.close()
-"
-```
-
-### Step 2: Find Stories Needing Refinement
-
-Query for story-nodes with status 'refine':
-
-```python
-python -c "
-import sqlite3
-import json
-
-conn = sqlite3.connect('.claude/data/story-tree.db')
-conn.row_factory = sqlite3.Row
-cursor = conn.cursor()
-
-# Find stories with 'refine' status (need rework based on feedback)
+# Find stories with 'refine' status (limit 3)
 cursor.execute('''
     SELECT s.id, s.title, s.description, s.notes,
         (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth
@@ -72,34 +58,36 @@ cursor.execute('''
     ORDER BY s.updated_at ASC
     LIMIT 3
 ''')
+result['refine_nodes'] = [dict(row) for row in cursor.fetchall()]
 
-refine_nodes = [dict(row) for row in cursor.fetchall()]
-print(json.dumps(refine_nodes, indent=2))
+print(json.dumps(result, indent=2))
 conn.close()
 "
 ```
 
-### Step 3: Generate New Stories for Under-Capacity Nodes
+### Step 2: Generate New Stories for Under-Capacity Nodes (Batched)
 
-For each node found in Step 1 (up to 2 total stories across all nodes):
+If `capacity_nodes` from Step 1 contains any nodes, invoke the `brainstorm-story` skill **once** with all target nodes:
 
 1. Use the Skill tool to invoke `brainstorm-story`
-2. Pass the node ID and request stories be generated
-3. Track story count to stop at 2 total
+2. Pass ALL discovered node IDs together (e.g., "Generate stories for nodes: 1.2, 1.3")
+3. Request 1 story per node, max 2 stories total
 
-**Distribution strategy**: Generate stories round-robin across discovered nodes until 2 stories are created, prioritizing shallower nodes.
+**Why batch?** Invoking the skill once with multiple nodes avoids repeatedly loading skill instructions, saving ~1,400 tokens per additional node.
 
-### Step 4: Refine Stories Needing Rework
+**Distribution strategy**: The skill will generate stories round-robin across provided nodes, prioritizing shallower nodes, until 2 stories total are created.
 
-For each story found in Step 2 with status 'refine':
+### Step 3: Refine Stories Needing Rework
 
-#### 4.1: Analyze the Refinement Feedback
+For each story in `refine_nodes` from Step 1:
+
+#### 3.1: Analyze the Refinement Feedback
 
 1. Read the story's current `description` field (contains the existing user story)
 2. Read the story's `notes` field (contains feedback explaining why it wasn't approved and what refinements were suggested)
 3. Understand the history and specific changes requested
 
-#### 4.2: Archive Previous Story Version to Notes
+#### 3.2: Archive Previous Story Version to Notes
 
 Append the current story description to the notes field with a timestamp, preserving the refinement history:
 
@@ -137,7 +125,7 @@ print('Previous story version archived to notes')
 "
 ```
 
-#### 4.3: Generate Refined User Story
+#### 3.3: Generate Refined User Story
 
 Based on the feedback in notes, create a new refined user story that addresses the concerns:
 
@@ -164,7 +152,7 @@ Based on the feedback in notes, create a new refined user story that addresses t
 **Refinement Notes:** [Brief summary of what changed from previous version based on feedback]
 ```
 
-#### 4.4: Update Story with Refined Version
+#### 3.4: Update Story with Refined Version
 
 Update the story's description with the new refined story and change status to 'concept':
 
@@ -189,7 +177,7 @@ print('Story refined and status updated to concept')
 "
 ```
 
-### Step 5: Report Results
+### Step 4: Report Results
 
 Output a summary showing:
 
