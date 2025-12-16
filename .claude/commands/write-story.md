@@ -1,8 +1,8 @@
-Generate new user story concepts using the brainstorm-story skill, or refine existing stories that need rework.
+Generate new user story concepts using the story-writing skill, or refine existing stories that need rework.
 
 ## Arguments
 
-- **With arguments**: Pass the arguments as instructions to the brainstorm-story skill (e.g., `/write-story for node 1.2` or `/write-story focus on export features`)
+- **With arguments**: Pass the arguments as instructions to the story-writing skill (e.g., `/write-story for node 1.2` or `/write-story focus on export features`)
 - **Without arguments**: Auto-discover nodes with capacity for new stories AND nodes with status 'refine' that need rework
 
 ## Default Behavior (No Arguments)
@@ -67,9 +67,9 @@ conn.close()
 
 ### Step 2: Generate New Stories for Under-Capacity Nodes (Batched)
 
-If `capacity_nodes` from Step 1 contains any nodes, invoke the `brainstorm-story` skill **once** with all target nodes:
+If `capacity_nodes` from Step 1 contains any nodes, invoke the `story-writing` skill **once** with all target nodes:
 
-1. Use the Skill tool to invoke `brainstorm-story`
+1. Use the Skill tool to invoke `story-writing`
 2. Pass ALL discovered node IDs together (e.g., "Generate stories for nodes: 1.2, 1.3")
 3. Request 1 story per node, max 2 stories total
 
@@ -193,7 +193,7 @@ Output a summary showing:
 
 ## With Arguments
 
-When arguments are provided, pass them directly to the brainstorm-story skill as instructions.
+When arguments are provided, pass them directly to the story-writing skill as instructions.
 
 **Maximum limit**: Even with arguments, never generate more than 10 stories total. If the user requests more than 10, cap at 10 and inform them of the limit.
 
@@ -204,7 +204,7 @@ When arguments are provided, pass them directly to the brainstorm-story skill as
 - `/write-story 10 stories for node 1` → Generate 10 stories (maximum allowed)
 - `/write-story refine 1.3.2` → Manually trigger refinement for a specific story
 
-Use the Skill tool to invoke `brainstorm-story` with the user's instructions.
+Use the Skill tool to invoke `story-writing` with the user's instructions.
 
 ## Status Flow
 

@@ -123,7 +123,7 @@ If no concept stories exist, inform the user:
 ```
 No concept stories awaiting review.
 
-To generate new stories, use `/write-stories` or invoke the `brainstorm-story` skill.
+To generate new stories, use `/write-stories` or invoke the `story-writing` skill.
 ```
 
 ## Notes

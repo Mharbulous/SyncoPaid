@@ -71,7 +71,7 @@ Each failure wastes ~200 tokens on error output + retry.
 
 ### 4. Large SKILL.md Files Read Every Run (Est. -3,500 tokens)
 
-**Issue**: Subagent instructed to "Read the skill file at `.claude/skills/story-tree/SKILL.md`" (334 lines) and brainstorm-story skill (602 lines) loaded.
+**Issue**: Subagent instructed to "Read the skill file at `.claude/skills/story-tree/SKILL.md`" (334 lines) and story-writing skill (602 lines) loaded.
 
 **Evidence**: Combined skill files are ~940 lines of instructions, mostly not needed for CI automation.
 
@@ -379,7 +379,7 @@ conn.commit()
 
 ## Interactive Mode
 
-For interactive use, invoke the `brainstorm-story` skill which provides full context gathering and rich output.
+For interactive use, invoke the `story-writing` skill which provides full context gathering and rich output.
 
 ## Output Format (CI)
 
@@ -453,7 +453,7 @@ The current workflow uses Task tool to spawn a subagent that reads SKILL.md. Wit
 |------|------------|
 | Scripts may not handle edge cases | Include error handling, test with various DB states |
 | Story quality may decrease without full skill context | Embed essential story format in workflow prompt |
-| Breaking existing interactive mode | Keep brainstorm-story skill for interactive use |
+| Breaking existing interactive mode | Keep story-writing skill for interactive use |
 | Script path issues in CI | Use absolute paths, test in GitHub Actions environment |
 
 ## Implementation Order

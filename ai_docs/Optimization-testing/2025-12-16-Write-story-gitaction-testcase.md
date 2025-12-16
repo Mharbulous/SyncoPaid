@@ -33,7 +33,7 @@ GitHub Action Workflow
             ├── SQL: Find under-capacity nodes
             ├── SQL: Find stories needing refinement
             │
-            └── 3. brainstorm-story skill (SKILL.md: 563 lines)
+            └── 3. story-writing skill (SKILL.md: 563 lines)
                     │
                     ├── Check vision files
                     ├── Query parent node context
@@ -49,7 +49,7 @@ GitHub Action Workflow
 | Workflow prompt | ~100 lines | Every run | ~500 tokens |
 | CLAUDE.md | ~80 lines | Instructed to read | ~400 tokens |
 | write-story.md | 236 lines | Command expansion | ~1,200 tokens |
-| brainstorm-story SKILL.md | 563 lines | Skill invocation | ~2,800 tokens |
+| story-writing SKILL.md | 563 lines | Skill invocation | ~2,800 tokens |
 | story-tree SKILL.md | 334 lines | If referenced | ~1,700 tokens |
 | Vision files (if exist) | ~50-100 lines | Per check | ~500 tokens |
 | **Total overhead per run** | | | **~7,000+ tokens** |
@@ -77,7 +77,7 @@ prompt: |
 
 ### 2. Verbose Skill Documents
 
-**Location:** `.claude/skills/brainstorm-story/SKILL.md` (563 lines)
+**Location:** `.claude/skills/story-writing/SKILL.md` (563 lines)
 
 **Issue:** The skill document contains:
 - 15+ code block examples (~200 lines)
@@ -101,7 +101,7 @@ prompt: |
 
 ### 3. Multi-Step Vision File Checking
 
-**Location:** brainstorm-story SKILL.md, Step 0
+**Location:** story-writing SKILL.md, Step 0
 
 ```python
 # Step 0.1: Check existence
@@ -142,7 +142,7 @@ print(json.dumps(result))
 **Issue:** Downloads full git history but the skill only analyzes `--since=30 days ago`:
 
 ```python
-# In brainstorm-story SKILL.md
+# In story-writing SKILL.md
 cmd = ['git', 'log', '--since=30 days ago', ...]
 ```
 
@@ -168,7 +168,7 @@ Or calculate appropriate depth based on commit frequency.
 1. Find under-capacity nodes (lines 18-50)
 2. Find stories needing refinement (lines 53-80)
 
-Then for each result, it invokes the brainstorm-story skill separately.
+Then for each result, it invokes the story-writing skill separately.
 
 **Recommendation:** Combine into a single query with UNION or restructure:
 ```python
@@ -191,7 +191,7 @@ print(json.dumps([dict(r) for r in cursor.fetchall()]))
 
 ### 6. Inline SQL Query Verbosity
 
-**Location:** Multiple skills (write-story.md, brainstorm-story SKILL.md)
+**Location:** Multiple skills (write-story.md, story-writing SKILL.md)
 
 **Issue:** Full SQL queries are written inline with extensive formatting:
 ```sql
@@ -213,7 +213,7 @@ SELECT s.id, s.title, s.status,
 
 ### 7. Report Generation Verbosity
 
-**Location:** brainstorm-story SKILL.md, Step 7
+**Location:** story-writing SKILL.md, Step 7
 
 **Issue:** The skill generates a verbose markdown report including:
 - Full story text (already inserted to database)
@@ -236,15 +236,15 @@ Generated 2 stories for node 1.2: [1.2.4] Configure polling, [1.2.5] Add export 
 
 **Current pattern:**
 ```
-write-story.md → brainstorm-story skill
+write-story.md → story-writing skill
                  └── (each invocation loads full skill doc)
 ```
 
-**Issue:** If generating stories for 2 nodes, the brainstorm-story skill document (563 lines) is conceptually "loaded" twice in Claude's reasoning.
+**Issue:** If generating stories for 2 nodes, the story-writing skill document (563 lines) is conceptually "loaded" twice in Claude's reasoning.
 
 **Recommendation:** Consider batching - instead of invoking the skill per-node, pass all target nodes in one invocation:
 ```
-brainstorm-story --nodes "1.2,1.3" --max-stories-per-node 1
+story-writing --nodes "1.2,1.3" --max-stories-per-node 1
 ```
 
 **Savings:** ~1,400 tokens (avoid duplicate skill doc processing)
@@ -273,14 +273,14 @@ brainstorm-story --nodes "1.2,1.3" --max-stories-per-node 1
 ### Phase 1: Quick Wins (Immediate)
 
 1. **Remove explicit CLAUDE.md read** from workflow prompt
-2. **Add `--ci` flag** to brainstorm-story that:
+2. **Add `--ci` flag** to story-writing that:
    - Skips verbose examples section processing
    - Outputs minimal confirmation instead of full report
 3. **Combine vision file checks** into single Python execution
 
 ### Phase 2: Structural Improvements
 
-1. **Create batched story generation** - modify write-story.md to collect all target nodes, then invoke brainstorm-story once with all nodes
+1. **Create batched story generation** - modify write-story.md to collect all target nodes, then invoke story-writing once with all nodes
 2. **Extract SQL queries** to shared utility or reference file
 3. **Consolidate node discovery** into single query
 
@@ -309,7 +309,7 @@ brainstorm-story --nodes "1.2,1.3" --max-stories-per-node 1
 |------|-------|---------|--------|
 | `.github/workflows/write-stories.yml` | 101 | Workflow definition | Modify prompt |
 | `.claude/commands/write-story.md` | 236 | Command orchestration | Batch processing |
-| `.claude/skills/brainstorm-story/SKILL.md` | 563 | Story generation | Create CI variant |
+| `.claude/skills/story-writing/SKILL.md` | 563 | Story generation | Create CI variant |
 | `.claude/skills/story-tree/SKILL.md` | 334 | Tree management | Reference only |
 
 ---
@@ -327,5 +327,5 @@ brainstorm-story --nodes "1.2,1.3" --max-stories-per-node 1
 
 - Workflow run: https://github.com/Mharbulous/SyncoPaid/actions/runs/20261831703
 - Write-story command: `.claude/commands/write-story.md`
-- Brainstorm-story skill: `.claude/skills/brainstorm-story/SKILL.md`
+- story-writing skill: `.claude/skills/story-writing/SKILL.md`
 - Previous analysis: `ai_docs/Research/2025-12-16-slash-commands-vs-skills-analysis.md`

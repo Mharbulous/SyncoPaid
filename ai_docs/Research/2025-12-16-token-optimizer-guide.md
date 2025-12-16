@@ -134,7 +134,7 @@ print(json.dumps(result, indent=2))
 ```markdown
 # BAD - Calls skill N times
 For each node found in Step 1:
-1. Use the Skill tool to invoke `brainstorm-story`
+1. Use the Skill tool to invoke `story-writing`
 2. Pass the node ID and request stories be generated
 ```
 
@@ -145,7 +145,7 @@ This loads the full skill document (~2,800 tokens) for each invocation.
 ```markdown
 # GOOD - Single skill call with all targets
 If `capacity_nodes` from Step 1 contains any nodes:
-1. Use the Skill tool to invoke `brainstorm-story`
+1. Use the Skill tool to invoke `story-writing`
 2. Pass ALL discovered node IDs together (e.g., "Generate stories for nodes: 1.2, 1.3")
 3. Request 1 story per node, max 2 stories total
 ```
@@ -250,7 +250,7 @@ prompt: |
   ## Workflow Steps:
   1. Execute the /write-stories command which will:
      - Query the story-tree database for nodes with capacity
-     - Use the brainstorm-story skill to generate stories
+     - Use the story-writing skill to generate stories
      - Insert new concept stories into the database
   2. Commit and push any changes
 ```
@@ -491,7 +491,7 @@ Use the Task tool with:
 
 **Expected savings:** 70% cost reduction (Haiku: $1/$5 vs Sonnet: $3/$15 per million tokens)
 
-**Testing needed:** Modify brainstorm-story skill to use Haiku for data gathering steps, measure quality vs cost trade-off.
+**Testing needed:** Modify story-writing skill to use Haiku for data gathering steps, measure quality vs cost trade-off.
 
 ---
 
@@ -523,7 +523,7 @@ Use Grep to find all references to {feature}
 
 **Expected savings:** Prevents 1000s of tokens from search results entering main context
 
-**Testing needed:** Compare token usage when using Explore subagent vs direct Grep/Glob in brainstorm-story skill.
+**Testing needed:** Compare token usage when using Explore subagent vs direct Grep/Glob in story-writing skill.
 
 ---
 
@@ -556,7 +556,7 @@ Use single skill call:
 
 **Expected savings:** ~500 tokens per additional item (eliminates repeated system prompt overhead)
 
-**Testing needed:** Enhance brainstorm-story to accept 3+ nodes in single batch, measure scaling efficiency.
+**Testing needed:** Enhance story-writing to accept 3+ nodes in single batch, measure scaling efficiency.
 
 ---
 
@@ -633,7 +633,7 @@ Include full acceptance criteria with Given/When/Then format."
 
 **Expected savings:** Faster generation, potentially fewer tokens through focused expansion
 
-**Testing needed:** Implement SoT pattern in brainstorm-story, compare generation time and quality.
+**Testing needed:** Implement SoT pattern in story-writing, compare generation time and quality.
 
 ---
 

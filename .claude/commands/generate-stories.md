@@ -34,7 +34,7 @@ For interactive use with full context gathering and rich output, launch the Xsto
 venv\Scripts\activate && python dev-tools\xstory\xstory.py
 ```
 
-Then invoke the `brainstorm-story` skill which provides:
+Then invoke the `story-writing` skill which provides:
 - Detailed git commit analysis
 - Vision/anti-vision context
 - Rich story format with acceptance criteria

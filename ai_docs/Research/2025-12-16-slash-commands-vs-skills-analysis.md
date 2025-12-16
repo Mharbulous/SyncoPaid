@@ -95,7 +95,7 @@ After analyzing the current implementation, the **division is well-structured** 
 - Comprehensive documentation
 - No dependence on the slash command
 
-## Comparison: `/write-stories` vs `brainstorm-story`
+## Comparison: `/write-stories` vs `story-writing`
 
 **Potential issue identified:** The `/write-stories` command contains SQL queries and orchestration logic (80 lines) that might belong in a skill.
 
@@ -104,10 +104,10 @@ After analyzing the current implementation, the **division is well-structured** 
 /write-stories (80 lines)
 ├── SQL query to find nodes with capacity
 ├── Round-robin distribution logic
-└── Invokes brainstorm-story skill
+└── Invokes story-writing skill
 ```
 
-**Recommendation:** Consider moving the "find nodes with capacity" logic into the `brainstorm-story` skill, making `/write-stories` a simpler wrapper. This would follow the same pattern as `/plan-story`.
+**Recommendation:** Consider moving the "find nodes with capacity" logic into the `story-writing` skill, making `/write-stories` a simpler wrapper. This would follow the same pattern as `/plan-story`.
 
 ## Best Practice Patterns
 
@@ -162,11 +162,11 @@ The current division is optimal:
 - No duplication
 - Clear separation of concerns
 
-### For `/write-stories` + `brainstorm-story`
+### For `/write-stories` + `story-writing`
 **Status:** ⚠️ Consider refactoring
 
 **Recommended change:**
-1. Move "find nodes with capacity" logic into `brainstorm-story` skill
+1. Move "find nodes with capacity" logic into `story-writing` skill
 2. Add a "discovery mode" to the skill
 3. Simplify `/write-stories` to just parse count/arguments and delegate
 

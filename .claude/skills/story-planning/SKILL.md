@@ -26,7 +26,7 @@ Generate **test-driven implementation plans** for approved stories:
 
 ## When NOT to Use
 
-- Generating new story ideas (use `brainstorm-story` skill)
+- Generating new story ideas (use `story-writing` skill)
 - Viewing the tree structure (use `story-tree` skill)
 - General prioritization without plan creation (use `prioritize-story-notes` skill)
 - Story already has `planned` status
@@ -476,6 +476,6 @@ Present planning results and offer implementation options:
 - **Story Tree Database:** `.claude/data/story-tree.db`
 - **Plans Folder:** `ai_docs/Plans/`
 - **Story Tree Skill:** `.claude/skills/story-tree/SKILL.md`
-- **Brainstorm Skill:** `.claude/skills/brainstorm-story/SKILL.md`
+- **Brainstorm Skill:** `.claude/skills/story-writing/SKILL.md`
 - **Technical Reference:** `ai_docs/technical-reference.md`
 - **Status Values:** See story-tree skill for 21-status rainbow system
