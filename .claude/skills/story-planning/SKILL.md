@@ -390,6 +390,31 @@ Present planning results and offer implementation options:
 **Which would you prefer?**
 ```
 
+### Step 8 (CI Mode): Minimal Output
+
+**When running in CI/automation context** (e.g., scheduled GitHub Actions via `daily-plan-story.yml`), use this minimal output format instead of the full report:
+
+**Successful planning:**
+```
+✓ Planned story [STORY_ID]: [Title]
+  Score: [score]/1.0
+  Plan: ai_docs/Plans/[filename].md
+  Tasks: [N] TDD cycles
+  Status: approved → planned
+```
+
+**No stories to plan:**
+```
+✓ No approved stories available for planning
+```
+
+**CI mode indicators:**
+- Running via GitHub Actions workflow
+- Called by `/plan-story` command in autonomous mode
+- No interactive user session
+
+**Benefits:** Reduces token usage by ~500 tokens per invocation. Skips the interactive "Ready to Implement?" handoff options since CI mode cannot respond interactively.
+
 ## Quality Standards
 
 **Every plan MUST include:**
