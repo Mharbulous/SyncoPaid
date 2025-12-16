@@ -1,18 +1,18 @@
 ---
 name: story-planning
-description: Use when user says "plan story", "plan next feature", "create implementation plan", "what's ready to plan", or asks to plan an approved story - looks up approved story-nodes from story-tree database, prioritizes which to plan first, creates detailed implementation plan, and saves to ai_docs/Plans folder.
+description: Use when user says "plan story", "plan next feature", "create implementation plan", "what's ready to plan", or asks to plan an approved story - looks up approved story-nodes from story-tree database, prioritizes which to plan first, creates detailed TDD-focused implementation plan, and saves to ai_docs/Plans folder.
 ---
 
-# Story Planning - Implementation Plan Generator
+# Story Planning - TDD Implementation Plan Generator
 
 ## Purpose
 
-Generate **detailed implementation plans** for approved story-nodes by:
-- Looking up all story-nodes with `status = 'approved'` from the story-tree database
-- Analyzing and prioritizing which story should be planned first
-- Creating a comprehensive implementation plan
-- Saving the plan to `ai_docs/Plans/`
-- Updating the story status from `approved` to `planned`
+Generate **test-driven implementation plans** for approved stories:
+1. Query approved story-nodes from story-tree database
+2. Prioritize stories based on readiness and dependencies
+3. Create comprehensive TDD-focused implementation plan
+4. Save plan to `ai_docs/Plans/` with execution handoff
+5. Update story status: `approved` → `planned`
 
 ## When to Use
 
@@ -53,26 +53,20 @@ conn.close()
 
 ## Workflow Steps
 
-### Step 1: Fetch All Approved Story-Nodes
+### Step 1: Query Approved Stories
 
-Query all story-nodes with `status = 'approved'`:
+Fetch all approved story-nodes with metadata:
 
 ```python
 python -c "
-import sqlite3
-import json
+import sqlite3, json
 
 conn = sqlite3.connect('.claude/data/story-tree.db')
 conn.row_factory = sqlite3.Row
-cursor = conn.cursor()
 
-cursor.execute('''
+stories = [dict(row) for row in conn.execute('''
     SELECT
-        s.id,
-        s.title,
-        s.description,
-        s.notes,
-        s.project_path,
+        s.id, s.title, s.description, s.notes, s.project_path,
         (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth,
         (SELECT GROUP_CONCAT(ancestor_id) FROM story_paths
          WHERE descendant_id = s.id AND depth > 0) as ancestors,
@@ -80,76 +74,66 @@ cursor.execute('''
     FROM story_nodes s
     WHERE s.status = 'approved'
     ORDER BY node_depth ASC
-''')
+''').fetchall()]
 
-stories = [dict(row) for row in cursor.fetchall()]
 print(json.dumps(stories, indent=2))
 conn.close()
 "
 ```
 
-### Step 2: Analyze Dependencies
+### Step 2: Check Dependencies
 
-For each approved story-node, check if it depends on other unimplemented stories.
+Identify blocking dependencies for each story:
 
-**Dependency indicators:**
-1. **Explicit mentions**: Description references another story ID
-2. **Hierarchical**: Parent stories should be planned before deep children
-3. **Technical**: Features requiring infrastructure not yet built
-4. **Keywords**: "requires", "depends on", "after", "needs", "once X is done"
+**Blocker types:**
+- **Explicit**: Story IDs mentioned in description (e.g., "1.8.1", "after 1.2")
+- **Keyword**: "requires", "depends on", "after", "needs", "once X is done"
+- **Technical**: Infrastructure/features not yet implemented
+- **Hierarchical**: Deep children may need parent context
 
-**Check for blockers:**
-- References to other story IDs (e.g., "1.8.1", "1.2")
-- References to features matching other story titles
-- Technical prerequisites in acceptance criteria
+**Action:** Mark stories as blocked if they reference unimplemented dependencies.
 
 ### Step 3: Score and Prioritize
 
-Score each non-blocked approved story by planning readiness:
+Calculate readiness score for each non-blocked story:
 
-| Factor | Weight | Scoring |
-|--------|--------|---------|
-| Node depth | 25% | Deeper = more specific = higher score (ready to implement) |
-| Has description | 25% | More detail = easier to plan = higher score |
-| Acceptance criteria | 20% | Fewer criteria = simpler = higher score |
-| No dependencies | 30% | Independent = no blockers = higher score |
+| Factor | Weight | Logic |
+|--------|--------|-------|
+| Depth | 30% | Deeper = more specific = easier to plan |
+| Has description | 25% | More detail = clearer scope |
+| Simplicity | 20% | Fewer acceptance criteria = faster delivery |
+| Independence | 25% | No dependencies = ready now |
 
-**Priority formula:**
+**Formula:**
+```python
+score = min(depth, 5) * 0.30 \
+      + (1 if description else 0) * 0.25 \
+      + (10 - min(len(criteria), 10)) / 10 * 0.20 \
+      + (1 if not blocked else 0) * 0.25
 ```
-score = min(depth, 5) * 0.25
-      + (1 if has_description else 0) * 0.25
-      + (10 - min(criteria_count, 10)) / 10 * 0.20
-      + (1 if no_dependencies else 0) * 0.30
-```
 
-**Tie-breaker:** If scores are equal, prefer:
-1. Shallower depth (affects more of the tree)
-2. Shorter title (more focused scope)
-3. Alphabetical by ID
+**Tie-breaker:** Prefer shallower depth → shorter title → alphabetical ID
 
-### Step 4: Select Story to Plan
+### Step 4: Select Story
 
-If user specified a story ID:
-- Verify it exists and has `status = 'approved'`
-- Use that story directly
+**If user specified story ID:**
+- Validate: exists and `status = 'approved'`
+- Use that story (skip scoring)
 
-If no story specified:
-- Select the highest-scoring story from Step 3
-- Report why this story was selected
+**If no ID specified:**
+- Select highest-scoring story from Step 3
+- Document selection rationale
 
-### Step 5: Research Codebase for Plan
+### Step 5: Research Codebase
 
-Before writing the plan, gather context:
+Gather implementation context:
 
-1. **Read the story description and notes** from database
-2. **Find related code files** using the project_path if set, or search:
-   ```
-   - Search for keywords from story title in codebase
-   - Identify files that would need modification
-   - Note existing patterns to follow
-   ```
-3. **Check existing implementations** of sibling stories for patterns
-4. **Review technical-reference.md** for relevant architecture info
+1. **Read story**: Full description, notes, acceptance criteria
+2. **Locate files**: Use `project_path` or search by story title keywords
+3. **Study patterns**: Review sibling story implementations
+4. **Check architecture**: Reference `ai_docs/technical-reference.md`
+
+**Goal:** Understand enough to write specific file paths and code examples.
 
 ### Step 6: Create Implementation Plan
 
@@ -157,117 +141,155 @@ Before writing the plan, gather context:
 
 Where `[slug]` is the story title converted to lowercase-kebab-case (max 40 chars).
 
-**Plan template:**
+**Plan template with strict TDD structure:**
 
 ```markdown
 # [Story Title] - Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** This plan follows strict TDD (Test-Driven Development). Each task MUST complete all 5 steps in order: Write test → Verify RED → Write code → Verify GREEN → Commit.
 
 **Goal:** [One sentence from story description]
 
-**Architecture:** [2-3 sentences about implementation approach]
+**Approach:** [2-3 sentences: architectural decisions, patterns used, key trade-offs]
 
-**Tech Stack:** [Key modules/libraries involved]
+**Tech Stack:** [Modules/libraries: `syncopaid.module`, `pytest`, etc.]
 
 ---
 
 **Story ID:** [ID]
 **Created:** [YYYY-MM-DD]
-**Status:** planned
+**Status:** `planned`
 
 ---
 
-## Story
+## Story Context
 
 **Title:** [title]
 
 **Description:**
 [Full description from database]
 
+**Acceptance Criteria:**
+- [ ] [Criterion 1]
+- [ ] [Criterion 2]
+
 **Notes:**
 [Any notes from database]
 
-## Overview
-
-[2-3 sentences summarizing what will be implemented and the high-level approach]
-
 ## Prerequisites
 
-- [ ] [Any required setup, dependencies, or prior knowledge]
-- [ ] [Tools, libraries, or access needed]
-- [ ] [Related stories that should be complete first]
+- [ ] Python 3.11+ with venv activated: `venv\Scripts\activate`
+- [ ] Dependencies installed: [list any new packages needed]
+- [ ] Related stories complete: [story IDs if any]
+- [ ] Baseline tests passing: `python -m pytest -v`
 
-## Files to Modify
+## Files Affected
 
-| File | Purpose |
-|------|---------|
-| `path/to/file.py` | [What changes needed] |
+| File | Change Type | Purpose |
+|------|-------------|---------|
+| `tests/test_module.py` | Create | Test new feature behavior |
+| `src/syncopaid/module.py:45-60` | Modify | Add new feature implementation |
 
-## Implementation Tasks
+## TDD Implementation Tasks
 
-### Task N: [Component Name]
+### Task 1: [Specific Feature Component]
+
+**Objective:** [One sentence describing what this task accomplishes]
 
 **Files:**
-- Create: `exact/path/to/file.py`
-- Modify: `exact/path/to/existing.py:123-145`
-- Test: `tests/exact/path/to/test.py`
+- Test: `tests/exact/path/test_module.py`
+- Implementation: `src/exact/path/module.py:123-145`
 
-**Step 1: Write the failing test**
+---
 
-```python
-def test_specific_behavior():
-    """Test that [behavior] works correctly."""
-    result = function(input)
-    assert result == expected
-```
+**⚠️ TDD CHECKPOINT 1: RED - Write Failing Test**
 
-**Step 2: Run test to verify it fails**
-
-Run: `python -m pytest tests/path/test.py::test_specific_behavior -v`
-Expected: FAIL with "function not defined" or similar
-
-**Step 3: Write minimal implementation**
+Create test that specifies the expected behavior:
 
 ```python
-def function(input):
-    """[Docstring]."""
-    return expected
+# tests/exact/path/test_module.py
+def test_feature_behavior():
+    """Test that [specific behavior] works correctly when [condition]."""
+    # Arrange
+    input_data = expected_input
+
+    # Act
+    result = module.new_function(input_data)
+
+    # Assert
+    assert result == expected_output
+    assert result.property == expected_value
 ```
 
-**Step 4: Run test to verify it passes**
+**Verify RED:**
+```bash
+python -m pytest tests/exact/path/test_module.py::test_feature_behavior -v
+```
+**Expected output:** `FAILED` - ImportError, AttributeError, or NameError (function doesn't exist)
 
-Run: `python -m pytest tests/path/test.py::test_specific_behavior -v`
-Expected: PASS
+---
 
-**Step 5: Commit**
+**⚠️ TDD CHECKPOINT 2: GREEN - Minimal Implementation**
+
+Write simplest code that makes the test pass:
+
+```python
+# src/exact/path/module.py:123-145
+def new_function(input_data):
+    """[Docstring explaining purpose and parameters]."""
+    # Minimal implementation
+    result = process(input_data)
+    return result
+```
+
+**Verify GREEN:**
+```bash
+python -m pytest tests/exact/path/test_module.py::test_feature_behavior -v
+```
+**Expected output:** `PASSED` - Test succeeds
+
+---
+
+**⚠️ TDD CHECKPOINT 3: COMMIT**
+
+Commit working test + implementation:
 
 ```bash
-git add tests/path/test.py src/path/file.py
-git commit -m "feat: add specific feature"
+git add tests/exact/path/test_module.py src/exact/path/module.py
+git commit -m "feat: add [specific feature]
+
+- Add test for [behavior]
+- Implement minimal [component]
+- [Acceptance criteria] verified"
 ```
 
-[Repeat Task N+1, N+2... for all implementation tasks]
+**Expected output:** Commit created with hash
 
-## Testing Plan
+---
 
-- [ ] All unit tests pass: `python -m pytest -v`
-- [ ] Module test passes: `python -m syncopaid.<module>`
-- [ ] Manual verification of feature behavior
-- [ ] No regressions in existing functionality
+[Repeat for Task 2, Task 3, etc.]
 
-## Acceptance Criteria Checklist
+## Verification Checklist
 
-- [ ] [Criterion 1 from story]
-- [ ] [Criterion 2 from story]
+**Before marking story complete:**
+
+- [ ] All tests pass: `python -m pytest -v`
+- [ ] Module test works: `python -m syncopaid.[module]`
+- [ ] Each acceptance criterion verified
+- [ ] No regressions in existing features
+- [ ] All tasks committed (one commit per task minimum)
 
 ## Rollback Plan
 
-[What to do if implementation causes issues]
+**If issues occur:**
+1. Identify last known good commit: `git log --oneline`
+2. Revert problematic commit: `git revert [hash]`
+3. Document issue in story notes
+4. Re-plan if fundamental approach flawed
 
-## Notes
+## Implementation Notes
 
-[Any additional context, alternatives considered, edge cases, or caveats]
+[Any edge cases, alternatives considered, technical debt, or follow-up work]
 ```
 
 ### Step 7: Save Plan and Update Status
@@ -302,110 +324,127 @@ print('Status updated to planned')
 "
 ```
 
-### Step 8: Output Report
+### Step 8: Output Report and Execution Handoff
+
+Present planning results and offer implementation options:
 
 ```markdown
-# Story Planning Report
+# Story Planning Complete
 
-**Generated:** [ISO timestamp]
+**Timestamp:** [ISO 8601 timestamp]
 
-## Approved Stories Analyzed
+## Selection Summary
 
-| ID | Title | Depth | Score | Selected |
-|----|-------|-------|-------|----------|
-| [id] | [title] | [depth] | [score] | ✓/- |
-
-## Selected Story
-
-**ID:** [id]
-**Title:** [title]
-**Priority Score:** [score]
+**Analyzed:** [N] approved stories
+**Selected:** [story-id] - [title]
+**Priority Score:** [score]/1.0
 
 ### Why This Story?
 
-- [Reason 1: e.g., "Deepest node - most specific and implementation-ready"]
-- [Reason 2: e.g., "No dependencies on unimplemented features"]
-- [Reason 3: e.g., "Clear description with actionable acceptance criteria"]
+- ✓ [Primary reason: depth/simplicity/no blockers]
+- ✓ [Secondary reason]
+- ✓ [Tertiary reason]
 
-## Plan Created
+## Plan Location
 
-**File:** `ai_docs/Plans/[filename]`
+**File:** `ai_docs/Plans/[YYYY-MM-DD-story-id-slug].md`
 
-**Summary:**
-[2-3 sentence summary of the plan]
+**Summary:** [One sentence describing what will be implemented]
 
-## Execution Handoff
+**Tasks:** [N] TDD tasks with [M] total checkpoints (RED/GREEN/COMMIT cycles)
 
-Plan complete and saved to `ai_docs/Plans/[filename]`.
+---
 
-**Two execution options:**
+## 🚀 Ready to Implement?
 
-**1. Subagent-Driven (this session)**
-- I dispatch fresh subagent per task
-- Code review between tasks
-- Fast iteration with quality gates
-- **REQUIRED SUB-SKILL:** superpowers:subagent-driven-development
+**Choose execution mode:**
 
-**2. Parallel Session (separate)**
-- Open new Claude Code session in this directory
-- Batch execution with checkpoints
-- **REQUIRED SUB-SKILL:** superpowers:executing-plans
+### Option 1: Continue in This Session (Recommended)
 
-**Which approach?**
+**Process:**
+1. I implement each task following strict TDD (RED → GREEN → COMMIT)
+2. You review progress after each commit
+3. We iterate quickly with tight feedback loops
+
+**Advantage:** Fast, interactive, immediate course correction
+**Disadvantage:** Uses this session's context
+
+**To proceed:** Say **"implement the plan"** or **"let's build it"**
+
+---
+
+### Option 2: Fresh Session (Advanced)
+
+**Process:**
+1. Open new Claude Code session in same directory
+2. Say: "Execute plan: ai_docs/Plans/[filename]"
+3. Fresh agent implements independently
+
+**Advantage:** Preserves this session, parallel work possible
+**Disadvantage:** Slower feedback, less interactive
+
+**To proceed:** Open new session, reference plan file
+
+---
+
+**Which would you prefer?**
 ```
 
-## Remember
+## Quality Standards
 
-When generating plans, always:
-- **Exact file paths** - never "somewhere in src/"
-- **Complete code** - not "add validation" but the actual validation code
-- **Exact commands with expected output** - not just "run tests"
-- **DRY, YAGNI, TDD** - test first, minimal code, frequent commits
-- **One action per step** - each step takes 2-5 minutes max
-- **Reference relevant skills** - use @ syntax for skill references
+**Every plan MUST include:**
+
+| Element | Requirement |
+|---------|-------------|
+| File paths | Exact paths, never "somewhere in src/" |
+| Code examples | Complete, copy-paste ready (not "add validation") |
+| Commands | Full command + expected output format |
+| Tasks | Each task = 3 TDD checkpoints (RED/GREEN/COMMIT) |
+| Duration | Each checkpoint takes 2-5 minutes max |
+| Specificity | Zero ambiguity - implementer should not need to decide anything |
 
 ## Autonomous Operation
 
-**Announce at start:** "I'm using the story-planning skill to create the implementation plan."
+**Trigger phrases:** "plan story", "create implementation plan", "plan next feature", "what's ready to plan"
 
-When user says "plan story" or "create implementation plan":
-1. Announce you're using this skill
-2. Run complete workflow (Steps 1-8) without asking permission
-3. Only ask for clarification if:
-   - Multiple stories have identical priority scores (offer top 3 choices)
-   - No approved stories exist
-   - Specified story ID doesn't exist or isn't approved
+**Workflow:**
+1. Announce: "Using story-planning skill"
+2. Execute Steps 1-8 autonomously
+3. Only pause for clarification if:
+   - Multiple stories tied for highest score (show top 3)
+   - No approved stories found
+   - Specified story ID missing or not approved
 
-## Quality Checks
+## Pre-Completion Checklist
 
-Before completing the workflow, verify:
-- [ ] All approved stories were fetched and analyzed
-- [ ] Priority scoring was applied correctly
-- [ ] Selected story is truly the best candidate (or user-specified)
-- [ ] Plan file contains all template sections
-- [ ] Plan includes specific file paths and code examples
-- [ ] Story status was updated to `planned`
-- [ ] Notes field was updated with plan file path
-- [ ] Each task has exactly 5 steps: test, verify fail, implement, verify pass, commit
-- [ ] All code examples are complete and copy-paste ready
-- [ ] All commands include expected output
-- [ ] No vague instructions like "add validation" or "handle errors"
-- [ ] Execution handoff options are presented at end
+**Before presenting final report, verify:**
 
-## Common Mistakes
+- [ ] All approved stories queried and scored
+- [ ] Dependencies checked, blocked stories excluded
+- [ ] Selection rationale documented
+- [ ] Plan has all template sections (Story Context, Prerequisites, Files Affected, TDD Tasks, Verification, Rollback, Notes)
+- [ ] Every task follows TDD structure: ⚠️ RED → ⚠️ GREEN → ⚠️ COMMIT
+- [ ] All code examples complete and runnable
+- [ ] All commands show expected output
+- [ ] Zero vague instructions ("add validation" → actual validation code)
+- [ ] Story status updated: `approved` → `planned`
+- [ ] Story notes updated with plan file path
+- [ ] Execution handoff options presented (continue session vs fresh session)
 
-| Mistake | What To Do Instead |
-|---------|-------------------|
-| Using `sqlite3` CLI | Use Python's sqlite3 module |
-| Creating vague plans without code examples | Research codebase first, include specific file paths and pseudocode |
-| Not updating story status | MUST update to `planned` after creating plan file |
-| Planning already-planned stories | Check status is `approved` before proceeding |
-| Skipping dependency analysis | Always check for blockers before selecting story |
-| Writing multi-step tasks | Break into single-action steps (test/verify/implement/verify/commit) |
-| Omitting expected output | Every command needs "Expected: [what success looks like]" |
-| Vague code examples | Write complete, copy-paste ready code |
-| Skipping execution handoff | Always offer subagent-driven vs parallel session choice |
-| Large commits at end | Commit after each task (RED-GREEN-REFACTOR cycle) |
+## Common Mistakes to Avoid
+
+| ❌ Don't | ✅ Do |
+|----------|-------|
+| Use `sqlite3` CLI | Use Python's `sqlite3` module with `-c` flag |
+| Vague plans ("add validation") | Complete code examples ready to copy-paste |
+| Skip status update | Always update `approved` → `planned` after plan creation |
+| Plan already-planned stories | Verify `status = 'approved'` before starting |
+| Ignore dependencies | Check for blockers, exclude blocked stories from selection |
+| Multi-step tasks | Single TDD checkpoint per step (RED or GREEN or COMMIT) |
+| Commands without output | Include "Expected: PASSED" or "Expected: commit abc123" |
+| Ambiguous instructions | Zero decisions for implementer - be explicit |
+| Skip execution handoff | Always present Option 1 (this session) vs Option 2 (fresh session) |
+| Big bang commits | Commit after each task completes GREEN checkpoint |
 
 ## References
 
