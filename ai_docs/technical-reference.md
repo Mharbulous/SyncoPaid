@@ -59,3 +59,27 @@ pystray-based system tray with callbacks: start, pause, export, quit.
 4. **Database Insert** - `SyncoPaidApp._run_tracking_loop()` inserts events via `Database.insert_event()`
 5. **Screenshot Processing** - `ScreenshotWorker` captures, deduplicates via dHash, saves to disk + database
 6. **Export** - `Exporter.export_to_json()` queries database and writes structured JSON for LLM processing
+
+## Code Landmarks
+
+For targeted file reading (use `Read` with `offset` and `limit` parameters):
+
+| Location | Lines | Content |
+|----------|-------|---------|
+| `src/syncopaid/tracker.py` | 88-130 | ActivityEvent dataclass definition |
+| `src/syncopaid/tracker.py` | 204-260 | TrackerLoop.__init__ and configuration |
+| `src/syncopaid/tracker.py` | 280-350 | TrackerLoop.start() main loop |
+| `src/syncopaid/database.py` | 1-50 | Schema definition and imports |
+| `src/syncopaid/database.py` | 52-90 | Database.insert_event() method |
+| `src/syncopaid/database.py` | 120-160 | Database.query_events() method |
+| `src/syncopaid/config.py` | 15-45 | DEFAULT_CONFIG dictionary |
+| `src/syncopaid/config.py` | 50-80 | ConfigManager class init |
+| `src/syncopaid/screenshot.py` | 30-70 | ScreenshotWorker class |
+| `src/syncopaid/exporter.py` | 20-60 | Exporter.export_to_json() method |
+| `src/syncopaid/tray.py` | 25-80 | TrayIcon class and menu setup |
+
+**Usage Example:**
+```python
+# Read only TrackerLoop init (lines 204-260)
+Read(file_path="src/syncopaid/tracker.py", offset=204, limit=57)
+```
