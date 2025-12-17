@@ -58,7 +58,7 @@ conn.close()
 python -c "
 import os, json
 result = {}
-for key, path in [('goals', 'ai_docs/goals.md'), ('non_goals', 'ai_docs/non-goals.md')]:
+for key, path in [('goals', '.claude/data/goals/goals.md'), ('non_goals', '.claude/data/goals/non-goals.md')]:
     result[f'has_{key}'] = os.path.exists(path)
     if result[f'has_{key}']:
         with open(path) as f: result[key] = f.read()
@@ -191,7 +191,7 @@ Include: Goals status, context analysis, commits analyzed, gaps identified (with
 
 ## References
 
-- **Goals:** `ai_docs/goals.md`, `ai_docs/non-goals.md` (if they exist)
+- **Goals:** `.claude/data/goals/goals.md`, `.claude/data/goals/non-goals.md` (if they exist)
 - **Database:** `.claude/data/story-tree.db`
 - **Story Tree:** `.claude/skills/story-tree/SKILL.md`
 - **Goal Synthesis:** `.claude/skills/goal-synthesis/SKILL.md`

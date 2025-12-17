@@ -8,7 +8,7 @@ description: Use when user says "prioritize stories", "what should I work on nex
 Analyze approved stories to select the best candidate for implementation.
 
 **Database:** `.claude/data/story-tree.db`
-**Plans:** `ai_docs/Plans/`
+**Plans:** `.claude/data/plans/`
 
 **Critical:** Use Python sqlite3 module, NOT sqlite3 CLI.
 
@@ -80,7 +80,7 @@ score = (10 - min(criteria_count, 10)) * 0.3
 
 ### Step 4: Create Implementation Plan
 
-**Filename:** `ai_docs/Plans/YYYY-MM-DD-[story-id]-[slug].md`
+**Filename:** `.claude/data/plans/YYYY-MM-DD-[story-id]-[slug].md`
 
 Include: Story Context, Overview, Prerequisites, Implementation Tasks (with file paths and code examples), Testing Plan, Rollback Plan, Notes.
 
@@ -93,7 +93,7 @@ conn = sqlite3.connect('.claude/data/story-tree.db')
 conn.execute('''
     UPDATE story_nodes
     SET status = 'planned',
-        notes = COALESCE(notes || '\n', '') || 'Plan created: ai_docs/Plans/[FILENAME]',
+        notes = COALESCE(notes || '\n', '') || 'Plan created: .claude/data/plans/[FILENAME]',
         updated_at = datetime('now')
     WHERE id = '[STORY_ID]'
 ''')

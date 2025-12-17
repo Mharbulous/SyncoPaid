@@ -5,7 +5,7 @@ description: Use when user says "synthesize goals", "show goals", "what are my g
 
 # Goal Synthesis Skill
 
-Generate `{today}-goals.md` and `{today}-non-goals.md` in `ai_docs/Xstory/`.
+Generate `{today}-goals.md` and `{today}-non-goals.md` in `.claude/data/goals/`.
 
 ## Workflow
 
@@ -25,13 +25,13 @@ Launch TWO Task agents simultaneously (haiku model):
 
 **Agent 1 (goals)** - Only if `goals_exists` is false:
 - Query: `python .claude/scripts/story_tree_helpers.py approved`
-- Read most recent `ai_docs/Xstory/*-goals.md` for context
-- Write `ai_docs/Xstory/{today}-goals.md` with sections: What We're Building, Target User, Core Capabilities, Guiding Principles, Footer with timestamp
+- Read most recent `.claude/data/goals/*-goals.md` for context
+- Write `.claude/data/goals/{today}-goals.md` with sections: What We're Building, Target User, Core Capabilities, Guiding Principles, Footer with timestamp
 
 **Agent 2 (non-goals)** - Only if `non_goals_exists` is false:
 - Query: `python .claude/scripts/story_tree_helpers.py rejected`
-- Read most recent `ai_docs/Xstory/*-non-goals.md` for context
-- Write `ai_docs/Xstory/{today}-non-goals.md` with sections: Explicit Exclusions (with rejection reasons), Anti-Patterns, YAGNI Items, Philosophical Boundaries, Footer with timestamp
+- Read most recent `.claude/data/goals/*-non-goals.md` for context
+- Write `.claude/data/goals/{today}-non-goals.md` with sections: Explicit Exclusions (with rejection reasons), Anti-Patterns, YAGNI Items, Philosophical Boundaries, Footer with timestamp
 
 **Critical:** Replace `{today}` with date from Step 1 (format: YYYY-MM-DD).
 

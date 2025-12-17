@@ -106,7 +106,7 @@ Many instructions overlap (git operations, autonomous mode, constraints).
 **When running in CI/automation context**, use minimal output:
 ```
 ✓ Planned story [STORY_ID]: [Title]
-  Plan: ai_docs/Plans/[filename].md
+  Plan: .claude/data/plans/[filename].md
 ```
 <!-- CI_MODE_END -->
 

@@ -1,6 +1,6 @@
 ---
 name: story-planning
-description: Use when user says "plan story", "plan next feature", "create implementation plan", "what's ready to plan", or asks to plan an approved story - looks up approved story-nodes from story-tree database, prioritizes which to plan first, creates detailed TDD-focused implementation plan, and saves to ai_docs/Plans folder.
+description: Use when user says "plan story", "plan next feature", "create implementation plan", "what's ready to plan", or asks to plan an approved story - looks up approved story-nodes from story-tree database, prioritizes which to plan first, creates detailed TDD-focused implementation plan, and saves to .claude/data/plans folder.
 ---
 
 # Story Planning - TDD Implementation Plan Generator
@@ -8,7 +8,7 @@ description: Use when user says "plan story", "plan next feature", "create imple
 Generate test-driven implementation plans for approved stories.
 
 **Database:** `.claude/data/story-tree.db`
-**Plans:** `ai_docs/Plans/`
+**Plans:** `.claude/data/plans/`
 
 **Critical:** Use Python sqlite3 module, NOT sqlite3 CLI.
 
@@ -87,7 +87,7 @@ score = min(depth, 5) * 0.30 \
 
 ### Step 5: Create TDD Plan
 
-**Filename:** `ai_docs/Plans/YYYY-MM-DD-[story-id]-[slug].md`
+**Filename:** `.claude/data/plans/YYYY-MM-DD-[story-id]-[slug].md`
 - `[slug]` = title in lowercase-kebab-case (max 40 chars)
 
 #### Interactive Mode Template
@@ -267,7 +267,7 @@ conn = sqlite3.connect('.claude/data/story-tree.db')
 conn.execute('''
     UPDATE story_nodes
     SET status = 'planned',
-        notes = COALESCE(notes || chr(10), '') || 'Plan: ai_docs/Plans/[FILENAME]',
+        notes = COALESCE(notes || chr(10), '') || 'Plan: .claude/data/plans/[FILENAME]',
         updated_at = datetime('now')
     WHERE id = '[STORY_ID]'
 ''')
@@ -284,7 +284,7 @@ Present two options:
 
 **Option 1: Continue in this session** - Implement with tight feedback loops, interactive course correction
 
-**Option 2: Fresh session** - Open new Claude Code session, say "Execute plan: ai_docs/Plans/[filename]"
+**Option 2: Fresh session** - Open new Claude Code session, say "Execute plan: .claude/data/plans/[filename]"
 
 ## Output Format
 
@@ -292,7 +292,7 @@ Present two options:
 ```
 ✓ Planned story [STORY_ID]: [Title]
   Score: [score]/1.0
-  Plan: ai_docs/Plans/[filename].md
+  Plan: .claude/data/plans/[filename].md
   Tasks: [N] TDD cycles
   Status: approved -> planned
 ```

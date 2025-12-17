@@ -80,7 +80,7 @@ import json
 from datetime import date
 
 DB_PATH = '.claude/data/story-tree.db'
-XSTORY_DIR = 'ai_docs/Xstory'
+GOALS_DIR = '.claude/data/goals'
 
 def get_prerequisites():
     """Return all prerequisite data in one call."""
@@ -181,7 +181,7 @@ description: Generate vision docs from story-tree database (approved → vision,
 
 # Visualization Skill
 
-Generate `YYYY-MM-DD-non-goals.md` and `YYYY-MM-DD-user-non-goals.md` in `ai_docs/Xstory/`.
+Generate `YYYY-MM-DD-non-goals.md` and `YYYY-MM-DD-user-non-goals.md` in `.claude/data/goals/`.
 
 ## Workflow
 

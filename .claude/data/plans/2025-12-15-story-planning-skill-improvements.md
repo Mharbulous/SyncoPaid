@@ -158,7 +158,7 @@ Current:
 ```markdown
 ## Next Steps
 
-1. Review the implementation plan at `ai_docs/Plans/[filename]`
+1. Review the implementation plan at `.claude/data/plans/[filename]`
 2. When ready to implement, say "implement [story-id]"
 3. The story status is now `planned`
 ```
@@ -168,7 +168,7 @@ Current:
 ```markdown
 ## Execution Handoff
 
-Plan complete and saved to `ai_docs/Plans/[filename]`.
+Plan complete and saved to `.claude/data/plans/[filename]`.
 
 **Two execution options:**
 

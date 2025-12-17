@@ -9,7 +9,7 @@ import json
 from datetime import date
 
 DB_PATH = '.claude/data/story-tree.db'
-XSTORY_DIR = 'ai_docs/Xstory'
+GOALS_DIR = '.claude/data/goals'
 
 
 def get_prerequisites():
@@ -21,8 +21,8 @@ def get_prerequisites():
         'db_exists': os.path.exists(DB_PATH),
         'approved_count': 0,
         'rejected_with_notes_count': 0,
-        'goals_exists': os.path.exists(f'{XSTORY_DIR}/{today}-goals.md'),
-        'non_goals_exists': os.path.exists(f'{XSTORY_DIR}/{today}-non-goals.md'),
+        'goals_exists': os.path.exists(f'{GOALS_DIR}/{today}-goals.md'),
+        'non_goals_exists': os.path.exists(f'{GOALS_DIR}/{today}-non-goals.md'),
     }
 
     if result['db_exists']:
