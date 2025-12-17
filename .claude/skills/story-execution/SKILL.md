@@ -9,6 +9,23 @@ Load plan from story-tree database, review critically, execute tasks in batches,
 
 **Announce:** On activation, say: "I'm using the story-execution skill to implement this plan."
 
+## Mode Detection
+
+**CI Mode** activates when:
+- Environment variable `CI=true` is set, OR
+- Trigger phrase includes "(ci)" like "execute plan (ci)"
+
+**CI Mode behavior:**
+- No human available for immediate feedback
+- Critical review determines whether to proceed, pause, or proceed with review flag
+- Executes all batches without waiting for feedback between batches
+- Final status depends on critical review outcome
+
+**Interactive Mode** (default):
+- Pause after each batch for human feedback
+- Ask for clarification when concerns arise
+- Human guides decisions in real-time
+
 ## The Process
 
 ### Step 1: Select and Load Plan
@@ -57,12 +74,41 @@ Before executing anything:
 - Identify any questions, concerns, or ambiguities
 - Check prerequisites (dependencies implemented, baseline tests pass)
 
+Classify any concerns found:
+- **Blocking issues:** Require human decision before implementation (architectural choices, security implications, breaking changes)
+- **Deferrable issues:** Can be addressed by post-implementation refactoring (code style, minor optimizations, naming conventions)
+
+#### Interactive Mode
+
 **If concerns exist:** Raise them before starting. Ask for clarification.
 
 **If no concerns:**
 - Create a TodoWrite with all tasks from the plan
 - Update story status to `active`
 - Proceed to execution
+
+#### CI Mode - Critical Review Outcomes
+
+**Outcome A: Blocking issues found** (cannot proceed without human decision)
+- Update status to `paused`
+- Add detailed notes describing the blocking issues and why human decision is required
+- Do NOT proceed with implementation
+- Output the blocking issues report
+
+**Outcome B: Deferrable issues found** (can proceed, needs post-implementation review)
+- Add notes documenting:
+  - Issues identified
+  - Decisions made in absence of human
+  - Rationale for proceeding
+- Update story status to `active`
+- Proceed with implementation
+- Flag for `reviewing` status at completion (not `implemented`)
+
+**Outcome C: No critical issues found**
+- Add note: "Critical review: No blocking or deferrable issues identified"
+- Update story status to `active`
+- Proceed with implementation
+- Will set `implemented` status at completion
 
 ### Step 3: Execute Batch
 
@@ -87,22 +133,42 @@ When batch is complete:
 - Display verification output (test results)
 - Update progress in story notes
 
+#### Interactive Mode
 Say: **"Ready for feedback."**
+
+#### CI Mode
+Continue immediately to next batch (no pause).
 
 ### Step 5: Continue or Adjust
 
+#### Interactive Mode
 Based on feedback:
 - Apply any requested changes
 - Execute next batch of 3 tasks
 - Repeat until all tasks complete
+
+#### CI Mode
+- Execute all remaining batches without pause
+- If mid-execution blocker encountered, update status to `paused` and stop
 
 ### Step 6: Complete and Verify
 
 After all tasks complete:
 1. Run full test suite
 2. Verify each acceptance criterion from the story
-3. Update status: `active` → `reviewing` → `implemented`
-4. Link commits to story in database
+3. Link commits to story in database
+4. Update final status based on mode and review outcome
+
+#### Final Status Determination
+
+**Interactive Mode:**
+- Update status: `active` → `reviewing` → `implemented`
+
+**CI Mode - Based on Step 2 outcome:**
+- **Outcome B (deferrable issues):** Set status to `reviewing`
+  - Human needs to review decisions made during CI execution
+- **Outcome C (no issues):** Set status to `implemented`
+  - Clean execution, no human review needed
 
 **Announce:** "I'm using the story-verification skill to verify acceptance criteria."
 
@@ -130,8 +196,9 @@ Return to plan review when:
 - **Follow plan steps exactly** - the plan was designed for copy-paste execution
 - **Don't skip verifications** - RED must fail, GREEN must pass
 - **Batch execution with checkpoints** - 3 tasks, then report
-- **Between batches: report and wait** - don't continue without feedback
-- **Stop when blocked; don't guess** - ask for help immediately
+- **Interactive: report and wait** - don't continue without feedback
+- **CI Mode: classify issues** - blocking → pause, deferrable → proceed with review flag
+- **Stop when blocked; don't guess** - pause and document for human review
 
 ## Database Integration
 
@@ -142,7 +209,7 @@ Return to plan review when:
 ### Status Updates
 
 ```python
-# Update to active (Step 2)
+# Update to active (Step 2 - proceeding with execution)
 conn.execute('''
     UPDATE story_nodes
     SET status = 'active',
@@ -151,15 +218,25 @@ conn.execute('''
     WHERE id = ?
 ''', (story_id,))
 
-# Update to reviewing (Step 6)
+# Update to paused (CI Mode - blocking issues found)
+conn.execute('''
+    UPDATE story_nodes
+    SET status = 'paused',
+        notes = COALESCE(notes || chr(10), '') || 'PAUSED - Blocking issues require human decision: ' || datetime('now') || chr(10) || ?,
+        updated_at = datetime('now')
+    WHERE id = ?
+''', (blocking_issues_description, story_id))
+
+# Update to reviewing (CI Mode Outcome B, or Interactive Mode step)
 conn.execute('''
     UPDATE story_nodes
     SET status = 'reviewing',
+        notes = COALESCE(notes || chr(10), '') || 'Awaiting human review of CI decisions: ' || datetime('now'),
         updated_at = datetime('now')
     WHERE id = ?
 ''', (story_id,))
 
-# Update to implemented (after verification)
+# Update to implemented (CI Mode Outcome C, or after Interactive verification)
 conn.execute('''
     UPDATE story_nodes
     SET status = 'implemented',
@@ -181,7 +258,7 @@ conn.execute('''
 
 ## Output Format
 
-### Batch Complete
+### Batch Complete (Interactive Mode)
 ```
 === Batch Complete (Tasks 1-3 of 8) ===
 Implemented:
@@ -200,7 +277,7 @@ Ready for feedback.
 === Story Execution Complete ===
 Story: [STORY_ID] - [Title]
 Tasks: [N]/[N] completed
-Status: planned → active → reviewing → implemented
+Status: planned → active → [reviewing|implemented]
 
 Acceptance Criteria:
 [x] Criterion 1
@@ -208,12 +285,52 @@ Acceptance Criteria:
 [x] Criterion 3
 ```
 
-### Blocked
+### CI Mode - Paused (Blocking Issues)
+```
+=== Story Execution Paused ===
+Story: [STORY_ID] - [Title]
+Status: planned → paused
+
+BLOCKING ISSUES REQUIRING HUMAN DECISION:
+
+1. [Issue description]
+   Why blocking: [explanation]
+   Options: [A, B, C...]
+
+2. [Issue description]
+   Why blocking: [explanation]
+   Options: [A, B, C...]
+
+Action required: Review issues and update plan, then re-trigger execution.
+```
+
+### CI Mode - Complete with Review Flag
+```
+=== Story Execution Complete (Review Required) ===
+Story: [STORY_ID] - [Title]
+Tasks: [N]/[N] completed
+Status: planned → active → reviewing
+
+DECISIONS MADE DURING CI EXECUTION:
+
+1. [Issue identified]
+   Decision: [what was decided]
+   Rationale: [why this choice]
+
+2. [Issue identified]
+   Decision: [what was decided]
+   Rationale: [why this choice]
+
+Action required: Review decisions above, approve or request changes.
+```
+
+### Blocked (Mid-Execution)
 ```
 === Execution Blocked ===
 Story: [STORY_ID] - [Title]
 Completed: [M]/[N] tasks
 Blocked at: Task [M+1] - [task_name]
+Status: active → paused
 
 Issue: [description of blocker]
 Need: [what clarification or help is needed]
@@ -229,4 +346,5 @@ Need: [what clarification or help is needed]
 
 - Plan format: `.claude/data/plans/*.md`
 - Status workflow: concept → approved → planned → active → reviewing → implemented
+- CI pause workflow: planned → paused (blocking issues) or active → paused (mid-execution blocker)
 - Commit format: Include `Story: [ID]` in commit body for traceability
