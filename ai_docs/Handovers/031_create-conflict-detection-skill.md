@@ -97,4 +97,8 @@ NO CONFLICTS with 45 other active stories.
 
 ## Validation
 
-After creating the skill, run it against the full database to find all potential conflicts. Report findings to user for manual review.
+After creating the skill:
+
+1. **Full database scan**: Compare all existing story pairs (not just proposed vs existing) to find current conflicts
+2. **Report findings**: Present all detected conflicts with IDs, types, and confidence scores
+3. **Await feedback**: User will provide test cases for accuracy assessment and iteration
