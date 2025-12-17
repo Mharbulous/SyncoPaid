@@ -60,14 +60,9 @@ Expect `deferred` → `pending` in:
 
 - `archived/story-tree-explorer/*.py` — old code, don't prioritize
 
-## Next Steps After Migration
+## Next Steps
 
-1. Modify story-vetting skill to handle CI mode:
-   - For HUMAN_REVIEW cases: set status to `pending` instead of prompting
-   - Add conflict info to `notes` field
-   - Return summary of actions taken
-
-2. Update orchestrator workflow to call vet-stories after write-stories
+After completing this handover, proceed to `034_integrate-story-vetting-into-orchestrator.md`.
 
 ## Decision Record
 
