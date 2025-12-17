@@ -1,0 +1,504 @@
+{
+  "version": "5.0-proposal",
+  "name": "three-field-workflow",
+  "description": "Workflow using stage + hold_reason + disposition (+ human_review flag)",
+
+  "design_rationale": {
+    "problem_with_22_statuses": [
+      "Conflates three separate concepts into one field",
+      "Loses stage context when story is blocked/pending",
+      "Hard to query items by dimension (stage vs hold vs disposition)"
+    ],
+    "solution": [
+      "Separate into three orthogonal dimensions",
+      "stage: where in the pipeline (workflow position)",
+      "hold_reason: why work is stopped (NULL if not stopped)",
+      "disposition: terminal state (NULL if still active)",
+      "human_review: boolean flag for items needing attention"
+    ],
+    "trade_offs": {
+      "pros": [
+        "Stage preserved when blocked (know where to resume)",
+        "Clean queries by dimension",
+        "Most flexible model",
+        "Clear semantic meaning for each field"
+      ],
+      "cons": [
+        "Three fields to manage (four with human_review)",
+        "More complex state transitions",
+        "Need to define valid combinations",
+        "Largest migration effort"
+      ]
+    }
+  },
+
+  "schema": {
+    "table": "story_nodes",
+    "fields": {
+      "stage": {
+        "type": "TEXT NOT NULL",
+        "default": "concept",
+        "values": [
+          "concept", "approved", "planned", "queued", "active",
+          "reviewing", "verifying", "implemented", "ready", "polish", "released"
+        ],
+        "count": 11,
+        "description": "Current position in the workflow pipeline"
+      },
+      "hold_reason": {
+        "type": "TEXT",
+        "default": null,
+        "values": ["pending", "paused", "blocked", "broken", "refine"],
+        "count": "5 + NULL",
+        "description": "Why work is stopped (NULL = not stopped)"
+      },
+      "disposition": {
+        "type": "TEXT",
+        "default": null,
+        "values": ["rejected", "infeasible", "wishlist", "legacy", "deprecated", "archived"],
+        "count": "6 + NULL",
+        "description": "Terminal state (NULL = still active in pipeline)"
+      },
+      "human_review": {
+        "type": "BOOLEAN",
+        "default": false,
+        "description": "True if story needs human attention"
+      },
+      "notes": {
+        "type": "TEXT",
+        "description": "Additional context, especially for hold_reason details"
+      }
+    },
+    "constraints": [
+      "-- Stage values",
+      "CHECK (stage IN ('concept', 'approved', 'planned', 'queued', 'active', 'reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released'))",
+      "",
+      "-- Hold reason values (NULL = not held)",
+      "CHECK (hold_reason IS NULL OR hold_reason IN ('pending', 'paused', 'blocked', 'broken', 'refine'))",
+      "",
+      "-- Disposition values (NULL = active)",
+      "CHECK (disposition IS NULL OR disposition IN ('rejected', 'infeasible', 'wishlist', 'legacy', 'deprecated', 'archived'))",
+      "",
+      "-- Cannot be both held AND disposed (mutually exclusive)",
+      "CHECK (disposition IS NULL OR hold_reason IS NULL)",
+      "",
+      "-- Certain hold reasons only valid at certain stages",
+      "CHECK (hold_reason IS NULL OR (",
+      "  (hold_reason = 'refine' AND stage = 'concept') OR",
+      "  (hold_reason = 'broken' AND stage = 'concept') OR",
+      "  (hold_reason = 'paused' AND stage = 'active') OR",
+      "  (hold_reason IN ('pending', 'blocked'))  -- Can be at any stage",
+      "))",
+      "",
+      "-- Legacy/deprecated only for released stories",
+      "CHECK (disposition IS NULL OR (",
+      "  disposition IN ('rejected', 'infeasible', 'wishlist', 'archived') OR",
+      "  (disposition IN ('legacy', 'deprecated') AND stage = 'released')",
+      "))",
+      "",
+      "-- Human review flag",
+      "CHECK (human_review IN (0, 1))",
+      "",
+      "-- No review needed for fully terminal states",
+      "CHECK (human_review = FALSE OR disposition NOT IN ('rejected', 'infeasible', 'archived'))"
+    ],
+    "indexes": [
+      "CREATE INDEX idx_active_pipeline ON story_nodes(stage) WHERE disposition IS NULL AND hold_reason IS NULL",
+      "CREATE INDEX idx_held_stories ON story_nodes(hold_reason) WHERE hold_reason IS NOT NULL",
+      "CREATE INDEX idx_disposed_stories ON story_nodes(disposition) WHERE disposition IS NOT NULL",
+      "CREATE INDEX idx_needs_review ON story_nodes(human_review) WHERE human_review = TRUE"
+    ]
+  },
+
+  "dimension_definitions": {
+    "stage": {
+      "description": "Linear progression through the workflow pipeline",
+      "values": {
+        "concept": "Initial idea, not yet approved",
+        "approved": "Approved for implementation, awaiting planning",
+        "planned": "TDD implementation plan created",
+        "queued": "In backlog, ready to start",
+        "active": "Currently being implemented",
+        "reviewing": "Post-execution human review of decisions",
+        "verifying": "Acceptance criteria being validated",
+        "implemented": "Code complete, verified",
+        "ready": "Tested, ready for release",
+        "polish": "Final refinements",
+        "released": "Deployed to production"
+      },
+      "transitions": {
+        "concept": ["approved"],
+        "approved": ["planned"],
+        "planned": ["queued", "active"],
+        "queued": ["active"],
+        "active": ["reviewing", "verifying"],
+        "reviewing": ["verifying", "active"],
+        "verifying": ["implemented", "reviewing", "active"],
+        "implemented": ["ready"],
+        "ready": ["polish", "released"],
+        "polish": ["released"],
+        "released": []
+      }
+    },
+    "hold_reason": {
+      "description": "Why work is stopped (orthogonal to stage)",
+      "values": {
+        "pending": "Waiting for human decision (can be at any stage)",
+        "paused": "Execution blocked by critical issue (at active stage)",
+        "blocked": "External dependency preventing progress (can be at any stage)",
+        "broken": "Something wrong with the story definition (at concept stage)",
+        "refine": "Needs more detail before proceeding (at concept stage)"
+      },
+      "stage_constraints": {
+        "refine": ["concept"],
+        "broken": ["concept"],
+        "paused": ["active"],
+        "pending": "any",
+        "blocked": "any"
+      },
+      "human_review_implied": {
+        "pending": true,
+        "paused": true,
+        "blocked": true,
+        "broken": true,
+        "refine": true
+      }
+    },
+    "disposition": {
+      "description": "Terminal state - story exits the active pipeline",
+      "values": {
+        "rejected": "Explicitly declined - will not implement",
+        "infeasible": "Cannot implement - technical/business constraints",
+        "wishlist": "Low priority, maybe someday",
+        "legacy": "Old code, still functional (only for released)",
+        "deprecated": "Marked for removal (only for released)",
+        "archived": "No longer relevant, preserved for history"
+      },
+      "terminal": true,
+      "stage_preserved": true,
+      "note": "When disposition is set, stage shows where it was when disposed"
+    }
+  },
+
+  "mapping_from_22_statuses": {
+    "direct_stage_mappings": {
+      "concept":     { "stage": "concept",     "hold_reason": null,     "disposition": null },
+      "approved":    { "stage": "approved",    "hold_reason": null,     "disposition": null },
+      "planned":     { "stage": "planned",     "hold_reason": null,     "disposition": null },
+      "queued":      { "stage": "queued",      "hold_reason": null,     "disposition": null },
+      "active":      { "stage": "active",      "hold_reason": null,     "disposition": null },
+      "reviewing":   { "stage": "reviewing",   "hold_reason": null,     "disposition": null, "human_review": true },
+      "verifying":   { "stage": "verifying",   "hold_reason": null,     "disposition": null },
+      "implemented": { "stage": "implemented", "hold_reason": null,     "disposition": null },
+      "ready":       { "stage": "ready",       "hold_reason": null,     "disposition": null },
+      "polish":      { "stage": "polish",      "hold_reason": null,     "disposition": null },
+      "released":    { "stage": "released",    "hold_reason": null,     "disposition": null }
+    },
+    "hold_reason_mappings": {
+      "refine":  { "stage": "concept", "hold_reason": "refine",  "disposition": null, "human_review": true },
+      "broken":  { "stage": "concept", "hold_reason": "broken",  "disposition": null, "human_review": true },
+      "pending": { "stage": "INFER",   "hold_reason": "pending", "disposition": null, "human_review": true },
+      "blocked": { "stage": "INFER",   "hold_reason": "blocked", "disposition": null, "human_review": true },
+      "paused":  { "stage": "active",  "hold_reason": "paused",  "disposition": null, "human_review": true }
+    },
+    "disposition_mappings": {
+      "rejected":   { "stage": "concept",  "hold_reason": null, "disposition": "rejected" },
+      "infeasible": { "stage": "concept",  "hold_reason": null, "disposition": "infeasible" },
+      "wishlist":   { "stage": "concept",  "hold_reason": null, "disposition": "wishlist" },
+      "legacy":     { "stage": "released", "hold_reason": null, "disposition": "legacy" },
+      "deprecated": { "stage": "released", "hold_reason": null, "disposition": "deprecated" },
+      "archived":   { "stage": "INFER",    "hold_reason": null, "disposition": "archived" }
+    },
+    "stage_inference": {
+      "for_pending_blocked_archived": [
+        "Check notes field for stage hints",
+        "Check updated_at vs stage progression",
+        "Default to 'concept' if cannot infer"
+      ]
+    },
+    "field_count_comparison": {
+      "current": "1 field × 22 values = 22 states",
+      "three_field": "11 stages × 6 holds × 7 dispositions = 462 theoretical",
+      "valid_combinations": "~30-40 (constrained by rules)",
+      "note": "Most combinations are invalid, constraints enforce valid states"
+    }
+  },
+
+  "valid_state_combinations": {
+    "active_pipeline": {
+      "description": "disposition = NULL, story is in active workflow",
+      "combinations": [
+        { "stage": "concept",     "hold_reason": null,     "meaning": "New idea" },
+        { "stage": "concept",     "hold_reason": "refine", "meaning": "Needs more detail" },
+        { "stage": "concept",     "hold_reason": "broken", "meaning": "Has problems" },
+        { "stage": "concept",     "hold_reason": "pending", "meaning": "Awaiting decision" },
+        { "stage": "concept",     "hold_reason": "blocked", "meaning": "External dependency" },
+        { "stage": "approved",    "hold_reason": null,     "meaning": "Ready to plan" },
+        { "stage": "approved",    "hold_reason": "pending", "meaning": "Planning decision needed" },
+        { "stage": "approved",    "hold_reason": "blocked", "meaning": "Can't plan yet" },
+        { "stage": "planned",     "hold_reason": null,     "meaning": "Has plan, ready to queue" },
+        { "stage": "planned",     "hold_reason": "pending", "meaning": "Plan needs review" },
+        { "stage": "planned",     "hold_reason": "blocked", "meaning": "Can't execute yet" },
+        { "stage": "queued",      "hold_reason": null,     "meaning": "In backlog" },
+        { "stage": "queued",      "hold_reason": "pending", "meaning": "Priority decision" },
+        { "stage": "queued",      "hold_reason": "blocked", "meaning": "Waiting on dependency" },
+        { "stage": "active",      "hold_reason": null,     "meaning": "Being implemented" },
+        { "stage": "active",      "hold_reason": "paused",  "meaning": "Execution blocked" },
+        { "stage": "active",      "hold_reason": "pending", "meaning": "Mid-execution decision" },
+        { "stage": "active",      "hold_reason": "blocked", "meaning": "Waiting on dependency" },
+        { "stage": "reviewing",   "hold_reason": null,     "meaning": "Human reviewing" },
+        { "stage": "verifying",   "hold_reason": null,     "meaning": "Validating criteria" },
+        { "stage": "verifying",   "hold_reason": "pending", "meaning": "Manual verification needed" },
+        { "stage": "implemented", "hold_reason": null,     "meaning": "Code complete" },
+        { "stage": "ready",       "hold_reason": null,     "meaning": "Ready to release" },
+        { "stage": "polish",      "hold_reason": null,     "meaning": "Final refinements" },
+        { "stage": "released",    "hold_reason": null,     "meaning": "In production" }
+      ],
+      "count": 25
+    },
+    "disposed": {
+      "description": "disposition != NULL, story has exited pipeline",
+      "combinations": [
+        { "stage": "any",      "disposition": "rejected",   "meaning": "Declined" },
+        { "stage": "any",      "disposition": "infeasible", "meaning": "Cannot do" },
+        { "stage": "any",      "disposition": "wishlist",   "meaning": "Maybe later" },
+        { "stage": "released", "disposition": "legacy",     "meaning": "Old but functional" },
+        { "stage": "released", "disposition": "deprecated", "meaning": "Being phased out" },
+        { "stage": "any",      "disposition": "archived",   "meaning": "No longer relevant" }
+      ],
+      "count": 6,
+      "note": "Stage preserved to show where it was when disposed"
+    },
+    "total_valid": "~31 meaningful state combinations"
+  },
+
+  "orchestrator_logic": {
+    "gate_job": {
+      "unchanged": true,
+      "description": "Check STORY_AUTOMATION_ENABLED"
+    },
+    "drain_pipeline": {
+      "key_change": "Query by dimension, not status value",
+      "steps": {
+        "plan_stories": {
+          "query": "SELECT * FROM story_nodes WHERE stage = 'approved' AND hold_reason IS NULL AND disposition IS NULL",
+          "on_success": "UPDATE stage = 'planned'",
+          "on_blocking_issue": "UPDATE hold_reason = 'paused', human_review = TRUE, notes = '...'",
+          "benefit": "Clear intent: approved stories without holds"
+        },
+        "write_stories": {
+          "query": "Check capacity on nodes where disposition IS NULL",
+          "on_success": "INSERT with stage = 'concept', hold_reason = NULL, disposition = NULL",
+          "benefit": "Only counts active stories, ignores disposed"
+        },
+        "vet_stories": {
+          "query": "SELECT * FROM story_nodes WHERE stage = 'concept' AND hold_reason IS NULL AND disposition IS NULL",
+          "on_conflict_needs_human": "UPDATE hold_reason = 'pending', human_review = TRUE",
+          "on_auto_resolved": "No change",
+          "benefit": "Stage preserved, just add hold"
+        }
+      }
+    },
+    "dashboard_queries": {
+      "whats_held": "SELECT * FROM story_nodes WHERE hold_reason IS NOT NULL",
+      "whats_disposed": "SELECT * FROM story_nodes WHERE disposition IS NOT NULL",
+      "whats_active": "SELECT * FROM story_nodes WHERE disposition IS NULL AND hold_reason IS NULL",
+      "needs_review": "SELECT * FROM story_nodes WHERE human_review = TRUE",
+      "by_stage": "SELECT stage, COUNT(*) FROM story_nodes WHERE disposition IS NULL GROUP BY stage"
+    }
+  },
+
+  "skill_changes": {
+    "story_planning": {
+      "current": "Sets status = 'planned'",
+      "new": "Sets stage = 'planned', clears hold_reason if any",
+      "on_issue": "Sets hold_reason = 'blocked' or 'pending', human_review = TRUE"
+    },
+    "story_execution": {
+      "current": {
+        "blocking_issue": "status = 'paused'",
+        "deferrable_issue": "status = 'reviewing'",
+        "clean": "status = 'verifying'"
+      },
+      "new": {
+        "blocking_issue": "stage stays 'active', hold_reason = 'paused', human_review = TRUE",
+        "deferrable_issue": "stage = 'reviewing', hold_reason = NULL, human_review = TRUE",
+        "clean": "stage = 'verifying', hold_reason = NULL, human_review = FALSE"
+      },
+      "benefit": "Blocking doesn't lose stage context"
+    },
+    "story_vetting": {
+      "current": "DEFER_PENDING sets status = 'pending' (loses stage)",
+      "new": "DEFER_PENDING sets hold_reason = 'pending' (stage preserved)",
+      "benefit": "Know where to resume after human decision"
+    },
+    "story_verification": {
+      "current": {
+        "all_pass": "status = 'implemented'",
+        "any_fail": "status stays 'verifying'",
+        "untestable": "status = 'reviewing'"
+      },
+      "new": {
+        "all_pass": "stage = 'implemented', hold_reason = NULL",
+        "any_fail": "stage stays 'verifying', hold_reason = 'pending', human_review = TRUE",
+        "untestable": "stage stays 'verifying', hold_reason = 'pending', human_review = TRUE"
+      }
+    }
+  },
+
+  "state_transition_rules": {
+    "stage_transitions": {
+      "rule": "Stage can only move forward (except reviewing → active for rework)",
+      "enforcement": "Application-level or trigger",
+      "example": "Cannot go from 'implemented' back to 'active' directly"
+    },
+    "hold_reason_transitions": {
+      "rule": "Hold can be set/cleared at any time, but stage-specific holds enforced",
+      "enforcement": "CHECK constraint",
+      "example": "'paused' only valid when stage = 'active'"
+    },
+    "disposition_transitions": {
+      "rule": "Once disposed, cannot return to active (except wishlist → approved)",
+      "enforcement": "Application-level",
+      "example": "'rejected' is final"
+    },
+    "clearing_holds": {
+      "rule": "Human clears hold_reason when issue resolved",
+      "action": "UPDATE hold_reason = NULL, human_review = FALSE",
+      "note": "Stage remains, story resumes from where it was"
+    }
+  },
+
+  "migration_script_outline": {
+    "steps": [
+      "1. Add columns: ALTER TABLE story_nodes ADD COLUMN stage TEXT DEFAULT 'concept'",
+      "2. Add columns: ALTER TABLE story_nodes ADD COLUMN hold_reason TEXT DEFAULT NULL",
+      "3. Add columns: ALTER TABLE story_nodes ADD COLUMN disposition TEXT DEFAULT NULL",
+      "4. Add columns: ALTER TABLE story_nodes ADD COLUMN human_review BOOLEAN DEFAULT FALSE",
+      "5. Migrate direct stages (concept, approved, etc.): UPDATE stage = status WHERE status IN (...)",
+      "6. Migrate hold reasons:",
+      "   - refine → stage='concept', hold_reason='refine', human_review=TRUE",
+      "   - broken → stage='concept', hold_reason='broken', human_review=TRUE",
+      "   - paused → stage='active', hold_reason='paused', human_review=TRUE",
+      "   - pending → stage=INFER, hold_reason='pending', human_review=TRUE",
+      "   - blocked → stage=INFER, hold_reason='blocked', human_review=TRUE",
+      "7. Migrate dispositions:",
+      "   - rejected → stage='concept', disposition='rejected'",
+      "   - infeasible → stage='concept', disposition='infeasible'",
+      "   - wishlist → stage='concept', disposition='wishlist'",
+      "   - legacy → stage='released', disposition='legacy'",
+      "   - deprecated → stage='released', disposition='deprecated'",
+      "   - archived → stage=INFER, disposition='archived'",
+      "8. Drop old status column or keep for backward compatibility",
+      "9. Add CHECK constraints",
+      "10. Create indexes"
+    ],
+    "stage_inference_logic": [
+      "For pending/blocked/archived where stage is unknown:",
+      "1. Parse notes for stage hints (e.g., 'blocked during planning')",
+      "2. Check if plan file exists → stage='planned'",
+      "3. Check last_implemented → stage='released'",
+      "4. Default to 'concept'"
+    ],
+    "rollback": "Recreate status column from stage+hold_reason+disposition"
+  },
+
+  "workflow_diagram": {
+    "ascii": [
+      "┌─────────────────────────────────────────────────────────────────────────┐",
+      "│                   THREE-FIELD WORKFLOW STATE DIAGRAM                    │",
+      "│              (stage + hold_reason + disposition + human_review)         │",
+      "└─────────────────────────────────────────────────────────────────────────┘",
+      "",
+      "  LEGEND:  [stage]           = workflow position",
+      "           (hold_reason)     = why stopped (orthogonal)",
+      "           <disposition>     = terminal state",
+      "           {human_review}    = needs attention flag",
+      "",
+      "                                    STAGE DIMENSION",
+      "                                    (linear progression)",
+      "                                           │",
+      "     ┌───────────────────────────────────────────────────────────────────────┐",
+      "     │                                                                       │",
+      "     │  [concept] ──► [approved] ──► [planned] ──► [queued] ──► [active]    │",
+      "     │      │                                                        │       │",
+      "     │      │                                           ┌────────────┤       │",
+      "     │      │                                           │            │       │",
+      "     │      │                                           ▼            ▼       │",
+      "     │      │                                      [reviewing] ► [verifying] │",
+      "     │      │                                           │            │       │",
+      "     │      │                                           │     ┌──────┘       │",
+      "     │      │                                           │     │              │",
+      "     │      │                                           ▼     ▼              │",
+      "     │      │                                      [implemented]             │",
+      "     │      │                                           │                    │",
+      "     │      │                                           ▼                    │",
+      "     │      │                                        [ready]                 │",
+      "     │      │                                           │                    │",
+      "     │      │                                     ┌─────┴─────┐              │",
+      "     │      │                                     ▼           ▼              │",
+      "     │      │                                 [polish] ──► [released]        │",
+      "     │      │                                                                │",
+      "     └──────┼────────────────────────────────────────────────────────────────┘",
+      "            │",
+      "            │    HOLD_REASON DIMENSION (can be applied at most stages)",
+      "            │    ════════════════════════════════════════════════════",
+      "            │",
+      "            │    (refine)  ─── Only at [concept]  ─── \"Needs more detail\"",
+      "            │    (broken)  ─── Only at [concept]  ─── \"Has problems\"",
+      "            │    (paused)  ─── Only at [active]   ─── \"Execution blocked\"",
+      "            │    (pending) ─── Any stage          ─── \"Awaiting decision\"",
+      "            │    (blocked) ─── Any stage          ─── \"External dependency\"",
+      "            │",
+      "            │    When hold_reason IS NOT NULL:",
+      "            │      • Stage is PRESERVED (know where to resume)",
+      "            │      • human_review typically TRUE",
+      "            │      • Orchestrator SKIPS the story",
+      "            │      • Human clears hold_reason to resume",
+      "            │",
+      "            │",
+      "            │    DISPOSITION DIMENSION (terminal, exits pipeline)",
+      "            │    ═════════════════════════════════════════════════",
+      "            │",
+      "            ├────► <rejected>   ─── \"Will not implement\"",
+      "            ├────► <infeasible> ─── \"Cannot implement\"",
+      "            ├────► <wishlist>   ─── \"Maybe someday\"",
+      "            │",
+      "            │      (at [released] stage only)",
+      "            │      ├────► <legacy>     ─── \"Old but functional\"",
+      "            │      └────► <deprecated> ─── \"Being phased out\"",
+      "            │",
+      "            └────► <archived>   ─── \"No longer relevant\"",
+      "",
+      "  ═══════════════════════════════════════════════════════════════════════════",
+      "",
+      "  STATE SPACE SUMMARY:",
+      "",
+      "  • Active pipeline: 11 stages × (1 + applicable holds) ≈ 25 valid states",
+      "  • Disposed: 6 dispositions (stage preserved for history)",
+      "  • Total valid: ~31 meaningful state combinations",
+      "",
+      "  QUERY EXAMPLES:",
+      "",
+      "  • Ready to plan:  WHERE stage='approved' AND hold_reason IS NULL AND disposition IS NULL",
+      "  • What's blocked: WHERE hold_reason IS NOT NULL",
+      "  • What's shipped:  WHERE disposition IS NULL AND stage='released'",
+      "  • Needs attention: WHERE human_review = TRUE"
+    ]
+  },
+
+  "comparison_to_two_field": {
+    "advantages_over_two_field": [
+      "Stage preserved when held (two-field loses this for pending/blocked)",
+      "Hold reason explicitly typed (two-field puts in notes)",
+      "Disposition clearly separate from workflow stage",
+      "More semantic clarity"
+    ],
+    "disadvantages_vs_two_field": [
+      "More fields to manage (4 vs 2)",
+      "More complex constraints",
+      "Larger migration effort",
+      "May be over-engineered for the actual problem"
+    ]
+  }
+}
