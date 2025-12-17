@@ -15,7 +15,7 @@ Verify that implemented stories meet their acceptance criteria before marking re
 
 ## Purpose
 
-Bridge the gap between `verifying` and `implemented` statuses by validating that acceptance criteria are actually satisfied. This prevents incomplete implementations from being marked implemented. Stories transition: `verifying` → `implemented` → `ready`.
+Bridge the gap between `verifying` and `implemented` stages by validating that acceptance criteria are actually satisfied. This prevents incomplete implementations from being marked implemented. Stories transition: `stage='verifying'` → `stage='implemented'` → `stage='ready'`.
 
 ## Mode Detection
 
@@ -45,10 +45,11 @@ import sqlite3, json
 conn = sqlite3.connect('.claude/data/story-tree.db')
 conn.row_factory = sqlite3.Row
 stories = [dict(row) for row in conn.execute('''
-    SELECT s.id, s.title, s.description, s.status, s.project_path,
+    SELECT s.id, s.title, s.description, s.stage, s.project_path, s.human_review,
         (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth
     FROM story_nodes s
-    WHERE s.status IN ('verifying', 'reviewing')
+    WHERE s.stage IN ('verifying', 'reviewing')
+      AND s.hold_reason IS NULL AND s.disposition IS NULL
     ORDER BY node_depth ASC
 ''').fetchall()]
 print(json.dumps(stories, indent=2))
@@ -57,7 +58,7 @@ conn.close()
 ```
 
 **Selection rules:**
-- If user specified ID: validate exists and status is `verifying` or `reviewing`
+- If user specified ID: validate exists and stage is `verifying` or `reviewing` (not held/disposed)
 - Otherwise: select first `verifying` story (shallowest first)
 - Interactive only: Confirm selection with user
 
@@ -179,19 +180,19 @@ SUMMARY:
 RECOMMENDATION: [READY | NEEDS_WORK | MANUAL_REVIEW]
 ```
 
-### Step 6: Update Story Status
+### Step 6: Update Story Stage
 
 Based on verification results:
 
 | Result | Action |
 |--------|--------|
-| All PASS/SKIP | Update to `implemented` |
-| Any FAIL | Keep at `verifying`, add failure notes |
-| All PASS but some UNTESTABLE | Update to `reviewing` |
-| Mixed results | Interactive: ask user; CI: keep at `verifying` |
+| All PASS/SKIP | Update stage to `implemented` |
+| Any FAIL | Keep stage at `verifying`, set hold_reason='pending', human_review=1 |
+| All PASS but some UNTESTABLE | Keep stage at `verifying`, set hold_reason='pending', human_review=1 |
+| Mixed results | Interactive: ask user; CI: keep at `verifying` with hold |
 
 ```bash
-python .claude/skills/story-verification/update_status.py <story_id> <new_status> "<verification_notes>"
+python .claude/skills/story-verification/update_status.py <story_id> <new_stage> "<verification_notes>"
 ```
 
 ### Step 7: Update Acceptance Criteria Checkboxes
@@ -256,4 +257,4 @@ conn.close()
 
 - **Database:** `.claude/data/story-tree.db`
 - **Schema:** `.claude/skills/story-tree/references/schema.sql`
-- **Status Reference:** `.claude/skills/story-tree/SKILL.md` (22-Status Rainbow System)
+- **Three-Field System:** `.claude/skills/story-tree/SKILL.md` (stage + hold_reason + disposition)

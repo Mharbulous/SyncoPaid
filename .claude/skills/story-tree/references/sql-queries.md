@@ -1,4 +1,4 @@
-# SQL Query Reference
+# SQL Query Reference (Three-Field System v4.0)
 
 ## Priority Algorithm - Under-Capacity Target
 
@@ -9,14 +9,18 @@ SELECT s.*,
     COALESCE(s.capacity, 3 + (SELECT COUNT(*) FROM story_paths sp
          JOIN story_nodes child ON sp.descendant_id = child.id
          WHERE sp.ancestor_id = s.id AND sp.depth = 1
-         AND child.status IN ('implemented', 'ready'))) as effective_capacity
+         AND child.stage IN ('implemented', 'ready', 'released')
+         AND child.disposition IS NULL)) as effective_capacity
 FROM story_nodes s
-WHERE s.status NOT IN ('concept', 'rejected', 'deprecated', 'infeasible', 'bugged')
+WHERE s.stage != 'concept'
+  AND s.hold_reason IS NULL
+  AND s.disposition IS NULL
   AND (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) <
       COALESCE(s.capacity, 3 + (SELECT COUNT(*) FROM story_paths sp
            JOIN story_nodes child ON sp.descendant_id = child.id
            WHERE sp.ancestor_id = s.id AND sp.depth = 1
-           AND child.status IN ('implemented', 'ready')))
+           AND child.stage IN ('implemented', 'ready', 'released')
+           AND child.disposition IS NULL))
 ORDER BY node_depth ASC
 LIMIT 1;
 ```
@@ -24,7 +28,7 @@ LIMIT 1;
 ## Insert with Closure Table Population
 
 ```sql
-INSERT INTO story_nodes (id, title, description, status, created_at, updated_at)
+INSERT INTO story_nodes (id, title, description, stage, created_at, updated_at)
 VALUES (:new_id, :title, :description, 'concept', datetime('now'), datetime('now'));
 
 INSERT INTO story_paths (ancestor_id, descendant_id, depth)
@@ -43,6 +47,73 @@ if [ -z "$LAST_COMMIT" ] || ! git cat-file -t "$LAST_COMMIT" &>/dev/null; then
 else
     git log "$LAST_COMMIT"..HEAD --pretty=format:"%h|%ai|%s" --no-merges
 fi
+```
+
+## Three-Field Query Patterns
+
+### Active Pipeline (not held, not disposed)
+```sql
+SELECT * FROM story_nodes
+WHERE disposition IS NULL AND hold_reason IS NULL
+ORDER BY stage;
+```
+
+### Stories Needing Human Review
+```sql
+SELECT * FROM story_nodes WHERE human_review = 1;
+```
+
+### What's Held (and where to resume)
+```sql
+SELECT id, title, stage, hold_reason, notes FROM story_nodes
+WHERE hold_reason IS NOT NULL;
+```
+
+### Ready to Plan (approved, not held)
+```sql
+SELECT * FROM story_nodes
+WHERE stage = 'approved' AND hold_reason IS NULL AND disposition IS NULL;
+```
+
+### Ready to Execute (planned, not held)
+```sql
+SELECT * FROM story_nodes
+WHERE stage = 'planned' AND hold_reason IS NULL AND disposition IS NULL;
+```
+
+### Update to Hold (preserves stage)
+```sql
+UPDATE story_nodes
+SET hold_reason = 'pending', human_review = 1,
+    notes = COALESCE(notes || char(10), '') || 'Reason: ...'
+WHERE id = ?;
+```
+
+### Clear Hold (resume from preserved stage)
+```sql
+UPDATE story_nodes
+SET hold_reason = NULL, human_review = 0
+WHERE id = ?;
+```
+
+### Set Disposition (terminal)
+```sql
+UPDATE story_nodes
+SET disposition = 'rejected', human_review = 0
+WHERE id = ?;
+```
+
+### Pipeline Stage Counts
+```sql
+SELECT stage, COUNT(*) as cnt FROM story_nodes
+WHERE disposition IS NULL
+GROUP BY stage ORDER BY
+  CASE stage
+    WHEN 'concept' THEN 1 WHEN 'approved' THEN 2 WHEN 'planned' THEN 3
+    WHEN 'queued' THEN 4 WHEN 'active' THEN 5 WHEN 'reviewing' THEN 6
+    WHEN 'verifying' THEN 7 WHEN 'implemented' THEN 8 WHEN 'ready' THEN 9
+    WHEN 'polish' THEN 10 WHEN 'released' THEN 11
+  END;
 ```
 
 ## Pattern Matching

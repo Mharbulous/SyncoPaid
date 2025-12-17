@@ -16,33 +16,49 @@ import sqlite3
 import sys
 
 
+# Valid stages for the three-field system
+VALID_STAGES = {
+    'concept', 'approved', 'planned', 'queued', 'active',
+    'reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released'
+}
+
+# Legacy: kept for backward compatibility
 VALID_STATUSES = {
     'infeasible', 'rejected', 'wishlist',
     'concept', 'broken', 'blocked', 'refine',
     'pending', 'approved', 'planned', 'queued', 'paused',
     'active',
-    'reviewing', 'implemented',
+    'reviewing', 'verifying', 'implemented',
     'ready', 'polish', 'released',
     'legacy', 'deprecated', 'archived'
 }
 
 
-def update_status(story_id: str, new_status: str, notes: str = None) -> dict:
-    """Update story status and optionally add verification notes."""
-    if new_status not in VALID_STATUSES:
-        return {"error": f"Invalid status: {new_status}", "valid_statuses": list(VALID_STATUSES)}
+def update_status(story_id: str, new_stage: str, notes: str = None, hold: bool = False) -> dict:
+    """Update story stage and optionally add verification notes.
+
+    Args:
+        story_id: The story ID to update
+        new_stage: The new stage value (e.g., 'implemented', 'verifying')
+        notes: Optional verification notes to append
+        hold: If True, set hold_reason='pending' and human_review=1 (for failures/untestable)
+    """
+    # Accept both new stage values and legacy status values for compatibility
+    if new_stage not in VALID_STAGES and new_stage not in VALID_STATUSES:
+        return {"error": f"Invalid stage: {new_stage}", "valid_stages": list(VALID_STAGES)}
 
     conn = sqlite3.connect('.claude/data/story-tree.db')
 
     # Get current story
-    cursor = conn.execute('SELECT status, notes FROM story_nodes WHERE id = ?', (story_id,))
+    cursor = conn.execute('SELECT stage, hold_reason, notes FROM story_nodes WHERE id = ?', (story_id,))
     row = cursor.fetchone()
     if not row:
         conn.close()
         return {"error": f"Story {story_id} not found"}
 
-    old_status = row[0]
-    existing_notes = row[1] or ''
+    old_stage = row[0]
+    old_hold = row[1]
+    existing_notes = row[2] or ''
 
     # Build new notes
     if notes:
@@ -50,12 +66,23 @@ def update_status(story_id: str, new_status: str, notes: str = None) -> dict:
     else:
         new_notes = existing_notes
 
-    # Update
-    conn.execute('''
-        UPDATE story_nodes
-        SET status = ?, notes = ?, updated_at = datetime('now')
-        WHERE id = ?
-    ''', (new_status, new_notes, story_id))
+    # Update based on hold flag
+    if hold:
+        # Keep stage, set hold_reason for human review
+        conn.execute('''
+            UPDATE story_nodes
+            SET hold_reason = 'pending', human_review = 1,
+                notes = ?, updated_at = datetime('now')
+            WHERE id = ?
+        ''', (new_notes, story_id))
+    else:
+        # Update stage, clear any hold
+        conn.execute('''
+            UPDATE story_nodes
+            SET stage = ?, hold_reason = NULL, human_review = 0,
+                notes = ?, updated_at = datetime('now')
+            WHERE id = ?
+        ''', (new_stage, new_notes, story_id))
 
     conn.commit()
     conn.close()
@@ -63,8 +90,9 @@ def update_status(story_id: str, new_status: str, notes: str = None) -> dict:
     return {
         "success": True,
         "story_id": story_id,
-        "old_status": old_status,
-        "new_status": new_status,
+        "old_stage": old_stage,
+        "new_stage": new_stage if not hold else old_stage,
+        "hold_set": hold,
         "notes_added": notes is not None
     }
 
@@ -129,7 +157,7 @@ def get_verification_summary(story_id: str) -> dict:
     conn.row_factory = sqlite3.Row
 
     story = conn.execute('''
-        SELECT id, title, description, status, notes
+        SELECT id, title, description, stage, hold_reason, disposition, human_review, notes
         FROM story_nodes WHERE id = ?
     ''', (story_id,)).fetchone()
 
@@ -152,7 +180,9 @@ def get_verification_summary(story_id: str) -> dict:
     return {
         "story_id": story_id,
         "title": story_dict['title'],
-        "status": story_dict['status'],
+        "stage": story_dict['stage'],
+        "hold_reason": story_dict['hold_reason'],
+        "human_review": bool(story_dict['human_review']),
         "criteria_total": total,
         "criteria_checked": checked,
         "criteria_unchecked": unchecked,
@@ -163,7 +193,8 @@ def get_verification_summary(story_id: str) -> dict:
 if __name__ == '__main__':
     if len(sys.argv) < 3:
         print("Usage:")
-        print("  python update_status.py <story_id> <new_status> [notes]")
+        print("  python update_status.py <story_id> <new_stage> [notes]")
+        print("  python update_status.py <story_id> <new_stage> --hold [notes]")
         print("  python update_status.py <story_id> mark-criteria 1,2,3")
         print("  python update_status.py <story_id> summary")
         sys.exit(1)
@@ -181,13 +212,17 @@ if __name__ == '__main__':
         indices = [int(i.strip()) for i in sys.argv[3].split(',')]
         result = mark_criteria_checked(story_id, indices)
 
-    elif action in VALID_STATUSES:
-        notes = sys.argv[3] if len(sys.argv) > 3 else None
-        result = update_status(story_id, action, notes)
+    elif action in VALID_STAGES or action in VALID_STATUSES:
+        # Check for --hold flag
+        hold = '--hold' in sys.argv
+        # Get notes (skip --hold if present)
+        notes_args = [a for a in sys.argv[3:] if a != '--hold']
+        notes = notes_args[0] if notes_args else None
+        result = update_status(story_id, action, notes, hold=hold)
 
     else:
         print(f"Error: Unknown action '{action}'")
-        print(f"Valid statuses: {', '.join(sorted(VALID_STATUSES))}")
+        print(f"Valid stages: {', '.join(sorted(VALID_STAGES))}")
         sys.exit(1)
 
     print(json.dumps(result, indent=2))

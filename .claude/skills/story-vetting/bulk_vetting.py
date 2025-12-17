@@ -80,7 +80,7 @@ def apply_decisions(decisions):
                 conn = sqlite3.connect('.claude/data/story-tree.db')
                 conn.execute('''
                     UPDATE story_nodes
-                    SET status = 'rejected',
+                    SET disposition = 'rejected',
                         notes = COALESCE(notes || char(10), '') || 'Conflicts with story node ' || ?
                     WHERE id = ?
                 ''', (conflicting_id, concept_id))
@@ -95,7 +95,7 @@ def apply_decisions(decisions):
                 conn = sqlite3.connect('.claude/data/story-tree.db')
                 conn.execute('''
                     UPDATE story_nodes
-                    SET status = 'blocked',
+                    SET hold_reason = 'blocked', human_review = 1,
                         notes = COALESCE(notes || char(10), '') || 'Blocked due to conflict with story node ' || ?
                     WHERE id = ?
                 ''', (conflicting_id, concept_id))

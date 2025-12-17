@@ -55,7 +55,8 @@ stories = [dict(row) for row in conn.execute('''
         (SELECT GROUP_CONCAT(ancestor_id) FROM story_paths
          WHERE descendant_id = s.id AND depth > 0) as ancestors,
         (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as child_count
-    FROM story_nodes s WHERE s.status = 'approved'
+    FROM story_nodes s
+    WHERE s.stage = 'approved' AND s.hold_reason IS NULL AND s.disposition IS NULL
     ORDER BY node_depth ASC
 ''').fetchall()]
 print(json.dumps(stories, indent=2))
@@ -79,7 +80,7 @@ score = min(depth, 5) * 0.30 \
 
 ### Step 3: Select Story
 
-- If user specified ID: validate exists and `status = 'approved'`
+- If user specified ID: validate exists and `stage = 'approved'` with no hold_reason/disposition
 - Otherwise: select highest-scoring non-blocked story
 - **Interactive only:** Confirm selection with user before proceeding
 
@@ -336,7 +337,7 @@ In CI mode, the plan must be executable without human guidance:
 - No "verify manually" - provide automated verification commands
 - No "ask if unclear" - the plan IS the clarity
 
-### Step 6: Update Status
+### Step 6: Update Stage
 
 ```python
 python -c "
@@ -344,7 +345,7 @@ import sqlite3
 conn = sqlite3.connect('.claude/data/story-tree.db')
 conn.execute('''
     UPDATE story_nodes
-    SET status = 'planned',
+    SET stage = 'planned',
         notes = COALESCE(notes || chr(10), '') || 'Plan: .claude/data/plans/[FILENAME]',
         updated_at = datetime('now')
     WHERE id = '[STORY_ID]'

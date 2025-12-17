@@ -67,7 +67,10 @@ print(subprocess.run(cmd, capture_output=True, text=True).stdout)
 
 ### Step 3: Identify Priority Target
 
-**Excluded statuses:** `concept`, `broken`, `refine`, `rejected`, `wishlist`, `deprecated`, `archived`, `infeasible`, `legacy`
+**Excluded from generation:** Stories where:
+- `stage = 'concept'` (not yet approved)
+- `hold_reason IS NOT NULL` (blocked/pending/etc)
+- `disposition IS NOT NULL` (rejected/archived/etc)
 
 **Priority algorithm** (shallower under-capacity nodes first):
 
@@ -78,9 +81,12 @@ SELECT s.*,
     COALESCE(s.capacity, 3 + (SELECT COUNT(*) FROM story_paths sp
          JOIN story_nodes child ON sp.descendant_id = child.id
          WHERE sp.ancestor_id = s.id AND sp.depth = 1
-         AND child.status IN ('implemented', 'ready'))) as effective_capacity
+         AND child.stage IN ('implemented', 'ready', 'released')
+         AND child.disposition IS NULL)) as effective_capacity
 FROM story_nodes s
-WHERE s.status NOT IN ('concept', 'broken', 'refine', 'rejected', 'wishlist', 'deprecated', 'archived', 'infeasible', 'legacy')
+WHERE s.stage != 'concept'
+  AND s.hold_reason IS NULL
+  AND s.disposition IS NULL
   AND (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) <
       COALESCE(s.capacity, 3 + (...))
 ORDER BY node_depth ASC
@@ -91,7 +97,7 @@ LIMIT 1;
 
 ### Step 4: Generate Stories
 
-Invoke `story-writing` skill for priority target node. New stories get `status: 'concept'` (unless user explicitly requested, then `approved`).
+Invoke `story-writing` skill for priority target node. New stories get `stage: 'concept'` (unless user explicitly requested `approved`).
 
 ### Step 5: Update Metadata
 
@@ -112,32 +118,54 @@ python .claude/skills/story-tree/scripts/tree-view.py --show-capacity
 
 Use `--force-ascii` only if Unicode fails.
 
-## 22-Status Rainbow System
+## Three-Field Workflow System (v4.0)
 
-| Order | Status | Definition |
-|-------|--------|------------|
-| 1 | infeasible | Cannot implement due to constraints |
-| 2 | rejected | Explicitly declined |
-| 3 | wishlist | Nice to have, low priority |
-| 4 | concept | Initial idea, not yet approved |
-| 5 | broken | Was working, now regressed |
-| 6 | blocked | Cannot proceed due to dependencies |
-| 7 | refine | Needs more detail |
-| 8 | pending | Postponed |
-| 9 | approved | Ready to plan |
-| 10 | planned | Implementation plan exists |
-| 11 | queued | In backlog, ready to start |
-| 12 | paused | Temporarily stopped |
-| 13 | active | Currently being worked on |
-| 14 | reviewing | Under review/testing |
-| 15 | verifying | Awaiting post-execution verification |
-| 16 | implemented | Code complete, verified, not released |
-| 17 | ready | Tested, ready for release |
-| 18 | polish | Minor refinements |
-| 19 | released | Deployed to production |
-| 20 | legacy | Old code still in use |
-| 21 | deprecated | Marked for removal |
-| 22 | archived | Removed/no longer relevant |
+Stories use three orthogonal dimensions instead of a single status:
+
+### Stage (11 values) - Linear workflow position
+| Stage | Description |
+|-------|-------------|
+| concept | Initial idea, not yet approved |
+| approved | Ready to plan |
+| planned | Implementation plan exists |
+| queued | In backlog, ready to start |
+| active | Currently being worked on |
+| reviewing | Under review/testing |
+| verifying | Awaiting post-execution verification |
+| implemented | Code complete, verified, not released |
+| ready | Tested, ready for release |
+| polish | Minor refinements |
+| released | Deployed to production |
+
+### Hold Reason (5 values + NULL) - Why work is stopped
+| Hold | Description | Valid Stages |
+|------|-------------|--------------|
+| NULL | Not held, work can proceed | Any |
+| pending | Awaiting human decision | Any |
+| blocked | External dependency | Any |
+| paused | Execution blocked by critical issue | active only |
+| broken | Something wrong with story definition | concept only |
+| refine | Needs more detail | concept only |
+
+### Disposition (6 values + NULL) - Terminal state
+| Disposition | Description | Stage Required |
+|-------------|-------------|----------------|
+| NULL | Active in pipeline | Any |
+| rejected | Will not implement | Any (preserved) |
+| infeasible | Cannot implement | Any (preserved) |
+| wishlist | Maybe someday | Any (preserved) |
+| legacy | Old but functional | released |
+| deprecated | Being phased out | released |
+| archived | No longer relevant | Any (preserved) |
+
+### Human Review Flag
+- `human_review = 1` when story needs human attention
+- Typically TRUE when `hold_reason IS NOT NULL`
+
+### Key Rules
+- **Cannot have both** hold_reason AND disposition (mutually exclusive)
+- Stage is **preserved** when held or disposed (know where to resume)
+- Query by dimension for clearer intent
 
 ## References
 

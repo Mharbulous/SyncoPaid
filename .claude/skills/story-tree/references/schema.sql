@@ -1,4 +1,4 @@
--- Story Tree SQLite Schema v3.1.0
+-- Story Tree SQLite Schema v4.0.0 (Three-Field System)
 -- Location: .claude/data/story-tree.db
 
 -- ID Format: Root="root", Level 1="1","2","3", Level 2+="1.1","1.3.2"
@@ -8,6 +8,27 @@ CREATE TABLE IF NOT EXISTS story_nodes (
     title TEXT NOT NULL,
     description TEXT NOT NULL,
     capacity INTEGER,  -- NULL = dynamic: 3 + implemented/ready children
+
+    -- Three-field workflow system (v4.0)
+    -- Replaces single 'status' column with orthogonal dimensions
+    stage TEXT NOT NULL DEFAULT 'concept'
+        CHECK (stage IN (
+            'concept', 'approved', 'planned', 'queued', 'active',
+            'reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released'
+        )),
+    hold_reason TEXT DEFAULT NULL
+        CHECK (hold_reason IS NULL OR hold_reason IN (
+            'pending', 'paused', 'blocked', 'broken', 'refine'
+        )),
+    disposition TEXT DEFAULT NULL
+        CHECK (disposition IS NULL OR disposition IN (
+            'rejected', 'infeasible', 'wishlist', 'legacy', 'deprecated', 'archived'
+        )),
+    human_review INTEGER DEFAULT 0
+        CHECK (human_review IN (0, 1)),
+
+    -- Deprecated: 'status' kept for backward compatibility
+    -- Automatically synced via trigger from stage/hold_reason/disposition
     status TEXT NOT NULL DEFAULT 'concept'
         CHECK (status IN (
             'infeasible', 'rejected', 'wishlist',
@@ -18,13 +39,17 @@ CREATE TABLE IF NOT EXISTS story_nodes (
             'ready', 'polish', 'released',
             'legacy', 'deprecated', 'archived'
         )),
+
     project_path TEXT,
     last_implemented TEXT,
     notes TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    version INTEGER DEFAULT 1  -- v3.1: For vetting cache invalidation
+    version INTEGER DEFAULT 1  -- For vetting cache invalidation
 );
+
+-- Constraint: Cannot be both held AND disposed (mutually exclusive)
+-- Note: SQLite doesn't support ALTER TABLE ADD CONSTRAINT, enforced in app logic
 
 -- Closure table: ALL ancestor-descendant paths
 CREATE TABLE IF NOT EXISTS story_paths (
@@ -48,7 +73,7 @@ CREATE TABLE IF NOT EXISTS metadata (
     value TEXT NOT NULL
 );
 
--- v3.1: Vetting decisions cache for Entity Resolution
+-- Vetting decisions cache for Entity Resolution
 -- Stores LLM classification decisions to avoid repeated analysis
 CREATE TABLE IF NOT EXISTS vetting_decisions (
     pair_key TEXT PRIMARY KEY,  -- Canonical: smaller_id|larger_id
@@ -69,16 +94,81 @@ CREATE TABLE IF NOT EXISTS vetting_decisions (
     FOREIGN KEY (story_b_id) REFERENCES story_nodes(id) ON DELETE CASCADE
 );
 
+-- Indexes
 CREATE INDEX IF NOT EXISTS idx_paths_descendant ON story_paths(descendant_id);
 CREATE INDEX IF NOT EXISTS idx_paths_depth ON story_paths(depth);
-CREATE INDEX IF NOT EXISTS idx_nodes_status ON story_nodes(status);
+CREATE INDEX IF NOT EXISTS idx_nodes_status ON story_nodes(status);  -- Deprecated, kept for compatibility
 CREATE INDEX IF NOT EXISTS idx_commits_hash ON story_commits(commit_hash);
 CREATE INDEX IF NOT EXISTS idx_vetting_story_a ON vetting_decisions(story_a_id);
 CREATE INDEX IF NOT EXISTS idx_vetting_story_b ON vetting_decisions(story_b_id);
 
+-- Three-field system indexes (v4.0)
+CREATE INDEX IF NOT EXISTS idx_active_pipeline ON story_nodes(stage)
+    WHERE disposition IS NULL AND hold_reason IS NULL;
+CREATE INDEX IF NOT EXISTS idx_held_stories ON story_nodes(hold_reason)
+    WHERE hold_reason IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_disposed_stories ON story_nodes(disposition)
+    WHERE disposition IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_needs_review ON story_nodes(human_review)
+    WHERE human_review = 1;
+
+-- Triggers
 CREATE TRIGGER IF NOT EXISTS story_nodes_updated_at
 AFTER UPDATE ON story_nodes
 FOR EACH ROW
 BEGIN
     UPDATE story_nodes SET updated_at = datetime('now') WHERE id = OLD.id;
 END;
+
+-- Sync deprecated 'status' column from three-field system
+-- Priority: disposition > hold_reason > stage
+CREATE TRIGGER IF NOT EXISTS sync_status_from_fields
+AFTER UPDATE OF stage, hold_reason, disposition ON story_nodes
+FOR EACH ROW
+BEGIN
+    UPDATE story_nodes SET status =
+        CASE
+            WHEN NEW.disposition IS NOT NULL THEN NEW.disposition
+            WHEN NEW.hold_reason IS NOT NULL THEN NEW.hold_reason
+            ELSE NEW.stage
+        END
+    WHERE id = NEW.id;
+END;
+
+-- =============================================================================
+-- THREE-FIELD SYSTEM REFERENCE
+-- =============================================================================
+--
+-- STAGE (11 values): Linear workflow position
+--   concept → approved → planned → queued → active → reviewing → verifying
+--   → implemented → ready → polish → released
+--
+-- HOLD_REASON (5 values + NULL): Why work is stopped (orthogonal to stage)
+--   NULL    = Not held, work can proceed
+--   pending = Awaiting human decision (any stage)
+--   paused  = Execution blocked by critical issue (active stage only)
+--   blocked = External dependency (any stage)
+--   broken  = Something wrong with story definition (concept stage only)
+--   refine  = Needs more detail before proceeding (concept stage only)
+--
+-- DISPOSITION (6 values + NULL): Terminal state (exits pipeline)
+--   NULL       = Active in pipeline
+--   rejected   = Will not implement
+--   infeasible = Cannot implement
+--   wishlist   = Maybe someday
+--   legacy     = Old but functional (released only)
+--   deprecated = Being phased out (released only)
+--   archived   = No longer relevant
+--
+-- HUMAN_REVIEW: Boolean flag for items needing human attention
+--   Typically TRUE when hold_reason IS NOT NULL
+--
+-- VALID COMBINATIONS:
+--   - disposition IS NOT NULL → Story has exited pipeline (stage preserved)
+--   - hold_reason IS NOT NULL → Work stopped, but stage shows where to resume
+--   - Both NULL → Active in pipeline at given stage
+--   - Cannot have BOTH hold_reason AND disposition (mutually exclusive)
+--
+-- MIGRATION FROM 22-STATUS:
+--   Run: python .claude/skills/story-tree/scripts/migrate_to_three_field.py
+-- =============================================================================

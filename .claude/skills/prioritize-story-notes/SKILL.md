@@ -26,7 +26,8 @@ stories = [dict(row) for row in conn.execute('''
         (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth,
         (SELECT GROUP_CONCAT(ancestor_id) FROM story_paths
          WHERE descendant_id = s.id AND depth > 0) as ancestors
-    FROM story_nodes s WHERE s.status = 'approved'
+    FROM story_nodes s
+    WHERE s.stage = 'approved' AND s.hold_reason IS NULL AND s.disposition IS NULL
     ORDER BY node_depth ASC
 ''').fetchall()]
 print(json.dumps(stories, indent=2))
@@ -41,14 +42,14 @@ conn.close()
 - Keywords: "requires", "depends on", "after", "needs", "once X is done"
 - Technical prerequisites mentioned in acceptance criteria
 
-Mark blocked stories:
+Mark blocked stories (sets hold_reason, preserves stage):
 ```python
 python -c "
 import sqlite3
 conn = sqlite3.connect('.claude/data/story-tree.db')
 conn.execute('''
     UPDATE story_nodes
-    SET status = 'blocked',
+    SET hold_reason = 'blocked', human_review = 1,
         notes = COALESCE(notes || '\n', '') || 'Blocked by: [BLOCKER_ID] - [REASON]',
         updated_at = datetime('now')
     WHERE id = '[STORY_ID]'
@@ -84,7 +85,7 @@ score = (10 - min(criteria_count, 10)) * 0.3
 
 Include: Story Context, Overview, Prerequisites, Implementation Tasks (with file paths and code examples), Testing Plan, Rollback Plan, Notes.
 
-### Step 5: Update Status
+### Step 5: Update Stage
 
 ```python
 python -c "
@@ -92,7 +93,7 @@ import sqlite3
 conn = sqlite3.connect('.claude/data/story-tree.db')
 conn.execute('''
     UPDATE story_nodes
-    SET status = 'planned',
+    SET stage = 'planned',
         notes = COALESCE(notes || '\n', '') || 'Plan created: .claude/data/plans/[FILENAME]',
         updated_at = datetime('now')
     WHERE id = '[STORY_ID]'
@@ -108,6 +109,6 @@ Include: analyzed stories table, blocked stories with reasons, selected story wi
 
 ## Key Rules
 
-- Plan file MUST exist before status change to `planned`
+- Plan file MUST exist before stage change to `planned`
 - Analyze ALL approved stories for dependencies first
 - Only ask for clarification if: multiple identical scores, ambiguous dependencies, or no approved stories exist
