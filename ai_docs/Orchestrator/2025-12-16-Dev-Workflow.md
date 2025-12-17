@@ -4,7 +4,7 @@
 
 ## Overview
 
-The **Story Tree Orchestrator** is a GitHub Actions workflow that autonomously maintains a hierarchical story backlog. It runs daily at 2:00 AM PST, looping through plan→write cycles until the pipeline is idle.
+The **Story Tree Orchestrator** is a GitHub Actions workflow that autonomously maintains a hierarchical story backlog. It runs daily at 2:00 AM PST, looping through plan→write→vet cycles until the pipeline is idle.
 
 **Workflow File:** `.github/workflows/story-tree-orchestrator.yml`
 
@@ -46,6 +46,12 @@ The **Story Tree Orchestrator** is a GitHub Actions workflow that autonomously m
                                   │  │  (fill capacity)     │ │
                                   │  └──────────┬───────────┘ │
                                   │             │             │
+                                  │             ▼             │
+                                  │  ┌──────────────────────┐ │
+                                  │  │    vet-stories       │ │
+                                  │  │ (resolve conflicts)  │ │
+                                  │  └──────────┬───────────┘ │
+                                  │             │             │
                                   │    ┌────────┴────────┐    │
                                   │    │ Both idle?      │    │
                                   │    │ NO_APPROVED &&  │    │
@@ -72,14 +78,14 @@ The **Story Tree Orchestrator** is a GitHub Actions workflow that autonomously m
 
 ### 1. Drain Before Fill (Pipeline Order)
 
-**Principle:** Clear downstream work before creating upstream work.
+**Principle:** Clear downstream work before creating upstream work, then resolve conflicts.
 
 ```
-Plan first → Write second
-(drain)      (fill)
+Plan first → Write second → Vet third
+(drain)      (fill)         (resolve)
 ```
 
-This prevents "concept glut" where approved stories pile up waiting for planning while new concepts keep being added.
+This prevents "concept glut" where approved stories pile up waiting for planning while new concepts keep being added. The vet step catches conflicting concepts early before they reach human review.
 
 ### 2. Loop Until Idle
 
@@ -107,6 +113,16 @@ Location: Settings > Secrets and variables > Actions > Variables
 ### 4. Synthesize-Goals is Separate
 
 Goal synthesis only changes when the user acts (approves/rejects stories). Since there's no user input during CI, it runs as a separate daily workflow (`synthesize-goals-non-goals.yml`), not part of the loop.
+
+### 5. Vet-Stories Runs Every Cycle
+
+The vet-stories step runs every cycle after write-stories to catch conflicts early:
+
+- **Automated actions:** Duplicates are merged, competing concepts rejected/blocked, incompatible concepts resolved
+- **CI mode behavior:** Scope overlaps between concepts and non-concepts are set to `pending` status (deferred for human review)
+- **No blocking:** Vetting never blocks the pipeline - conflicts are logged with GitHub Actions warnings
+
+**Skill Reference:** `.claude/skills/story-vetting/SKILL.md`
 
 ## Story Status Lifecycle
 
@@ -155,7 +171,7 @@ gate:
 
 ### Job 2: drain-pipeline
 
-**Purpose:** Loop plan→write until pipeline is idle
+**Purpose:** Loop plan→write→vet until pipeline is idle
 
 **Loop Logic:**
 ```bash
@@ -180,6 +196,11 @@ while [ $cycle -lt $MAX_CYCLES ]; do
         write_result="NO_CAPACITY"
     fi
 
+    # Step 3: Vet stories (resolve conflicts)
+    # invoke Claude Code with story-vetting skill (CI mode)
+    # Merges duplicates, rejects competing concepts, defers scope overlaps to pending
+    git add -A && git commit -m "ci: vet stories" && git push
+
     # Exit if idle
     [ "$plan_result" = "NO_APPROVED" ] && [ "$write_result" = "NO_CAPACITY" ] && break
     cycle=$((cycle + 1))
@@ -190,6 +211,7 @@ done
 - `cycles_completed`: Number of iterations run
 - `plans_created`: Total plans created across all cycles
 - `stories_created`: Total stories created across all cycles
+- `vetting_actions`: Total vetting cycles with changes across all cycles
 - `exit_reason`: `IDLE` | `MAX_CYCLES` | `ERROR`
 - `progress_file`: Path to detailed progress report
 
@@ -197,7 +219,7 @@ done
 
 **Purpose:** Generate pipeline summary to `GITHUB_STEP_SUMMARY`
 
-Shows cycles completed, stories created, plans created, and exit reason.
+Shows cycles completed, stories created, plans created, vetting actions, and exit reason.
 
 ## Implementation Files
 
@@ -209,6 +231,7 @@ Shows cycles completed, stories created, plans created, and exit reason.
 | `.github/workflows/synthesize-goals-non-goals.yml` | Separate daily workflow |
 | `.claude/scripts/story_workflow.py` | Returns JSON context or `NO_CAPACITY` |
 | `.claude/scripts/insert_story.py` | Inserts stories into DB |
+| `.claude/skills/story-vetting/SKILL.md` | Story vetting skill for CI conflict resolution |
 | `.claude/data/story-tree.db` | SQLite database with story tree |
 
 ## Progress Tracking
@@ -273,14 +296,16 @@ Use `max_cycles=1` for testing, higher values for actual backlog processing.
 | v1 | `workflow_call` chaining | Doesn't give true sequential execution |
 | v2 | Added PAUSED state, state files | Over-engineered, git noise |
 | v3 | Two states, no state files | Wrong order (write→plan), single cycle |
-| **v4** | Plan first, loop until idle, shell loop | Current implementation |
+| v4 | Plan first, loop until idle, shell loop | No conflict detection |
+| **v5** | Add vet-stories step (plan→write→vet) | Current implementation |
 
 ## Known Limitations
 
-- Each cycle takes ~2 minutes (Claude latency)
-- `max_cycles=10` could take 20+ minutes total
+- Each cycle takes ~3 minutes (Claude latency for plan + write + vet)
+- `max_cycles=10` could take 30+ minutes total
 - Net drain rate: ~0 (each cycle plans 1 and writes 1)
 - To actually drain backlog faster, increase `max_cycles` or run more frequently
+- Vetting scope overlaps between concept and non-concept stories are deferred to `pending` status for later human review
 
 ## Related Documentation
 
@@ -292,3 +317,5 @@ Use `max_cycles=1` for testing, higher values for actual backlog processing.
 | `ai_docs/Handovers/026_meta-workflow-design.md` | Design requirements |
 | `ai_docs/Handovers/027_implement-story-tree-orchestrator.md` | Implementation handover |
 | `ai_docs/Handovers/029_orchestrator-analysis-report.md` | Test analysis |
+| `ai_docs/Handovers/034_integrate-story-vetting-into-orchestrator.md` | Vetting integration |
+| `.claude/skills/story-vetting/SKILL.md` | Story vetting skill reference |
