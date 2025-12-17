@@ -36,21 +36,21 @@ import sqlite3, json
 conn = sqlite3.connect('.claude/data/story-tree.db')
 conn.row_factory = sqlite3.Row
 stories = [dict(row) for row in conn.execute('''
-    SELECT s.id, s.title, s.description, s.status, s.notes,
+    SELECT s.id, s.title, s.description, s.stage, s.hold_reason, s.notes,
            (SELECT ancestor_id FROM story_paths WHERE descendant_id = s.id AND depth = 1) as parent_id
-    FROM story_nodes s WHERE s.status = 'refine' ORDER BY s.created_at
+    FROM story_nodes s WHERE s.hold_reason = 'refine' ORDER BY s.created_at
 ''').fetchall()]
 print(json.dumps({'count': len(stories), 'stories': stories}, indent=2))
 conn.close()
 "
 ```
 
-**If `refine` stories exist:** Process each one:
+**If stories with `hold_reason='refine'` exist:** Process each one:
 1. Identify issues (vague criteria, missing evidence, too broad, unclear role)
 2. Rework with quality standards
-3. Update to `status='concept'`
+3. Clear hold: `SET hold_reason = NULL, human_review = 0` (stage remains 'concept')
 
-**Only proceed to new story generation AFTER all `refine` stories are processed.**
+**Only proceed to new story generation AFTER all held-for-refine stories are processed.**
 
 ### Step 0a: Check Goals Files
 
@@ -144,7 +144,7 @@ Match commits to parent node scope using keyword similarity.
 
 ### Step 6: Insert Stories
 
-Default `status: 'concept'`. Use `approved` only if user explicitly requested.
+Default `stage: 'concept'`. Use `approved` only if user explicitly requested.
 
 ```python
 python -c "
@@ -153,7 +153,7 @@ conn = sqlite3.connect('.claude/data/story-tree.db')
 
 # Insert story
 conn.execute('''
-    INSERT INTO story_nodes (id, title, description, status, created_at, updated_at)
+    INSERT INTO story_nodes (id, title, description, stage, created_at, updated_at)
     VALUES (?, ?, ?, 'concept', datetime('now'), datetime('now'))
 ''', ('NEW_ID', 'TITLE', 'DESCRIPTION'))
 
@@ -182,7 +182,7 @@ Include: Goals status, context analysis, commits analyzed, gaps identified (with
 
 ## Key Rules
 
-- **Always check `refine` status first** before generating new stories
+- **Always check `hold_reason='refine'` first** before generating new stories
 - **Always check goals files** before generating (if they exist)
 - Max 3 stories per invocation (max 1 per node when batching)
 - Every story must reference commits OR specific gap

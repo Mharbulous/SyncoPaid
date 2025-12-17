@@ -28,9 +28,11 @@ def get_prerequisites():
     if result['db_exists']:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM story_nodes WHERE status = 'approved'")
+        # Three-field system: approved stage with no hold/disposition
+        cursor.execute("SELECT COUNT(*) FROM story_nodes WHERE stage = 'approved' AND hold_reason IS NULL AND disposition IS NULL")
         result['approved_count'] = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM story_nodes WHERE status = 'rejected' AND notes IS NOT NULL AND notes != ''")
+        # Rejected disposition with notes
+        cursor.execute("SELECT COUNT(*) FROM story_nodes WHERE disposition = 'rejected' AND notes IS NOT NULL AND notes != ''")
         result['rejected_with_notes_count'] = cursor.fetchone()[0]
         conn.close()
 
@@ -42,9 +44,11 @@ def get_approved_stories():
     """Output approved stories for goal synthesis."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    # Three-field system: approved stage with no hold/disposition
     cursor.execute('''
         SELECT id, title, description, notes FROM story_nodes
-        WHERE status = 'approved' ORDER BY id
+        WHERE stage = 'approved' AND hold_reason IS NULL AND disposition IS NULL
+        ORDER BY id
     ''')
     for row in cursor.fetchall():
         print(f'=== {row[0]}: {row[1]} ===')
@@ -59,9 +63,10 @@ def get_rejected_stories():
     """Output rejected stories with notes for non-goals synthesis."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    # Three-field system: rejected disposition with notes
     cursor.execute('''
         SELECT id, title, description, notes FROM story_nodes
-        WHERE status = 'rejected' AND notes IS NOT NULL AND notes != ''
+        WHERE disposition = 'rejected' AND notes IS NOT NULL AND notes != ''
         ORDER BY id
     ''')
     for row in cursor.fetchall():

@@ -48,7 +48,7 @@ conn.row_factory = sqlite3.Row
 # Get planned stories ordered by readiness
 planned = conn.execute('''
     SELECT id, title, notes FROM story_nodes
-    WHERE status = 'planned'
+    WHERE stage = 'planned' AND hold_reason IS NULL AND disposition IS NULL
     ORDER BY updated_at ASC
 ''').fetchall()
 
@@ -206,22 +206,23 @@ Return to plan review when:
 **Plans:** `.claude/data/plans/`
 **Critical:** Use Python sqlite3 module, NOT sqlite3 CLI.
 
-### Status Updates
+### Stage/Hold Updates (Three-Field System)
 
 ```python
 # Update to active (Step 2 - proceeding with execution)
 conn.execute('''
     UPDATE story_nodes
-    SET status = 'active',
+    SET stage = 'active',
         notes = COALESCE(notes || chr(10), '') || 'Execution started: ' || datetime('now'),
         updated_at = datetime('now')
     WHERE id = ?
 ''', (story_id,))
 
 # Update to paused (CI Mode - blocking issues found)
+# Note: stage stays 'active', hold_reason indicates why stopped
 conn.execute('''
     UPDATE story_nodes
-    SET status = 'paused',
+    SET hold_reason = 'paused', human_review = 1,
         notes = COALESCE(notes || chr(10), '') || 'PAUSED - Blocking issues require human decision: ' || datetime('now') || chr(10) || ?,
         updated_at = datetime('now')
     WHERE id = ?
@@ -230,7 +231,7 @@ conn.execute('''
 # Update to reviewing (CI Mode Outcome B, or Interactive Mode step)
 conn.execute('''
     UPDATE story_nodes
-    SET status = 'reviewing',
+    SET stage = 'reviewing', human_review = 1,
         notes = COALESCE(notes || chr(10), '') || 'Awaiting human review of CI decisions: ' || datetime('now'),
         updated_at = datetime('now')
     WHERE id = ?
@@ -239,8 +240,17 @@ conn.execute('''
 # Update to verifying (CI Mode Outcome C, or after Interactive Mode)
 conn.execute('''
     UPDATE story_nodes
-    SET status = 'verifying',
+    SET stage = 'verifying', human_review = 0,
         notes = COALESCE(notes || chr(10), '') || 'Execution complete, awaiting verification: ' || datetime('now'),
+        updated_at = datetime('now')
+    WHERE id = ?
+''', (story_id,))
+
+# Clear hold after human resolves issue (resume from preserved stage)
+conn.execute('''
+    UPDATE story_nodes
+    SET hold_reason = NULL, human_review = 0,
+        notes = COALESCE(notes || chr(10), '') || 'Hold cleared, resuming: ' || datetime('now'),
         updated_at = datetime('now')
     WHERE id = ?
 ''', (story_id,))
@@ -347,6 +357,7 @@ Need: [what clarification or help is needed]
 ## References
 
 - Plan format: `.claude/data/plans/*.md`
-- Status workflow: concept → approved → planned → active → reviewing → verifying → implemented
-- CI pause workflow: planned → paused (blocking issues) or active → paused (mid-execution blocker)
+- Stage workflow: concept → approved → planned → active → reviewing → verifying → implemented
+- CI pause: hold_reason='paused' (stage preserved at 'active')
+- Three-field system: stage shows position, hold_reason shows why stopped, stage preserved when held
 - Commit format: Include `Story: [ID]` in commit body for traceability

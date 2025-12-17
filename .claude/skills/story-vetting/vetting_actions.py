@@ -46,11 +46,11 @@ def delete_concept(concept_id, conflicting_id=None, cache=True):
     return f"✓ Deleted concept {concept_id}"
 
 def reject_concept(concept_id, conflicting_id):
-    """Set a concept to rejected status with conflict note."""
+    """Set a concept to rejected disposition with conflict note."""
     conn = sqlite3.connect('.claude/data/story-tree.db')
     conn.execute('''
         UPDATE story_nodes
-        SET status = 'rejected',
+        SET disposition = 'rejected',
             notes = COALESCE(notes || char(10), '') || 'Conflicts with story node ' || ?
         WHERE id = ?
     ''', (conflicting_id, concept_id))
@@ -59,11 +59,11 @@ def reject_concept(concept_id, conflicting_id):
     return f"✓ Rejected concept {concept_id} (conflicts with {conflicting_id})"
 
 def block_concept(concept_id, conflicting_id):
-    """Set a concept to blocked status with conflict note."""
+    """Set a concept to blocked hold_reason with conflict note (stage preserved)."""
     conn = sqlite3.connect('.claude/data/story-tree.db')
     conn.execute('''
         UPDATE story_nodes
-        SET status = 'blocked',
+        SET hold_reason = 'blocked', human_review = 1,
             notes = COALESCE(notes || char(10), '') || 'Blocked due to conflict with story node ' || ?
         WHERE id = ?
     ''', (conflicting_id, concept_id))
@@ -72,11 +72,11 @@ def block_concept(concept_id, conflicting_id):
     return f"✓ Blocked concept {concept_id} (conflicts with {conflicting_id})"
 
 def defer_concept(concept_id, conflicting_id):
-    """Set a concept to pending status for later human review (CI mode)."""
+    """Set a concept to pending hold_reason for later human review (CI mode). Stage preserved."""
     conn = sqlite3.connect('.claude/data/story-tree.db')
     conn.execute('''
         UPDATE story_nodes
-        SET status = 'pending',
+        SET hold_reason = 'pending', human_review = 1,
             notes = COALESCE(notes || char(10), '') || 'Scope overlap with ' || ? || ' - needs human review'
         WHERE id = ?
     ''', (conflicting_id, concept_id))

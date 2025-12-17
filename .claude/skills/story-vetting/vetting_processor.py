@@ -119,30 +119,30 @@ def delete_concept(conn: sqlite3.Connection, concept_id: str) -> None:
     stats['deleted'] += 1
 
 def reject_concept(conn: sqlite3.Connection, concept_id: str, conflicting_id: str) -> None:
-    """Set concept status to rejected with note."""
+    """Set concept disposition to rejected with note."""
     conn.execute('''
         UPDATE story_nodes
-        SET status = 'rejected',
+        SET disposition = 'rejected',
             notes = COALESCE(notes || char(10), '') || 'Conflicts with story node ' || ?
         WHERE id = ?
     ''', (conflicting_id, concept_id))
     stats['rejected'] += 1
 
 def block_concept(conn: sqlite3.Connection, concept_id: str, conflicting_id: str) -> None:
-    """Set concept status to blocked with note."""
+    """Set concept hold_reason to blocked with note (stage preserved)."""
     conn.execute('''
         UPDATE story_nodes
-        SET status = 'blocked',
+        SET hold_reason = 'blocked', human_review = 1,
             notes = COALESCE(notes || char(10), '') || 'Blocked due to conflict with story node ' || ?
         WHERE id = ?
     ''', (conflicting_id, concept_id))
     stats['blocked'] += 1
 
 def defer_pending(conn: sqlite3.Connection, concept_id: str, conflicting_id: str) -> None:
-    """Set concept status to pending for later human review."""
+    """Set concept hold_reason to pending for later human review (stage preserved)."""
     conn.execute('''
         UPDATE story_nodes
-        SET status = 'pending',
+        SET hold_reason = 'pending', human_review = 1,
             notes = COALESCE(notes || char(10), '') || 'Scope overlap with ' || ? || ' - needs human review'
         WHERE id = ?
     ''', (conflicting_id, concept_id))
