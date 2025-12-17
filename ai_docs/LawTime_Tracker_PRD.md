@@ -10,7 +10,7 @@
 
 LawTime Tracker is a local Windows 11 desktop application that automatically captures granular activity data for a civil litigation lawyer. The app runs silently in the background, recording window titles, application names, browser URLs, and timestamps at second-level precision. All data remains entirely local (never uploaded to any server), preserving attorney-client privilege.
 
-The MVP focuses exclusively on **data collection and JSON export**—providing the raw activity log needed to experiment with external LLM tools for automatic matter categorization and billing narrative generation. AI integration is explicitly deferred to a future version.
+The MVP focuses exclusively on **data collection and JSON export**—providing the raw activity log needed to experiment with external LLM tools for automatic matter categorization and billing narrative generation. AI integration is explicitly pending to a future version.
 
 ---
 

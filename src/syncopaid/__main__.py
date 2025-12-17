@@ -25,16 +25,16 @@ from syncopaid.config import ConfigManager, print_config
 from syncopaid.database import Database, format_duration
 from syncopaid.tracker import TrackerLoop
 from syncopaid.exporter import Exporter
-from syncopaid.tray import TrayIcon, enable_startup
+from syncopaid.tray import TrayIcon, sync_startup_registry
 from syncopaid.screenshot import ScreenshotWorker, get_screenshot_directory
 from syncopaid.action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
 
 # Paths to the application icons
-_ICON_VIEWTIME_ICO_PATH = Path(__file__).parent / "stopwatch-pictogram-gold.ico"
+_ICON_VIEWTIME_ICO_PATH = Path(__file__).parent / "assets" / "SYNCOPaiD.ico"
 
 
 def _set_window_icon(root: tk.Tk) -> None:
-    """Set the SyncoPaid gold icon on a tkinter window (View Time window)."""
+    """Set the SyncoPaid icon on a tkinter window (View Time window)."""
     try:
         if sys.platform == 'win32' and _ICON_VIEWTIME_ICO_PATH.exists():
             root.iconbitmap(str(_ICON_VIEWTIME_ICO_PATH))
@@ -192,7 +192,8 @@ class SyncoPaidApp:
             on_start=self.start_tracking,
             on_pause=self.pause_tracking,
             on_view_time=self.show_view_time_window,
-            on_quit=self.quit_app
+            on_quit=self.quit_app,
+            config_manager=self.config_manager
         )
 
         logging.info("SyncoPaid application initialized")
@@ -690,8 +691,9 @@ class SyncoPaidApp:
         """
         logging.info("SyncoPaid starting...")
 
-        # Ensure "Start with Windows" is enabled on every run
-        enable_startup()
+        # Sync "Start with Windows" registry to match config setting
+        # This also migrates old SyncoPaid entries and updates exe path if moved
+        sync_startup_registry(self.config.start_on_boot)
 
         # Show welcome message
         print("\n" + "="*60)

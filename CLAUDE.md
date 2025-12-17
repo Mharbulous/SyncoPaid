@@ -20,14 +20,14 @@
 venv\Scripts\activate
 
 # Run application
-python -m SyncoPaid
+python -m syncopaid
 
 # Test individual modules
-python -m SyncoPaid.tracker    # Window capture (30s)
-python -m SyncoPaid.database   # Database ops
-python -m SyncoPaid.config     # Config management
-python -m SyncoPaid.exporter   # Export functionality
-python -m SyncoPaid.tray       # System tray
+python -m syncopaid.tracker    # Window capture (30s)
+python -m syncopaid.database   # Database ops
+python -m syncopaid.config     # Config management
+python -m syncopaid.exporter   # Export functionality
+python -m syncopaid.tray       # System tray
 
 # Quick API tests
 python test_window.py          # pywin32 capture
@@ -42,7 +42,7 @@ Python 3.11+ | pywin32 | psutil | pystray + Pillow | imagehash | SQLite
 ## Architecture
 
 ```
-src/SyncoPaid/
+src/syncopaid/
 ├── __main__.py    # Entry point, SyncoPaidApp coordinator
 ├── tracker.py     # TrackerLoop: polls active window, yields ActivityEvent
 ├── screenshot.py  # ScreenshotWorker: async capture with dHash deduplication
@@ -75,6 +75,6 @@ For detailed configuration defaults, Windows APIs used, and key class documentat
 ## Verification
 
 Before completing changes:
-1. Run relevant module test: `python -m SyncoPaid.<module>`
+1. Run relevant module test: `python -m syncopaid.<module>`
 2. Verify no regressions in window tracking or screenshot capture
 3. Test system tray functionality if UI changed

@@ -1,0 +1,91 @@
+name: Daily Story Planning
+
+# Run at 2:30 AM PST (10:30 UTC) every day
+on:
+  schedule:
+    - cron: '30 10 * * *'
+  workflow_dispatch:  # Manual trigger for testing
+
+concurrency:
+  group: daily-story-planning
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  plan-story:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Full history for git operations
+
+      - name: Run Claude Code to plan stories
+        uses: anthropics/claude-code-action@v1
+        with:
+          # GitHub token for repository operations (required for scheduled workflows)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Use OAuth token for Max subscription
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Show full output for debugging
+          show_full_output: true
+
+          # Direct prompt mode for scheduled automation (CI-optimized)
+          prompt: |
+            MODE: Daily Story Planning (CI - fully autonomous)
+
+            ## Step 1: Early Exit Check
+
+            First, check if there are approved stories:
+            ```python
+            python -c "
+            import sqlite3
+            conn = sqlite3.connect('.claude/data/story-tree.db')
+            count = conn.execute('SELECT COUNT(*) FROM story_nodes WHERE status=\"approved\"').fetchone()[0]
+            print(f'Approved stories: {count}')
+            conn.close()
+            "
+            ```
+
+            If count is 0, output "✓ No approved stories available for planning" and exit successfully.
+
+            ## Step 2: Plan Story (if approved stories exist)
+
+            Use the story-planning skill (CI mode auto-detected):
+            ```
+            Skill(skill="story-planning")
+            ```
+
+            Follow the skill workflow to:
+            - Query and prioritize approved stories
+            - Create compact TDD plan in .claude/data/plans/
+            - Update story status to 'planned'
+
+            ## Step 3: Git Operations
+
+            After creating the plan:
+            ```bash
+            git checkout main && git pull origin main
+            git add -A
+            git commit -m "planning: create implementation plan for story $(date -u +'%Y-%m-%d')"
+            git push origin main
+            ```
+
+            **CRITICAL**: Push changes before exiting.
+
+            ## Constraints
+            - Plan only 1 story per run
+            - 30-minute timeout
+
+          # Tool permissions for file operations, database access, and git
+          claude_args: |
+            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Skill,SlashCommand,TodoWrite"
+            --model claude-sonnet-4-5-20250929

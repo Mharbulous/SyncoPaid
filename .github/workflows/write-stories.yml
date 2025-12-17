@@ -1,0 +1,71 @@
+name: Daily Story Generation
+
+# Run at 2:00 AM PST (10:00 AM UTC) every day
+on:
+  schedule:
+    - cron: '0 10 * * *'
+  workflow_dispatch:  # Manual trigger for testing
+
+concurrency:
+  group: daily-story-generation
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  write-stories:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Full history for git operations
+
+      - name: Run Claude Code to generate stories
+        uses: anthropics/claude-code-action@v1
+        with:
+          # GitHub token for repository operations (required for scheduled workflows)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Use OAuth token for Max subscription
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Show full output for debugging
+          show_full_output: true
+
+          # Direct prompt mode for scheduled automation (optimized for token efficiency)
+          prompt: |
+            REPO: ${{ github.repository }}
+            MODE: Daily Story Generation (YOLO mode)
+
+            Skip TodoWrite - steps are predictable for this automated workflow.
+
+            ## Steps
+
+            1. Run: `python .claude/scripts/story_workflow.py --ci`
+            2. If output is NO_CAPACITY, exit successfully with message "All nodes at capacity"
+            3. Parse JSON output to get target node context
+            4. Generate ONE user story based on target's description and gap analysis:
+               - Review existing children to avoid duplicates
+               - Format: As a [role] / I want [capability] / So that [benefit]
+               - Include 3-5 acceptance criteria
+            5. Insert story: `python .claude/scripts/insert_story.py "<next_id>" "<target.id>" "<title>" "<description>"`
+            6. Update commit: `python .claude/scripts/insert_story.py --update-commit "<newest_commit>"`
+            7. Commit and push:
+               ```bash
+               git add -A && git commit -m "stories: auto-generate $(date -u +'%Y-%m-%d')" && git push origin main
+               ```
+
+            Constraints: Max 1 story per run. Status: concept. 30-minute timeout.
+
+            If any step fails, report the error and exit - do not retry.
+
+          # Tool permissions for file operations, database access, and git
+          claude_args: |
+            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Skill,SlashCommand,TodoWrite"
+            --model claude-sonnet-4-5-20250929

@@ -1,5 +1,0 @@
-# Story Tree Explorer Dependencies
-# Note: tkinter and sqlite3 are part of Python stdlib
-
-# For building standalone executables
-pyinstaller>=6.0

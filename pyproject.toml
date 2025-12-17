@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "SyncoPaid"
-version = "1.0.1"
+version = "1.0.5"
 description = "Automatic time tracking for Windows 11 designed for civil litigation lawyers"
 authors = [{name = "Brahm Bhandari"}]
 requires-python = ">=3.11"

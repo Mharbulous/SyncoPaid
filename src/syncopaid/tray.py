@@ -41,6 +41,32 @@ except ImportError:
 
 
 # ============================================================================
+# PYINSTALLER RESOURCE PATH HELPER
+# ============================================================================
+
+def get_resource_path(relative_path: str) -> Path:
+    """
+    Get absolute path to resource, works for dev and for PyInstaller.
+
+    In development: uses __file__ to locate resources relative to source
+    In PyInstaller exe: uses sys._MEIPASS to locate bundled resources
+
+    Args:
+        relative_path: Path relative to syncopaid package (e.g., "assets/icon.ico")
+
+    Returns:
+        Absolute Path to the resource
+    """
+    if getattr(sys, 'frozen', False):
+        # Running as PyInstaller bundle
+        base_path = Path(sys._MEIPASS)
+        return base_path / "syncopaid" / relative_path
+    else:
+        # Running in development
+        return Path(__file__).parent / relative_path
+
+
+# ============================================================================
 # WINDOWS STARTUP REGISTRY HELPERS
 # ============================================================================
 
@@ -73,11 +99,42 @@ def is_startup_enabled() -> bool:
         return False
 
 
+def _get_canonical_exe_path() -> str:
+    """
+    Get the canonical executable path for registry startup.
+
+    If running as an old executable name (e.g., SyncoPaid.exe) but
+    SyncoPaid.exe exists in the same directory, returns the path
+    to SyncoPaid.exe instead. This enables seamless migration when
+    both files are deployed to a shared location.
+
+    Returns:
+        Path to SyncoPaid.exe if available, otherwise current executable.
+    """
+    current_exe = Path(sys.executable)
+    current_name = current_exe.name.lower()
+
+    # If already running as SyncoPaid.exe, use current path
+    if current_name == 'syncopaid.exe':
+        return str(current_exe)
+
+    # Check if SyncoPaid.exe exists in the same directory
+    syncopaid_exe = current_exe.parent / 'SyncoPaid.exe'
+    if syncopaid_exe.exists():
+        logging.info(f"Migration: using {syncopaid_exe} instead of {current_exe}")
+        return str(syncopaid_exe)
+
+    # Fall back to current executable
+    return str(current_exe)
+
+
 def enable_startup() -> bool:
     """
     Enable the application to start with Windows.
 
-    Adds a registry entry pointing to the current executable.
+    Adds a registry entry pointing to SyncoPaid.exe. If running as an
+    old executable (e.g., SyncoPaid.exe), will point to SyncoPaid.exe
+    in the same directory if it exists.
 
     Returns:
         True if successful, False otherwise.
@@ -94,6 +151,9 @@ def enable_startup() -> bool:
         if exe_path.lower().endswith(('python.exe', 'pythonw.exe')):
             logging.info("Running in development mode - startup not enabled")
             return False
+
+        # Get canonical path (migrates to SyncoPaid.exe if available)
+        exe_path = _get_canonical_exe_path()
 
         # Open/create the registry key
         key = winreg.OpenKey(
@@ -151,6 +211,72 @@ def disable_startup() -> bool:
         return False
 
 
+def _migrate_old_startup_entry() -> bool:
+    """
+    Migrate old SyncoPaid registry entry to SyncoPaid.
+
+    Removes the old "SyncoPaid" entry if it exists.
+
+    Returns:
+        True if migration was performed, False otherwise.
+    """
+    if not WINDOWS:
+        return False
+
+    try:
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Run",
+            0,
+            winreg.KEY_SET_VALUE | winreg.KEY_READ
+        )
+
+        try:
+            # Check if old entry exists
+            winreg.QueryValueEx(key, "SyncoPaid")
+            # If we get here, old entry exists - delete it
+            winreg.DeleteValue(key, "SyncoPaid")
+            winreg.CloseKey(key)
+            logging.info("Migrated: removed old SyncoPaid registry entry")
+            return True
+        except FileNotFoundError:
+            # Old entry doesn't exist - nothing to migrate
+            winreg.CloseKey(key)
+            return False
+
+    except Exception as e:
+        logging.error(f"Error migrating old startup entry: {e}")
+        return False
+
+
+def sync_startup_registry(start_on_boot: bool) -> bool:
+    """
+    Sync the Windows startup registry entry to match the config setting.
+
+    This should be called on every app startup to ensure:
+    1. Old SyncoPaid entries are migrated
+    2. Registry matches the user's saved preference
+    3. Executable path is current (handles moves/renames)
+
+    Args:
+        start_on_boot: The user's preference from config
+
+    Returns:
+        True if registry now matches the desired state, False on error.
+    """
+    if not WINDOWS:
+        return False
+
+    # First, migrate any old SyncoPaid entry
+    _migrate_old_startup_entry()
+
+    # Now sync registry to match config
+    if start_on_boot:
+        return enable_startup()
+    else:
+        return disable_startup()
+
+
 class TrayIcon:
     """
     System tray icon manager.
@@ -173,7 +299,8 @@ class TrayIcon:
         on_start: Optional[Callable] = None,
         on_pause: Optional[Callable] = None,
         on_view_time: Optional[Callable] = None,
-        on_quit: Optional[Callable] = None
+        on_quit: Optional[Callable] = None,
+        config_manager=None
     ):
         """
         Initialize system tray icon.
@@ -183,11 +310,13 @@ class TrayIcon:
             on_pause: Callback for "Pause Tracking" menu item
             on_view_time: Callback for "View Time" menu item
             on_quit: Callback for "Quit" menu item
+            config_manager: ConfigManager instance for persisting settings
         """
         self.on_start = on_start or (lambda: None)
         self.on_pause = on_pause or (lambda: None)
         self.on_view_time = on_view_time or (lambda: None)
         self.on_quit = on_quit or (lambda: None)
+        self.config_manager = config_manager
 
         self.icon: Optional[pystray.Icon] = None
         self.is_tracking = True
@@ -216,11 +345,11 @@ class TrayIcon:
         # Paused: orange stopwatch (user clicked pause)
         # Inactive: faded stopwatch with sleep emoji overlay (5min idle)
         if state == "inactive":
-            ico_path = Path(__file__).parent / "stopwatch-pictogram-faded.ico"
+            ico_path = get_resource_path("assets/stopwatch-pictogram-faded.ico")
         elif state == "paused":
-            ico_path = Path(__file__).parent / "stopwatch-pictogram-orange.ico"
+            ico_path = get_resource_path("assets/stopwatch-pictogram-orange.ico")
         else:  # "on" or default
-            ico_path = Path(__file__).parent / "stopwatch-pictogram-green.ico"
+            ico_path = get_resource_path("assets/stopwatch-pictogram-green.ico")
 
         image = None
         if ico_path.exists():
@@ -437,21 +566,27 @@ class TrayIcon:
     def _toggle_startup(self, icon, item):
         """Handle Start with Windows toggle."""
         current_state = is_startup_enabled()
+        new_state = not current_state
 
-        if current_state:
-            # Currently enabled, so disable it
-            success = disable_startup()
-            if success:
-                logging.info("User disabled startup from tray menu")
-            else:
-                logging.error("Failed to disable startup")
-        else:
-            # Currently disabled, so enable it
+        if new_state:
+            # Enable startup
             success = enable_startup()
             if success:
                 logging.info("User enabled startup from tray menu")
             else:
                 logging.error("Failed to enable startup")
+        else:
+            # Disable startup
+            success = disable_startup()
+            if success:
+                logging.info("User disabled startup from tray menu")
+            else:
+                logging.error("Failed to disable startup")
+
+        # Save the setting to config so it persists
+        if success and self.config_manager:
+            self.config_manager.update(start_on_boot=new_state)
+            logging.info(f"Saved start_on_boot={new_state} to config")
 
         # Force menu update to reflect new state
         if self.icon:
