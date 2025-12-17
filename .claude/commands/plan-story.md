@@ -18,7 +18,7 @@ Uses compact template (~60% token reduction).
 ## Constraints
 
 - Maximum 5 plans per invocation
-- Only stories with `status = 'approved'`
+- Only stories with `stage = 'approved'` (not held or disposed)
 - Skip non-existent/non-approved IDs with error message, continue with remaining
 - If fewer approved stories than requested, plan all available
 
@@ -27,5 +27,5 @@ Uses compact template (~60% token reduction).
 Invoke `story-planning` skill, then:
 - Process stories sequentially
 - Create separate plan files
-- Update each story's status to `planned`
+- Update each story's stage to `planned`
 - Summary report at end listing all plans created

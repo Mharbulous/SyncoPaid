@@ -25,8 +25,8 @@ Phase 2: Classification & Resolution (Main Agent)
 ├── For each candidate pair:
 │   ├── Read both story descriptions
 │   ├── Classify: duplicate / scope_overlap / competing / incompatible / false_positive
-│   ├── Look up action (deterministic based on classification + status)
-│   └── Execute action (LLM for merges, Python for deletes/status updates)
+│   ├── Look up action (deterministic based on classification + effective status)
+│   └── Execute action (LLM for merges, Python for deletes/three-field updates)
 └── Present only HUMAN REVIEW cases interactively
 ```
 
@@ -48,7 +48,7 @@ The skill vets **concepts only** — deciding what ideas to present to the human
 
 | Conflict Type | Concept vs... | Action |
 |---------------|---------------|--------|
-| **DUPLICATE** | `wishlist`, `refine` | TRUE MERGE → keep status |
+| **DUPLICATE** | `wishlist`, `refine` | TRUE MERGE → keep stage |
 | **DUPLICATE** | `concept` | TRUE MERGE → concept |
 | **DUPLICATE** | everything else | DELETE concept |
 | **SCOPE_OVERLAP** | `concept` | TRUE MERGE → concept |
@@ -60,13 +60,15 @@ The skill vets **concepts only** — deciding what ideas to present to the human
 | **FALSE_POSITIVE** | — | SKIP (no action) |
 | **Non-concept vs non-concept** | — | IGNORE |
 
-### Status Reference
+### Effective Status Reference
 
-**Mergeable with concepts:** `concept`, `wishlist`, `refine`
+Effective status is computed as `COALESCE(disposition, hold_reason, stage)`.
 
-**Block against:** `rejected`, `infeasible`, `broken`, `pending`, `blocked`
+**Mergeable with concepts (stage/hold_reason):** `concept`, `wishlist`, `refine`
 
-**Auto-delete/reject against:** `approved`, `planned`, `implemented`, `queued`, `paused`, `active`, `reviewing`, `ready`, `polish`, `released`, `legacy`, `deprecated`, `archived`
+**Block against (hold_reason/disposition):** `rejected`, `infeasible`, `broken`, `pending`, `blocked`
+
+**Auto-delete/reject against (stage/disposition):** `approved`, `planned`, `implemented`, `queued`, `paused`, `active`, `reviewing`, `ready`, `polish`, `released`, `legacy`, `deprecated`, `archived`
 
 ---
 
@@ -74,7 +76,7 @@ The skill vets **concepts only** — deciding what ideas to present to the human
 
 When running in CI (non-interactive environment), HUMAN_REVIEW cases cannot prompt for input. Instead:
 
-- **HUMAN_REVIEW → DEFER_PENDING**: Set concept status to `pending` with note explaining the conflict
+- **HUMAN_REVIEW → DEFER_PENDING**: Set concept `hold_reason = 'pending'` with note explaining the conflict
 - All other automated actions work the same
 
 **Detection**: CI mode is active when running in GitHub Actions or when explicitly specified.
@@ -92,7 +94,7 @@ The vetting system uses a persistent cache to avoid re-classifying the same stor
    - Canonical pair key (smaller ID first, e.g., `1.1|1.8.4`)
    - Version numbers at time of decision
    - Classification and action taken
-3. **Invalidation**: When a story's `title`, `description`, or `status` changes, increment its `version`. All cached pairs involving that story become stale.
+3. **Invalidation**: When a story's `title`, `description`, `stage`, `hold_reason`, or `disposition` changes, increment its `version`. All cached pairs involving that story become stale.
 
 ### Cache Behavior
 
@@ -162,37 +164,38 @@ Read both story descriptions and determine the conflict type:
 
 ### Step 2: Determine Action
 
-Use this lookup based on classification and statuses:
+Use this lookup based on classification and effective statuses (computed from three-field system):
 
 ```python
+# Effective status = COALESCE(disposition, hold_reason, stage)
 MERGEABLE_STATUSES = {'concept', 'wishlist', 'refine'}
 BLOCK_STATUSES = {'rejected', 'infeasible', 'broken', 'pending', 'blocked'}
 
-def get_action(conflict_type, status_a, status_b, ci_mode=False):
+def get_action(conflict_type, eff_status_a, eff_status_b, ci_mode=False):
     # Ensure concept is always story_a for consistent logic
-    if status_b == 'concept' and status_a != 'concept':
-        status_a, status_b = status_b, status_a
+    if eff_status_b == 'concept' and eff_status_a != 'concept':
+        eff_status_a, eff_status_b = eff_status_b, eff_status_a
 
     if conflict_type == 'false_positive':
         return 'SKIP'
 
     if conflict_type == 'duplicate':
-        if status_b in MERGEABLE_STATUSES:
+        if eff_status_b in MERGEABLE_STATUSES:
             return 'TRUE_MERGE'
         else:
             return 'DELETE_CONCEPT'
 
     if conflict_type == 'scope_overlap':
-        if status_a == 'concept' and status_b == 'concept':
+        if eff_status_a == 'concept' and eff_status_b == 'concept':
             return 'TRUE_MERGE'
         else:
             # In CI mode, defer to pending instead of blocking for human input
             return 'DEFER_PENDING' if ci_mode else 'HUMAN_REVIEW'
 
     if conflict_type == 'competing':
-        if status_b in MERGEABLE_STATUSES:
+        if eff_status_b in MERGEABLE_STATUSES:
             return 'TRUE_MERGE'
-        elif status_b in BLOCK_STATUSES:
+        elif eff_status_b in BLOCK_STATUSES:
             return 'BLOCK_CONCEPT'
         else:
             return 'REJECT_CONCEPT'
@@ -279,7 +282,7 @@ Actions taken:
   - Skipped: 15 false positives
   - Deferred to pending: 5 scope overlaps
 
-5 concepts set to 'pending' status for later human review.
+5 concepts set to hold_reason='pending' for later human review.
 ```
 
 ---
@@ -289,3 +292,4 @@ Actions taken:
 - **Database:** `.claude/data/story-tree.db`
 - **Schema:** `.claude/skills/story-tree/references/schema.sql`
 - **SQL Queries:** `.claude/skills/story-tree/references/sql-queries.md`
+- **Three-Field System:** `.claude/skills/story-tree/SKILL.md` (stage + hold_reason + disposition)

@@ -24,7 +24,7 @@ Acceptance Criteria:
 
 Related context: Commits db8305c (focus change detection), 29595a2 (delete log entries), e98fd8e (multi-monitor fix), 531a5b9 (end_time tracking). Module: src/SyncoPaid/tracker.py''',
         'capacity': 8,
-        'status': 'concept'
+        'stage': 'concept'
     },
     {
         'id': '1.2',
@@ -45,7 +45,7 @@ Acceptance Criteria:
 
 Related context: Commits e98fd8e (MSS library), b082e8b (filename sanitization), df69b65 (context-aware thresholds), 8ed8285 (action screenshots). Modules: src/SyncoPaid/screenshot.py, src/SyncoPaid/action_screenshot.py''',
         'capacity': 10,
-        'status': 'concept'
+        'stage': 'concept'
     },
     {
         'id': '1.3',
@@ -66,7 +66,7 @@ Acceptance Criteria:
 
 Related context: Commits 29595a2 (delete log entries), 876c6ac (update totals), f23b249 (delete_events_by_ids), 531a5b9 (end_time tracking). Modules: src/SyncoPaid/database.py, src/SyncoPaid/exporter.py''',
         'capacity': 7,
-        'status': 'concept'
+        'stage': 'concept'
     },
     {
         'id': '1.4',
@@ -88,7 +88,7 @@ Acceptance Criteria:
 
 Related context: Commits b960361 (command field), 1409acc (Start with Windows), 5873af4 (remove quit), 36786be (View Images button), 36bb125 (About menu). Modules: src/SyncoPaid/tray.py, view_time_window.py''',
         'capacity': 9,
-        'status': 'concept'
+        'stage': 'concept'
     },
     {
         'id': '1.5',
@@ -111,7 +111,7 @@ Acceptance Criteria:
 
 Related context: Commits df69b65 (context-aware thresholds), 8ed8285 (action screenshot config), 4e47aa8 (lastUpdated fields). Module: src/SyncoPaid/config.py''',
         'capacity': 6,
-        'status': 'concept'
+        'stage': 'concept'
     },
     {
         'id': '1.6',
@@ -133,7 +133,7 @@ Acceptance Criteria:
 
 Related context: Commits ab5856b (automatic version), cc75360 (commit count), 5e39595 (fix build script), c28e804 (compilation testing). Files: build.sh, build.bat, generate_version.py, SyncoPaid.spec''',
         'capacity': 5,
-        'status': 'concept'
+        'stage': 'concept'
     }
 ]
 
@@ -141,9 +141,9 @@ Related context: Commits ab5856b (automatic version), cc75360 (commit count), 5e
 for story in stories:
     # Insert story node
     cursor.execute('''
-        INSERT INTO story_nodes (id, title, description, capacity, status, created_at, updated_at)
+        INSERT INTO story_nodes (id, title, description, capacity, stage, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-    ''', (story['id'], story['title'], story['description'], story['capacity'], story['status']))
+    ''', (story['id'], story['title'], story['description'], story['capacity'], story['stage']))
 
     # Add to closure table (self + ancestor relationships)
     cursor.execute('''

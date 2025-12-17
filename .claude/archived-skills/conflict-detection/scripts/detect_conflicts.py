@@ -308,18 +308,20 @@ def classify_conflict(
 
 
 def load_stories(db_path: Path) -> list[StoryComponents]:
-    """Load all active stories from database."""
+    """Load all active stories from database.
+
+    Computes effective status from three-field system: disposition > hold_reason > stage
+    """
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
 
-    skip_statuses = ('rejected', 'archived', 'deprecated', 'infeasible')
-
     cursor = conn.execute("""
-        SELECT id, title, description, status
+        SELECT id, title, description,
+               COALESCE(disposition, hold_reason, stage) AS status
         FROM story_nodes
-        WHERE status NOT IN (?, ?, ?, ?)
+        WHERE disposition IS NULL OR disposition NOT IN ('rejected', 'archived', 'deprecated', 'infeasible')
         ORDER BY id
-    """, skip_statuses)
+    """)
 
     stories = []
     for row in cursor:
