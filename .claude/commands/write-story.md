@@ -25,32 +25,35 @@ cursor = conn.cursor()
 result = {'capacity_nodes': [], 'refine_nodes': []}
 
 # Under-capacity nodes, shallower first (limit 1)
+# Three-field system: exclude concept stage, held, and disposed stories
 cursor.execute('''
-    SELECT s.id, s.title, s.status,
+    SELECT s.id, s.title, s.stage,
         (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as child_count,
         (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth,
         COALESCE(s.capacity, 3 + (SELECT COUNT(*) FROM story_paths sp
              JOIN story_nodes child ON sp.descendant_id = child.id
              WHERE sp.ancestor_id = s.id AND sp.depth = 1
-             AND child.status IN ('implemented', 'ready'))) as effective_capacity
+             AND child.stage IN ('implemented', 'ready', 'released'))) as effective_capacity
     FROM story_nodes s
-    WHERE s.status NOT IN ('concept', 'rejected', 'deprecated', 'infeasible', 'bugged')
+    WHERE s.stage != 'concept'
+      AND s.hold_reason IS NULL
+      AND s.disposition IS NULL
       AND (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) <
           COALESCE(s.capacity, 3 + (SELECT COUNT(*) FROM story_paths sp
                JOIN story_nodes child ON sp.descendant_id = child.id
                WHERE sp.ancestor_id = s.id AND sp.depth = 1
-               AND child.status IN ('implemented', 'ready')))
+               AND child.stage IN ('implemented', 'ready', 'released')))
     ORDER BY node_depth ASC
     LIMIT 1
 ''')
 result['capacity_nodes'] = [dict(row) for row in cursor.fetchall()]
 
-# Stories with 'refine' status (limit 2)
+# Stories with 'refine' hold_reason (limit 2)
 cursor.execute('''
     SELECT s.id, s.title, s.description, s.notes,
         (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth
     FROM story_nodes s
-    WHERE s.status = 'refine'
+    WHERE s.hold_reason = 'refine'
     ORDER BY s.updated_at ASC
     LIMIT 2
 ''')
@@ -109,7 +112,7 @@ conn = sqlite3.connect('.claude/data/story-tree.db')
 cursor = conn.cursor()
 cursor.execute('''
     UPDATE story_nodes
-    SET description = ?, status = 'concept', updated_at = datetime('now')
+    SET description = ?, stage = 'concept', hold_reason = NULL, updated_at = datetime('now')
     WHERE id = ?
 ''', ('''REFINED_STORY''', 'STORY_ID'))
 conn.commit()
@@ -139,12 +142,14 @@ Maximum 10 stories. Examples:
 - `/write-story 3 stories for export module`
 - `/write-story refine 1.3.2`
 
-## Status Flow
+## Three-Field Workflow
 
 ```
-concept → approved → planned → active → implemented → released
-    ↓         ↓
- refine  →  (refines back to concept)
-    ↓
- rejected
+Stage:       concept → approved → planned → active → implemented → ready → released
+                 ↑                    ↑         ↑
+Hold:         refine ────────────────────────────┘
+                                  (clears hold, returns to stage)
+
+Disposition: rejected | infeasible | wishlist | deprecated | archived | legacy
+             (terminal states - story is done/removed)
 ```
