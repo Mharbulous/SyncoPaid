@@ -134,7 +134,7 @@ jobs:
             echo "--- Step 1: Check for approved stories ---"
 
             # Get approved story details before planning (single-line Python to avoid YAML issues)
-            approved_info=$(python3 -c "import sqlite3; conn = sqlite3.connect('.claude/data/story-tree.db'); rows = conn.execute('SELECT id, title FROM story_nodes WHERE status=\"approved\" ORDER BY id LIMIT 1').fetchall(); print(f'{rows[0][0]}|{rows[0][1][:50]}' if rows else 'NONE')" 2>/dev/null || echo "NONE")
+            approved_info=$(python3 -c "import sqlite3; conn = sqlite3.connect('.claude/data/story-tree.db'); rows = conn.execute('SELECT id, title FROM story_nodes WHERE stage=\"approved\" AND hold_reason IS NULL AND disposition IS NULL ORDER BY id LIMIT 1').fetchall(); print(f'{rows[0][0]}|{rows[0][1][:50]}' if rows else 'NONE')" 2>/dev/null || echo "NONE")
 
             approved_id=$(echo "$approved_info" | cut -d'|' -f1)
             approved_title=$(echo "$approved_info" | cut -d'|' -f2)
