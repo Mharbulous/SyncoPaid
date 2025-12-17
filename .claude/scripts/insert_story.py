@@ -19,7 +19,7 @@ def insert_story(story_id, parent_id, title, description):
 
     # Insert the story node
     cursor.execute('''
-        INSERT INTO story_nodes (id, title, description, status, created_at, updated_at)
+        INSERT INTO story_nodes (id, title, description, stage, created_at, updated_at)
         VALUES (?, ?, ?, 'concept', datetime('now'), datetime('now'))
     ''', (story_id, title, description))
 

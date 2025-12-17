@@ -49,7 +49,7 @@ jobs:
             python -c "
             import sqlite3
             conn = sqlite3.connect('.claude/data/story-tree.db')
-            count = conn.execute('SELECT COUNT(*) FROM story_nodes WHERE status=\"approved\"').fetchone()[0]
+            count = conn.execute('SELECT COUNT(*) FROM story_nodes WHERE stage=\"approved\" AND hold_reason IS NULL AND disposition IS NULL').fetchone()[0]
             print(f'Approved stories: {count}')
             conn.close()
             "
