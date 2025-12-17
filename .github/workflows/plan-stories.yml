@@ -66,7 +66,7 @@ jobs:
 
             Follow the skill workflow to:
             - Query and prioritize approved stories
-            - Create compact TDD plan in ai_docs/Plans/
+            - Create compact TDD plan in .claude/data/plans/
             - Update story status to 'planned'
 
             ## Step 3: Git Operations
