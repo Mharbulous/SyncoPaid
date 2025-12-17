@@ -52,7 +52,7 @@ The skill vets **concepts only** — deciding what ideas to present to the human
 | **SCOPE_OVERLAP** | `concept` | TRUE MERGE → concept |
 | **SCOPE_OVERLAP** | any other | HUMAN REVIEW |
 | **COMPETING** | `concept`, `wishlist`, `refine` | TRUE MERGE |
-| **COMPETING** | `rejected`, `infeasible`, `broken`, `deferred`, `blocked` | BLOCK concept with note |
+| **COMPETING** | `rejected`, `infeasible`, `broken`, `pending`, `blocked` | BLOCK concept with note |
 | **COMPETING** | everything else | AUTO-REJECT with note |
 | **INCOMPATIBLE** | `concept` | Claude picks better, DELETE other |
 | **FALSE_POSITIVE** | — | SKIP (no action) |
@@ -62,9 +62,20 @@ The skill vets **concepts only** — deciding what ideas to present to the human
 
 **Mergeable with concepts:** `concept`, `wishlist`, `refine`
 
-**Block against:** `rejected`, `infeasible`, `broken`, `deferred`, `blocked`
+**Block against:** `rejected`, `infeasible`, `broken`, `pending`, `blocked`
 
 **Auto-delete/reject against:** `approved`, `planned`, `implemented`, `queued`, `paused`, `active`, `reviewing`, `ready`, `polish`, `released`, `legacy`, `deprecated`, `archived`
+
+---
+
+## CI Mode
+
+When running in CI (non-interactive environment), HUMAN_REVIEW cases cannot prompt for input. Instead:
+
+- **HUMAN_REVIEW → DEFER_PENDING**: Set concept status to `pending` with note explaining the conflict
+- All other automated actions work the same
+
+**Detection**: CI mode is active when running in GitHub Actions or when explicitly specified.
 
 ---
 
@@ -249,9 +260,9 @@ Use this lookup based on classification and statuses:
 
 ```python
 MERGEABLE_STATUSES = {'concept', 'wishlist', 'refine'}
-BLOCK_STATUSES = {'rejected', 'infeasible', 'broken', 'deferred', 'blocked'}
+BLOCK_STATUSES = {'rejected', 'infeasible', 'broken', 'pending', 'blocked'}
 
-def get_action(conflict_type, status_a, status_b):
+def get_action(conflict_type, status_a, status_b, ci_mode=False):
     # Ensure concept is always story_a for consistent logic
     if status_b == 'concept' and status_a != 'concept':
         status_a, status_b = status_b, status_a
@@ -269,7 +280,8 @@ def get_action(conflict_type, status_a, status_b):
         if status_a == 'concept' and status_b == 'concept':
             return 'TRUE_MERGE'
         else:
-            return 'HUMAN_REVIEW'
+            # In CI mode, defer to pending instead of blocking for human input
+            return 'DEFER_PENDING' if ci_mode else 'HUMAN_REVIEW'
 
     if conflict_type == 'competing':
         if status_b in MERGEABLE_STATUSES:
@@ -342,6 +354,27 @@ conn.execute('''
 ''', (conflicting_id, concept_id))
 conn.commit()
 print(f"Blocked concept {concept_id} (conflicts with {conflicting_id})")
+conn.close()
+PYEOF
+```
+
+#### DEFER_PENDING (CI mode only)
+Set concept status to `pending` for later human review:
+
+```python
+python3 << PYEOF
+import sqlite3
+concept_id = "$CONCEPT_ID"
+conflicting_id = "$CONFLICTING_ID"
+conn = sqlite3.connect('.claude/data/story-tree.db')
+conn.execute('''
+    UPDATE story_nodes
+    SET status = 'pending',
+        notes = COALESCE(notes || char(10), '') || 'Scope overlap with ' || ? || ' - needs human review'
+    WHERE id = ?
+''', (conflicting_id, concept_id))
+conn.commit()
+print(f"Deferred concept {concept_id} to pending (scope overlap with {conflicting_id})")
 conn.close()
 PYEOF
 ```
@@ -428,11 +461,11 @@ Your choice:
 3. **For each candidate:**
    - Read both story descriptions
    - Classify conflict type (duplicate/scope_overlap/competing/incompatible/false_positive)
-   - Look up action from decision matrix
-   - Execute action (auto for most, prompt human for HUMAN_REVIEW)
+   - Look up action from decision matrix (pass `ci_mode=True` in CI environment)
+   - Execute action (auto for most, DEFER_PENDING for scope overlaps in CI)
 4. **Report summary** - Show counts of actions taken
 
-### Expected Output
+### Expected Output (Interactive)
 
 ```
 STORY VETTING COMPLETE
@@ -448,6 +481,24 @@ Actions taken:
   - Human review: 5 scope overlaps
 
 Human review required for 5 conflicts (see above).
+```
+
+### Expected Output (CI Mode)
+
+```
+STORY VETTING COMPLETE (CI MODE)
+================================
+
+Candidates scanned: 45
+Actions taken:
+  - Deleted: 8 duplicate concepts
+  - Merged: 12 concept pairs
+  - Rejected: 3 competing concepts
+  - Blocked: 2 concepts
+  - Skipped: 15 false positives
+  - Deferred to pending: 5 scope overlaps
+
+5 concepts set to 'pending' status for later human review.
 ```
 
 ---
