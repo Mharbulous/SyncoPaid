@@ -1,7 +1,7 @@
 name: "Story Tree Orchestrator"
 
 # Looping workflow that drains the pipeline before adding new work (v4 design)
-# Runs: plan-stories FIRST (drain approved), then write-stories (fill capacity)
+# Runs: plan-stories FIRST (drain approved), then write-stories (fill capacity), then vet-stories (resolve conflicts)
 # Loops until both NO_APPROVED and NO_CAPACITY, or max_cycles reached
 
 on:
@@ -51,6 +51,7 @@ jobs:
       cycles_completed: ${{ steps.loop.outputs.cycles_completed }}
       plans_created: ${{ steps.loop.outputs.plans_created }}
       stories_created: ${{ steps.loop.outputs.stories_created }}
+      vetting_actions: ${{ steps.loop.outputs.vetting_actions }}
       exit_reason: ${{ steps.loop.outputs.exit_reason }}
       progress_file: ${{ steps.loop.outputs.progress_file }}
 
@@ -90,6 +91,7 @@ jobs:
           cycle=0
           plans_created=0
           stories_created=0
+          vetting_actions=0
           exit_reason="MAX_CYCLES"
 
           # Setup progress file
@@ -268,6 +270,61 @@ jobs:
               fi
             fi
 
+            # Step 3: Vet stories (resolve conflicts)
+            echo ""
+            echo "--- Step 3: Vet stories (resolve conflicts) ---"
+
+            # Pull latest before vetting
+            git pull origin main --rebase || true
+
+            # Invoke Claude Code for story vetting with JSON output
+            vet_output=$(claude --print --dangerously-skip-permissions \
+              --output-format json \
+              --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Skill,SlashCommand,TodoWrite" \
+              --model claude-sonnet-4-5-20250929 \
+              "MODE: Story Vetting (CI - autonomous)
+
+            Invoke the story-vetting skill to detect and resolve conflicting concepts.
+            CI mode is ACTIVE - use DEFER_PENDING for HUMAN_REVIEW cases.
+
+            Execute: Skill(skill=\"story-vetting\")
+
+            After vetting, DO NOT commit - the orchestrator handles git operations." 2>&1) || {
+              echo "::warning::Claude Code vetting step returned non-zero"
+            }
+
+            # Parse token usage from JSON output
+            vet_input_tokens=$(echo "$vet_output" | jq -r '.usage.input_tokens // 0' 2>/dev/null || echo "0")
+            vet_output_tokens=$(echo "$vet_output" | jq -r '.usage.output_tokens // 0' 2>/dev/null || echo "0")
+            vet_cost_usd=$(echo "$vet_output" | jq -r '.total_cost_usd // 0' 2>/dev/null || echo "0")
+
+            # Extract pending count for logging (concepts deferred for human review)
+            pending_count=$(echo "$vet_output" | grep -oP 'pending: \K\d+' || echo "0")
+            if [ "$pending_count" -gt 0 ]; then
+              echo "::warning::$pending_count conflicts need human review (set to pending)"
+            fi
+
+            # Get files changed
+            vet_files_changed=$(git status --porcelain | wc -l | tr -d ' ')
+
+            # Check if files changed from vetting
+            if [ -n "$(git status --porcelain)" ]; then
+              git add -A
+              git commit -m "ci: vet stories (cycle $((cycle + 1)))"
+              git push origin main
+              vet_commit_time=$(date -u +"%Y-%m-%d %H:%M:%S")
+              vetting_actions=$((vetting_actions + 1))
+
+              # Log to progress file
+              echo "| $((cycle + 1)) | Vet | - | conflicts resolved | $vet_files_changed | $vet_input_tokens | $vet_output_tokens | \$$vet_cost_usd | $vet_commit_time |" >> "$PROGRESS_FILE"
+
+              echo "Vetting changes committed and pushed"
+            else
+              echo "No conflicts found or no changes needed"
+              # Log skipped step
+              echo "| $((cycle + 1)) | Vet | - | (no conflicts) | 0 | $vet_input_tokens | $vet_output_tokens | \$$vet_cost_usd | - |" >> "$PROGRESS_FILE"
+            fi
+
             # Check exit condition
             echo ""
             echo "--- Cycle Results ---"
@@ -291,6 +348,7 @@ jobs:
           echo "Cycles completed: $((cycle))"
           echo "Plans created: $plans_created"
           echo "Stories created: $stories_created"
+          echo "Vetting actions: $vetting_actions"
           echo "Exit reason: $exit_reason"
 
           # Add summary section to progress file
@@ -302,6 +360,7 @@ jobs:
           echo "| Cycles Completed | $cycle |" >> "$PROGRESS_FILE"
           echo "| Plans Created | $plans_created |" >> "$PROGRESS_FILE"
           echo "| Stories Created | $stories_created |" >> "$PROGRESS_FILE"
+          echo "| Vetting Actions | $vetting_actions |" >> "$PROGRESS_FILE"
           echo "| Exit Reason | $exit_reason |" >> "$PROGRESS_FILE"
           echo "" >> "$PROGRESS_FILE"
           echo "---" >> "$PROGRESS_FILE"
@@ -319,6 +378,7 @@ jobs:
           echo "cycles_completed=$cycle" >> $GITHUB_OUTPUT
           echo "plans_created=$plans_created" >> $GITHUB_OUTPUT
           echo "stories_created=$stories_created" >> $GITHUB_OUTPUT
+          echo "vetting_actions=$vetting_actions" >> $GITHUB_OUTPUT
           echo "exit_reason=$exit_reason" >> $GITHUB_OUTPUT
           echo "progress_file=$PROGRESS_FILE" >> $GITHUB_OUTPUT
 
@@ -354,6 +414,7 @@ jobs:
             echo "| Cycles Completed | ${{ needs.drain-pipeline.outputs.cycles_completed || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
             echo "| Plans Created | ${{ needs.drain-pipeline.outputs.plans_created || '0' }} |" >> $GITHUB_STEP_SUMMARY
             echo "| Stories Created | ${{ needs.drain-pipeline.outputs.stories_created || '0' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Vetting Actions | ${{ needs.drain-pipeline.outputs.vetting_actions || '0' }} |" >> $GITHUB_STEP_SUMMARY
             echo "| Exit Reason | ${{ needs.drain-pipeline.outputs.exit_reason || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
