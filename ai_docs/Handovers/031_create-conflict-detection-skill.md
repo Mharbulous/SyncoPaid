@@ -28,11 +28,12 @@ A skill at `.claude/skills/conflict-detection/SKILL.md` that:
 | `.claude/skills/story-writing/SKILL.md` | Example skill structure |
 | `ai_docs/Orchestrator/2025-12-16-Problem-Space-Schema.md` | Full schema (reference for conflict types, NOT to implement) |
 
-## Red Herrings (Not Relevant)
+## Red Herrings (Do Not Read)
 
 - `.claude/data/insert_stories.py` - Screenshot deduplication, not story deduplication
 - `src/syncopaid/screenshot.py` - dHash for images, not text
-- `ai_docs/Reports/2025-12-17-story-conflict-analysis.md` - Analysis report (don't read - contains test answers)
+- `ai_docs/Reports/2025-12-17-story-conflict-analysis.md` - Contains test answers
+- `ai_docs/Optimization-testing/*conflict*` - Contains test answers
 
 ## Technical Approach
 
@@ -87,13 +88,13 @@ POTENTIAL CONFLICTS:
 NO CONFLICTS with 45 other active stories.
 ```
 
-## Test Validation
-
-After creating the skill, test against the database. A separate test cases document exists at `ai_docs/Optimization-testing/2025-12-17-conflict-detection-test-cases.md` - use it to validate detection accuracy.
-
 ## Success Criteria
 
 - Detects obvious duplicates (same feature, different branch)
 - Flags scope overlaps with reasonable accuracy
 - Low false positive rate (don't flag every vaguely related story)
 - Fast enough for CI integration
+
+## Validation
+
+After creating the skill, run it against the full database to find all potential conflicts. Report findings to user for manual review.
