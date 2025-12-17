@@ -112,7 +112,7 @@ python .claude/skills/story-tree/scripts/tree-view.py --show-capacity
 
 Use `--force-ascii` only if Unicode fails.
 
-## 21-Status Rainbow System
+## 22-Status Rainbow System
 
 | Order | Status | Definition |
 |-------|--------|------------|
@@ -130,13 +130,14 @@ Use `--force-ascii` only if Unicode fails.
 | 12 | paused | Temporarily stopped |
 | 13 | active | Currently being worked on |
 | 14 | reviewing | Under review/testing |
-| 15 | implemented | Code complete, not released |
-| 16 | ready | Tested, ready for release |
-| 17 | polish | Minor refinements |
-| 18 | released | Deployed to production |
-| 19 | legacy | Old code still in use |
-| 20 | deprecated | Marked for removal |
-| 21 | archived | Removed/no longer relevant |
+| 15 | verifying | Awaiting post-execution verification |
+| 16 | implemented | Code complete, verified, not released |
+| 17 | ready | Tested, ready for release |
+| 18 | polish | Minor refinements |
+| 19 | released | Deployed to production |
+| 20 | legacy | Old code still in use |
+| 21 | deprecated | Marked for removal |
+| 22 | archived | Removed/no longer relevant |
 
 ## References
 

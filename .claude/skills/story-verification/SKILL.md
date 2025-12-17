@@ -15,7 +15,7 @@ Verify that implemented stories meet their acceptance criteria before marking re
 
 ## Purpose
 
-Bridge the gap between `implemented` and `ready` statuses by validating that acceptance criteria are actually satisfied. This prevents incomplete implementations from being marked ready.
+Bridge the gap between `verifying` and `implemented` statuses by validating that acceptance criteria are actually satisfied. This prevents incomplete implementations from being marked implemented. Stories transition: `verifying` → `implemented` → `ready`.
 
 ## Mode Detection
 
@@ -48,7 +48,7 @@ stories = [dict(row) for row in conn.execute('''
     SELECT s.id, s.title, s.description, s.status, s.project_path,
         (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth
     FROM story_nodes s
-    WHERE s.status IN ('implemented', 'reviewing')
+    WHERE s.status IN ('verifying', 'reviewing')
     ORDER BY node_depth ASC
 ''').fetchall()]
 print(json.dumps(stories, indent=2))
@@ -57,8 +57,8 @@ conn.close()
 ```
 
 **Selection rules:**
-- If user specified ID: validate exists and status is `implemented` or `reviewing`
-- Otherwise: select first `implemented` story (shallowest first)
+- If user specified ID: validate exists and status is `verifying` or `reviewing`
+- Otherwise: select first `verifying` story (shallowest first)
 - Interactive only: Confirm selection with user
 
 ### Step 2: Parse Acceptance Criteria
@@ -185,10 +185,10 @@ Based on verification results:
 
 | Result | Action |
 |--------|--------|
-| All PASS/SKIP | Update to `ready` |
-| Any FAIL | Keep at `implemented`, add failure notes |
+| All PASS/SKIP | Update to `implemented` |
+| Any FAIL | Keep at `verifying`, add failure notes |
 | All PASS but some UNTESTABLE | Update to `reviewing` |
-| Mixed results | Interactive: ask user; CI: set to `reviewing` |
+| Mixed results | Interactive: ask user; CI: keep at `verifying` |
 
 ```bash
 python .claude/skills/story-verification/update_status.py <story_id> <new_status> "<verification_notes>"
@@ -219,14 +219,14 @@ conn.close()
 {
   "story_id": "1.7",
   "title": "Privacy & Data Security",
-  "previous_status": "implemented",
-  "new_status": "ready",
+  "previous_status": "verifying",
+  "new_status": "implemented",
   "criteria_results": [
     {"criterion": "...", "status": "PASS", "evidence": "..."},
     {"criterion": "...", "status": "PASS", "evidence": "..."}
   ],
   "summary": {"passed": 5, "failed": 0, "untestable": 0},
-  "recommendation": "READY"
+  "recommendation": "IMPLEMENTED"
 }
 ```
 
@@ -235,8 +235,8 @@ conn.close()
 {
   "story_id": "1.7",
   "title": "Privacy & Data Security",
-  "previous_status": "implemented",
-  "new_status": "implemented",
+  "previous_status": "verifying",
+  "new_status": "verifying",
   "criteria_results": [
     {"criterion": "...", "status": "FAIL", "reason": "No implementation found"}
   ],
@@ -256,4 +256,4 @@ conn.close()
 
 - **Database:** `.claude/data/story-tree.db`
 - **Schema:** `.claude/skills/story-tree/references/schema.sql`
-- **Status Reference:** `.claude/skills/story-tree/SKILL.md` (21-Status Rainbow System)
+- **Status Reference:** `.claude/skills/story-tree/SKILL.md` (22-Status Rainbow System)

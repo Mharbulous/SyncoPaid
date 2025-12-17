@@ -108,7 +108,7 @@ Classify any concerns found:
 - Add note: "Critical review: No blocking or deferrable issues identified"
 - Update story status to `active`
 - Proceed with implementation
-- Will set `implemented` status at completion
+- Will set `verifying` status at completion (post-execution verification required)
 
 ### Step 3: Execute Batch
 
@@ -162,13 +162,13 @@ After all tasks complete:
 #### Final Status Determination
 
 **Interactive Mode:**
-- Update status: `active` → `reviewing` → `implemented`
+- Update status: `active` → `reviewing` → `verifying`
 
 **CI Mode - Based on Step 2 outcome:**
 - **Outcome B (deferrable issues):** Set status to `reviewing`
   - Human needs to review decisions made during CI execution
-- **Outcome C (no issues):** Set status to `implemented`
-  - Clean execution, no human review needed
+- **Outcome C (no issues):** Set status to `verifying`
+  - Clean execution, post-execution verification required via story-verification skill
 
 **Announce:** "I'm using the story-verification skill to verify acceptance criteria."
 
@@ -236,11 +236,11 @@ conn.execute('''
     WHERE id = ?
 ''', (story_id,))
 
-# Update to implemented (CI Mode Outcome C, or after Interactive verification)
+# Update to verifying (CI Mode Outcome C, or after Interactive Mode)
 conn.execute('''
     UPDATE story_nodes
-    SET status = 'implemented',
-        last_implemented = datetime('now'),
+    SET status = 'verifying',
+        notes = COALESCE(notes || chr(10), '') || 'Execution complete, awaiting verification: ' || datetime('now'),
         updated_at = datetime('now')
     WHERE id = ?
 ''', (story_id,))
@@ -277,7 +277,9 @@ Ready for feedback.
 === Story Execution Complete ===
 Story: [STORY_ID] - [Title]
 Tasks: [N]/[N] completed
-Status: planned → active → [reviewing|implemented]
+Status: planned → active → [reviewing|verifying]
+
+Next step: Run story-verification skill to verify acceptance criteria
 
 Acceptance Criteria:
 [x] Criterion 1
@@ -345,6 +347,6 @@ Need: [what clarification or help is needed]
 ## References
 
 - Plan format: `.claude/data/plans/*.md`
-- Status workflow: concept → approved → planned → active → reviewing → implemented
+- Status workflow: concept → approved → planned → active → reviewing → verifying → implemented
 - CI pause workflow: planned → paused (blocking issues) or active → paused (mid-execution blocker)
 - Commit format: Include `Story: [ID]` in commit body for traceability
