@@ -59,9 +59,9 @@ jobs:
 
             ## Step 2: Plan Story (if approved stories exist)
 
-            Use the CI-optimized story-planning skill:
+            Use the story-planning skill (CI mode auto-detected):
             ```
-            Skill(skill="story-planning-ci")
+            Skill(skill="story-planning")
             ```
 
             Follow the skill workflow to:

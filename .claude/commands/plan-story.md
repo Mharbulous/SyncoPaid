@@ -6,7 +6,8 @@ $Arguments
 
 ## CI Mode
 
-Use `story-planning-ci` skill for automated workflows (~60% token reduction).
+CI mode auto-activates when `CI=true` env var is set or trigger includes "(ci)".
+Uses compact template (~60% token reduction).
 
 ## Argument Handling
 
