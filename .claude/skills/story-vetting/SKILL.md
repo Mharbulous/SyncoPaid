@@ -81,6 +81,40 @@ When running in CI (non-interactive environment), HUMAN_REVIEW cases cannot prom
 
 ---
 
+## Decision Cache
+
+The vetting system uses a persistent cache to avoid re-classifying the same story pairs on each run. This is especially important when running vetting daily, as most pairs will be false positives that don't need repeated LLM analysis.
+
+### How It Works
+
+1. **Version Tracking**: Each `story_nodes` record has a `version` column (INTEGER, default 1)
+2. **Cache Storage**: Classification decisions are stored in `vetting_decisions` table with:
+   - Canonical pair key (smaller ID first, e.g., `1.1|1.8.4`)
+   - Version numbers at time of decision
+   - Classification and action taken
+3. **Invalidation**: When a story's `title`, `description`, or `status` changes, increment its `version`. All cached pairs involving that story become stale.
+
+### Cache Behavior
+
+- **First run (cold cache)**: All 238 candidates processed by LLM, decisions stored
+- **Subsequent runs (warm cache)**: ~150-180 false_positives skipped, only stale/new pairs classified
+- **After story edit**: Pairs involving edited story re-enter Phase 2
+
+### CLI Commands
+
+```bash
+# Run schema migration (safe to run multiple times)
+python .claude/skills/story-vetting/vetting_cache.py migrate
+
+# View cache statistics
+python .claude/skills/story-vetting/vetting_cache.py stats
+
+# Clear all cached decisions
+python .claude/skills/story-vetting/vetting_cache.py clear
+```
+
+---
+
 ## Phase 1: Candidate Detection
 
 Run this Python script to find candidate conflict pairs:

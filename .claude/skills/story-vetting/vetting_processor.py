@@ -1,10 +1,23 @@
 #!/usr/bin/env python
-"""Story vetting processor - Phase 2: Classification and Resolution (CI Mode)"""
+"""Story vetting processor - Phase 2: Classification and Resolution (CI Mode)
+
+Processes candidate conflict pairs, classifies them, and executes appropriate
+actions. Integrates with vetting_cache to store decisions for future runs.
+"""
 
 import sqlite3
 import json
 import sys
+import os
 from typing import Dict, List, Tuple, Optional
+
+# Import cache functions
+try:
+    from vetting_cache import migrate_schema, store_decision
+except ImportError:
+    # When run as script from different directory
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from vetting_cache import migrate_schema, store_decision
 
 # Constants
 MERGEABLE_STATUSES = {'concept', 'wishlist', 'refine'}
@@ -21,7 +34,9 @@ stats = {
     'blocked': 0,
     'skipped': 0,
     'deferred': 0,
-    'picked_better': 0
+    'picked_better': 0,
+    'cache_stored': 0,
+    'cache_hits_used': 0
 }
 
 def get_action(conflict_type: str, status_a: str, status_b: str) -> str:
@@ -165,7 +180,7 @@ def simple_merge(story_a: Dict, story_b: Dict) -> Tuple[str, str]:
     return merged_title, merged_desc
 
 def process_candidate(conn: sqlite3.Connection, candidate: Dict) -> None:
-    """Process a single candidate pair."""
+    """Process a single candidate pair and cache the decision."""
     stats['candidates_scanned'] += 1
 
     story_a = candidate['story_a']
@@ -176,11 +191,21 @@ def process_candidate(conn: sqlite3.Connection, candidate: Dict) -> None:
         stats['skipped'] += 1
         return
 
-    # Classify the conflict
-    conflict_type = classify_conflict(story_a, story_b)
+    # Check if we have a cached classification from Phase 1 filtering
+    cached_classification = candidate.get('cached_classification')
+    if cached_classification:
+        conflict_type = cached_classification
+        stats['cache_hits_used'] += 1
+    else:
+        # Classify the conflict
+        conflict_type = classify_conflict(story_a, story_b)
 
     # Get the action
     action = get_action(conflict_type, story_a['status'], story_b['status'])
+
+    # Store original IDs for caching (before any swaps)
+    original_id_a = story_a['id']
+    original_id_b = story_b['id']
 
     # Ensure concept is always story_a for execution
     if story_b['status'] == 'concept' and story_a['status'] != 'concept':
@@ -222,6 +247,15 @@ def process_candidate(conn: sqlite3.Connection, candidate: Dict) -> None:
             delete_concept(conn, story_a['id'])
         stats['picked_better'] += 1
 
+    # Store decision in cache (only if not already cached)
+    if not cached_classification:
+        try:
+            store_decision(conn, original_id_a, original_id_b, conflict_type, action)
+            stats['cache_stored'] += 1
+        except Exception:
+            # Don't fail on cache errors - caching is best-effort
+            pass
+
 def main():
     # Read candidates from stdin
     candidates_data = json.load(sys.stdin)
@@ -231,6 +265,11 @@ def main():
 
     # Connect to database
     conn = sqlite3.connect(DB_PATH)
+
+    # Ensure schema is migrated (adds version column and vetting_decisions table)
+    migration_result = migrate_schema(conn)
+    if migration_result['version_added'] or migration_result['table_created']:
+        print(f"Schema migration: {migration_result}", file=sys.stderr)
 
     try:
         # Process each candidate
@@ -252,6 +291,9 @@ def main():
         print(f"  - Skipped: {stats['skipped']} false positives", file=sys.stderr)
         print(f"  - Deferred to pending: {stats['deferred']} scope overlaps", file=sys.stderr)
         print(f"  - Picked better: {stats['picked_better']} incompatible pairs", file=sys.stderr)
+        print("\nCache operations:", file=sys.stderr)
+        print(f"  - Decisions cached: {stats['cache_stored']}", file=sys.stderr)
+        print(f"  - Cache hits used: {stats['cache_hits_used']}", file=sys.stderr)
 
         if stats['deferred'] > 0:
             print(f"\n{stats['deferred']} concepts set to 'pending' status for later human review.", file=sys.stderr)
