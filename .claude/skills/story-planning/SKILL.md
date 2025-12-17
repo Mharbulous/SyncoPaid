@@ -7,10 +7,21 @@ description: Use when user says "plan story", "plan next feature", "create imple
 
 Generate test-driven implementation plans for approved stories.
 
+**Announce:** On activation, say: "I'm using the story-planning skill to create the implementation plan."
+
 **Database:** `.claude/data/story-tree.db`
 **Plans:** `.claude/data/plans/`
 
 **Critical:** Use Python sqlite3 module, NOT sqlite3 CLI.
+
+## Design Principles
+
+- **Task Granularity:** Each task = 2-5 minutes of focused work
+- **Zero Context:** Assume implementer knows nothing about the codebase
+- **Self-Contained:** Every task has exact file paths, complete code, exact commands
+- **TDD Discipline:** RED (write failing test) → verify failure → GREEN (minimal impl) → verify pass → COMMIT
+- **DRY/YAGNI:** No speculative abstractions, no premature optimization
+- **Frequent Commits:** One commit per passing test cycle
 
 ## Mode Detection
 
@@ -74,16 +85,25 @@ score = min(depth, 5) * 0.30 \
 
 ### Step 4: Research Codebase
 
-1. Read full story description and notes
-2. Locate files via `project_path` or keyword search
-3. Review sibling implementations for patterns
-4. Reference `ai_docs/technical-reference.md`
+**Goal:** Gather enough context to write a zero-context plan.
+
+1. **Read the story** - full description, notes, acceptance criteria
+2. **Locate affected files** - use `project_path` field or search by keywords
+3. **Study existing patterns** - how do sibling features implement similar behavior?
+4. **Check technical docs** - `ai_docs/technical-reference.md` for conventions
+5. **Understand test patterns** - review existing tests in `tests/` for style
 
 **Code Landmarks** (for targeted reads):
 - `src/syncopaid/tracker.py:88-130` - ActivityEvent dataclass
 - `src/syncopaid/tracker.py:204-260` - TrackerLoop init
 - `src/syncopaid/database.py:1-50` - Schema and imports
 - `src/syncopaid/config.py:15-45` - DEFAULT_CONFIG dict
+
+**Research Output:** Before writing the plan, you should know:
+- Exact files to create/modify (with line numbers for modifications)
+- The function signatures and data structures involved
+- How to test this feature (unit test location, fixtures needed)
+- Any edge cases mentioned in story notes
 
 ### Step 5: Create TDD Plan
 
@@ -134,32 +154,55 @@ score = min(depth, 5) * 0.30 \
 
 ## TDD Tasks
 
-### Task 1: [Descriptive Name]
+### Task 1: [Descriptive Name] (~N min)
 
-**RED:** Write failing test
+**Files:**
+- **Create:** `tests/test_x.py`
+- **Modify:** `src/syncopaid/x.py:45-60`
+
+**Context:** [Why this task exists and what it enables for subsequent tasks]
+
+**Step 1 - RED:** Write failing test
 ```python
 # tests/test_x.py
 def test_behavior():
+    """[What this test verifies]"""
     result = module.func(input)
     assert result == expected
 ```
-**Run:** `pytest tests/test_x.py::test_behavior -v`
-**Expect:** FAILED
 
-**GREEN:** Write minimal implementation
+**Step 2 - Verify RED:**
+```bash
+pytest tests/test_x.py::test_behavior -v
+```
+Expected: `FAILED` - test fails because [specific reason]
+
+**Step 3 - GREEN:** Write minimal implementation
 ```python
-# src/syncopaid/x.py
+# src/syncopaid/x.py (lines 45-60)
 def func(input):
+    """[Brief docstring]"""
     return result
 ```
-**Run:** `pytest tests/test_x.py::test_behavior -v`
-**Expect:** PASSED
 
-**COMMIT:** `git add tests/test_x.py src/syncopaid/x.py && git commit -m "feat: add behavior"`
+**Step 4 - Verify GREEN:**
+```bash
+pytest tests/test_x.py::test_behavior -v
+```
+Expected: `PASSED`
+
+**Step 5 - COMMIT:**
+```bash
+git add tests/test_x.py src/syncopaid/x.py && git commit -m "feat: add behavior"
+```
 
 ---
 
-[Repeat for additional tasks...]
+### Task 2: [Next Task] (~N min)
+
+[Repeat structure...]
+
+---
 
 ## Verification Checklist
 
@@ -179,16 +222,17 @@ If issues arise:
 [Edge cases, gotchas, future considerations]
 ```
 
-#### CI Mode Template (Compact)
+#### CI Mode Template (Compact, Self-Contained)
 
 ```markdown
 # [Story Title] - Implementation Plan
 
-> **TDD Required:** Each task: Write test -> RED -> Write code -> GREEN -> Commit
+> **TDD Required:** Each task (~2-5 min): Write test → verify RED → Write code → verify GREEN → Commit
+> **Zero Context:** This plan assumes the implementer knows nothing about the codebase.
 
-**Goal:** [One sentence]
-**Approach:** [2-3 sentences]
-**Tech Stack:** [Modules/libraries]
+**Goal:** [One sentence - what user-visible outcome does this achieve?]
+**Approach:** [2-3 sentences on technical approach]
+**Tech Stack:** [Modules/libraries involved]
 
 ---
 
@@ -210,53 +254,87 @@ If issues arise:
 - [ ] venv activated: `venv\Scripts\activate`
 - [ ] Baseline tests pass: `python -m pytest -v`
 
-## Files Affected
-
-| File | Change | Purpose |
-|------|--------|---------|
-| `tests/test_x.py` | Create | Test behavior |
-| `src/syncopaid/x.py:45-60` | Modify | Implementation |
-
 ## TDD Tasks
 
-### Task 1: [Name]
+### Task 1: [Descriptive Name] (~N min)
 
-**Files:** Test: `tests/path/test_x.py` | Impl: `src/path/x.py:123-145`
+**Files:**
+- **Create:** `tests/path/test_x.py`
+- **Modify:** `src/path/x.py:123-145`
 
-**RED:** Create test for [behavior].
+**Context:** [1-2 sentences: why this task exists, what it enables]
+
+**Step 1 - RED:** Write failing test
 ```python
+# tests/path/test_x.py
 def test_behavior():
+    """[What this test verifies]"""
     result = module.func(input)
     assert result == expected
 ```
-Run: `pytest tests/path/test_x.py::test_behavior -v` -> Expect: FAILED
 
-**GREEN:** Implement [minimal solution].
+**Step 2 - Verify RED:**
+```bash
+pytest tests/path/test_x.py::test_behavior -v
+```
+Expected output: `FAILED` (test should fail because [reason])
+
+**Step 3 - GREEN:** Write minimal implementation
 ```python
+# src/path/x.py (lines 123-145)
 def func(input):
+    """[Brief docstring]"""
     return result
 ```
-Run: `pytest tests/path/test_x.py::test_behavior -v` -> Expect: PASSED
 
-**COMMIT:** `git add tests/path/test_x.py src/path/x.py && git commit -m "feat: [message]"`
+**Step 4 - Verify GREEN:**
+```bash
+pytest tests/path/test_x.py::test_behavior -v
+```
+Expected output: `PASSED`
+
+**Step 5 - COMMIT:**
+```bash
+git add tests/path/test_x.py src/path/x.py && git commit -m "feat: [message]"
+```
 
 ---
 
-## Verification
+### Task 2: [Next Task Name] (~N min)
 
-- [ ] All tests pass: `python -m pytest -v`
-- [ ] Module test: `python -m syncopaid.[module]`
+[Repeat same structure...]
+
+---
+
+## Final Verification
+
+Run after all tasks complete:
+```bash
+python -m pytest -v                    # All tests pass
+python -m syncopaid.[module]           # Module runs without error
+```
+
+## Rollback
+
+If issues arise: `git log --oneline -10` to find commit, then `git revert <hash>`
 
 ## Notes
 
-[Edge cases, follow-up work]
+[Edge cases discovered, follow-up work, dependencies on other stories]
 ```
 
-**Quality requirements (both modes):**
-- Exact file paths (never "somewhere in src/")
-- Complete, copy-paste ready code examples
-- Full commands with expected output
-- Zero ambiguity - implementer makes no decisions
+**Quality Requirements (both modes):**
+- **Exact file paths** with line numbers where modifying existing code
+- **Complete code** - copy-paste ready, not "add validation here"
+- **Exact commands** with expected output (not "run tests")
+- **Zero ambiguity** - implementer makes no decisions, just executes
+- **Zero context assumption** - explain why, not just what
+
+**CI Mode Autonomy:**
+In CI mode, the plan must be executable without human guidance:
+- No "choose between A or B" - make the decision in the plan
+- No "verify manually" - provide automated verification commands
+- No "ask if unclear" - the plan IS the clarity
 
 ### Step 6: Update Status
 
