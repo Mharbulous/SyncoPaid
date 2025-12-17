@@ -224,12 +224,16 @@ def filter_cached_candidates(
 
 
 def load_stories(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
-    """Load all active stories from database."""
+    """Load all active stories from database.
+
+    Computes status from three-field system: disposition > hold_reason > stage
+    """
     conn.row_factory = sqlite3.Row
     return [dict(row) for row in conn.execute('''
-        SELECT s.id, s.title, s.description, s.status
+        SELECT s.id, s.title, s.description,
+               COALESCE(s.disposition, s.hold_reason, s.stage) AS status
         FROM story_nodes s
-        WHERE s.status NOT IN ('archived', 'deprecated')
+        WHERE s.disposition IS NULL OR s.disposition NOT IN ('archived', 'deprecated')
         ORDER BY s.id
     ''').fetchall()]
 
