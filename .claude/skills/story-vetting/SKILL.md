@@ -539,6 +539,83 @@ Actions taken:
 
 ---
 
+## Helper Utilities
+
+The skill includes helper scripts for efficient batch processing:
+
+### process_candidates.py
+
+Filters and prioritizes candidates for processing.
+
+**Purpose:** Filters out cached decisions and prioritizes remaining candidates by signal strength.
+
+**Usage:**
+```bash
+python .claude/skills/story-vetting/process_candidates.py < candidates.json > prioritized.json
+```
+
+**Input:** JSON with candidate pairs from Phase 1
+**Output:** JSON with uncached candidates sorted by priority (high/medium/low)
+
+**Functions:**
+- `get_cached_decision(conn, id_a, id_b)` - Check if pair is cached with current versions
+- `filter_uncached_candidates(candidates_json)` - Remove cache hits, return stale/new pairs
+- `score_candidate(candidate)` - Score by signal strength for prioritization
+
+### bulk_vetting.py
+
+Applies batch classification decisions to the database.
+
+**Purpose:** Execute multiple vetting actions from a single JSON input (useful for batch processing).
+
+**Usage:**
+```bash
+echo '[{"id_a":"1.2.3", "id_b":"1.4.5", "classification":"false_positive", "action":"SKIP"}]' | \
+  python .claude/skills/story-vetting/bulk_vetting.py
+```
+
+**Input:** JSON array of decision objects with fields:
+- `id_a`, `id_b` - Story IDs
+- `classification` - Conflict type (duplicate/false_positive/etc)
+- `action` - Action to take (SKIP/DELETE_CONCEPT/TRUE_MERGE/etc)
+- Additional fields depending on action (concept_id, keep_id, merged_title, etc)
+
+**Output:** Summary statistics of actions taken (deleted, rejected, blocked, merged, skipped, errors)
+
+### vetting_actions.py
+
+Individual vetting actions for direct execution.
+
+**Purpose:** Execute single vetting actions via command-line interface.
+
+**Usage:**
+```bash
+# Delete a concept (with automatic caching)
+python .claude/skills/story-vetting/vetting_actions.py delete "1.2.3" "1.4.5"
+
+# Reject a concept with conflict note
+python .claude/skills/story-vetting/vetting_actions.py reject "1.2.3" "1.4.5"
+
+# Block a concept with conflict note
+python .claude/skills/story-vetting/vetting_actions.py block "1.2.3" "1.4.5"
+
+# Merge two stories
+python .claude/skills/story-vetting/vetting_actions.py merge "1.2.3" "1.4.5" "Merged Title" "Merged Description"
+
+# Cache a decision
+python .claude/skills/story-vetting/vetting_actions.py cache "1.2.3" "1.4.5" "false_positive" "SKIP"
+```
+
+**Functions:**
+- `delete_concept(concept_id, conflicting_id, cache)` - Delete concept with optional caching
+- `reject_concept(concept_id, conflicting_id)` - Set status to rejected with note
+- `block_concept(concept_id, conflicting_id)` - Set status to blocked with note
+- `true_merge(keep_id, delete_id, merged_title, merged_description)` - Merge stories
+- `cache_decision(id_a, id_b, classification, action)` - Cache vetting decision
+- `_cache_decision_internal(conn, id_a, id_b, classification, action)` - Internal caching helper
+
+---
+
 ## References
 
 - **Database:** `.claude/data/story-tree.db`
