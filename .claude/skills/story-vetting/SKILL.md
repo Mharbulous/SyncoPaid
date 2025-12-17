@@ -211,9 +211,9 @@ Use the actions script: `python .claude/skills/story-vetting/vetting_actions.py 
 | Action | Command | Description |
 |--------|---------|-------------|
 | DELETE_CONCEPT | `python ...vetting_actions.py delete <concept_id>` | Remove concept from database |
-| REJECT_CONCEPT | `python ...vetting_actions.py reject <concept_id> <conflicting_id>` | Set status=rejected with note |
-| BLOCK_CONCEPT | `python ...vetting_actions.py block <concept_id> <conflicting_id>` | Set status=blocked with note |
-| DEFER_PENDING | `python ...vetting_actions.py defer <concept_id> <conflicting_id>` | Set status=pending (CI mode) |
+| REJECT_CONCEPT | `python ...vetting_actions.py reject <concept_id> <conflicting_id>` | Set disposition=rejected with note |
+| BLOCK_CONCEPT | `python ...vetting_actions.py block <concept_id> <conflicting_id>` | Set hold_reason=blocked with note |
+| DEFER_PENDING | `python ...vetting_actions.py defer <concept_id> <conflicting_id>` | Set hold_reason=pending (CI mode) |
 | TRUE_MERGE | `python ...vetting_actions.py merge <keep_id> <delete_id> "<title>" "<desc>"` | Combine stories, delete one |
 | CACHE | `python ...vetting_actions.py cache <id_a> <id_b> <classification> <action>` | Store decision in cache |
 

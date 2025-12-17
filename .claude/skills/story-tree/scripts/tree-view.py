@@ -117,7 +117,9 @@ def get_tree_data(db_path: Path, root_id: str = 'root', max_depth: Optional[int]
     cursor = conn.cursor()
 
     query = """
-        SELECT s.id, s.title, s.description, s.status, s.capacity, st.depth,
+        SELECT s.id, s.title, s.description,
+            COALESCE(s.disposition, s.hold_reason, s.stage) AS status,
+            s.capacity, st.depth,
             (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as child_count,
             (SELECT st2.ancestor_id FROM story_paths st2 WHERE st2.descendant_id = s.id AND st2.depth = 1) as parent_id
         FROM story_nodes s
@@ -132,7 +134,7 @@ def get_tree_data(db_path: Path, root_id: str = 'root', max_depth: Optional[int]
 
     if statuses:
         placeholders = ', '.join(f':status_{i}' for i in range(len(statuses)))
-        query += f" AND s.status {'NOT ' if exclude_statuses else ''}IN ({placeholders})"
+        query += f" AND COALESCE(s.disposition, s.hold_reason, s.stage) {'NOT ' if exclude_statuses else ''}IN ({placeholders})"
         for i, status in enumerate(statuses):
             params[f'status_{i}'] = status
 

@@ -27,19 +27,6 @@ CREATE TABLE IF NOT EXISTS story_nodes (
     human_review INTEGER DEFAULT 0
         CHECK (human_review IN (0, 1)),
 
-    -- Deprecated: 'status' kept for backward compatibility
-    -- Automatically synced via trigger from stage/hold_reason/disposition
-    status TEXT NOT NULL DEFAULT 'concept'
-        CHECK (status IN (
-            'infeasible', 'rejected', 'wishlist',
-            'concept', 'broken', 'blocked', 'refine',
-            'pending', 'approved', 'planned', 'queued', 'paused',
-            'active',
-            'reviewing', 'verifying', 'implemented',
-            'ready', 'polish', 'released',
-            'legacy', 'deprecated', 'archived'
-        )),
-
     project_path TEXT,
     last_implemented TEXT,
     notes TEXT,
@@ -97,7 +84,6 @@ CREATE TABLE IF NOT EXISTS vetting_decisions (
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_paths_descendant ON story_paths(descendant_id);
 CREATE INDEX IF NOT EXISTS idx_paths_depth ON story_paths(depth);
-CREATE INDEX IF NOT EXISTS idx_nodes_status ON story_nodes(status);  -- Deprecated, kept for compatibility
 CREATE INDEX IF NOT EXISTS idx_commits_hash ON story_commits(commit_hash);
 CREATE INDEX IF NOT EXISTS idx_vetting_story_a ON vetting_decisions(story_a_id);
 CREATE INDEX IF NOT EXISTS idx_vetting_story_b ON vetting_decisions(story_b_id);
@@ -118,21 +104,6 @@ AFTER UPDATE ON story_nodes
 FOR EACH ROW
 BEGIN
     UPDATE story_nodes SET updated_at = datetime('now') WHERE id = OLD.id;
-END;
-
--- Sync deprecated 'status' column from three-field system
--- Priority: disposition > hold_reason > stage
-CREATE TRIGGER IF NOT EXISTS sync_status_from_fields
-AFTER UPDATE OF stage, hold_reason, disposition ON story_nodes
-FOR EACH ROW
-BEGIN
-    UPDATE story_nodes SET status =
-        CASE
-            WHEN NEW.disposition IS NOT NULL THEN NEW.disposition
-            WHEN NEW.hold_reason IS NOT NULL THEN NEW.hold_reason
-            ELSE NEW.stage
-        END
-    WHERE id = NEW.id;
 END;
 
 -- =============================================================================
@@ -168,7 +139,4 @@ END;
 --   - hold_reason IS NOT NULL → Work stopped, but stage shows where to resume
 --   - Both NULL → Active in pipeline at given stage
 --   - Cannot have BOTH hold_reason AND disposition (mutually exclusive)
---
--- MIGRATION FROM 22-STATUS:
---   Run: python .claude/skills/story-tree/scripts/migrate_to_three_field.py
 -- =============================================================================

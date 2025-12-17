@@ -37,7 +37,9 @@ def get_story_criteria(story_id: str) -> dict:
     conn.row_factory = sqlite3.Row
 
     story = conn.execute('''
-        SELECT id, title, description, status, project_path
+        SELECT id, title, description,
+               COALESCE(disposition, hold_reason, stage) AS status,
+               project_path
         FROM story_nodes
         WHERE id = ?
     ''', (story_id,)).fetchone()
