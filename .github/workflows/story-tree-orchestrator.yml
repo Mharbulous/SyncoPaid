@@ -152,12 +152,12 @@ jobs:
                 --model claude-sonnet-4-5-20250929 \
                 "MODE: Story Planning (CI - autonomous)
 
-              Use the story-planning-ci skill to plan ONE approved story:
+              Use the story-planning skill to plan ONE approved story (CI mode auto-detected):
               1. Query approved stories from .claude/data/story-tree.db
               2. Create compact TDD plan in ai_docs/Plans/
               3. Update story status to 'planned'
 
-              Execute: Skill(skill=\"story-planning-ci\")
+              Execute: Skill(skill=\"story-planning\")
 
               After planning, DO NOT commit - the orchestrator handles git operations." 2>&1) || {
                 echo "::warning::Claude Code planning step returned non-zero"
