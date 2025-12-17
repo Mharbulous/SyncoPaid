@@ -1,6 +1,6 @@
 ---
 name: story-writing
-description: Use when user says "brainstorm stories", "generate story ideas", "brainstorm features", "create stories for [node]", or asks for new story ideas - FIRST refines any existing stories with status='refine' before generating new stories. Then generates evidence-based user stories for nodes with capacity based on git commit analysis, existing children, and gap analysis. Works with story-tree database to create concept stories with proper user story format and acceptance criteria.
+description: Use when user says "brainstorm stories", "generate story ideas", "brainstorm features", "create stories for [node]", or asks for new story ideas - FIRST refines any existing stories with hold_reason='refine' before generating new stories. Then generates evidence-based user stories for nodes with capacity based on git commit analysis, existing children, and gap analysis. Works with story-tree database to create concept stories with proper user story format and acceptance criteria.
 ---
 
 # Story Writing - Evidence-Based Story Generator
@@ -13,7 +13,7 @@ Generate user stories grounded in git commits and gap analysis.
 
 ## Priority Order
 
-1. **FIRST:** Refine any stories with `status='refine'`
+1. **FIRST:** Refine any stories with `hold_reason='refine'`
 2. **THEN:** Generate new stories for target node
 
 ## Multi-Node Batching
