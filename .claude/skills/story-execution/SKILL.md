@@ -1,6 +1,6 @@
 ---
 name: story-execution
-description: Use when user says "execute plan", "implement story", "run plan for [ID]", "start implementation", or asks to execute a planned story - loads TDD implementation plan from .claude/data/plans/, executes RED-GREEN-COMMIT cycles for each task, updates story status through active→reviewing→implemented, verifies acceptance criteria, and outputs implementation report. (project) (project)
+description: Use when user says "execute plan", "implement story", "run plan for [ID]", "start implementation", or asks to execute a planned story - loads TDD implementation plan from .claude/data/plans/, executes RED-GREEN-COMMIT cycles for each task, updates story status to active (requires separate verification), and outputs implementation report. (project) (project) (project)
 ---
 
 # Story Execution
@@ -108,7 +108,7 @@ Classify any concerns found:
 - Add note: "Critical review: No blocking or deferrable issues identified"
 - Update story status to `active`
 - Proceed with implementation
-- Will set `implemented` status at completion
+- Status remains `active` at completion (verification required separately)
 
 ### Step 3: Execute Batch
 
@@ -162,13 +162,14 @@ After all tasks complete:
 #### Final Status Determination
 
 **Interactive Mode:**
-- Update status: `active` → `reviewing` → `implemented`
+- Status remains `active` at completion
+- Verification skill must be run separately to advance to `implemented`
 
 **CI Mode - Based on Step 2 outcome:**
 - **Outcome B (deferrable issues):** Set status to `reviewing`
   - Human needs to review decisions made during CI execution
-- **Outcome C (no issues):** Set status to `implemented`
-  - Clean execution, no human review needed
+- **Outcome C (no issues):** Status remains `active`
+  - Verification required separately via story-verification skill
 
 **Announce:** "I'm using the story-verification skill to verify acceptance criteria."
 
@@ -227,7 +228,7 @@ conn.execute('''
     WHERE id = ?
 ''', (blocking_issues_description, story_id))
 
-# Update to reviewing (CI Mode Outcome B, or Interactive Mode step)
+# Update to reviewing (CI Mode Outcome B - deferrable issues found)
 conn.execute('''
     UPDATE story_nodes
     SET status = 'reviewing',
@@ -236,14 +237,9 @@ conn.execute('''
     WHERE id = ?
 ''', (story_id,))
 
-# Update to implemented (CI Mode Outcome C, or after Interactive verification)
-conn.execute('''
-    UPDATE story_nodes
-    SET status = 'implemented',
-        last_implemented = datetime('now'),
-        updated_at = datetime('now')
-    WHERE id = ?
-''', (story_id,))
+# Note: Execution does NOT set 'implemented' status
+# Status remains 'active' after execution completes
+# Use story-verification skill to verify and advance to 'implemented'
 ```
 
 ### Commit Linking
@@ -277,12 +273,9 @@ Ready for feedback.
 === Story Execution Complete ===
 Story: [STORY_ID] - [Title]
 Tasks: [N]/[N] completed
-Status: planned → active → [reviewing|implemented]
+Status: planned → active (verification required)
 
-Acceptance Criteria:
-[x] Criterion 1
-[x] Criterion 2
-[x] Criterion 3
+Next step: Run story-verification skill to verify acceptance criteria.
 ```
 
 ### CI Mode - Paused (Blocking Issues)
@@ -345,6 +338,7 @@ Need: [what clarification or help is needed]
 ## References
 
 - Plan format: `.claude/data/plans/*.md`
-- Status workflow: concept → approved → planned → active → reviewing → implemented
+- Status workflow: concept → approved → planned → active → (verification) → implemented
+- Execution sets: `active` (verification required separately via story-verification skill)
 - CI pause workflow: planned → paused (blocking issues) or active → paused (mid-execution blocker)
 - Commit format: Include `Story: [ID]` in commit body for traceability
