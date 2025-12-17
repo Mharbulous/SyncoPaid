@@ -71,6 +71,19 @@ def block_concept(concept_id, conflicting_id):
     conn.close()
     return f"✓ Blocked concept {concept_id} (conflicts with {conflicting_id})"
 
+def defer_concept(concept_id, conflicting_id):
+    """Set a concept to pending status for later human review (CI mode)."""
+    conn = sqlite3.connect('.claude/data/story-tree.db')
+    conn.execute('''
+        UPDATE story_nodes
+        SET status = 'pending',
+            notes = COALESCE(notes || char(10), '') || 'Scope overlap with ' || ? || ' - needs human review'
+        WHERE id = ?
+    ''', (conflicting_id, concept_id))
+    conn.commit()
+    conn.close()
+    return f"✓ Deferred concept {concept_id} to pending (scope overlap with {conflicting_id})"
+
 def true_merge(keep_id, delete_id, merged_title, merged_description):
     """Merge two stories, keeping one and deleting the other."""
     conn = sqlite3.connect('.claude/data/story-tree.db')
@@ -129,6 +142,11 @@ if __name__ == '__main__':
         concept_id = sys.argv[2]
         conflicting_id = sys.argv[3]
         print(block_concept(concept_id, conflicting_id))
+
+    elif action == 'defer':
+        concept_id = sys.argv[2]
+        conflicting_id = sys.argv[3]
+        print(defer_concept(concept_id, conflicting_id))
 
     elif action == 'merge':
         keep_id = sys.argv[2]
