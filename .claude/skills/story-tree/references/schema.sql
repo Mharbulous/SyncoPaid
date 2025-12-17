@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS story_nodes (
             'concept', 'broken', 'blocked', 'refine',
             'pending', 'approved', 'planned', 'queued', 'paused',
             'active',
-            'reviewing', 'implemented',
+            'reviewing', 'verifying', 'implemented',
             'ready', 'polish', 'released',
             'legacy', 'deprecated', 'archived'
         )),
