@@ -44,26 +44,50 @@ All data resides in a SQLite database using a closure table pattern. This design
 
 The database file lives separately from the skill definition files, allowing the skill itself to be copied between projects while keeping project-specific data isolated.
 
-## Status Lifecycle
+## Three-Field Workflow System
 
-Stories progress through defined states:
+Stories are tracked using three orthogonal fields rather than a single status:
 
-| Status | Meaning |
-|--------|---------|
+### Stage (Progress through workflow)
+
+| Stage | Meaning |
+|-------|---------|
 | concept | Initial idea awaiting human review |
 | approved | Human has validated the idea |
-| rejected | Human decided against pursuing it |
 | planned | Implementation plan exists |
 | queued | Ready to work on, dependencies satisfied |
 | active | Currently being developed |
-| in-progress | Partially complete |
-| bugged | Encountering issues requiring fixes |
+| reviewing | Code complete, awaiting review |
+| verifying | Under verification testing |
 | implemented | Development complete |
 | ready | Fully tested and production-ready |
-| deprecated | No longer relevant |
-| infeasible | Cannot be built as conceived |
+| polish | Minor refinements needed |
+| released | Shipped to production |
 
-The skill will not automatically expand nodes with concept, rejected, deprecated, infeasible, or bugged status. These require human attention before receiving new children.
+### Hold Reason (Temporary blocks)
+
+| Hold | Meaning |
+|------|---------|
+| pending | Awaiting human decision |
+| paused | Work intentionally paused |
+| blocked | Waiting on external dependency |
+| broken | Encountering issues requiring fixes |
+| refine | Needs rework based on feedback |
+
+When a hold is set, the stage is preserved. Clearing the hold resumes work at the same stage.
+
+### Disposition (Terminal states)
+
+| Disposition | Meaning |
+|-------------|---------|
+| rejected | Human decided against pursuing it |
+| infeasible | Cannot be built as conceived |
+| wishlist | Nice to have but not prioritized |
+| legacy | Historical, superseded by newer approach |
+| deprecated | No longer relevant |
+| archived | Preserved for reference only |
+
+The skill will not automatically expand nodes that are in concept stage, have a hold reason set, or have a disposition. These require human attention before receiving new children.
 
 ## When to Use This Skill
 

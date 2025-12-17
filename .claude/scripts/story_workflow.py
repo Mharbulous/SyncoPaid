@@ -52,6 +52,7 @@ def find_priority_target():
     """Find under-capacity node prioritizing shallower nodes."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    # Three-field system: exclude concept stage, held, and disposed stories
     cursor.execute('''
         SELECT s.id, s.title, s.description, s.capacity,
             (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) as child_count,
@@ -59,14 +60,16 @@ def find_priority_target():
             COALESCE(s.capacity, 3 + (SELECT COUNT(*) FROM story_paths sp
                  JOIN story_nodes child ON sp.descendant_id = child.id
                  WHERE sp.ancestor_id = s.id AND sp.depth = 1
-                 AND child.status IN ('implemented', 'ready'))) as effective_capacity
+                 AND child.stage IN ('implemented', 'ready', 'released'))) as effective_capacity
         FROM story_nodes s
-        WHERE s.status NOT IN ('concept', 'broken', 'refine', 'rejected', 'wishlist', 'deprecated', 'archived', 'infeasible', 'legacy')
+        WHERE s.stage != 'concept'
+          AND s.hold_reason IS NULL
+          AND s.disposition IS NULL
           AND (SELECT COUNT(*) FROM story_paths WHERE ancestor_id = s.id AND depth = 1) <
               COALESCE(s.capacity, 3 + (SELECT COUNT(*) FROM story_paths sp
                    JOIN story_nodes child ON sp.descendant_id = child.id
                    WHERE sp.ancestor_id = s.id AND sp.depth = 1
-                   AND child.status IN ('implemented', 'ready')))
+                   AND child.stage IN ('implemented', 'ready', 'released')))
         ORDER BY node_depth ASC
         LIMIT 1
     ''')
@@ -89,7 +92,7 @@ def get_node_context(node_id):
     cursor = conn.cursor()
 
     cursor.execute('''
-        SELECT s.id, s.title, s.description, s.status
+        SELECT s.id, s.title, s.description, s.stage, s.hold_reason, s.disposition
         FROM story_nodes s
         JOIN story_paths sp ON s.id = sp.descendant_id
         WHERE sp.ancestor_id = ? AND sp.depth = 1
@@ -126,9 +129,9 @@ def get_stats():
     cursor = conn.cursor()
     cursor.execute('SELECT COUNT(*) FROM story_nodes')
     total = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM story_nodes WHERE status = 'implemented'")
+    cursor.execute("SELECT COUNT(*) FROM story_nodes WHERE stage = 'implemented'")
     implemented = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM story_nodes WHERE status = 'concept'")
+    cursor.execute("SELECT COUNT(*) FROM story_nodes WHERE stage = 'concept'")
     concept = cursor.fetchone()[0]
     conn.close()
     return {'total': total, 'implemented': implemented, 'concept': concept}
