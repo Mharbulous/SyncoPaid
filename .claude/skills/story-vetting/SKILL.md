@@ -11,6 +11,8 @@ Detect and resolve conflicting concepts in the story-tree database. This skill *
 
 **Critical:** Use Python sqlite3 module, NOT sqlite3 CLI.
 
+**Platform Note:** All Python commands use `python` (not `python3`) for cross-platform compatibility.
+
 ## Architecture Overview
 
 ```
@@ -84,7 +86,7 @@ When running in CI (non-interactive environment), HUMAN_REVIEW cases cannot prom
 Run this Python script to find candidate conflict pairs:
 
 ```python
-python3 << 'PYEOF'
+python << 'PYEOF'
 import sqlite3
 import json
 import re
@@ -304,7 +306,7 @@ def get_action(conflict_type, status_a, status_b, ci_mode=False):
 Remove the concept from database without trace:
 
 ```python
-python3 << PYEOF
+python << PYEOF
 import sqlite3
 concept_id = "$CONCEPT_ID"
 conn = sqlite3.connect('.claude/data/story-tree.db')
@@ -320,7 +322,7 @@ PYEOF
 Set status to rejected with note:
 
 ```python
-python3 << PYEOF
+python << PYEOF
 import sqlite3
 concept_id = "$CONCEPT_ID"
 conflicting_id = "$CONFLICTING_ID"
@@ -341,7 +343,7 @@ PYEOF
 Set status to blocked with note:
 
 ```python
-python3 << PYEOF
+python << PYEOF
 import sqlite3
 concept_id = "$CONCEPT_ID"
 conflicting_id = "$CONFLICTING_ID"
@@ -362,7 +364,7 @@ PYEOF
 Set concept status to `pending` for later human review:
 
 ```python
-python3 << PYEOF
+python << PYEOF
 import sqlite3
 concept_id = "$CONCEPT_ID"
 conflicting_id = "$CONFLICTING_ID"
@@ -393,7 +395,7 @@ Claude combines best ideas from both stories into a single node:
 6. Delete the other story
 
 ```python
-python3 << PYEOF
+python << PYEOF
 import sqlite3
 keep_id = "$KEEP_ID"
 delete_id = "$DELETE_ID"

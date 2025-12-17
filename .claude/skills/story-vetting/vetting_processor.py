@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """Story vetting processor - Phase 2: Classification and Resolution (CI Mode)"""
 
 import sqlite3
