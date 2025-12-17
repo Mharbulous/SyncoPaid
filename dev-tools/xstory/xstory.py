@@ -38,7 +38,7 @@ STATUS_COLORS = {
     'broken': '#CCCC00',       # Dark Gold / Olive
     'blocked': '#99CC00',      # Lime Green
     'refine': '#66CC00',       # Chartreuse
-    'deferred': '#00CC00',     # Pure Green
+    'pending': '#00CC00',     # Pure Green
     'approved': '#00CC33',     # Spring Green
     'planned': '#00CC66',      # Emerald
     'queued': '#00CC99',       # Teal Green
@@ -58,7 +58,7 @@ STATUS_COLORS = {
 ALL_STATUSES = [
     'infeasible', 'rejected', 'wishlist',
     'concept', 'broken', 'blocked', 'refine',
-    'deferred', 'approved', 'planned', 'queued', 'paused',
+    'pending', 'approved', 'planned', 'queued', 'paused',
     'active', 'reviewing',
     'implemented',
     'ready', 'polish', 'released',
@@ -70,13 +70,13 @@ DESIGNER_TRANSITIONS = {
     'infeasible': ['concept', 'wishlist', 'archived'],
     'rejected': ['concept', 'wishlist', 'archived'],
     'wishlist': ['concept', 'rejected', 'archived'],
-    'concept': ['approved', 'deferred', 'rejected', 'wishlist', 'refine'],
+    'concept': ['approved', 'pending', 'rejected', 'wishlist', 'refine'],
     'refine': ['concept', 'rejected', 'wishlist'],
-    'deferred': ['approved', 'wishlist', 'rejected'],
-    'approved': ['deferred', 'rejected'],
-    'blocked': ['deferred'],
-    'planned': ['deferred', 'approved'],
-    'paused': ['deferred'],
+    'pending': ['approved', 'wishlist', 'rejected'],
+    'approved': ['pending', 'rejected'],
+    'blocked': ['pending'],
+    'planned': ['pending', 'approved'],
+    'paused': ['pending'],
     'reviewing': ['implemented'],
     'implemented': ['ready'],
     'ready': ['released', 'polish'],

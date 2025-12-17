@@ -26,7 +26,7 @@ After analyzing 89 stories in the story-tree database, I found **8 conflict pair
 | Approved | 5 (6%) |
 | Planned | 4 (4%) |
 | Rejected | 4 (4%) |
-| Other (active, deferred, wishlist) | 3 (3%) |
+| Other (active, pending, wishlist) | 3 (3%) |
 
 **Hierarchy depth:** 4 levels (root → 1.x → 1.x.x → 1.x.x.x)
 **Largest sibling groups:** root (13), 1.2 (10), 1.4 (9), 1.8 (8), 1.1 (8)

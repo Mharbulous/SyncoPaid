@@ -285,7 +285,7 @@ def _handle_error(self, month_key: str, error: Exception):
     if response:  # Retry now
         self.archive_month(month_key, self.get_archivable_folders())
     else:  # Cancel - will retry on next startup
-        logging.warning(f"Archive deferred for {month_key}")
+        logging.warning(f"Archive pending for {month_key}")
 
     root.destroy()
 ```

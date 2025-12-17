@@ -105,13 +105,13 @@ CREATE TABLE IF NOT EXISTS problem_spaces (
         )),
 
     -- Resolution details (populated when status = 'resolved')
-    resolution_type TEXT          -- 'merged', 'superseded', 'split', 'deferred'
+    resolution_type TEXT          -- 'merged', 'superseded', 'split', 'pending'
         CHECK (resolution_type IN (
             'merged',             -- Stories combined into one approach
             'superseded',         -- One story chosen, others rejected
             'split',              -- Problem was actually multiple problems
             'coexist',            -- Stories can coexist (different scopes)
-            'deferred'            -- Decision postponed
+            'pending'            -- Decision postponed
         )),
     resolution_notes TEXT,        -- Why this resolution was chosen
     resolution_story_id TEXT,     -- The "winner" story if superseded

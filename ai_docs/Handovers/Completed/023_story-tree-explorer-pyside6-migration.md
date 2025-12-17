@@ -117,7 +117,7 @@ STATUS_COLORS = {
     'concept': '#CC9900',      'refine': '#CCCC00',     'approved': '#99CC00',
     'epic': '#66CC00',
     # Yellow Zone (Planning)
-    'planned': '#33CC00',      'blocked': '#00CC00',    'deferred': '#00CC33',
+    'planned': '#33CC00',      'blocked': '#00CC00',    'pending': '#00CC33',
     # Yellow-Green Zone (Ready)
     'queued': '#00CC66',       'bugged': '#00CC99',     'paused': '#00CCCC',
     # Green Zone (Development)

@@ -31,8 +31,8 @@ STATUS_COLORS = {
     'approved': '#66CC00',     # Chartreuse (was 'epic')
     'epic': '#33CC00',         # Kelly Green (was 'planned')
     'planned': '#00CC00',      # Pure Green (was 'blocked')
-    'blocked': '#00CC33',      # Spring Green (was 'deferred')
-    'deferred': '#00CC66',     # Emerald (was 'queued')
+    'blocked': '#00CC33',      # Spring Green (was 'pending')
+    'pending': '#00CC66',     # Emerald (was 'queued')
     'queued': '#00CC99',       # Teal Green (was 'bugged')
     'paused': '#00CCCC',       # Dark Cyan
     'active': '#0099CC',       # Cerulean
@@ -51,7 +51,7 @@ STATUS_COLORS = {
 ALL_STATUSES = [
     'infeasible', 'rejected', 'wishlist',
     'concept', 'broken', 'refine', 'approved', 'epic',
-    'planned', 'blocked', 'deferred',
+    'planned', 'blocked', 'pending',
     'queued', 'paused',
     'active', 'in-progress',
     'reviewing', 'implemented',

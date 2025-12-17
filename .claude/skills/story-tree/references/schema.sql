@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS story_nodes (
         CHECK (status IN (
             'infeasible', 'rejected', 'wishlist',
             'concept', 'broken', 'blocked', 'refine',
-            'deferred', 'approved', 'planned', 'queued', 'paused',
+            'pending', 'approved', 'planned', 'queued', 'paused',
             'active',
             'reviewing', 'implemented',
             'ready', 'polish', 'released',

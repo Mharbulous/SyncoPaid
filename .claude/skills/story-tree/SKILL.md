@@ -123,7 +123,7 @@ Use `--force-ascii` only if Unicode fails.
 | 5 | broken | Was working, now regressed |
 | 6 | blocked | Cannot proceed due to dependencies |
 | 7 | refine | Needs more detail |
-| 8 | deferred | Postponed |
+| 8 | pending | Postponed |
 | 9 | approved | Ready to plan |
 | 10 | planned | Implementation plan exists |
 | 11 | queued | In backlog, ready to start |

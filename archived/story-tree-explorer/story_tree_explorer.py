@@ -27,8 +27,8 @@ STATUS_COLORS = {
     'epic': '#F0E68C',         # Khaki (was 'planned')
     # Yellow Zone (Planning)
     'planned': '#B8860B',      # Dark Goldenrod (was 'blocked')
-    'blocked': '#EEE8AA',      # Light Goldenrod (was 'deferred')
-    'deferred': '#9ACD32',     # Yellow-Green (was 'queued')
+    'blocked': '#EEE8AA',      # Light Goldenrod (was 'pending')
+    'pending': '#9ACD32',     # Yellow-Green (was 'queued')
     # Yellow-Green Zone (Ready)
     'queued': '#DAA520',       # Goldenrod (was 'bugged')
     'paused': '#BDB76B',       # Dark Khaki
@@ -55,7 +55,7 @@ ALL_STATUSES = [
     # Orange-Yellow Zone (Concept)
     'concept', 'broken', 'refine', 'approved', 'epic',
     # Yellow Zone (Planning)
-    'planned', 'blocked', 'deferred',
+    'planned', 'blocked', 'pending',
     # Yellow-Green Zone (Ready)
     'queued', 'paused',
     # Green Zone (Development)

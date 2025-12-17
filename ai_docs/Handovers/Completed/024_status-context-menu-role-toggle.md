@@ -23,7 +23,7 @@ Reduced from original 23. Removed: `epic` (overlaps with `blocked`), `in-progres
 
 Canonical order:
 ```
-infeasible, rejected, wishlist, concept, refine, deferred, approved, blocked,
+infeasible, rejected, wishlist, concept, refine, pending, approved, blocked,
 planned, queued, broken, paused, active, reviewing, implemented, ready,
 polish, released, legacy, deprecated, archived
 ```
@@ -38,11 +38,11 @@ polish, released, legacy, deprecated, archived
 | wishlist | concept, rejected, archived |
 | concept | approved, rejected, wishlist, refine |
 | refine | concept, rejected, wishlist |
-| deferred | approved, wishlist, rejected |
-| approved | deferred, rejected |
-| blocked | deferred |
-| planned | deferred, approved |
-| paused | deferred |
+| pending | approved, wishlist, rejected |
+| approved | pending, rejected |
+| blocked | pending |
+| planned | pending, approved |
+| paused | pending |
 | reviewing | implemented |
 | implemented | ready |
 | ready | released, polish |

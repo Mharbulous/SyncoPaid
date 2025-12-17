@@ -23,7 +23,7 @@ OLD_STATUSES = [
 NEW_STATUSES = [
     'infeasible', 'rejected', 'wishlist',
     'concept', 'broken', 'blocked', 'refine',
-    'deferred', 'approved', 'planned', 'queued', 'paused',
+    'pending', 'approved', 'planned', 'queued', 'paused',
     'active',
     'reviewing', 'implemented',
     'ready', 'polish', 'released',
@@ -106,7 +106,7 @@ def migrate_database(db_path: Path, dry_run: bool = False) -> bool:
                     CHECK (status IN (
                         'infeasible', 'rejected', 'wishlist',
                         'concept', 'refine', 'approved', 'epic',
-                        'planned', 'blocked', 'deferred',
+                        'planned', 'blocked', 'pending',
                         'queued', 'bugged', 'paused',
                         'active', 'in-progress',
                         'reviewing', 'implemented',

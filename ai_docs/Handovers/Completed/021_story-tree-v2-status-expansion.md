@@ -26,7 +26,7 @@ Refactor story-tree skill to support expanded 23-status system with rainbow colo
 | 7 | `epic` | Light Gold | `#FFDB58` | ◆ | E | Approved but too complex; needs decomposition |
 | 8 | `planned` | Khaki | `#F0E68C` | ○ | o | Implementation plan created |
 | 9 | `blocked` | Dark Goldenrod | `#B8860B` | ⊗ | X | Planned but blocked by external dependencies ⭐ NEW |
-| 10 | `deferred` | Light Goldenrod | `#EEE8AA` | ⏸ | = | Approved but intentionally postponed ⭐ NEW |
+| 10 | `pending` | Light Goldenrod | `#EEE8AA` | ⏸ | = | Approved but intentionally postponed ⭐ NEW |
 | 11 | `queued` | Yellow-Green | `#9ACD32` | ◎ | @ | Ready, dependencies met |
 | 12 | `bugged` | Goldenrod | `#DAA520` | ⚠ | ! | Needs debugging |
 | 13 | `paused` | Dark Khaki | `#BDB76B` | ⏸ | \| | Was active but temporarily on hold ⭐ NEW |
@@ -56,7 +56,7 @@ Refactor story-tree skill to support expanded 23-status system with rainbow colo
 ```
 🔴 Red (Can't/Won't): infeasible → rejected → wishlist
 🟡 Orange-Yellow (Concept): concept → refine → approved → epic
-🟡 Yellow (Planning): planned → blocked → deferred
+🟡 Yellow (Planning): planned → blocked → pending
 🟢 Yellow-Green (Ready): queued → bugged → paused
 🟢 Green (Development): active → in-progress
 💙 Cyan-Blue (Testing): reviewing → implemented
@@ -115,7 +115,7 @@ v1 → v2 (new defaults):
   infeasible (keep)
 
 New statuses with no v1 equivalent:
-  refine, blocked, deferred, paused, reviewing, polish, released, legacy, archived
+  refine, blocked, pending, paused, reviewing, polish, released, legacy, archived
   (These won't exist in migrated data)
 ```
 
