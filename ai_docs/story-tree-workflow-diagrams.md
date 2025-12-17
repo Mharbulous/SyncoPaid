@@ -55,14 +55,16 @@ The priority algorithm determines which node should receive new children. Depth 
 
 ```mermaid
 flowchart TD
-    START([Find priority target]) --> QUERY[Query all non-deprecated nodes]
-    QUERY --> FILTER{Node status eligible?}
+    START([Find priority target]) --> QUERY[Query all nodes]
+    QUERY --> FILTER{Node eligible?}
 
-    FILTER -->|concept, rejected,<br/>deprecated, infeasible,<br/>bugged| SKIP[Skip this node]
+    FILTER -->|stage = concept| SKIP[Skip this node]
+    FILTER -->|hold_reason set| SKIP
+    FILTER -->|disposition set| SKIP
     SKIP --> NEXT_NODE[Check next node]
     NEXT_NODE --> FILTER
 
-    FILTER -->|Other statuses| CAPACITY{Under capacity?}
+    FILTER -->|stage != concept,<br/>no hold, no disposition| CAPACITY{Under capacity?}
     CAPACITY -->|No| SKIP
     CAPACITY -->|Yes| ADD[Add to candidates]
     ADD --> NEXT_NODE
@@ -169,7 +171,10 @@ erDiagram
         text title
         text description
         int capacity
-        text status
+        text stage
+        text hold_reason
+        text disposition
+        int human_review
         text project_path
         text last_implemented
         text created_at
@@ -278,45 +283,76 @@ flowchart LR
     RESULT --> E3
 ```
 
-## Status Transition Flow
+## Three-Field Workflow Transition
 
-Stories progress through defined states as work advances.
+Stories progress through stages, with holds and dispositions as orthogonal states.
+
+### Stage Transitions (Normal Workflow)
 
 ```mermaid
 stateDiagram-v2
     [*] --> concept: New idea created
 
     concept --> approved: Human approves
-    concept --> rejected: Human rejects
 
     approved --> planned: Plan created
-    approved --> rejected: Reconsidered
 
     planned --> queued: Dependencies met
-    planned --> deprecated: No longer needed
 
     queued --> active: Work begins
-    queued --> deprecated: Priorities changed
 
-    active --> in_progress: Partial completion
-    active --> bugged: Issues found
-    active --> implemented: Work complete
+    active --> reviewing: Code complete
 
-    in_progress --> active: Resume work
-    in_progress --> bugged: Issues found
-    in_progress --> implemented: Work complete
+    reviewing --> verifying: Review passed
 
-    bugged --> active: Bug fixed
-    bugged --> in_progress: Partial fix
-    bugged --> infeasible: Cannot be fixed
+    verifying --> implemented: Verification passed
 
-    implemented --> ready: Testing passed
-    implemented --> bugged: Issues discovered
-    implemented --> deprecated: Superseded
+    implemented --> ready: Fully tested
 
-    ready --> deprecated: Retired
+    ready --> polish: Minor tweaks needed
+    polish --> ready: Polish complete
+
+    ready --> released: Shipped
+
+    released --> [*]
+```
+
+### Hold States (Temporary, Preserves Stage)
+
+```mermaid
+stateDiagram-v2
+    state "Any Stage" as any
+
+    any --> pending: Needs decision
+    any --> paused: Work paused
+    any --> blocked: External dependency
+    any --> broken: Issues found
+    any --> refine: Needs rework
+
+    pending --> any: Decision made
+    paused --> any: Resume work
+    blocked --> any: Unblocked
+    broken --> any: Fixed
+    refine --> any: Rework complete
+```
+
+### Disposition States (Terminal)
+
+```mermaid
+stateDiagram-v2
+    state "Any Stage" as any
+
+    any --> rejected: Not pursuing
+    any --> infeasible: Cannot build
+    any --> wishlist: Low priority
+    any --> legacy: Superseded
+    any --> deprecated: No longer relevant
+    any --> archived: Preserved only
 
     rejected --> [*]
-    deprecated --> [*]
     infeasible --> [*]
+    wishlist --> [*]
+    legacy --> [*]
+    deprecated --> [*]
+    archived --> [*]
 ```
