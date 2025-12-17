@@ -1,0 +1,414 @@
+{
+  "version": "5.0-proposal",
+  "name": "two-field-workflow",
+  "description": "Simplified workflow using status + human_review flag",
+
+  "design_rationale": {
+    "problem_with_22_statuses": [
+      "Hard to remember which statuses mean 'needs human review'",
+      "Some statuses conflate workflow position with review state",
+      "Complex WHERE IN clauses to query items needing attention"
+    ],
+    "solution": [
+      "Reduce to ~15 core statuses representing workflow stages and dispositions",
+      "Add human_review boolean flag for items needing human attention",
+      "Store review reason in notes field (why review is needed)"
+    ],
+    "trade_offs": {
+      "pros": [
+        "Simpler queries: WHERE human_review = TRUE",
+        "Clear separation of workflow position vs attention needed",
+        "Fewer statuses to memorize",
+        "Any stage can require review (more flexible)"
+      ],
+      "cons": [
+        "Two fields to manage instead of one",
+        "Lose semantic meaning of WHY review is needed (stored in notes)",
+        "Risk of flag/status inconsistency",
+        "Migration effort required"
+      ]
+    }
+  },
+
+  "schema": {
+    "table": "story_nodes",
+    "fields": {
+      "status": {
+        "type": "TEXT NOT NULL",
+        "default": "concept",
+        "values": [
+          "concept", "approved", "planned", "queued", "active",
+          "reviewing", "verifying", "implemented", "ready", "polish", "released",
+          "rejected", "infeasible", "wishlist", "archived"
+        ],
+        "count": 15,
+        "description": "Workflow stage or terminal disposition"
+      },
+      "human_review": {
+        "type": "BOOLEAN",
+        "default": false,
+        "description": "True if story needs human attention before proceeding"
+      },
+      "notes": {
+        "type": "TEXT",
+        "description": "Stores review reason when human_review=true (e.g., 'blocking: security concern', 'refine: acceptance criteria unclear')"
+      }
+    },
+    "constraints": [
+      "CHECK (status IN ('concept', 'approved', 'planned', 'queued', 'active', 'reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released', 'rejected', 'infeasible', 'wishlist', 'archived'))",
+      "CHECK (human_review IN (0, 1))",
+      "-- Optional: prevent review flag on terminal states",
+      "CHECK (human_review = FALSE OR status NOT IN ('rejected', 'infeasible', 'archived'))"
+    ],
+    "indexes": [
+      "CREATE INDEX idx_needs_review ON story_nodes(human_review) WHERE human_review = TRUE",
+      "CREATE INDEX idx_active_pipeline ON story_nodes(status) WHERE status NOT IN ('rejected', 'infeasible', 'wishlist', 'archived')"
+    ]
+  },
+
+  "status_definitions": {
+    "workflow_stages": {
+      "concept": {
+        "description": "Initial idea, not yet approved",
+        "previous": null,
+        "next": ["approved", "rejected", "infeasible", "wishlist"],
+        "can_have_review": true,
+        "review_reasons": ["needs refinement", "unclear scope", "missing acceptance criteria"]
+      },
+      "approved": {
+        "description": "Approved for implementation, awaiting planning",
+        "previous": ["concept"],
+        "next": ["planned"],
+        "can_have_review": true,
+        "review_reasons": ["dependency question", "architectural decision needed"]
+      },
+      "planned": {
+        "description": "TDD implementation plan created",
+        "previous": ["approved"],
+        "next": ["queued", "active"],
+        "can_have_review": true,
+        "review_reasons": ["plan needs adjustment", "scope changed"]
+      },
+      "queued": {
+        "description": "In backlog, ready to start when capacity available",
+        "previous": ["planned"],
+        "next": ["active"],
+        "can_have_review": true,
+        "review_reasons": ["priority question", "blocked by external dependency"]
+      },
+      "active": {
+        "description": "Currently being implemented",
+        "previous": ["queued", "planned"],
+        "next": ["reviewing", "verifying"],
+        "can_have_review": true,
+        "review_reasons": ["blocking issue (security/architecture)", "mid-execution decision needed"]
+      },
+      "reviewing": {
+        "description": "Post-execution, human reviewing decisions made",
+        "previous": ["active"],
+        "next": ["verifying", "active"],
+        "can_have_review": true,
+        "review_reasons": ["deferrable issues found during execution", "code style decisions to review"]
+      },
+      "verifying": {
+        "description": "Acceptance criteria being validated",
+        "previous": ["reviewing", "active"],
+        "next": ["implemented", "reviewing"],
+        "can_have_review": true,
+        "review_reasons": ["untestable criteria need manual verification", "partial pass"]
+      },
+      "implemented": {
+        "description": "Code complete, verified, not yet released",
+        "previous": ["verifying"],
+        "next": ["ready"],
+        "can_have_review": false,
+        "review_reasons": []
+      },
+      "ready": {
+        "description": "Tested, ready for production release",
+        "previous": ["implemented"],
+        "next": ["polish", "released"],
+        "can_have_review": false,
+        "review_reasons": []
+      },
+      "polish": {
+        "description": "Final refinements before release",
+        "previous": ["ready"],
+        "next": ["released"],
+        "can_have_review": true,
+        "review_reasons": ["UX feedback to address"]
+      },
+      "released": {
+        "description": "Deployed to production",
+        "previous": ["ready", "polish"],
+        "next": ["archived"],
+        "can_have_review": true,
+        "review_reasons": ["hotfix needed", "rollback consideration"]
+      }
+    },
+    "terminal_dispositions": {
+      "rejected": {
+        "description": "Explicitly declined - will not implement",
+        "can_have_review": false
+      },
+      "infeasible": {
+        "description": "Cannot implement - technical or business constraints",
+        "can_have_review": false
+      },
+      "wishlist": {
+        "description": "Low priority, maybe someday",
+        "can_have_review": false
+      },
+      "archived": {
+        "description": "No longer relevant, preserved for history",
+        "can_have_review": false
+      }
+    }
+  },
+
+  "mapping_from_22_statuses": {
+    "direct_mappings": {
+      "concept": { "status": "concept", "human_review": false },
+      "approved": { "status": "approved", "human_review": false },
+      "planned": { "status": "planned", "human_review": false },
+      "queued": { "status": "queued", "human_review": false },
+      "active": { "status": "active", "human_review": false },
+      "reviewing": { "status": "reviewing", "human_review": true },
+      "verifying": { "status": "verifying", "human_review": false },
+      "implemented": { "status": "implemented", "human_review": false },
+      "ready": { "status": "ready", "human_review": false },
+      "polish": { "status": "polish", "human_review": false },
+      "released": { "status": "released", "human_review": false },
+      "rejected": { "status": "rejected", "human_review": false },
+      "infeasible": { "status": "infeasible", "human_review": false },
+      "wishlist": { "status": "wishlist", "human_review": false },
+      "archived": { "status": "archived", "human_review": false }
+    },
+    "merged_mappings": {
+      "refine": {
+        "new": { "status": "concept", "human_review": true },
+        "notes_prefix": "refine: "
+      },
+      "broken": {
+        "new": { "status": "concept", "human_review": true },
+        "notes_prefix": "broken: "
+      },
+      "pending": {
+        "new": { "status": "PRESERVE_CURRENT", "human_review": true },
+        "notes_prefix": "pending: ",
+        "migration_note": "Preserve whatever stage the story was at; if unknown, default to concept"
+      },
+      "blocked": {
+        "new": { "status": "PRESERVE_CURRENT", "human_review": true },
+        "notes_prefix": "blocked: ",
+        "migration_note": "Preserve whatever stage the story was at; if unknown, default to concept"
+      },
+      "paused": {
+        "new": { "status": "active", "human_review": true },
+        "notes_prefix": "paused: "
+      },
+      "legacy": {
+        "new": { "status": "released", "human_review": false },
+        "notes_prefix": "legacy: ",
+        "migration_note": "Consider using archived instead"
+      },
+      "deprecated": {
+        "new": { "status": "released", "human_review": true },
+        "notes_prefix": "deprecated: ",
+        "migration_note": "Flagged for review to decide archive/removal"
+      }
+    },
+    "statuses_eliminated": ["refine", "broken", "pending", "blocked", "paused", "legacy", "deprecated"],
+    "reduction": "22 statuses → 15 statuses + boolean flag"
+  },
+
+  "orchestrator_logic": {
+    "gate_job": {
+      "unchanged": true,
+      "description": "Check STORY_AUTOMATION_ENABLED"
+    },
+    "drain_pipeline": {
+      "key_change": "All queries add AND human_review = FALSE",
+      "steps": {
+        "plan_stories": {
+          "query": "SELECT * FROM story_nodes WHERE status = 'approved' AND human_review = FALSE",
+          "on_success": "UPDATE status = 'planned'",
+          "on_blocking_issue": "UPDATE human_review = TRUE, notes = 'blocking: ...'",
+          "unchanged_behavior": "Plans approved stories that don't need review"
+        },
+        "write_stories": {
+          "query": "Check capacity on nodes without human_review flag",
+          "on_success": "INSERT with status = 'concept', human_review = FALSE",
+          "unchanged_behavior": "Generates new concept stories"
+        },
+        "vet_stories": {
+          "query": "SELECT * FROM story_nodes WHERE status = 'concept' AND human_review = FALSE",
+          "on_conflict_needs_human": "UPDATE human_review = TRUE, notes = 'conflict: ...'",
+          "on_auto_resolved": "No flag change",
+          "unchanged_behavior": "Resolves concept conflicts"
+        }
+      }
+    },
+    "human_review_dashboard": {
+      "new_capability": true,
+      "query": "SELECT * FROM story_nodes WHERE human_review = TRUE ORDER BY updated_at",
+      "description": "Single view of all items needing human attention, regardless of stage"
+    }
+  },
+
+  "skill_changes": {
+    "story_planning": {
+      "current": "Sets status = 'planned'",
+      "new": "Sets status = 'planned', human_review = FALSE",
+      "on_issue": "Sets human_review = TRUE with notes"
+    },
+    "story_execution": {
+      "current": {
+        "blocking_issue": "status = 'paused'",
+        "deferrable_issue": "status = 'reviewing'",
+        "clean": "status = 'verifying'"
+      },
+      "new": {
+        "blocking_issue": "status = 'active', human_review = TRUE, notes = 'blocking: ...'",
+        "deferrable_issue": "status = 'reviewing', human_review = TRUE, notes = 'deferrable: ...'",
+        "clean": "status = 'verifying', human_review = FALSE"
+      }
+    },
+    "story_vetting": {
+      "current": "DEFER_PENDING sets status = 'pending'",
+      "new": "DEFER_PENDING sets human_review = TRUE, notes = 'conflict: ...', status unchanged"
+    },
+    "story_verification": {
+      "current": {
+        "all_pass": "status = 'implemented'",
+        "any_fail": "status stays 'verifying'",
+        "untestable": "status = 'reviewing'"
+      },
+      "new": {
+        "all_pass": "status = 'implemented', human_review = FALSE",
+        "any_fail": "status = 'verifying', human_review = TRUE, notes = 'failed: ...'",
+        "untestable": "status = 'verifying', human_review = TRUE, notes = 'untestable: ...'"
+      }
+    }
+  },
+
+  "valid_state_combinations": {
+    "description": "All status values can have human_review = TRUE or FALSE, except terminal dispositions",
+    "always_false": ["rejected", "infeasible", "archived"],
+    "typically_false": ["implemented", "ready"],
+    "typically_true_when_set": ["reviewing"],
+    "constraint_enforced": true,
+    "total_valid_combinations": "15 statuses, but ~12 can have review flag = ~24 meaningful combinations"
+  },
+
+  "migration_script_outline": {
+    "steps": [
+      "1. Add human_review column: ALTER TABLE story_nodes ADD COLUMN human_review BOOLEAN DEFAULT FALSE",
+      "2. Migrate 'refine' → status='concept', human_review=TRUE, notes='refine: ' || notes",
+      "3. Migrate 'broken' → status='concept', human_review=TRUE, notes='broken: ' || notes",
+      "4. Migrate 'paused' → status='active', human_review=TRUE, notes='paused: ' || notes",
+      "5. Migrate 'pending' → human_review=TRUE, notes='pending: ' || notes (status=concept if null)",
+      "6. Migrate 'blocked' → human_review=TRUE, notes='blocked: ' || notes (status=concept if null)",
+      "7. Migrate 'reviewing' → human_review=TRUE (already correct status)",
+      "8. Migrate 'legacy' → status='released', notes='legacy: ' || notes",
+      "9. Migrate 'deprecated' → status='released', human_review=TRUE, notes='deprecated: ' || notes",
+      "10. Update CHECK constraint to new status list",
+      "11. Add CHECK constraint for human_review on terminal states",
+      "12. Create indexes"
+    ],
+    "rollback": "DROP COLUMN human_review, restore original CHECK constraint"
+  },
+
+  "workflow_diagram": {
+    "ascii": [
+      "┌─────────────────────────────────────────────────────────────────────────┐",
+      "│                    TWO-FIELD WORKFLOW STATE DIAGRAM                     │",
+      "│                    (status + human_review flag)                         │",
+      "└─────────────────────────────────────────────────────────────────────────┘",
+      "",
+      "  LEGEND:  [status]           = workflow stage",
+      "           {human_review}     = TRUE (needs attention)",
+      "           ───────────────    = automated transition",
+      "           - - - - - - - -    = requires human_review=FALSE",
+      "",
+      "                              ┌─────────────────┐",
+      "                              │    [concept]    │",
+      "                              │ {review: varies}│",
+      "                              └────────┬────────┘",
+      "                                       │",
+      "                    ┌──────────────────┼──────────────────┐",
+      "                    │                  │                  │",
+      "                    ▼                  ▼                  ▼",
+      "            ┌──────────────┐   ┌──────────────┐   ┌──────────────┐",
+      "            │  [rejected]  │   │  [approved]  │   │  [wishlist]  │",
+      "            │ {review: F}  │   │{review: F}*  │   │ {review: F}  │",
+      "            └──────────────┘   └──────┬───────┘   └──────────────┘",
+      "                 TERMINAL             │                TERMINAL",
+      "                              - - - - ┼ - - - - (only if review=F)",
+      "                                      ▼",
+      "                              ┌──────────────┐",
+      "                              │  [planned]   │",
+      "                              │{review: F}*  │",
+      "                              └──────┬───────┘",
+      "                                     │",
+      "                              - - - -┼- - - - (only if review=F)",
+      "                                     ▼",
+      "                              ┌──────────────┐",
+      "                              │   [queued]   │",
+      "                              │{review: F}*  │",
+      "                              └──────┬───────┘",
+      "                                     │",
+      "                              - - - -┼- - - - (only if review=F)",
+      "                                     ▼",
+      "                              ┌──────────────┐",
+      "                              │   [active]   │◄─────────────────┐",
+      "                              │{review: varies}│                │",
+      "                              └──────┬───────┘                  │",
+      "                                     │                          │",
+      "                    ┌────────────────┴────────────────┐         │",
+      "                    │                                 │         │",
+      "            (deferrable issues)              (clean/blocking)   │",
+      "                    │                                 │         │",
+      "                    ▼                                 ▼         │",
+      "            ┌──────────────┐                 ┌──────────────┐   │",
+      "            │ [reviewing]  │                 │ [verifying]  │   │",
+      "            │{review: T}   │────────────────►│{review: varies}│  │",
+      "            └──────────────┘   (approved)    └──────┬───────┘   │",
+      "                    │                               │           │",
+      "                    │ (needs rework)                │ (fail)    │",
+      "                    └───────────────────────────────┴───────────┘",
+      "                                      │",
+      "                               (all pass)",
+      "                                      │",
+      "                                      ▼",
+      "                              ┌──────────────┐",
+      "                              │[implemented] │",
+      "                              │{review: F}   │",
+      "                              └──────┬───────┘",
+      "                                     │",
+      "                                     ▼",
+      "                              ┌──────────────┐",
+      "                              │   [ready]    │",
+      "                              │{review: F}   │",
+      "                              └──────┬───────┘",
+      "                                     │",
+      "                         ┌───────────┴───────────┐",
+      "                         ▼                       ▼",
+      "                  ┌──────────────┐        ┌──────────────┐",
+      "                  │  [polish]    │        │  [released]  │",
+      "                  │{review: varies}│───────►│{review: F}   │",
+      "                  └──────────────┘        └──────┬───────┘",
+      "                                                 │",
+      "                                                 ▼",
+      "                                          ┌──────────────┐",
+      "                                          │  [archived]  │",
+      "                                          │{review: F}   │",
+      "                                          └──────────────┘",
+      "                                               TERMINAL",
+      "",
+      "  * Any stage can have human_review=TRUE, blocking automated processing",
+      "  * Orchestrator skips all stories where human_review=TRUE",
+      "  * Human clears flag after addressing issue documented in notes"
+    ]
+  }
+}
