@@ -1,9 +1,9 @@
 ---
-name: conflict-detection
-description: Use when orchestrator generates new stories or user says "check conflicts", "find duplicates", "scan for overlaps" - scans story-tree database to detect duplicate, overlapping, or competing stories. Returns conflict pairs with types and confidence scores for human review.
+name: story-vetting
+description: Use when orchestrator generates new stories or user says "vet stories", "check conflicts", "find duplicates", "scan for overlaps" - scans story-tree database to detect duplicate, overlapping, or competing stories. Returns conflict pairs with types and confidence scores for human review.
 ---
 
-# Conflict Detection - Lightweight Story Conflict Scanner
+# Story Vetting - Lightweight Story Conflict Scanner
 
 Detect duplicate, overlapping, and competing stories in the story-tree database.
 
