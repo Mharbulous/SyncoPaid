@@ -113,15 +113,27 @@ def cache_decision(id_a, id_b, classification, action):
 
     conn = sqlite3.connect('.claude/data/story-tree.db')
 
-    # Get versions
-    version_a = conn.execute("SELECT version FROM story_nodes WHERE id = ?", (id_a,)).fetchone()[0]
-    version_b = conn.execute("SELECT version FROM story_nodes WHERE id = ?", (id_b,)).fetchone()[0]
+    # Get versions - check if stories exist first
+    row_a = conn.execute("SELECT version FROM story_nodes WHERE id = ?", (id_a,)).fetchone()
+    row_b = conn.execute("SELECT version FROM story_nodes WHERE id = ?", (id_b,)).fetchone()
+
+    if not row_a or not row_b:
+        conn.close()
+        # Skip caching if stories don't exist (may have been deleted)
+        return
+
+    version_a = row_a[0]
+    version_b = row_b[0]
+
+    # Get current UTC timestamp in ISO format
+    from datetime import datetime, timezone
+    decided_at = datetime.now(timezone.utc).isoformat()
 
     conn.execute("""
         INSERT OR REPLACE INTO vetting_decisions
-        (pair_key, story_a_id, story_b_id, story_a_version, story_b_version, classification, action_taken)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (pair_key, id_a, id_b, version_a, version_b, classification, action))
+        (pair_key, story_a_id, story_b_id, story_a_version, story_b_version, classification, action_taken, decided_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (pair_key, id_a, id_b, version_a, version_b, classification, action, decided_at))
 
     conn.commit()
     conn.close()
