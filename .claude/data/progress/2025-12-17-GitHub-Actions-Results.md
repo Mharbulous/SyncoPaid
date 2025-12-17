@@ -28,3 +28,18 @@
 | 4 | Write | 1.7.6 | new→concept | 2 | 39 | 1820 | $0.11900675 | 2025-12-17 10:26:32 |
 | 4 | Vet | - | conflicts resolved | 2 | 42 | 3623 | $0.2510576000000001 | 2025-12-17 10:27:59 |
 | 5 | Plan | 1.8.4 | approved→planned | 3 | 1869 | 11132 | $0.41674229999999995 | 2025-12-17 10:31:27 |
+| 5 | Write | 1.8.5 | new→concept | 2 | 66 | 1296 | $0.10621769999999998 | 2025-12-17 10:32:14 |
+| 5 | Vet | - | vetting complete | 0 | 54151 | 2940 | $0.45 | 2025-12-17 10:35:00 |
+
+## Cycle 5 Vetting Summary
+
+**Stories scanned**: 81
+**Candidates detected**: 302 (filtered to 32 after cache)
+**Cache performance**: 270 false positives skipped (~95% efficiency)
+
+**Actions taken**:
+- ✓ Merged 1 pair: 1.7.6 → 1.5.5 (now "Configurable Privacy and Application Blocking")
+- ✓ Deferred 1 story to pending: 1.3.6 (scope overlap with 1.8.5)
+- ✓ Cached 30 false positive pairs
+
+**Human review required**: Story 1.3.6 set to 'pending' due to scope overlap with 1.8.5 (both handle AI categorization via different approaches).
