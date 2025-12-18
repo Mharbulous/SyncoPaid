@@ -37,7 +37,7 @@ STATUS_SYMBOLS_UNICODE = {
     'rejected': '✗',     # Ballot X - Human reviewed and rejected
     'wishlist': '?',     # Question mark - Rejected for now, may reconsider
     'planned': '○',      # White circle - Implementation plan created
-    'queued': '◎',       # Bullseye - Plan ready, all dependencies implemented
+    'pending': '◎',       # Bullseye - Plan ready, all dependencies implemented
     'active': '◐',       # Circle left half black - Currently being worked on
     'in-progress': '◐',  # Circle left half black - Partially complete
     'bugged': '⚠',       # Warning sign - In need of debugging
@@ -54,7 +54,7 @@ STATUS_SYMBOLS_ASCII = {
     'rejected': 'x',     # Human reviewed and rejected
     'wishlist': '?',     # Rejected for now, may reconsider
     'planned': 'o',      # Implementation plan created
-    'queued': '@',       # Plan ready, all dependencies implemented
+    'pending': '@',       # Plan ready, all dependencies implemented
     'active': 'O',       # Currently being worked on (resembles â—)
     'in-progress': 'D',  # Partially complete (resembles â—)
     'bugged': '!',       # In need of debugging
@@ -71,7 +71,7 @@ ANSI_COLORS = {
     'rejected': '\033[91m',     # Red
     'wishlist': '\033[90m',     # Gray (parked for later)
     'planned': '\033[96m',      # Cyan
-    'queued': '\033[93m',       # Yellow
+    'pending': '\033[93m',       # Yellow
     'active': '\033[94m',       # Blue
     'in-progress': '\033[93m',  # Yellow
     'bugged': '\033[91m',       # Red

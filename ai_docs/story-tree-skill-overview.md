@@ -55,7 +55,7 @@ Stories are tracked using three orthogonal fields rather than a single status:
 | concept | Initial idea awaiting human review |
 | approved | Human has validated the idea |
 | planned | Implementation plan exists |
-| queued | Ready to work on, dependencies satisfied |
+| pending | Ready to work on, dependencies satisfied |
 | active | Currently being developed |
 | reviewing | Code complete, awaiting review |
 | verifying | Under verification testing |

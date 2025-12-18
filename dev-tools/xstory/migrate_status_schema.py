@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS story_nodes (
         CHECK (status IN (
             'infeasible', 'rejected', 'wishlist',
             'concept', 'broken', 'blocked', 'refine',
-            'pending', 'approved', 'planned', 'queued', 'paused',
+            'pending', 'approved', 'planned', 'pending', 'paused',
             'active',
             'reviewing', 'implemented',
             'ready', 'polish', 'released',
@@ -237,7 +237,7 @@ def verify():
         WHERE status NOT IN (
             'infeasible', 'rejected', 'wishlist',
             'concept', 'broken', 'blocked', 'refine',
-            'pending', 'approved', 'planned', 'queued', 'paused',
+            'pending', 'approved', 'planned', 'pending', 'paused',
             'active',
             'reviewing', 'implemented',
             'ready', 'polish', 'released',

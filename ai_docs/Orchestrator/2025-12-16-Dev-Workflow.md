@@ -134,7 +134,7 @@ Stories progress through defined states:
 | `approved` | Human has validated the idea |
 | `rejected` | Human decided against pursuing it |
 | `planned` | Implementation plan exists |
-| `queued` | Ready to work on, dependencies satisfied |
+| `pending` | Ready to work on, dependencies satisfied |
 | `active` | Currently being developed |
 | `in-progress` | Partially complete |
 | `bugged` | Encountering issues requiring fixes |

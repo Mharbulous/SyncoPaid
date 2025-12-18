@@ -28,9 +28,9 @@ STATUS_COLORS = {
     # Yellow Zone (Planning)
     'planned': '#B8860B',      # Dark Goldenrod (was 'blocked')
     'blocked': '#EEE8AA',      # Light Goldenrod (was 'pending')
-    'pending': '#9ACD32',     # Yellow-Green (was 'queued')
+    'pending': '#9ACD32',     # Yellow-Green (was 'pending')
     # Yellow-Green Zone (Ready)
-    'queued': '#DAA520',       # Goldenrod (was 'bugged')
+    'pending': '#DAA520',       # Goldenrod (was 'bugged')
     'paused': '#BDB76B',       # Dark Khaki
     # Green Zone (Development)
     'active': '#32CD32',       # Lime Green
@@ -57,7 +57,7 @@ ALL_STATUSES = [
     # Yellow Zone (Planning)
     'planned', 'blocked', 'pending',
     # Yellow-Green Zone (Ready)
-    'queued', 'paused',
+    'pending', 'paused',
     # Green Zone (Development)
     'active', 'in-progress',
     # Cyan-Blue Zone (Testing)

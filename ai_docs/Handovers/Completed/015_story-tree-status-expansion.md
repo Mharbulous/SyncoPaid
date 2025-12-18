@@ -13,7 +13,7 @@ Delete `.claude/data/story-tree.db` and test database initialization with the up
 ### 2. Expanded status types (6 → 12)
 
 ```
-concept → approved → planned → queued → active → in-progress → implemented → ready
+concept → approved → planned → pending → active → in-progress → implemented → ready
               ↓                                        ↓              ↓
           rejected                                  bugged      deprecated
                                                       ↓
@@ -26,7 +26,7 @@ concept → approved → planned → queued → active → in-progress → imple
 | approved | ✓ | v | Human approved, not planned |
 | rejected | ✗ | x | Human rejected |
 | planned | ○ | o | Implementation plan created |
-| queued | ◎ | @ | Plan ready, dependencies met |
+| pending | ◎ | @ | Plan ready, dependencies met |
 | active | ● | O | Currently being worked on |
 | in-progress | ◐ | D | Partially complete |
 | bugged | ⚠ | ! | Needs debugging |

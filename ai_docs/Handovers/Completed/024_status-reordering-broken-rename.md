@@ -50,7 +50,7 @@ Reorder these statuses while **keeping colors at their current positions**:
 8. approved      (currently at 7)
 9. epic          (currently at 8)
 10. blocked      (currently at 10)
-11. queued       (currently at 12)
+11. pending       (currently at 12)
 12. paused       (currently at 13)
 13. active       (currently at 14)
 14. reviewing    (currently at 16)
@@ -74,7 +74,7 @@ User suggested creating a mapping that keeps colors in the same order but swaps 
 9:  planned    → #00CC00
 10: blocked    → #00CC33
 11: pending   → #00CC66
-12: queued     → #00CC99
+12: pending     → #00CC99
 13: paused     → #00CCCC
 14: active     → #0099CC
 15: in-progress→ #0066CC
@@ -90,8 +90,8 @@ Position 7 color → refine (was approved)
 Position 8 color → approved (was epic)
 Position 9 color → epic (was planned)
 Position 10 color → blocked (no change)
-Position 11 color → queued (was pending)
-Position 12 color → paused (was queued)
+Position 11 color → pending (was pending)
+Position 12 color → paused (was pending)
 Position 13 color → active (was paused)
 Position 14 color → reviewing (was active)
 Position 15 color → in-progress (no change)

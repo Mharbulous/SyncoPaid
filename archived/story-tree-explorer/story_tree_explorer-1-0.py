@@ -19,7 +19,7 @@ STATUS_COLORS = {
     'ready': '#2E8B57',        # Sea green
     'active': '#4169E1',       # Royal blue
     'in-progress': '#6495ED',  # Cornflower blue
-    'queued': '#9370DB',       # Medium purple
+    'pending': '#9370DB',       # Medium purple
     'planned': '#708090',      # Slate gray
     'approved': '#32CD32',     # Lime green
     'concept': '#808080',      # Gray
@@ -34,7 +34,7 @@ STATUS_COLORS = {
 
 # All possible statuses
 ALL_STATUSES = [
-    'active', 'in-progress', 'queued', 'planned', 'approved', 'concept',
+    'active', 'in-progress', 'pending', 'planned', 'approved', 'concept',
     'epic', 'wishlist', 'implemented', 'ready', 'rejected', 'broken',
     'deprecated', 'infeasible', 'revising'
 ]

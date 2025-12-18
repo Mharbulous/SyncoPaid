@@ -649,7 +649,7 @@ def migrate():
     conn.commit()
     conn.close()
 
-    print(f"Migration complete. {len(stories)} stories queued for component extraction.")
+    print(f"Migration complete. {len(stories)} stories pending for component extraction.")
 
 if __name__ == '__main__':
     migrate()

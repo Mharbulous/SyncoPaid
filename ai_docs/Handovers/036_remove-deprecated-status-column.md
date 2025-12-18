@@ -88,7 +88,7 @@ echo "Backup created: $(ls -lh .claude/data/story-tree.db.backup-pre-status-drop
 -        CHECK (status IN (
 -            'infeasible', 'rejected', 'wishlist',
 -            'concept', 'broken', 'blocked', 'refine',
--            'pending', 'approved', 'planned', 'queued', 'paused',
+-            'pending', 'approved', 'planned', 'pending', 'paused',
 -            'active',
 -            'reviewing', 'verifying', 'implemented',
 -            'ready', 'polish', 'released',
@@ -142,7 +142,7 @@ conn.execute('''
         capacity INTEGER,
         stage TEXT NOT NULL DEFAULT 'concept'
             CHECK (stage IN (
-                'concept', 'approved', 'planned', 'queued', 'active',
+                'concept', 'approved', 'planned', 'pending', 'active',
                 'reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released'
             )),
         hold_reason TEXT DEFAULT NULL

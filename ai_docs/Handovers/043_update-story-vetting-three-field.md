@@ -26,7 +26,7 @@ Current text lists status values without explaining which column they come from:
 
 - **Auto-delete/reject against:** `approved`, `planned`, `implemented`, ...
 + **Auto-delete/reject against:**
-+ - `stage IN ('approved', 'planned', 'queued', 'active', 'reviewing', 'implemented', ...)`
++ - `stage IN ('approved', 'planned', 'pending', 'active', 'reviewing', 'implemented', ...)`
 + - `disposition IN ('legacy', 'deprecated', 'archived')`
 ```
 

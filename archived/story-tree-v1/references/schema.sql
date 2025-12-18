@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS story_nodes (
             'rejected',     -- Human rejected
             'wishlist',     -- Rejected for now, may reconsider later
             'planned',      -- Implementation plan created
-            'queued',       -- Ready, dependencies met
+            'pending',       -- Ready, dependencies met
             'active',       -- Currently being worked on
             'in-progress',  -- Partially complete
             'bugged',       -- Needs debugging

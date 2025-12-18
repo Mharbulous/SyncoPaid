@@ -24,7 +24,7 @@ Reduced from original 23. Removed: `epic` (overlaps with `blocked`), `in-progres
 Canonical order:
 ```
 infeasible, rejected, wishlist, concept, refine, pending, approved, blocked,
-planned, queued, broken, paused, active, reviewing, implemented, ready,
+planned, pending, broken, paused, active, reviewing, implemented, ready,
 polish, released, legacy, deprecated, archived
 ```
 
@@ -56,11 +56,11 @@ polish, released, legacy, deprecated, archived
 | Status | Options |
 |--------|---------|
 | approved | planned |
-| blocked | planned, queued |
-| planned | queued, blocked |
-| queued | active, blocked, paused, planned |
-| broken | active, paused, blocked, queued |
-| paused | active, queued, blocked |
+| blocked | planned, pending |
+| planned | pending, blocked |
+| pending | active, blocked, paused, planned |
+| broken | active, paused, blocked, pending |
+| paused | active, pending, blocked |
 | active | reviewing, paused, broken, blocked |
 | reviewing | active, broken |
 | implemented | reviewing, broken |
@@ -71,7 +71,7 @@ polish, released, legacy, deprecated, archived
 ## Implementation Requirements
 1. Add toggle switch to UI (Designer/Engineer mode)
 2. Context menu options vary based on current mode
-3. Some statuses have no options in certain modes (e.g., `queued` has no Designer options)
+3. Some statuses have no options in certain modes (e.g., `pending` has no Designer options)
 4. Existing note-taking dialog should remain (mandatory for `refine`, optional for others)
 
 ## Current Context Menu Behavior

@@ -58,7 +58,7 @@ STATUS_COLORS = {
     'planned': '#33CC00',      # Kelly Green
     'blocked': '#00CC00',      # Pure Green
     'pending': '#00CC33',     # Spring Green
-    'queued': '#00CC66',       # Emerald
+    'pending': '#00CC66',       # Emerald
     'bugged': '#00CC99',       # Teal Green
     'paused': '#00CCCC',       # Dark Cyan
     'active': '#0099CC',       # Cerulean
