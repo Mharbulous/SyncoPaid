@@ -99,25 +99,28 @@ Each stage represents multiple facets that apply simultaneously. A node can have
 ```mermaid
 mindmap
   root((Any Stage))
-    queued
+    ⏳ queued
       Awaiting automated processing
       Clear: Algorithm runs
-    pending
+    ❓ pending
       Awaiting human decision
       Clear: Human decides
-    paused
+    ⏸ paused
       Work paused
       Clear: Resume work
-    blocked
+    ⊗ blocked
       Missing dependency
       Clear: Unblocked
-    broken
+    ⚠ broken
       Issues found
       Clear: Fixed
-    polish
+    ◇ polish
       Needs refinement
       Clear: Refinement complete
-    wishlist
+    ⚡ conflict
+      Inconsistent with another story
+      Clear: Human resolves conflict
+    ? wishlist
       Indefinite hold, maybe someday
       Clear: Priority increases
 ```

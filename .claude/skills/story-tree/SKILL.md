@@ -140,14 +140,14 @@ Stories use three orthogonal dimensions instead of a single status:
 | Hold | Description |
 |------|-------------|
 | NULL | Not held, work can proceed |
-| queued | Waiting for automated processing (algorithm hasn't run yet) |
-| pending | Awaiting human decision (algorithm ran but can't decide) |
-| blocked | External dependency |
-| paused | Execution blocked by critical issue |
-| broken | Something wrong with story definition |
-| polish | Needs refinement before proceeding |
-| conflict | Inconsistent with another story, needs human resolution |
-| wishlist | Indefinite hold, maybe someday (can be revived when priorities change) |
+| ⏳ queued | Waiting for automated processing (algorithm hasn't run yet) |
+| ❓ pending | Awaiting human decision (algorithm ran but can't decide) |
+| ⊗ blocked | External dependency |
+| ⏸ paused | Execution blocked by critical issue |
+| ⚠ broken | Something wrong with story definition |
+| ◇ polish | Needs refinement before proceeding |
+| ⚡ conflict | Inconsistent with another story, needs human resolution |
+| ? wishlist | Indefinite hold, maybe someday (can be revived when priorities change) |
 
 ### Disposition (6 values + NULL) - Terminal state
 | Disposition | Description | Stage Required |
