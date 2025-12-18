@@ -140,19 +140,20 @@ Stories use three orthogonal dimensions instead of a single status:
 | Hold | Description |
 |------|-------------|
 | NULL | Not held, work can proceed |
-| queued | Waiting to be processed |
-| pending | Awaiting human decision to clear this status |
+| queued | Waiting for automated processing (algorithm hasn't run yet) |
+| pending | Awaiting human decision (algorithm ran but can't decide) |
 | blocked | External dependency |
 | paused | Execution blocked by critical issue |
 | broken | Something wrong with story definition |
 | polish | Needs refinement before proceeding |
 
-### Disposition (6 values + NULL) - Terminal state
+### Disposition (7 values + NULL) - Terminal state
 | Disposition | Description | Stage Required |
 |-------------|-------------|----------------|
 | NULL | Active in pipeline | Any |
-| rejected | Will not implement | Any (preserved) |
+| rejected | Human decided not to implement (indicates non-goal) | Any (preserved) |
 | infeasible | Cannot implement | Any (preserved) |
+| conflict | Algorithm detected overlap with existing (not a goal signal) | Any (preserved) |
 | wishlist | Maybe someday | Any (preserved) |
 | legacy | Old but functional | released |
 | deprecated | Being phased out | released |
@@ -177,13 +178,14 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'story-tree', '
 from story_db_common import (
     DB_PATH,                    # '.claude/data/story-tree.db'
     MERGEABLE_STATUSES,         # {'concept', 'wishlist', 'polish'}
-    BLOCK_STATUSES,             # {'rejected', 'infeasible', 'broken', 'queued', 'pending', 'blocked'}
+    BLOCK_STATUSES,             # {'rejected', 'infeasible', 'conflict', 'broken', ...}
     get_connection,             # Get SQLite connection
     make_pair_key,              # Canonical pair key for caching
     get_story_version,          # Get story version number
     compute_effective_status,   # COALESCE(disposition, hold_reason, stage)
     delete_story,               # Cascade delete from story_nodes + story_paths
-    reject_concept,             # Set disposition='rejected' with note
+    reject_concept,             # Human rejection (disposition='rejected', goal signal)
+    conflict_concept,           # Algorithm conflict (disposition='conflict', no signal)
     block_concept,              # Set hold_reason='blocked' with note
     defer_concept,              # Set hold_reason='pending' with note
     merge_concepts,             # Merge two stories into one

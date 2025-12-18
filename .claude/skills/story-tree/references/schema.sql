@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS story_nodes (
         )),
     disposition TEXT DEFAULT NULL
         CHECK (disposition IS NULL OR disposition IN (
-            'rejected', 'infeasible', 'wishlist', 'legacy', 'deprecated', 'archived'
+            'rejected', 'infeasible', 'conflict', 'wishlist', 'legacy', 'deprecated', 'archived'
         )),
     human_review INTEGER DEFAULT 0
         CHECK (human_review IN (0, 1)),
@@ -73,8 +73,8 @@ CREATE TABLE IF NOT EXISTS vetting_decisions (
         'incompatible', 'false_positive'
     )),
     action_taken TEXT CHECK (action_taken IN (
-        'SKIP', 'DELETE_CONCEPT', 'REJECT_CONCEPT', 'BLOCK_CONCEPT',
-        'TRUE_MERGE', 'PICK_BETTER', 'HUMAN_REVIEW', 'DEFER_PENDING'
+        'SKIP', 'DELETE_CONCEPT', 'REJECT_CONCEPT', 'CONFLICT_CONCEPT',
+        'BLOCK_CONCEPT', 'TRUE_MERGE', 'PICK_BETTER', 'HUMAN_REVIEW', 'DEFER_PENDING'
     )),
     decided_at TEXT NOT NULL,
     FOREIGN KEY (story_a_id) REFERENCES story_nodes(id) ON DELETE CASCADE,
@@ -116,17 +116,18 @@ END;
 --
 -- HOLD_REASON (6 values + NULL): Why work is stopped (orthogonal to stage)
 --   NULL    = Not held, work can proceed
---   queued  = Waiting to be processed
---   pending = Awaiting human decision to clear this status
+--   queued  = Waiting for automated processing (algorithm hasn't run yet)
+--   pending = Awaiting human decision (algorithm ran but can't decide)
 --   paused  = Execution blocked by critical issue
 --   blocked = External dependency
 --   broken  = Something wrong with story definition
 --   polish  = Needs refinement before proceeding
 --
--- DISPOSITION (6 values + NULL): Terminal state (exits pipeline)
+-- DISPOSITION (7 values + NULL): Terminal state (exits pipeline)
 --   NULL       = Active in pipeline
---   rejected   = Will not implement
+--   rejected   = Human decided not to implement (indicates non-goal)
 --   infeasible = Cannot implement
+--   conflict   = Algorithm detected overlap with existing story (not a goal signal)
 --   wishlist   = Maybe someday
 --   legacy     = Old but functional (released only)
 --   deprecated = Being phased out (released only)
