@@ -29,13 +29,15 @@ except ImportError:
     print("Error: PySide6 is required. Install with: pip install PySide6")
     sys.exit(1)
 
-# Status colors (20-status rainbow system - optimized for visibility)
+# Status colors (22-status rainbow system - optimized for visibility)
 STATUS_COLORS = {
     'infeasible': '#CC0000',   # Deep Red
     'rejected': '#CC3300',     # Red-Orange
+    'duplicative': '#CC4400',  # Dark Orange (algorithm-detected duplicate)
     'wishlist': '#CC6600',     # Pumpkin Orange
     'concept': '#CC9900',      # Goldenrod
     'broken': '#CCCC00',       # Dark Gold / Olive
+    'conflict': '#AACC00',     # Yellow-Green (inconsistent, needs resolution)
     'blocked': '#99CC00',      # Lime Green
     'polish': '#66CC00',       # Chartreuse (hold state: needs refinement)
     'pending': '#00CC00',      # Pure Green
@@ -52,10 +54,10 @@ STATUS_COLORS = {
     'archived': '#CC0066',     # Deep Pink
 }
 
-# All possible statuses (20-status rainbow system - canonical order)
+# All possible statuses (22-status rainbow system - canonical order)
 ALL_STATUSES = [
-    'infeasible', 'rejected', 'wishlist',
-    'concept', 'broken', 'blocked', 'polish',
+    'infeasible', 'rejected', 'duplicative', 'wishlist',
+    'concept', 'broken', 'conflict', 'blocked', 'polish',
     'pending', 'approved', 'planned', 'paused',
     'active', 'reviewing',
     'implemented',
@@ -66,8 +68,8 @@ ALL_STATUSES = [
 # Three-field system: classify each status into its field type
 STAGE_VALUES = {'concept', 'approved', 'planned', 'active',
                 'reviewing', 'verifying', 'implemented', 'ready', 'released'}
-HOLD_REASON_VALUES = {'pending', 'paused', 'blocked', 'broken', 'polish'}
-DISPOSITION_VALUES = {'rejected', 'infeasible', 'wishlist', 'legacy', 'deprecated', 'archived'}
+HOLD_REASON_VALUES = {'pending', 'paused', 'blocked', 'broken', 'polish', 'conflict'}
+DISPOSITION_VALUES = {'rejected', 'infeasible', 'duplicative', 'wishlist', 'legacy', 'deprecated', 'archived'}
 
 # Hold reason icons for visual indication in tree view
 HOLD_ICONS = {
@@ -76,6 +78,7 @@ HOLD_ICONS = {
     'blocked': '🚧',     # Blocked - missing dependency
     'broken': '🔥',      # Broken - needs fix
     'polish': '💎',      # Polish - needs refinement
+    'conflict': '⚔',     # Conflict - inconsistent with another story
 }
 
 # Designer mode transitions (approval, quality, priority, end-of-life decisions)

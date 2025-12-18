@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'story-tree', '
 from story_db_common import (
     DB_PATH,
     delete_story,
-    conflict_concept,
+    duplicative_concept,
     block_concept,
     merge_concepts,
 )
@@ -33,7 +33,7 @@ def apply_decisions(decisions):
     """
     stats = {
         "deleted": 0,
-        "conflicted": 0,
+        "duplicative": 0,
         "blocked": 0,
         "merged": 0,
         "skipped": 0,
@@ -66,13 +66,13 @@ def apply_decisions(decisions):
                 stats['deleted'] += 1
                 print(f"  Deleted {concept_id}")
 
-            elif action == 'CONFLICT_CONCEPT':
+            elif action == 'DUPLICATIVE_CONCEPT':
                 concept_id = decision['concept_id']
-                conflicting_id = decision['conflicting_id']
-                conflict_concept(conn, concept_id, conflicting_id)
+                duplicate_of_id = decision['conflicting_id']
+                duplicative_concept(conn, concept_id, duplicate_of_id)
                 conn.commit()
-                stats['conflicted'] += 1
-                print(f"  Marked {concept_id} as conflict")
+                stats['duplicative'] += 1
+                print(f"  Marked {concept_id} as duplicative")
 
             elif action == 'BLOCK_CONCEPT':
                 concept_id = decision['concept_id']
@@ -108,7 +108,7 @@ if __name__ == '__main__':
 
     print("\nVetting Summary:")
     print(f"  Deleted: {stats['deleted']}")
-    print(f"  Rejected: {stats['rejected']}")
+    print(f"  Duplicative: {stats['duplicative']}")
     print(f"  Blocked: {stats['blocked']}")
     print(f"  Merged: {stats['merged']}")
     print(f"  Skipped: {stats['skipped']}")

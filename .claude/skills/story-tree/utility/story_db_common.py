@@ -32,7 +32,7 @@ DB_PATH = '.claude/data/story-tree.db'
 MERGEABLE_STATUSES = {'concept', 'wishlist', 'polish'}
 
 # Statuses that indicate blocking conditions (story not actively progressing)
-BLOCK_STATUSES = {'rejected', 'infeasible', 'conflict', 'broken', 'queued', 'pending', 'blocked'}
+BLOCK_STATUSES = {'rejected', 'infeasible', 'duplicative', 'broken', 'queued', 'pending', 'blocked', 'conflict'}
 
 # Valid vetting classification types
 CLASSIFICATIONS = {
@@ -47,8 +47,8 @@ CLASSIFICATIONS = {
 ACTIONS = {
     'SKIP',
     'DELETE_CONCEPT',
-    'REJECT_CONCEPT',    # Human rejection (indicates non-goal)
-    'CONFLICT_CONCEPT',  # Algorithm detected overlap (not a goal signal)
+    'REJECT_CONCEPT',      # Human rejection (indicates non-goal)
+    'DUPLICATIVE_CONCEPT', # Algorithm detected duplicate/overlap (not a goal signal)
     'BLOCK_CONCEPT',
     'TRUE_MERGE',
     'PICK_BETTER',
@@ -186,7 +186,7 @@ def reject_concept(
     Use this when a HUMAN decides not to implement a concept.
     The rejection is a meaningful signal about user goals/non-goals.
 
-    For algorithm-detected conflicts, use conflict_concept() instead.
+    For algorithm-detected duplicates, use duplicative_concept() instead.
 
     Args:
         conn: SQLite connection
@@ -204,49 +204,49 @@ def reject_concept(
     ''', (reason, concept_id))
 
 
-def conflict_concept(
+def duplicative_concept(
     conn: sqlite3.Connection,
     concept_id: str,
-    conflicting_id: str
+    duplicate_of_id: str
 ) -> None:
-    """Set concept disposition to conflict (algorithm detected overlap).
+    """Set concept disposition to duplicative (algorithm detected duplicate/overlap).
 
-    Use this when the ALGORITHM detects overlap with existing story.
+    Use this when the ALGORITHM detects duplicate or overlap with existing story.
     This is NOT a signal about user goals - just prevents duplicate work.
 
     For human rejections (non-goals), use reject_concept() instead.
 
     Args:
         conn: SQLite connection
-        concept_id: ID of concept to mark as conflict
-        conflicting_id: ID of conflicting story (for note)
+        concept_id: ID of concept to mark as duplicative
+        duplicate_of_id: ID of the existing story this duplicates (for note)
 
     Note:
         Does NOT commit - caller should commit after all operations complete
     """
     conn.execute('''
         UPDATE story_nodes
-        SET disposition = 'conflict',
-            notes = COALESCE(notes || char(10), '') || 'Conflicts with story node ' || ?
+        SET disposition = 'duplicative',
+            notes = COALESCE(notes || char(10), '') || 'Duplicates story node ' || ?
         WHERE id = ?
-    ''', (conflicting_id, concept_id))
+    ''', (duplicate_of_id, concept_id))
 
 
 def block_concept(
     conn: sqlite3.Connection,
     concept_id: str,
-    conflicting_id: str
+    blocking_id: str
 ) -> None:
-    """Set concept hold_reason to blocked with conflict note.
+    """Set concept hold_reason to blocked due to dependency on another story.
 
-    This blocks a concept due to conflict with another story.
+    This blocks a concept because it depends on another story being completed.
     The stage is preserved and hold_reason provides the effective status.
     Sets human_review flag for later attention.
 
     Args:
         conn: SQLite connection
         concept_id: ID of concept to block
-        conflicting_id: ID of conflicting story (for note)
+        blocking_id: ID of blocking story (for note)
 
     Note:
         Does NOT commit - caller should commit after all operations complete
@@ -254,9 +254,9 @@ def block_concept(
     conn.execute('''
         UPDATE story_nodes
         SET hold_reason = 'blocked', human_review = 1,
-            notes = COALESCE(notes || char(10), '') || 'Blocked due to conflict with story node ' || ?
+            notes = COALESCE(notes || char(10), '') || 'Blocked by dependency on story node ' || ?
         WHERE id = ?
-    ''', (conflicting_id, concept_id))
+    ''', (blocking_id, concept_id))
 
 
 def defer_concept(
@@ -282,6 +282,35 @@ def defer_concept(
         UPDATE story_nodes
         SET hold_reason = 'pending', human_review = 1,
             notes = COALESCE(notes || char(10), '') || 'Scope overlap with ' || ? || ' - needs human review'
+        WHERE id = ?
+    ''', (conflicting_id, concept_id))
+
+
+def conflict_concept(
+    conn: sqlite3.Connection,
+    concept_id: str,
+    conflicting_id: str
+) -> None:
+    """Set concept hold_reason to conflict (inconsistent with another story, needs resolution).
+
+    Use this when two stories are INCONSISTENT (mutually exclusive approaches)
+    and a human has NOT yet decided which one to pursue.
+
+    For algorithm-detected duplicates, use duplicative_concept() instead.
+    For external dependencies, use block_concept() instead.
+
+    Args:
+        conn: SQLite connection
+        concept_id: ID of concept to mark as conflicting
+        conflicting_id: ID of the conflicting story (for note)
+
+    Note:
+        Does NOT commit - caller should commit after all operations complete
+    """
+    conn.execute('''
+        UPDATE story_nodes
+        SET hold_reason = 'conflict', human_review = 1,
+            notes = COALESCE(notes || char(10), '') || 'Inconsistent with story node ' || ? || ' - needs resolution'
         WHERE id = ?
     ''', (conflicting_id, concept_id))
 
