@@ -80,13 +80,13 @@ ALL_STATUSES = [
 # Three-field system: classify each status into its field type
 STAGE_VALUES = {'concept', 'approved', 'planned', 'active',
                 'reviewing', 'verifying', 'implemented', 'ready', 'released'}
-HOLD_REASON_VALUES = {'pending', 'paused', 'blocked', 'broken', 'polish', 'conflict'}
+HOLD_REASON_VALUES = {'queued', 'pending', 'paused', 'blocked', 'broken', 'polish', 'conflict'}
 DISPOSITION_VALUES = {'rejected', 'infeasible', 'duplicative', 'wishlist', 'legacy', 'deprecated', 'archived'}
 
 # Ordered lists for UI display (workflow progression order)
 STAGE_ORDER = ['concept', 'approved', 'planned', 'active',
                'reviewing', 'verifying', 'implemented', 'ready', 'released']
-HOLD_REASON_ORDER = ['pending', 'paused', 'blocked', 'broken', 'polish', 'conflict']
+HOLD_REASON_ORDER = ['queued', 'pending', 'paused', 'blocked', 'broken', 'polish', 'conflict']
 DISPOSITION_ORDER = ['rejected', 'infeasible', 'duplicative', 'wishlist', 'legacy', 'deprecated', 'archived']
 
 # Hold reason icons for visual indication in tree view
