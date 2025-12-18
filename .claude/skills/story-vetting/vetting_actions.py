@@ -17,7 +17,7 @@ from story_db_common import (
     make_pair_key,
     get_story_version,
     delete_story as _delete_story,
-    conflict_concept as _conflict_concept,
+    duplicative_concept as _duplicative_concept,
     block_concept as _block_concept,
     defer_concept as _defer_concept,
     merge_concepts as _merge_concepts,
@@ -41,13 +41,13 @@ def delete_concept(concept_id, conflicting_id=None, cache=True):
     return f"Deleted concept {concept_id}"
 
 
-def conflict_concept(concept_id, conflicting_id):
-    """Set a concept to conflict disposition (algorithm detected overlap)."""
+def duplicative_concept(concept_id, duplicate_of_id):
+    """Set a concept to duplicative disposition (algorithm detected duplicate/overlap)."""
     conn = sqlite3.connect(DB_PATH)
-    _conflict_concept(conn, concept_id, conflicting_id)
+    _duplicative_concept(conn, concept_id, duplicate_of_id)
     conn.commit()
     conn.close()
-    return f"Marked concept {concept_id} as conflict (overlaps with {conflicting_id})"
+    return f"Marked concept {concept_id} as duplicative (duplicates {duplicate_of_id})"
 
 
 def block_concept(concept_id, conflicting_id):
@@ -101,10 +101,10 @@ if __name__ == '__main__':
         concept_id = sys.argv[2]
         print(delete_concept(concept_id))
 
-    elif action == 'conflict':
+    elif action == 'duplicative':
         concept_id = sys.argv[2]
-        conflicting_id = sys.argv[3]
-        print(conflict_concept(concept_id, conflicting_id))
+        duplicate_of_id = sys.argv[3]
+        print(duplicative_concept(concept_id, duplicate_of_id))
 
     elif action == 'block':
         concept_id = sys.argv[2]

@@ -20,7 +20,7 @@ Vetting filters OUT conflicting concepts automatically:
 2. **LLM analysis** - Removes semantic conflicts
 3. **Human review** - Approves only clean, non-conflicting concepts
 
-Conflicting concepts are auto-disposed (`disposition='conflict'`), NOT held for human review. The human's job is to evaluate good ideas, not arbitrate conflicts. Using `conflict` instead of `rejected` preserves goal/non-goal signal clarity.
+Duplicate/overlapping concepts are auto-disposed (`disposition='duplicative'`), NOT held for human review. The human's job is to evaluate good ideas, not arbitrate duplicates. Using `duplicative` instead of `rejected` preserves goal/non-goal signal clarity.
 
 ---
 
@@ -44,12 +44,12 @@ stateDiagram-v2
     state "✔️ implemented (no hold)" as IMPLEMENTED
     state "🏁 ready (no hold)" as READY
     state "🚀 released" as RELEASED
-    state "❌ disposed (conflict)" as DISPOSED
+    state "❌ disposed (duplicative)" as DISPOSED
 
     concept --> CONCEPT_QUEUED: write-stories<br/>new story created
 
-    CONCEPT_QUEUED --> CONCEPT: vet-stories<br/>no conflicts
-    CONCEPT_QUEUED --> DISPOSED: vet-stories<br/>disposition='conflict'
+    CONCEPT_QUEUED --> CONCEPT: vet-stories<br/>no duplicates
+    CONCEPT_QUEUED --> DISPOSED: vet-stories<br/>disposition='duplicative'
 
     CONCEPT --> APPROVED: approve-stories
 
@@ -202,7 +202,7 @@ flowchart TD
             subgraph F2["Step 7: vet-stories"]
                 F2_CHECK{Queued concepts<br/>to vet?}
                 F2_RUN["story-vetting skill"]
-                F2_CONFLICT["disposition='conflict'"]
+                F2_DUPLICATIVE["disposition='duplicative'"]
                 F2_CLEAN["clear queued hold"]
             end
 
@@ -218,10 +218,10 @@ flowchart TD
             F1_DONE --> F2_CHECK
 
             F2_CHECK -->|Yes| F2_RUN
-            F2_RUN -->|conflict| F2_CONFLICT
+            F2_RUN -->|duplicate| F2_DUPLICATIVE
             F2_RUN -->|clean| F2_CLEAN
             F2_CHECK -->|No| F3_CHECK
-            F2_CONFLICT --> F3_CHECK
+            F2_DUPLICATIVE --> F3_CHECK
             F2_CLEAN --> F3_CHECK
 
             F3_CHECK -->|Yes| F3_RUN
@@ -264,7 +264,7 @@ flowchart TD
     class D1_CHECK,D2_CHECK,D3_CHECK,D4_CHECK,D5_CHECK,F1_CHECK,F2_CHECK,F3_CHECK checkNode
     class D1_RUN,D3_RUN,D5_RUN,F1_RUN,F2_RUN,F3_RUN runNode
     class D1_PASS,D2_PASS,D3_CLEAN,D3_DEFER,D4_PASS,D5_DONE,F1_DONE,F2_CLEAN,F3_DONE passNode
-    class D1_FAIL,D2_FAIL,D3_BLOCK,D4_FAIL,F2_CONFLICT failNode
+    class D1_FAIL,D2_FAIL,D3_BLOCK,D4_FAIL,F2_DUPLICATIVE failNode
     class DRAIN_DONE,FILL_DONE phaseNode
     class DISABLED,IDLE,MAX,SUMMARY exitNode
     class D2_CHECK,D2_RUN,D2_PASS,D2_FAIL humanRequired
@@ -286,7 +286,7 @@ flowchart TD
 | 4b | `activate-stories` | planned (no hold) | active (no hold) | → (blocked:IDs) if deps unmet | 🤖 CI |
 | 5 | `plan-stories` | approved (no hold) | planned (no hold) | - | 🤖 CI |
 | 6 | `write-stories` | NEW | concept (queued) | - | 🤖 CI |
-| 7 | `vet-stories` | concept (queued) | concept (no hold) | → conflict if overlaps | 🤖 CI |
+| 7 | `vet-stories` | concept (queued) | concept (no hold) | → duplicative if overlaps | 🤖 CI |
 | 8 | `approve-stories` | concept (no hold) | approved (no hold) | - | 🤖 CI |
 | 9 | `deploy.yml` | ready (no hold) | released | - | 👤 Human |
 
@@ -326,7 +326,7 @@ flowchart LR
     end
 
     subgraph DISPOSE["Auto-Disposed - No Human Review"]
-        C1["concept to conflict<br/>overlap detected"]
+        C1["concept to duplicative<br/>overlap detected"]
     end
 
     H3_CLEAR["reviewing"]

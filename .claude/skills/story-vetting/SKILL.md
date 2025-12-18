@@ -54,8 +54,8 @@ The skill vets **concepts only** — deciding what ideas to present to the human
 | **SCOPE_OVERLAP** | `concept` | TRUE MERGE → concept |
 | **SCOPE_OVERLAP** | any other | HUMAN REVIEW |
 | **COMPETING** | `concept`, `wishlist`, `refine` | TRUE MERGE |
-| **COMPETING** | `rejected`, `infeasible`, `conflict`, `broken`, `queued`, `pending`, `blocked` | BLOCK concept with note |
-| **COMPETING** | everything else | AUTO-CONFLICT with note (not a goal signal) |
+| **COMPETING** | `rejected`, `infeasible`, `duplicative`, `broken`, `queued`, `pending`, `blocked`, `conflict` | BLOCK concept with note |
+| **COMPETING** | everything else | AUTO-DUPLICATIVE with note (not a goal signal) |
 | **INCOMPATIBLE** | `concept` | Claude picks better, DELETE other |
 | **FALSE_POSITIVE** | — | SKIP (no action) |
 | **Non-concept vs non-concept** | — | IGNORE |
@@ -70,10 +70,10 @@ Effective status is computed as `COALESCE(disposition, hold_reason, stage)`.
 - `hold_reason = 'polish'`
 
 **Block against:**
-- `disposition IN ('rejected', 'infeasible', 'conflict')`
-- `hold_reason IN ('broken', 'queued', 'pending', 'blocked')`
+- `disposition IN ('rejected', 'infeasible', 'duplicative')`
+- `hold_reason IN ('broken', 'queued', 'pending', 'blocked', 'conflict')`
 
-**Auto-conflict against:**
+**Auto-duplicative against:**
 - `stage IN ('approved', 'planned', 'active', 'reviewing', 'implemented', 'ready', 'polish', 'released')`
 - `disposition IN ('legacy', 'deprecated', 'archived')`
 
@@ -191,7 +191,7 @@ Use this lookup based on classification and effective statuses (computed from th
 ```python
 # Effective status = COALESCE(disposition, hold_reason, stage)
 MERGEABLE_STATUSES = {'concept', 'wishlist', 'polish'}
-BLOCK_STATUSES = {'rejected', 'infeasible', 'conflict', 'broken', 'queued', 'pending', 'blocked'}
+BLOCK_STATUSES = {'rejected', 'infeasible', 'duplicative', 'broken', 'queued', 'pending', 'blocked', 'conflict'}
 
 def get_action(conflict_type, eff_status_a, eff_status_b, ci_mode=False):
     # Ensure concept is always story_a for consistent logic
@@ -220,7 +220,7 @@ def get_action(conflict_type, eff_status_a, eff_status_b, ci_mode=False):
         elif eff_status_b in BLOCK_STATUSES:
             return 'BLOCK_CONCEPT'
         else:
-            return 'CONFLICT_CONCEPT'
+            return 'DUPLICATIVE_CONCEPT'
 
     if conflict_type == 'incompatible':
         # Claude picks the better concept, deletes the other
@@ -236,8 +236,8 @@ Use the actions script: `python .claude/skills/story-vetting/vetting_actions.py 
 | Action | Command | Description |
 |--------|---------|-------------|
 | DELETE_CONCEPT | `python ...vetting_actions.py delete <concept_id>` | Remove concept from database |
-| CONFLICT_CONCEPT | `python ...vetting_actions.py conflict <concept_id> <conflicting_id>` | Set disposition=conflict (not a goal signal) |
-| BLOCK_CONCEPT | `python ...vetting_actions.py block <concept_id> <conflicting_id>` | Set hold_reason=blocked with note |
+| DUPLICATIVE_CONCEPT | `python ...vetting_actions.py duplicative <concept_id> <duplicate_of_id>` | Set disposition=duplicative (not a goal signal) |
+| BLOCK_CONCEPT | `python ...vetting_actions.py block <concept_id> <blocking_id>` | Set hold_reason=blocked with note |
 | DEFER_PENDING | `python ...vetting_actions.py defer <concept_id> <conflicting_id>` | Set hold_reason=pending (CI mode) |
 | TRUE_MERGE | `python ...vetting_actions.py merge <keep_id> <delete_id> "<title>" "<desc>"` | Combine stories, delete one |
 | CACHE | `python ...vetting_actions.py cache <id_a> <id_b> <classification> <action>` | Store decision in cache |
@@ -281,7 +281,7 @@ Candidates scanned: 45
 Actions taken:
   - Deleted: 8 duplicate concepts
   - Merged: 12 concept pairs
-  - Rejected: 3 competing concepts
+  - Duplicative: 3 competing concepts
   - Blocked: 2 concepts
   - Skipped: 15 false positives
   - Human review: 5 scope overlaps
@@ -299,7 +299,7 @@ Candidates scanned: 45
 Actions taken:
   - Deleted: 8 duplicate concepts
   - Merged: 12 concept pairs
-  - Rejected: 3 competing concepts
+  - Duplicative: 3 competing concepts
   - Blocked: 2 concepts
   - Skipped: 15 false positives
   - Deferred to pending: 5 scope overlaps

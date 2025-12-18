@@ -136,7 +136,7 @@ Stories use three orthogonal dimensions instead of a single status:
 | polish | Minor refinements |
 | released | Deployed to production |
 
-### Hold Reason (6 values + NULL) - Why work is stopped
+### Hold Reason (7 values + NULL) - Why work is stopped
 | Hold | Description |
 |------|-------------|
 | NULL | Not held, work can proceed |
@@ -146,6 +146,7 @@ Stories use three orthogonal dimensions instead of a single status:
 | paused | Execution blocked by critical issue |
 | broken | Something wrong with story definition |
 | polish | Needs refinement before proceeding |
+| conflict | Inconsistent with another story, needs human resolution |
 
 ### Disposition (7 values + NULL) - Terminal state
 | Disposition | Description | Stage Required |
@@ -153,7 +154,7 @@ Stories use three orthogonal dimensions instead of a single status:
 | NULL | Active in pipeline | Any |
 | rejected | Human decided not to implement (indicates non-goal) | Any (preserved) |
 | infeasible | Cannot implement | Any (preserved) |
-| conflict | Algorithm detected overlap with existing (not a goal signal) | Any (preserved) |
+| duplicative | Algorithm detected duplicate/overlap with existing (not a goal signal) | Any (preserved) |
 | wishlist | Maybe someday | Any (preserved) |
 | legacy | Old but functional | released |
 | deprecated | Being phased out | released |
@@ -178,14 +179,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'story-tree', '
 from story_db_common import (
     DB_PATH,                    # '.claude/data/story-tree.db'
     MERGEABLE_STATUSES,         # {'concept', 'wishlist', 'polish'}
-    BLOCK_STATUSES,             # {'rejected', 'infeasible', 'conflict', 'broken', ...}
+    BLOCK_STATUSES,             # {'rejected', 'infeasible', 'duplicative', 'broken', ...}
     get_connection,             # Get SQLite connection
     make_pair_key,              # Canonical pair key for caching
     get_story_version,          # Get story version number
     compute_effective_status,   # COALESCE(disposition, hold_reason, stage)
     delete_story,               # Cascade delete from story_nodes + story_paths
     reject_concept,             # Human rejection (disposition='rejected', goal signal)
-    conflict_concept,           # Algorithm conflict (disposition='conflict', no signal)
+    duplicative_concept,        # Algorithm duplicate (disposition='duplicative', no signal)
+    conflict_concept,           # Inconsistent stories (hold_reason='conflict', needs resolution)
     block_concept,              # Set hold_reason='blocked' with note
     defer_concept,              # Set hold_reason='pending' with note
     merge_concepts,             # Merge two stories into one

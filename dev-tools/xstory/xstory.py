@@ -29,18 +29,23 @@ except ImportError:
     print("Error: PySide6 is required. Install with: pip install PySide6")
     sys.exit(1)
 
-# Status colors (rainbow system - optimized for visibility)
+# Status colors (22-status rainbow system - optimized for visibility)
 STATUS_COLORS = {
     # Dispositions (reds/pinks - terminal states)
     'infeasible': '#CC0000',   # Deep Red
     'rejected': '#CC3300',     # Red-Orange
-    'conflict': '#CC4400',     # Dark Orange (overlapping stories)
+    'duplicative': '#CC4400',  # Dark Orange (algorithm-detected duplicate)
     'wishlist': '#CC6600',     # Pumpkin Orange
     'legacy': '#CC00CC',       # Magenta
     'deprecated': '#CC0099',   # Fuchsia
     'archived': '#CC0066',     # Deep Pink
     # Stages (greens/blues - workflow progression)
     'concept': '#CC9900',      # Goldenrod
+    'broken': '#CCCC00',       # Dark Gold / Olive
+    'conflict': '#AACC00',     # Yellow-Green (inconsistent, needs resolution)
+    'blocked': '#99CC00',      # Lime Green
+    'polish': '#66CC00',       # Chartreuse (hold state: needs refinement)
+    'pending': '#00CC00',      # Pure Green
     'approved': '#00CC33',     # Spring Green
     'planned': '#00CC66',      # Emerald
     'active': '#0099CC',       # Cerulean
@@ -61,19 +66,22 @@ STATUS_COLORS = {
     'live': '#00FF00',         # Bright Green (active/live)
 }
 
-# Three-field system: ordered lists for UI display (workflow order)
-STAGE_ORDER = ['concept', 'approved', 'planned', 'active', 'reviewing',
-               'verifying', 'implemented', 'ready', 'released']
-HOLD_REASON_ORDER = ['no hold', 'queued', 'pending', 'paused', 'blocked', 'broken', 'polish']
-DISPOSITION_ORDER = ['live', 'rejected', 'infeasible', 'conflict', 'wishlist', 'legacy', 'deprecated', 'archived']
+# All possible statuses (22-status rainbow system - canonical order)
+ALL_STATUSES = [
+    'infeasible', 'rejected', 'duplicative', 'wishlist',
+    'concept', 'broken', 'conflict', 'blocked', 'polish',
+    'pending', 'approved', 'planned', 'paused',
+    'active', 'reviewing',
+    'implemented',
+    'ready', 'released',
+    'legacy', 'deprecated', 'archived'
+]
 
-# All possible statuses (combined from three-field system)
-ALL_STATUSES = STAGE_ORDER + HOLD_REASON_ORDER + DISPOSITION_ORDER
-
-# Three-field system: sets for lookup
-STAGE_VALUES = set(STAGE_ORDER)
-HOLD_REASON_VALUES = set(HOLD_REASON_ORDER)
-DISPOSITION_VALUES = set(DISPOSITION_ORDER)
+# Three-field system: classify each status into its field type
+STAGE_VALUES = {'concept', 'approved', 'planned', 'active',
+                'reviewing', 'verifying', 'implemented', 'ready', 'released'}
+HOLD_REASON_VALUES = {'pending', 'paused', 'blocked', 'broken', 'polish', 'conflict'}
+DISPOSITION_VALUES = {'rejected', 'infeasible', 'duplicative', 'wishlist', 'legacy', 'deprecated', 'archived'}
 
 # Hold reason icons for visual indication in tree view
 HOLD_ICONS = {
@@ -83,6 +91,7 @@ HOLD_ICONS = {
     'blocked': '🚧',     # Blocked - missing dependency
     'broken': '🔥',      # Broken - needs fix
     'polish': '💎',      # Polish - needs refinement
+    'conflict': '⚔',     # Conflict - inconsistent with another story
 }
 
 # Designer mode transitions (approval, quality, priority, end-of-life decisions)
