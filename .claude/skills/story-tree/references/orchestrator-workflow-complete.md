@@ -71,10 +71,23 @@ stateDiagram-v2
 
     READY --> RELEASED: 👤 deploy.yml<br/>(manual trigger)
 
-    %% Styling for human-required transitions
-    classDef humanRequired fill:#ffcccc,stroke:#cc0000,stroke-width:2px
-    class REVIEWING humanRequired
-    class READY humanRequired
+    %% Semantic class definitions for stage types
+    classDef conceptStage fill:#fff9e6,stroke:#cc9900,stroke-width:2px
+    classDef approvedStage fill:#e6f7ff,stroke:#0099cc,stroke-width:2px
+    classDef workingStage fill:#e6f3ff,stroke:#0066cc,stroke-width:2px
+    classDef reviewStage fill:#ffcccc,stroke:#cc0000,stroke-width:2px
+    classDef doneStage fill:#e6ffe6,stroke:#009900,stroke-width:2px
+    classDef blockedStage fill:#ffe6e6,stroke:#cc6600,stroke-width:2px
+    classDef disposedStage fill:#e6e6e6,stroke:#666666,stroke-width:2px
+
+    %% Apply classes to states by stage type
+    class CONCEPT_QUEUED,CONCEPT conceptStage
+    class APPROVED approvedStage
+    class PLANNED,ACTIVE workingStage
+    class PLANNED_BLOCKED,ACTIVE_PENDING blockedStage
+    class REVIEWING,VERIFYING reviewStage
+    class IMPLEMENTED,READY,RELEASED doneStage
+    class DISPOSED disposedStage
 ```
 
 **Legend**: 🤖 CI-automatable transitions (default styling) | 👤 Human-required transitions (red styling)
@@ -194,7 +207,7 @@ flowchart TD
             end
 
             subgraph F3["Step 8: approve-stories"]
-                F3_CHECK{Vetted concepts<br/>(no hold)?}
+                F3_CHECK{Vetted concepts<br/>without holds?}
                 F3_RUN["auto-approve logic"]
                 F3_DONE["concept → approved"]
             end
@@ -223,7 +236,7 @@ flowchart TD
         DRAIN_DONE --> FILL
         FILL_DONE --> EXIT_CHECK
 
-        EXIT_CHECK{All stages idle?<br/>(no work in any stage)}
+        EXIT_CHECK{All stages idle?<br/>no work remaining}
     end
 
     EXIT_CHECK -->|Yes| IDLE([Exit: IDLE])
@@ -235,12 +248,27 @@ flowchart TD
     IDLE --> SUMMARY
     MAX --> SUMMARY
 
-    %% Styling for human-required steps (outside CI automation)
-    style D2 fill:#ffcccc,stroke:#cc0000,stroke-width:2px
-    style D2_CHECK fill:#ffe6e6
-    style D2_RUN fill:#ffe6e6
-    style D2_PASS fill:#ffe6e6
-    style D2_FAIL fill:#ffe6e6
+    %% Semantic class definitions for node types
+    classDef startNode fill:#e6f3ff,stroke:#0066cc,stroke-width:2px
+    classDef checkNode fill:#fff9e6,stroke:#cc9900,stroke-width:2px
+    classDef runNode fill:#e6f7ff,stroke:#0099cc,stroke-width:2px
+    classDef passNode fill:#e6ffe6,stroke:#009900,stroke-width:2px
+    classDef failNode fill:#ffe6e6,stroke:#cc0000,stroke-width:2px
+    classDef phaseNode fill:#f0e6ff,stroke:#6600cc,stroke-width:2px
+    classDef exitNode fill:#f5f5f5,stroke:#666666,stroke-width:2px
+    classDef humanRequired fill:#ffcccc,stroke:#cc0000,stroke-width:3px
+
+    %% Apply classes to nodes by type
+    class START,INIT startNode
+    class GATE,EXIT_CHECK,CYCLE_CHECK checkNode
+    class D1_CHECK,D2_CHECK,D3_CHECK,D4_CHECK,D5_CHECK,F1_CHECK,F2_CHECK,F3_CHECK checkNode
+    class D1_RUN,D3_RUN,D5_RUN,F1_RUN,F2_RUN,F3_RUN runNode
+    class D1_PASS,D2_PASS,D3_CLEAN,D3_DEFER,D4_PASS,D5_DONE,F1_DONE,F2_CLEAN,F3_DONE passNode
+    class D1_FAIL,D2_FAIL,D3_BLOCK,D4_FAIL,F2_CONFLICT failNode
+    class DRAIN_DONE,FILL_DONE phaseNode
+    class DISABLED,IDLE,MAX,SUMMARY exitNode
+    class D2_CHECK,D2_RUN,D2_PASS,D2_FAIL humanRequired
+    class D4_UNBLOCK,D4_ACTIVATE runNode
 ```
 
 **Note**: The D2 (review-stories) step is shown for completeness but is **NOT automated** by the orchestrator. Stories in `reviewing` stage wait for human code review before transitioning to `verifying`.
@@ -287,25 +315,40 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    subgraph "Human Review Required"
+    subgraph HUMAN["Human Review Required"]
         H2["active (pending)<br/>blocking plan issues"]
         H3["reviewing (broken)<br/>review failed"]
         H4["verifying (broken)<br/>tests failed"]
     end
 
-    subgraph "Auto-Clearable by activate-stories"
+    subgraph AUTO["Auto-Clearable by activate-stories"]
         A1["planned (blocked:IDs)<br/>deps unmet"]
     end
 
-    subgraph "Auto-Disposed (No Human Review)"
-        C1["concept → conflict<br/>overlap detected"]
+    subgraph DISPOSE["Auto-Disposed - No Human Review"]
+        C1["concept to conflict<br/>overlap detected"]
     end
 
-    H3 -->|"Human fixes code"| H3_CLEAR["reviewing"]
-    H4 -->|"Human fixes tests"| H4_CLEAR["verifying"]
+    H3_CLEAR["reviewing"]
+    H4_CLEAR["verifying"]
+    A1_CLEAR["planned (no hold)"]
+    A1_ACTIVE["active"]
 
-    A1 -->|"activate-stories:<br/>recorded blockers resolved"| A1_CLEAR["planned (no hold)"]
-    A1_CLEAR -->|"activate-stories:<br/>full dep check"| A1_ACTIVE["active"]
+    H3 -->|Human fixes code| H3_CLEAR
+    H4 -->|Human fixes tests| H4_CLEAR
+
+    A1 -->|activate-stories<br/>recorded blockers resolved| A1_CLEAR
+    A1_CLEAR -->|activate-stories<br/>full dep check| A1_ACTIVE
+
+    classDef humanHold fill:#ffcccc,stroke:#cc0000,stroke-width:2px
+    classDef autoHold fill:#fff4cc,stroke:#ccaa00,stroke-width:2px
+    classDef disposed fill:#e6e6e6,stroke:#666666,stroke-width:2px
+    classDef cleared fill:#ccffcc,stroke:#00cc00,stroke-width:2px
+
+    class H2,H3,H4 humanHold
+    class A1 autoHold
+    class C1 disposed
+    class H3_CLEAR,H4_CLEAR,A1_CLEAR,A1_ACTIVE cleared
 ```
 
 ---
@@ -377,6 +420,25 @@ flowchart TD
     S2_ACTIVATE --> S2_LOOP
     S2_APPLY --> S2_LOOP
     S2_LOOP -->|done| END[activate-stories complete]
+
+    %% Semantic class definitions
+    classDef startNode fill:#e6f3ff,stroke:#0066cc,stroke-width:2px
+    classDef findNode fill:#e6f7ff,stroke:#0099cc,stroke-width:2px
+    classDef loopNode fill:#fff9e6,stroke:#cc9900,stroke-width:2px
+    classDef checkNode fill:#fff4cc,stroke:#ccaa00,stroke-width:2px
+    classDef actionNode fill:#f0e6ff,stroke:#6600cc,stroke-width:2px
+    classDef successNode fill:#e6ffe6,stroke:#009900,stroke-width:2px
+    classDef blockNode fill:#ffe6e6,stroke:#cc6600,stroke-width:2px
+    classDef terminal fill:#f5f5f5,stroke:#666666,stroke-width:2px
+
+    %% Apply classes
+    class START,END terminal
+    class S1_FIND,S2_FIND findNode
+    class S1_LOOP,S2_LOOP loopNode
+    class S1_CHECK,S2_MET,S2_CYCLE checkNode
+    class S1_PARSE,S2_ANALYZE,S2_BLOCK_NEW,S2_RESOLVE actionNode
+    class S1_CLEAR,S2_ACTIVATE successNode
+    class S1_KEEP,S2_APPLY blockNode
 ```
 
 ### Processing Order Rationale
