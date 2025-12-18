@@ -104,6 +104,19 @@ HOLD_ICONS = {
     'wishlist': '💭',    # Wishlist - indefinite hold, maybe someday
 }
 
+# Disposition icons for visual indication in tree view (override hold icons)
+DISPOSITION_ICONS = {
+    'rejected': '❌',      # Rejected - explicitly declined
+    'infeasible': '🚫',    # Infeasible - cannot be done
+    'duplicative': '🔄',   # Duplicative - duplicate of another
+    'legacy': '🛑',        # Legacy - old/outdated
+    'deprecated': '⚠️',    # Deprecated - no longer recommended
+    'archived': '📦',      # Archived - stored away
+}
+
+# Default icon when no hold status
+DEFAULT_STAGE_ICON = '▶️'
+
 
 def calculate_stage_color(stage: str) -> QColor:
     """
@@ -1016,7 +1029,7 @@ class XstoryExplorer(QMainWindow):
         tree_container_layout.setContentsMargins(0, 0, 0, 0)
 
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(["ID", "Status", "Title"])
+        self.tree.setHeaderLabels(["ID", "Stage", "Title"])
         self.tree.setColumnCount(3)
         self.tree.setColumnWidth(0, 180)
         self.tree.setColumnWidth(1, 100)
@@ -1567,13 +1580,20 @@ class XstoryExplorer(QMainWindow):
             return
 
         # Determine status display text and tooltip
-        if node.hold_reason and node.hold_reason in HOLD_ICONS:
-            # Show icon + underlying stage when on hold
+        # Priority: disposition > hold_reason > default play icon
+        if node.disposition and node.disposition in DISPOSITION_ICONS:
+            # Disposition overrides everything - show disposition icon + stage
+            icon = DISPOSITION_ICONS[node.disposition]
+            status_text = f"{icon} {node.stage}"
+            tooltip = f"{node.disposition.capitalize()} - Stage: {node.stage}"
+        elif node.hold_reason and node.hold_reason in HOLD_ICONS:
+            # Show hold icon + underlying stage when on hold
             icon = HOLD_ICONS[node.hold_reason]
             status_text = f"{icon} {node.stage}"
             tooltip = f"{node.hold_reason.capitalize()} - Stage: {node.stage}"
         else:
-            status_text = node.status
+            # No hold status - show play icon + stage
+            status_text = f"{DEFAULT_STAGE_ICON} {node.stage}"
             tooltip = None
 
         # Create tree item
