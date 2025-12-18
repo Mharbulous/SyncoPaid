@@ -1038,10 +1038,9 @@ class XstoryExplorer(QMainWindow):
         self.tree.itemSelectionChanged.connect(self._on_tree_select)
         self.tree.itemDoubleClicked.connect(self._on_tree_double_click)
 
-        # Apply gradient text delegate to all columns
+        # Apply gradient text delegate to Stage column only (column 1)
         self.gradient_delegate = GradientTextDelegate(self.tree, app=self)
-        for col in range(3):
-            self.tree.setItemDelegateForColumn(col, self.gradient_delegate)
+        self.tree.setItemDelegateForColumn(1, self.gradient_delegate)
 
         tree_container_layout.addWidget(self.tree)
         splitter.addWidget(tree_container)
