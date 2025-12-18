@@ -10,7 +10,7 @@
 
 ---
 
-**Story ID:** 1.2.6 | **Created:** 2025-12-16 | **Status:** `planned`
+**Story ID:** 2.6 | **Created:** 2025-12-16 | **Status:** `planned`
 
 ---
 
@@ -369,5 +369,5 @@ Run: `pytest tests/test_config.py::test_archive_config_defaults -v` → Expect: 
 - Partial month at month boundary (excluded correctly)
 
 **Follow-up Work:**
-- Story 1.8.4.3 will use archives for screenshot retrieval in AI review UI
+- Story 8.4.3 will use archives for screenshot retrieval in AI review UI
 - Consider compression level tuning for disk space vs. CPU tradeoff

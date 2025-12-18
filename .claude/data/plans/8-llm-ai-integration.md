@@ -10,7 +10,7 @@
 
 ---
 
-**Story ID:** 1.8 | **Created:** 2025-12-12 | **Status:** `planned`
+**Story ID:** 8 | **Created:** 2025-12-12 | **Status:** `planned`
 
 ---
 

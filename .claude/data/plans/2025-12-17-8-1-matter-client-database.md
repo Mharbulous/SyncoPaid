@@ -11,7 +11,7 @@
 
 ---
 
-**Story ID:** 1.8.1 | **Created:** 2025-12-17 | **Status:** `planned`
+**Story ID:** 8.1 | **Created:** 2025-12-17 | **Status:** `planned`
 
 ---
 
@@ -1375,8 +1375,8 @@ If issues arise: `git log --oneline -10` to find commit, then `git revert <hash>
 - Empty client dropdown: If no clients exist, user can still create matters without clients
 
 **Follow-up Work:**
-- Story 1.8.1.1: Matter Keywords/Tags for AI Matching (adds tags/keywords table)
-- Story 1.8.4: AI Disambiguation with Screenshot Context (uses this database for matching)
+- Story 8.1.1: Matter Keywords/Tags for AI Matching (adds tags/keywords table)
+- Story 8.4: AI Disambiguation with Screenshot Context (uses this database for matching)
 
 **Dependencies:**
-- This story is a prerequisite for Story 1.8.4 (AI Disambiguation)
+- This story is a prerequisite for Story 8.4 (AI Disambiguation)

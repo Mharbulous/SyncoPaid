@@ -10,7 +10,7 @@
 
 ---
 
-**Story ID:** 1.8.4.2 | **Created:** 2025-12-17 | **Status:** `planned`
+**Story ID:** 8.4.2 | **Created:** 2025-12-17 | **Status:** `planned`
 
 ---
 
@@ -359,7 +359,7 @@ Run: `pytest tests/test_tracker.py::test_tracker_detects_transitions -v` -> Expe
 # Add to TrackerLoop.__init__
 def __init__(
     self,
-    poll_interval: float = 1.0,
+    poll_interval: float = 0,
     idle_threshold: int = 180,
     merge_threshold: float = 2.0,
     screenshot_worker=None,
@@ -552,7 +552,7 @@ Run: Manual verification: `python -m syncopaid`
 ## Notes
 
 **Dependencies:**
-- Story 1.8.1 (Matter/Client Database) required before prompts can do actual categorization
+- Story 8.1 (Matter/Client Database) required before prompts can do actual categorization
 - Current implementation only detects transitions and collects user feedback
 - Future enhancement: Use transition data to train smarter timing model
 
@@ -562,6 +562,6 @@ Run: Manual verification: `python -m syncopaid`
 - Focus mode: Add config option to disable all prompts during specific hours
 
 **Follow-up Work:**
-- Story 1.8.4.3: Build actual categorization UI that prompts invoke
-- Story 1.8.4.4: Implement learning from user responses to improve timing
+- Story 8.4.3: Build actual categorization UI that prompts invoke
+- Story 8.4.4: Implement learning from user responses to improve timing
 - Add database query methods for analyzing transition patterns

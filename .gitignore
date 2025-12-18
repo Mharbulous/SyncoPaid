@@ -86,3 +86,5 @@ logs/
 *.bak
 *.old
 *.db.backup
+# Database backups
+.claude/data/*.backup-*
