@@ -11,5 +11,5 @@
 
 ## `wishlist` vs `rejected`
 
-- `wishlist`: "Not now, but maybe later" - retained for future consideration
-- `rejected`: "No, this doesn't fit" - excluded permanently
+- `wishlist` (hold_reason): "Not now, but maybe later" - indefinite hold, can be revived when priorities change
+- `rejected` (disposition): "No, this doesn't fit" - terminal state, excluded permanently

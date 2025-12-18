@@ -29,6 +29,7 @@ DB_PATH = '.claude/data/story-tree.db'
 # These represent computed status values from COALESCE(disposition, hold_reason, stage)
 
 # Statuses that allow merging (early-stage concepts)
+# Note: concept=stage, wishlist=hold_reason, polish=hold_reason
 MERGEABLE_STATUSES = {'concept', 'wishlist', 'polish'}
 
 # Statuses that indicate blocking conditions (story not actively progressing)
@@ -125,8 +126,8 @@ def compute_effective_status(
 
     The three-field system uses:
     - stage: Position in pipeline (concept, approved, planned, active, etc.)
-    - hold_reason: Why work is paused (queued, pending, blocked, broken, etc.)
-    - disposition: Terminal state (rejected, archived, wishlist, etc.)
+    - hold_reason: Why work is paused (queued, pending, blocked, wishlist, etc.)
+    - disposition: Terminal state (rejected, archived, infeasible, etc.)
 
     Args:
         stage: Current pipeline stage

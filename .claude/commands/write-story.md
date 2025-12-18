@@ -147,9 +147,9 @@ Maximum 10 stories. Examples:
 ```
 Stage:       concept → approved → planned → active → implemented → ready → released
                  ↑                    ↑         ↑
-Hold:         refine ────────────────────────────┘
+Hold:         refine | wishlist ─────────────────┘
                                   (clears hold, returns to stage)
 
-Disposition: rejected | infeasible | wishlist | deprecated | archived | legacy
+Disposition: rejected | infeasible | deprecated | archived | legacy
              (terminal states - story is done/removed)
 ```

@@ -33,8 +33,8 @@ This document provides visual representations of the key workflows and data stru
 |------|------------|
 | **Story node** | A unit of work in the hierarchical backlog—can be an epic, feature, capability, or task depending on depth. May have its own direct work AND children simultaneously. |
 | **Stage** | The current workflow phase of a story (e.g., `concept`, `approved`, `active`, `implemented`); represents multi-faceted state covering both own work and children's work |
-| **Hold reason** | A temporary blocking state that preserves the current stage (e.g., `blocked`, `paused`, `polish`) |
-| **Disposition** | A terminal state indicating the story will not progress further (e.g., `rejected`, `deprecated`, `wishlist`) |
+| **Hold reason** | A temporary blocking state that preserves the current stage (e.g., `blocked`, `paused`, `polish`, `wishlist`) |
+| **Disposition** | A terminal state indicating the story will not progress further (e.g., `rejected`, `deprecated`, `archived`) |
 | **Closure table** | A database pattern that stores all ancestor-descendant relationships, enabling efficient hierarchy queries |
 | **Capacity** | The maximum number of children a node can have; grows dynamically based on completed work |
 | **Depth** | A node's level in the tree (root=0, features=1, capabilities=2, tasks=3+) |
@@ -117,6 +117,9 @@ mindmap
     polish
       Needs refinement
       Clear: Refinement complete
+    wishlist
+      Indefinite hold, maybe someday
+      Clear: Priority increases
 ```
 
 ### Disposition States (Terminal)
@@ -127,14 +130,12 @@ stateDiagram-v2
 
     any --> rejected: Not pursuing
     any --> infeasible: Cannot build
-    any --> wishlist: Low priority
     any --> legacy: Superseded
     any --> deprecated: No longer relevant
     any --> archived: Preserved only
 
     rejected --> [*]
     infeasible --> [*]
-    wishlist --> [*]
     legacy --> [*]
     deprecated --> [*]
     archived --> [*]
