@@ -6,6 +6,26 @@ This document provides visual representations of the key workflows and data stru
 
 ---
 
+## Table of Contents
+
+1. [Definitions](#definitions)
+2. [Three-Field Workflow Model](#three-field-workflow-model)
+   - Stage Transitions
+   - Hold States
+   - Disposition States
+3. [Database Architecture](#database-architecture)
+   - Closure Table Data Structure
+   - Closure Table Path Example
+   - Node Insertion Process
+   - Dynamic Capacity Calculation
+4. [Skill Workflows](#skill-workflows)
+   - Main Update Workflow
+   - Priority Algorithm Decision Flow
+   - Git Commit Analysis Process
+   - Story Generation Flow
+
+---
+
 ## Definitions
 
 | Term | Definition |
