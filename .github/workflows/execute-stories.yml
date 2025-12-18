@@ -1,9 +1,9 @@
 name: Daily Story Execution
 
-# Run at 3:30 AM PST (11:30 UTC) every day - after activate-stories
+# Run at 3:20 AM PST (11:20 UTC) every day - after review-stories
 on:
   schedule:
-    - cron: '30 11 * * *'
+    - cron: '20 11 * * *'
   workflow_dispatch:  # Manual trigger for testing
 
 concurrency:

@@ -1,10 +1,10 @@
 name: Daily Story Verification
 
-# Run at 3:00 AM PST (11:00 UTC) every day - FIRST in DRAIN phase
+# Run at 2:40 AM PST (10:40 UTC) every day - after ready-check in DRAIN phase
 # Verifies stories in 'verifying' stage and advances to 'implemented' if tests pass
 on:
   schedule:
-    - cron: '0 11 * * *'
+    - cron: '40 10 * * *'
   workflow_dispatch:  # Manual trigger for testing
 
 concurrency:

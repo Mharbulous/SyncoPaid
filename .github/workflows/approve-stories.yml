@@ -1,10 +1,10 @@
 name: Daily Story Approval
 
-# Run at 4:00 AM PST (12:00 UTC) every day - after write and vet
+# Run at 4:20 AM PST (12:20 UTC) every day - after plan-stories
 # Auto-approves vetted concept stories (no holds, no conflicts)
 on:
   schedule:
-    - cron: '0 12 * * *'
+    - cron: '20 12 * * *'
   workflow_dispatch:  # Manual trigger for testing
 
 concurrency:

@@ -1,9 +1,9 @@
 name: Daily Story Planning
 
-# Run at 2:30 AM PST (10:30 UTC) every day
+# Run at 4:00 AM PST (12:00 UTC) every day - after activate-stories
 on:
   schedule:
-    - cron: '30 10 * * *'
+    - cron: '0 12 * * *'
   workflow_dispatch:  # Manual trigger for testing
 
 concurrency:
