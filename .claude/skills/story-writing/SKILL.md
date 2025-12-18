@@ -112,6 +112,8 @@ Match commits to parent node scope using keyword similarity.
 **I want** [specific capability]
 **So that** [specific benefit]
 
+**Prerequisites:** [List story IDs that must be implemented before this story can activate, or "None"]
+
 **Acceptance Criteria:**
 - [ ] [Specific, testable criterion]
 - [ ] [Specific, testable criterion]
@@ -119,6 +121,12 @@ Match commits to parent node scope using keyword similarity.
 
 **Related context**: [Git commits or gaps that inform this story]
 ```
+
+**Prerequisites vs Dependencies:**
+- **Prerequisites** = Other stories that must complete before this one (story-to-story relationships)
+- **Dependencies** = External libraries, APIs, or systems the feature requires
+
+Always explicitly identify prerequisites. Use "None" if the story has no story prerequisites.
 
 **Quality requirements:**
 - Specific user role (not generic "user")
