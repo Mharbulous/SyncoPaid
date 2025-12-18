@@ -20,7 +20,7 @@ These workflows run independently on a daily schedule, ordered from later stages
 ```mermaid
 flowchart TB
     subgraph "Daily Schedule (PST) - DRAIN FIRST"
-        direction TB
+        direction LR
         T0["2:00 AM - Orchestrator"]
         T1["2:20 AM - ready-check"]
         T2["2:40 AM - verify-stories"]
