@@ -1,8 +1,257 @@
 # Story Tree Workflow Diagrams
 
-This document provides visual representations of the key workflows and data structures used by the story-tree skill.
+This document provides visual representations of the key workflows and data structures used by the story-tree skill system.
 
-## Main Update Workflow
+**Document structure:** Conceptual model → Data storage → Operational workflows
+
+---
+
+## Table of Contents
+
+1. [Definitions](#definitions)
+2. [Three-Field Workflow Model](#three-field-workflow-model)
+   - Stage Transitions
+   - Hold States
+   - Disposition States
+3. [Database Architecture](#database-architecture)
+   - Closure Table Data Structure
+   - Closure Table Path Example
+   - Node Insertion Process
+   - Dynamic Capacity Calculation
+4. [Skill Workflows](#skill-workflows)
+   - Main Update Workflow
+   - Priority Algorithm Decision Flow
+   - Git Commit Analysis Process
+   - Story Generation Flow
+
+---
+
+## Definitions
+
+| Term | Definition |
+|------|------------|
+| **Story node** | A unit of work in the hierarchical backlog—can be an epic, feature, capability, or task depending on depth |
+| **Stage** | The current workflow phase of a story (e.g., `concept`, `approved`, `active`, `implemented`) |
+| **Hold reason** | A temporary blocking state that preserves the current stage (e.g., `blocked`, `paused`, `refine`) |
+| **Disposition** | A terminal state indicating the story will not progress further (e.g., `rejected`, `deprecated`, `wishlist`) |
+| **Closure table** | A database pattern that stores all ancestor-descendant relationships, enabling efficient hierarchy queries |
+| **Capacity** | The maximum number of children a node can have; grows dynamically based on completed work |
+| **Depth** | A node's level in the tree (root=0, features=1, capabilities=2, tasks=3+) |
+| **Fill rate** | Ratio of current children to capacity; used for prioritization |
+| **Checkpoint** | The last analyzed git commit hash; enables incremental scanning |
+
+---
+
+## Three-Field Workflow Model
+
+Stories progress through stages, with holds and dispositions as orthogonal states. The three fields work together:
+
+- **stage**: Where the story is in the normal workflow
+- **hold_reason**: Why work is temporarily stopped (nullable)
+- **disposition**: Why the story was terminated (nullable)
+
+### Stage Transitions (Normal Workflow)
+
+```mermaid
+stateDiagram-v2
+    [*] --> concept: New idea created
+
+    concept --> approved: Human approves
+
+    approved --> planned: Plan created
+
+    planned --> queued: Dependencies met
+
+    queued --> active: Work begins
+
+    active --> reviewing: Code complete
+
+    reviewing --> verifying: Review passed
+
+    verifying --> implemented: Verification passed
+
+    implemented --> ready: Fully tested
+
+    ready --> polish: Minor tweaks needed
+    polish --> ready: Polish complete
+
+    ready --> released: Shipped
+
+    released --> [*]
+```
+
+### Hold States (Temporary, Preserves Stage)
+
+```mermaid
+stateDiagram-v2
+    state "Any Stage" as any
+
+    any --> pending: Needs decision
+    any --> paused: Work paused
+    any --> blocked: External dependency
+    any --> broken: Issues found
+    any --> refine: Needs rework
+
+    pending --> any: Decision made
+    paused --> any: Resume work
+    blocked --> any: Unblocked
+    broken --> any: Fixed
+    refine --> any: Rework complete
+```
+
+### Disposition States (Terminal)
+
+```mermaid
+stateDiagram-v2
+    state "Any Stage" as any
+
+    any --> rejected: Not pursuing
+    any --> infeasible: Cannot build
+    any --> wishlist: Low priority
+    any --> legacy: Superseded
+    any --> deprecated: No longer relevant
+    any --> archived: Preserved only
+
+    rejected --> [*]
+    infeasible --> [*]
+    wishlist --> [*]
+    legacy --> [*]
+    deprecated --> [*]
+    archived --> [*]
+```
+
+---
+
+## Database Architecture
+
+### Closure Table Data Structure
+
+The closure table pattern stores all ancestor-descendant relationships, enabling efficient hierarchy queries without recursion.
+
+```mermaid
+erDiagram
+    story_nodes {
+        text id PK
+        text title
+        text description
+        int capacity
+        text stage
+        text hold_reason
+        text disposition
+        int human_review
+        text project_path
+        text last_implemented
+        text created_at
+        text updated_at
+    }
+
+    story_paths {
+        text ancestor_id FK
+        text descendant_id FK
+        int depth
+    }
+
+    story_commits {
+        text story_id FK
+        text commit_hash PK
+        text commit_date
+        text commit_message
+    }
+
+    metadata {
+        text key PK
+        text value
+    }
+
+    story_nodes ||--o{ story_paths : "ancestor"
+    story_nodes ||--o{ story_paths : "descendant"
+    story_nodes ||--o{ story_commits : "linked"
+```
+
+### Closure Table Path Example
+
+This diagram illustrates how the closure table stores paths for a simple three-node hierarchy.
+
+```mermaid
+flowchart TD
+    subgraph Tree Structure
+        ROOT[root] --> N1[1.1]
+        N1 --> N2[1.1.1]
+    end
+
+    subgraph Closure Table Entries
+        direction LR
+        P1["(root, root, 0)"]
+        P2["(root, 1.1, 1)"]
+        P3["(root, 1.1.1, 2)"]
+        P4["(1.1, 1.1, 0)"]
+        P5["(1.1, 1.1.1, 1)"]
+        P6["(1.1.1, 1.1.1, 0)"]
+    end
+
+    ROOT -.-> P1
+    ROOT -.-> P2
+    ROOT -.-> P3
+    N1 -.-> P4
+    N1 -.-> P5
+    N2 -.-> P6
+```
+
+Each entry represents a path from ancestor to descendant with the distance between them. Self-references (depth 0) ensure every node appears in queries. This structure allows finding all descendants or ancestors with a single query.
+
+### Node Insertion Process
+
+Adding a new node requires updating both the nodes table and the closure table.
+
+```mermaid
+sequenceDiagram
+    participant S as Skill
+    participant N as story_nodes
+    participant P as story_paths
+
+    S->>N: INSERT new node (id, title, description, status)
+    N-->>S: Node created
+
+    S->>P: SELECT all paths where descendant = parent_id
+    P-->>S: Return parent's ancestor paths
+
+    S->>P: INSERT paths with new_id as descendant, depth + 1
+    P-->>S: Ancestor paths copied
+
+    S->>P: INSERT self-reference (new_id, new_id, 0)
+    P-->>S: Self-reference added
+
+    Note over S,P: Node is now fully integrated into tree hierarchy
+```
+
+### Dynamic Capacity Calculation
+
+Capacity grows organically based on completed work rather than speculation.
+
+```mermaid
+flowchart LR
+    subgraph Formula
+        BASE[Base: 3] --> PLUS[+]
+        PLUS --> IMPL[Count of implemented/ready children]
+        IMPL --> RESULT[= Effective Capacity]
+    end
+
+    subgraph Example
+        E1["New node: 3 + 0 = 3"]
+        E2["1 child done: 3 + 1 = 4"]
+        E3["3 children done: 3 + 3 = 6"]
+    end
+
+    RESULT --> E1
+    RESULT --> E2
+    RESULT --> E3
+```
+
+---
+
+## Skill Workflows
+
+### Main Update Workflow
 
 The primary workflow executes when the skill receives an update command. It proceeds through seven sequential steps.
 
@@ -158,201 +407,4 @@ flowchart TD
     QUALITY -->|Yes| OUTPUT([Return generated stories])
 
     style OUTPUT fill:#90EE90
-```
-
-## Closure Table Data Structure
-
-The closure table pattern stores all ancestor-descendant relationships, enabling efficient hierarchy queries without recursion.
-
-```mermaid
-erDiagram
-    story_nodes {
-        text id PK
-        text title
-        text description
-        int capacity
-        text stage
-        text hold_reason
-        text disposition
-        int human_review
-        text project_path
-        text last_implemented
-        text created_at
-        text updated_at
-    }
-
-    story_paths {
-        text ancestor_id FK
-        text descendant_id FK
-        int depth
-    }
-
-    story_commits {
-        text story_id FK
-        text commit_hash PK
-        text commit_date
-        text commit_message
-    }
-
-    metadata {
-        text key PK
-        text value
-    }
-
-    story_nodes ||--o{ story_paths : "ancestor"
-    story_nodes ||--o{ story_paths : "descendant"
-    story_nodes ||--o{ story_commits : "linked"
-```
-
-## Closure Table Path Example
-
-This diagram illustrates how the closure table stores paths for a simple three-node hierarchy.
-
-```mermaid
-flowchart TD
-    subgraph Tree Structure
-        ROOT[root] --> N1[1.1]
-        N1 --> N2[1.1.1]
-    end
-
-    subgraph Closure Table Entries
-        direction LR
-        P1["(root, root, 0)"]
-        P2["(root, 1.1, 1)"]
-        P3["(root, 1.1.1, 2)"]
-        P4["(1.1, 1.1, 0)"]
-        P5["(1.1, 1.1.1, 1)"]
-        P6["(1.1.1, 1.1.1, 0)"]
-    end
-
-    ROOT -.-> P1
-    ROOT -.-> P2
-    ROOT -.-> P3
-    N1 -.-> P4
-    N1 -.-> P5
-    N2 -.-> P6
-```
-
-Each entry represents a path from ancestor to descendant with the distance between them. Self-references (depth 0) ensure every node appears in queries. This structure allows finding all descendants or ancestors with a single query.
-
-## Node Insertion Process
-
-Adding a new node requires updating both the nodes table and the closure table.
-
-```mermaid
-sequenceDiagram
-    participant S as Skill
-    participant N as story_nodes
-    participant P as story_paths
-
-    S->>N: INSERT new node (id, title, description, status)
-    N-->>S: Node created
-
-    S->>P: SELECT all paths where descendant = parent_id
-    P-->>S: Return parent's ancestor paths
-
-    S->>P: INSERT paths with new_id as descendant, depth + 1
-    P-->>S: Ancestor paths copied
-
-    S->>P: INSERT self-reference (new_id, new_id, 0)
-    P-->>S: Self-reference added
-
-    Note over S,P: Node is now fully integrated into tree hierarchy
-```
-
-## Dynamic Capacity Calculation
-
-Capacity grows organically based on completed work rather than speculation.
-
-```mermaid
-flowchart LR
-    subgraph Formula
-        BASE[Base: 3] --> PLUS[+]
-        PLUS --> IMPL[Count of implemented/ready children]
-        IMPL --> RESULT[= Effective Capacity]
-    end
-
-    subgraph Example
-        E1["New node: 3 + 0 = 3"]
-        E2["1 child done: 3 + 1 = 4"]
-        E3["3 children done: 3 + 3 = 6"]
-    end
-
-    RESULT --> E1
-    RESULT --> E2
-    RESULT --> E3
-```
-
-## Three-Field Workflow Transition
-
-Stories progress through stages, with holds and dispositions as orthogonal states.
-
-### Stage Transitions (Normal Workflow)
-
-```mermaid
-stateDiagram-v2
-    [*] --> concept: New idea created
-
-    concept --> approved: Human approves
-
-    approved --> planned: Plan created
-
-    planned --> queued: Dependencies met
-
-    queued --> active: Work begins
-
-    active --> reviewing: Code complete
-
-    reviewing --> verifying: Review passed
-
-    verifying --> implemented: Verification passed
-
-    implemented --> ready: Fully tested
-
-    ready --> polish: Minor tweaks needed
-    polish --> ready: Polish complete
-
-    ready --> released: Shipped
-
-    released --> [*]
-```
-
-### Hold States (Temporary, Preserves Stage)
-
-```mermaid
-stateDiagram-v2
-    state "Any Stage" as any
-
-    any --> pending: Needs decision
-    any --> paused: Work paused
-    any --> blocked: External dependency
-    any --> broken: Issues found
-    any --> refine: Needs rework
-
-    pending --> any: Decision made
-    paused --> any: Resume work
-    blocked --> any: Unblocked
-    broken --> any: Fixed
-    refine --> any: Rework complete
-```
-
-### Disposition States (Terminal)
-
-```mermaid
-stateDiagram-v2
-    state "Any Stage" as any
-
-    any --> rejected: Not pursuing
-    any --> infeasible: Cannot build
-    any --> wishlist: Low priority
-    any --> legacy: Superseded
-    any --> deprecated: No longer relevant
-    any --> archived: Preserved only
-
-    rejected --> [*]
-    infeasible --> [*]
-    wishlist --> [*]
-    legacy --> [*]
-    deprecated --> [*]
-    archived --> [*]
 ```
