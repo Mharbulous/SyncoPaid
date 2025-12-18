@@ -246,17 +246,23 @@ class TrackerLoop:
         idle_threshold: float = 180.0,
         merge_threshold: float = 2.0,
         screenshot_worker=None,
-        screenshot_interval: float = 10.0
+        screenshot_interval: float = 10.0,
+        minimum_idle_duration: float = 180.0
     ):
         self.poll_interval = poll_interval
         self.idle_threshold = idle_threshold
         self.merge_threshold = merge_threshold
         self.screenshot_worker = screenshot_worker
         self.screenshot_interval = screenshot_interval
+        self.minimum_idle_duration = minimum_idle_duration
 
         # State tracking for event merging
         self.current_event: Optional[Dict] = None
         self.event_start_time: Optional[datetime] = None
+
+        # Idle resumption tracking
+        self.was_idle: bool = False
+        self.last_idle_resumption_time: Optional[datetime] = None
 
         # Screenshot timing
         self.last_screenshot_time: float = 0
@@ -271,6 +277,7 @@ class TrackerLoop:
             f"TrackerLoop initialized: "
             f"poll={poll_interval}s, idle_threshold={idle_threshold}s, "
             f"merge_threshold={merge_threshold}s, "
+            f"minimum_idle_duration={minimum_idle_duration}s, "
             f"screenshot_enabled={screenshot_worker is not None}"
         )
     

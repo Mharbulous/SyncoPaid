@@ -40,3 +40,21 @@ def test_config_has_minimum_idle_duration():
     # Verify Config dataclass accepts it
     config = Config(minimum_idle_duration_seconds=300)
     assert config.minimum_idle_duration_seconds == 300
+
+
+def test_tracker_loop_init_idle_resumption_state():
+    """Verify TrackerLoop initializes idle resumption tracking state."""
+    from syncopaid.tracker import TrackerLoop
+
+    tracker = TrackerLoop(
+        poll_interval=1.0,
+        idle_threshold=180.0,
+        minimum_idle_duration=180.0
+    )
+
+    assert hasattr(tracker, 'was_idle')
+    assert tracker.was_idle is False
+    assert hasattr(tracker, 'last_idle_resumption_time')
+    assert tracker.last_idle_resumption_time is None
+    assert hasattr(tracker, 'minimum_idle_duration')
+    assert tracker.minimum_idle_duration == 180.0
