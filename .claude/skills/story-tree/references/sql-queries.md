@@ -78,7 +78,26 @@ WHERE stage = 'approved' AND hold_reason IS NULL AND disposition IS NULL;
 ### Ready to Execute (planned, not held)
 ```sql
 SELECT * FROM story_nodes
-WHERE stage = 'planned' AND hold_reason IS NULL AND disposition IS NULL;
+WHERE stage = 'planned'
+  AND hold_reason IS NULL AND disposition IS NULL
+ORDER BY updated_at ASC;
+```
+
+### Check Dependencies Before Execution
+```sql
+-- Check if all children are at least planned (required before execution)
+SELECT s.id, s.title, s.stage FROM story_nodes s
+JOIN story_paths p ON s.id = p.descendant_id
+WHERE p.ancestor_id = ? AND p.depth = 1
+  AND s.disposition IS NULL
+  AND s.stage NOT IN ('planned', 'active', 'reviewing',
+                       'verifying', 'implemented', 'ready', 'polish', 'released');
+
+-- If dependencies not met, block the story:
+UPDATE story_nodes
+SET hold_reason = 'blocked', human_review = 1,
+    notes = COALESCE(notes || char(10), '') || 'BLOCKED - Dependencies not met: ' || datetime('now')
+WHERE id = ? AND stage = 'planned';
 ```
 
 ### Update to Hold (preserves stage)
@@ -110,9 +129,9 @@ WHERE disposition IS NULL
 GROUP BY stage ORDER BY
   CASE stage
     WHEN 'concept' THEN 1 WHEN 'approved' THEN 2 WHEN 'planned' THEN 3
-    WHEN 'queued' THEN 4 WHEN 'active' THEN 5 WHEN 'reviewing' THEN 6
-    WHEN 'verifying' THEN 7 WHEN 'implemented' THEN 8 WHEN 'ready' THEN 9
-    WHEN 'polish' THEN 10 WHEN 'released' THEN 11
+    WHEN 'active' THEN 4 WHEN 'reviewing' THEN 5 WHEN 'verifying' THEN 6
+    WHEN 'implemented' THEN 7 WHEN 'ready' THEN 8 WHEN 'polish' THEN 9
+    WHEN 'released' THEN 10
   END;
 ```
 

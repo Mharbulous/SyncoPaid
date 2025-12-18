@@ -1,6 +1,6 @@
 ---
 name: story-execution
-description: Use when user says "execute plan", "implement story", "run plan for [ID]", "start implementation", or asks to execute a planned story - loads TDD implementation plan from .claude/data/plans/, executes RED-GREEN-COMMIT cycles for each task, updates story status through active→reviewing→implemented, verifies acceptance criteria, and outputs implementation report. (project) (project)
+description: Use when user says "execute plan", "implement story", "run plan for [ID]", "start implementation", or asks to execute a planned story - loads TDD implementation plan from .claude/data/plans/, executes RED-GREEN-COMMIT cycles for each task, updates story status through active→reviewing→implemented, verifies acceptance criteria, and outputs implementation report. (project) (project) (project)
 ---
 
 # Story Execution
@@ -34,10 +34,7 @@ Load plan from story-tree database, review critically, execute tasks in batches,
 - Load the specified plan from `.claude/data/plans/`
 
 **If no plan specified (auto-select):**
-Query the story-tree database for planned stories, prioritizing:
-1. Stories with no blocking dependencies
-2. Stories with all dependencies already implemented
-3. Oldest planned stories (by updated_at)
+Query the story-tree database for planned stories (oldest first):
 
 ```python
 python -c "
@@ -45,10 +42,10 @@ import sqlite3, json
 conn = sqlite3.connect('.claude/data/story-tree.db')
 conn.row_factory = sqlite3.Row
 
-# Get planned stories ordered by readiness
 planned = conn.execute('''
     SELECT id, title, notes FROM story_nodes
-    WHERE stage = 'planned' AND hold_reason IS NULL AND disposition IS NULL
+    WHERE stage = 'planned'
+      AND hold_reason IS NULL AND disposition IS NULL
     ORDER BY updated_at ASC
 ''').fetchall()
 
@@ -65,7 +62,87 @@ conn.close()
 "
 ```
 
-Select the most ready plan and read the plan file.
+Select the first available plan and read the plan file.
+
+### Step 1.5: Dependency Check
+
+Before proceeding, verify the story's dependencies are met:
+
+1. **Check dependency stories** - Extract story IDs mentioned in description/notes (patterns like "1.2", "depends on X")
+2. **Verify dependencies are implemented** - Referenced stories must be in stage >= `implemented`
+3. **Check all children are planned** - All child stories must be in stage >= `planned`
+
+```python
+python -c "
+import sqlite3, re, json
+conn = sqlite3.connect('.claude/data/story-tree.db')
+
+story_id = '[STORY_ID]'  # Replace with actual ID
+
+# Get story details
+story = conn.execute('SELECT description, notes FROM story_nodes WHERE id = ?', (story_id,)).fetchone()
+if not story:
+    print(json.dumps({'ready': False, 'reason': 'Story not found'}))
+    exit()
+
+text = (story[0] or '') + ' ' + (story[1] or '')
+
+# Extract dependency IDs (patterns: 1.2, 1.3.1, etc., or explicit 'depends on X')
+dep_pattern = r'(?:depends on|requires|after|needs)\s+(\d+(?:\.\d+)*)|(?<!\d)(\d+\.\d+(?:\.\d+)*)(?!\d)'
+deps = set()
+for match in re.finditer(dep_pattern, text, re.IGNORECASE):
+    dep_id = match.group(1) or match.group(2)
+    if dep_id and dep_id != story_id:
+        deps.add(dep_id)
+
+# Check dependency stories are implemented (stage >= implemented)
+IMPLEMENTED_STAGES = ('implemented', 'ready', 'polish', 'released')
+unmet_deps = []
+for dep_id in deps:
+    dep = conn.execute('SELECT stage FROM story_nodes WHERE id = ? AND disposition IS NULL', (dep_id,)).fetchone()
+    if dep and dep[0] not in IMPLEMENTED_STAGES:
+        unmet_deps.append({'id': dep_id, 'stage': dep[0]})
+
+# Check all children are at least planned
+PLANNED_OR_LATER = ('planned', 'active', 'reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released')
+unplanned_children = []
+children = conn.execute('''
+    SELECT s.id, s.title, s.stage FROM story_nodes s
+    JOIN story_paths p ON s.id = p.descendant_id
+    WHERE p.ancestor_id = ? AND p.depth = 1
+      AND s.disposition IS NULL
+''', (story_id,)).fetchall()
+
+for child in children:
+    if child[2] not in PLANNED_OR_LATER:
+        unplanned_children.append({'id': child[0], 'title': child[1], 'stage': child[2]})
+
+ready = len(unmet_deps) == 0 and len(unplanned_children) == 0
+print(json.dumps({
+    'ready': ready,
+    'dependencies_found': list(deps),
+    'unmet_dependencies': unmet_deps,
+    'unplanned_children': unplanned_children
+}))
+conn.close()
+"
+```
+
+**If ready:** Proceed to Step 2 (which transitions to `active`).
+
+**If not ready:** Block the story and try the next candidate:
+
+```python
+# Block story with dependency issues
+conn.execute('''
+    UPDATE story_nodes
+    SET hold_reason = 'blocked', human_review = 1,
+        notes = COALESCE(notes || chr(10), '') || 'BLOCKED - Dependencies not met: ' || datetime('now') || chr(10) || ?,
+        updated_at = datetime('now')
+    WHERE id = ?
+''', (blocking_reason, story_id))
+conn.commit()
+```
 
 ### Step 2: Review Plan Critically
 
@@ -358,6 +435,8 @@ Need: [what clarification or help is needed]
 
 - Plan format: `.claude/data/plans/*.md`
 - Stage workflow: concept → approved → planned → active → reviewing → verifying → implemented
+- `planned` → `active`: After dependency check passes (Step 1.5 → Step 2)
+- Dependencies not met: `hold_reason = 'blocked'`
 - CI pause: hold_reason='paused' (stage preserved at 'active')
 - Three-field system: stage shows position, hold_reason shows why stopped, stage preserved when held
 - Commit format: Include `Story: [ID]` in commit body for traceability

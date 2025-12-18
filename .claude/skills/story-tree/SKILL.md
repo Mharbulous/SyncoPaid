@@ -122,13 +122,12 @@ Use `--force-ascii` only if Unicode fails.
 
 Stories use three orthogonal dimensions instead of a single status:
 
-### Stage (11 values) - Linear workflow position
+### Stage (10 values) - Linear workflow position
 | Stage | Description |
 |-------|-------------|
 | concept | Initial idea, not yet approved |
 | approved | Ready to plan |
-| planned | Implementation plan exists |
-| queued | In backlog, ready to start |
+| planned | Implementation plan exists, dependencies verified |
 | active | Currently being worked on |
 | reviewing | Under review/testing |
 | verifying | Awaiting post-execution verification |

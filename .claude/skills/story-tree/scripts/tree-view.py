@@ -20,7 +20,7 @@ if sys.platform == 'win32':
 STATUS_SYMBOLS_UNICODE = {
     'infeasible': '∅', 'rejected': '✗', 'wishlist': '?',
     'concept': '·', 'refine': '◈', 'pending': '⏸', 'approved': '✓',
-    'blocked': '⊗', 'planned': '○', 'queued': '◎', 'broken': '⚠', 'paused': '⏸',
+    'blocked': '⊗', 'planned': '○', 'broken': '⚠', 'paused': '⏸',
     'active': '●',
     'reviewing': '👁', 'implemented': '★',
     'ready': '✔', 'polish': '◇', 'released': '🚀',
@@ -30,7 +30,7 @@ STATUS_SYMBOLS_UNICODE = {
 STATUS_SYMBOLS_ASCII = {
     'infeasible': '0', 'rejected': 'x', 'wishlist': 'W',
     'concept': '.', 'refine': 'r', 'pending': '=', 'approved': 'v',
-    'blocked': 'X', 'planned': 'o', 'queued': '@', 'broken': '!', 'paused': '|',
+    'blocked': 'X', 'planned': 'o', 'broken': '!', 'paused': '|',
     'active': 'O',
     'reviewing': 'R', 'implemented': '+',
     'ready': '#', 'polish': 'p', 'released': '^',
@@ -42,13 +42,13 @@ ANSI_COLORS = {
     'wishlist': '\033[38;2;255;140;0m', 'concept': '\033[38;2;255;165;0m',
     'refine': '\033[38;2;255;179;71m', 'pending': '\033[38;2;255;215;0m',
     'approved': '\033[38;2;255;219;88m', 'blocked': '\033[38;2;184;134;11m',
-    'planned': '\033[38;2;238;232;170m', 'queued': '\033[38;2;154;205;50m',
-    'broken': '\033[38;2;218;165;32m', 'paused': '\033[38;2;189;183;107m',
-    'active': '\033[38;2;50;205;50m', 'reviewing': '\033[38;2;64;224;208m',
-    'implemented': '\033[38;2;65;105;225m', 'ready': '\033[38;2;0;0;255m',
-    'polish': '\033[38;2;0;71;171m', 'released': '\033[38;2;65;105;225m',
-    'legacy': '\033[38;2;75;0;130m', 'deprecated': '\033[38;2;148;0;211m',
-    'archived': '\033[38;2;128;0;128m', 'reset': '\033[0m',
+    'planned': '\033[38;2;238;232;170m', 'broken': '\033[38;2;218;165;32m',
+    'paused': '\033[38;2;189;183;107m', 'active': '\033[38;2;50;205;50m',
+    'reviewing': '\033[38;2;64;224;208m', 'implemented': '\033[38;2;65;105;225m',
+    'ready': '\033[38;2;0;0;255m', 'polish': '\033[38;2;0;71;171m',
+    'released': '\033[38;2;65;105;225m', 'legacy': '\033[38;2;75;0;130m',
+    'deprecated': '\033[38;2;148;0;211m', 'archived': '\033[38;2;128;0;128m',
+    'reset': '\033[0m',
 }
 
 BOX_UNICODE = {'branch': '├── ', 'last_branch': '└── ', 'vertical': '│   ', 'empty': '    '}
