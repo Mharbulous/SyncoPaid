@@ -11,8 +11,8 @@ from typing import Optional, Set
 # Constants mirrored from xstory.py (lines 64-68)
 STAGE_ORDER = ['concept', 'approved', 'planned', 'active', 'reviewing',
                'verifying', 'implemented', 'ready', 'released']
-HOLD_REASON_ORDER = ['no hold', 'queued', 'pending', 'paused', 'blocked', 'broken', 'polish']
-DISPOSITION_ORDER = ['live', 'rejected', 'infeasible', 'conflict', 'wishlist', 'legacy', 'deprecated', 'archived']
+HOLD_REASON_ORDER = ['no hold', 'queued', 'pending', 'paused', 'blocked', 'broken', 'polish', 'wishlist']
+DISPOSITION_ORDER = ['live', 'rejected', 'infeasible', 'legacy', 'deprecated', 'archived']
 
 
 @dataclass
@@ -60,8 +60,10 @@ def sample_nodes():
 
         # Nodes with disposition (should NOT match 'live')
         StoryNode(id='7', status='rejected', stage='concept', disposition='rejected'),
-        StoryNode(id='8', status='wishlist', stage='concept', disposition='wishlist'),
         StoryNode(id='9', status='archived', stage='released', disposition='archived'),
+
+        # Nodes with wishlist hold_reason (matches 'live' but NOT 'no hold')
+        StoryNode(id='8', status='wishlist', stage='concept', hold_reason='wishlist'),
 
         # Node with both hold_reason AND disposition
         StoryNode(id='10', status='rejected', stage='active', hold_reason='blocked', disposition='rejected'),
@@ -79,8 +81,9 @@ class TestNoHoldFilter:
 
         matching = [n for n in sample_nodes if node_matches_filter(n, visible)]
 
-        # Should match nodes 1, 2, 3, 7, 8, 9 (no hold_reason)
-        assert len(matching) == 6
+        # Should match nodes 1, 2, 3, 7, 9 (no hold_reason)
+        # Note: node 8 has hold_reason='wishlist' so it does NOT match
+        assert len(matching) == 5
         assert all(not n.hold_reason for n in matching)
 
     def test_no_hold_excludes_nodes_with_hold_reason(self, sample_nodes):
@@ -111,8 +114,9 @@ class TestLiveFilter:
 
         matching = [n for n in sample_nodes if node_matches_filter(n, visible)]
 
-        # Should match nodes 1, 2, 3, 4, 5, 6 (no disposition)
-        assert len(matching) == 6
+        # Should match nodes 1, 2, 3, 4, 5, 6, 8 (no disposition)
+        # Note: node 8 has hold_reason='wishlist' but NO disposition, so it matches
+        assert len(matching) == 7
         assert all(not n.disposition for n in matching)
 
     def test_live_excludes_nodes_with_disposition(self, sample_nodes):

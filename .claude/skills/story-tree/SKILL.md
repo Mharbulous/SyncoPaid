@@ -136,7 +136,7 @@ Stories use three orthogonal dimensions instead of a single status:
 | polish | Minor refinements |
 | released | Deployed to production |
 
-### Hold Reason (7 values + NULL) - Why work is stopped
+### Hold Reason (8 values + NULL) - Why work is stopped
 | Hold | Description |
 |------|-------------|
 | NULL | Not held, work can proceed |
@@ -147,15 +147,15 @@ Stories use three orthogonal dimensions instead of a single status:
 | broken | Something wrong with story definition |
 | polish | Needs refinement before proceeding |
 | conflict | Inconsistent with another story, needs human resolution |
+| wishlist | Indefinite hold, maybe someday (can be revived when priorities change) |
 
-### Disposition (7 values + NULL) - Terminal state
+### Disposition (6 values + NULL) - Terminal state
 | Disposition | Description | Stage Required |
 |-------------|-------------|----------------|
 | NULL | Active in pipeline | Any |
 | rejected | Human decided not to implement (indicates non-goal) | Any (preserved) |
 | infeasible | Cannot implement | Any (preserved) |
 | duplicative | Algorithm detected duplicate/overlap with existing (not a goal signal) | Any (preserved) |
-| wishlist | Maybe someday | Any (preserved) |
 | legacy | Old but functional | released |
 | deprecated | Being phased out | released |
 | archived | No longer relevant | Any (preserved) |
@@ -178,7 +178,7 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'story-tree', 'utility'))
 from story_db_common import (
     DB_PATH,                    # '.claude/data/story-tree.db'
-    MERGEABLE_STATUSES,         # {'concept', 'wishlist', 'polish'}
+    MERGEABLE_STATUSES,         # {'concept', 'wishlist', 'polish'} - concept=stage, others=hold_reason
     BLOCK_STATUSES,             # {'rejected', 'infeasible', 'duplicative', 'broken', ...}
     get_connection,             # Get SQLite connection
     make_pair_key,              # Canonical pair key for caching

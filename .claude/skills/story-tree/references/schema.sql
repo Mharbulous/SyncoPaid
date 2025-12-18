@@ -18,11 +18,11 @@ CREATE TABLE IF NOT EXISTS story_nodes (
         )),
     hold_reason TEXT DEFAULT NULL
         CHECK (hold_reason IS NULL OR hold_reason IN (
-            'queued', 'pending', 'paused', 'blocked', 'broken', 'polish', 'conflict'
+            'queued', 'pending', 'paused', 'blocked', 'broken', 'polish', 'conflict', 'wishlist'
         )),
     disposition TEXT DEFAULT NULL
         CHECK (disposition IS NULL OR disposition IN (
-            'rejected', 'infeasible', 'duplicative', 'wishlist', 'legacy', 'deprecated', 'archived'
+            'rejected', 'infeasible', 'duplicative', 'legacy', 'deprecated', 'archived'
         )),
     human_review INTEGER DEFAULT 0
         CHECK (human_review IN (0, 1)),
@@ -114,7 +114,7 @@ END;
 --   concept → approved → planned → active → reviewing → verifying
 --   → implemented → ready → polish → released
 --
--- HOLD_REASON (7 values + NULL): Why work is stopped (orthogonal to stage)
+-- HOLD_REASON (8 values + NULL): Why work is stopped (orthogonal to stage)
 --   NULL     = Not held, work can proceed
 --   queued   = Waiting for automated processing (algorithm hasn't run yet)
 --   pending  = Awaiting human decision (algorithm ran but can't decide)
@@ -123,13 +123,13 @@ END;
 --   broken   = Something wrong with story definition
 --   polish   = Needs refinement before proceeding
 --   conflict = Inconsistent with another story, needs human resolution
+--   wishlist = Indefinite hold, maybe someday (can be revived when priorities change)
 --
--- DISPOSITION (7 values + NULL): Terminal state (exits pipeline)
+-- DISPOSITION (6 values + NULL): Terminal state (exits pipeline)
 --   NULL        = Active in pipeline
 --   rejected    = Human decided not to implement (indicates non-goal)
 --   infeasible  = Cannot implement
 --   duplicative = Algorithm detected duplicate/overlap with existing story (not a goal signal)
---   wishlist    = Maybe someday
 --   legacy      = Old but functional (released only)
 --   deprecated  = Being phased out (released only)
 --   archived    = No longer relevant

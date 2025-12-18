@@ -35,7 +35,6 @@ STATUS_COLORS = {
     'infeasible': '#CC0000',   # Deep Red
     'rejected': '#CC3300',     # Red-Orange
     'duplicative': '#CC4400',  # Dark Orange (algorithm-detected duplicate)
-    'wishlist': '#CC6600',     # Pumpkin Orange
     'legacy': '#CC00CC',       # Magenta
     'deprecated': '#CC0099',   # Fuchsia
     'archived': '#CC0066',     # Deep Pink
@@ -61,6 +60,7 @@ STATUS_COLORS = {
     'blocked': '#99CC00',      # Yellow-Green
     'broken': '#CCCC00',       # Dark Gold / Olive
     'polish': '#66CC00',       # Chartreuse
+    'wishlist': '#CC6600',     # Pumpkin Orange (indefinite hold)
     'no hold': '#888888',      # Grey (no hold reason)
     # Live status (for items without disposition)
     'live': '#00FF00',         # Bright Green (active/live)
@@ -68,8 +68,8 @@ STATUS_COLORS = {
 
 # All possible statuses (22-status rainbow system - canonical order)
 ALL_STATUSES = [
-    'infeasible', 'rejected', 'duplicative', 'wishlist',
-    'concept', 'broken', 'conflict', 'blocked', 'polish',
+    'infeasible', 'rejected', 'duplicative',
+    'concept', 'broken', 'conflict', 'blocked', 'polish', 'wishlist',
     'pending', 'approved', 'planned', 'paused',
     'active', 'reviewing',
     'implemented',
@@ -80,14 +80,14 @@ ALL_STATUSES = [
 # Three-field system: classify each status into its field type
 STAGE_VALUES = {'concept', 'approved', 'planned', 'active',
                 'reviewing', 'verifying', 'implemented', 'ready', 'released'}
-HOLD_REASON_VALUES = {'pending', 'paused', 'blocked', 'broken', 'polish', 'conflict'}
-DISPOSITION_VALUES = {'rejected', 'infeasible', 'duplicative', 'wishlist', 'legacy', 'deprecated', 'archived'}
+HOLD_REASON_VALUES = {'pending', 'paused', 'blocked', 'broken', 'polish', 'conflict', 'wishlist'}
+DISPOSITION_VALUES = {'rejected', 'infeasible', 'duplicative', 'legacy', 'deprecated', 'archived'}
 
 # Ordered lists for UI display (workflow progression order)
 STAGE_ORDER = ['concept', 'approved', 'planned', 'active',
                'reviewing', 'verifying', 'implemented', 'ready', 'released']
-HOLD_REASON_ORDER = ['pending', 'paused', 'blocked', 'broken', 'polish', 'conflict']
-DISPOSITION_ORDER = ['rejected', 'infeasible', 'duplicative', 'wishlist', 'legacy', 'deprecated', 'archived']
+HOLD_REASON_ORDER = ['pending', 'paused', 'blocked', 'broken', 'polish', 'conflict', 'wishlist']
+DISPOSITION_ORDER = ['rejected', 'infeasible', 'duplicative', 'legacy', 'deprecated', 'archived']
 
 # Hold reason icons for visual indication in tree view
 HOLD_ICONS = {
@@ -98,6 +98,7 @@ HOLD_ICONS = {
     'broken': '🔥',      # Broken - needs fix
     'polish': '💎',      # Polish - needs refinement
     'conflict': '⚔',     # Conflict - inconsistent with another story
+    'wishlist': '💭',    # Wishlist - indefinite hold, maybe someday
 }
 
 # Designer mode transitions (approval, quality, priority, end-of-life decisions)
