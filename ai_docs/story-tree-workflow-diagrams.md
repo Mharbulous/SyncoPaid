@@ -11,6 +11,7 @@ This document provides visual representations of the key workflows and data stru
 1. [Definitions](#definitions)
 2. [Three-Field Workflow Model](#three-field-workflow-model)
    - Stage Transitions
+   - Multi-Faceted Stage Meanings
    - Hold States
    - Disposition States
 3. [Database Architecture](#database-architecture)
@@ -30,8 +31,8 @@ This document provides visual representations of the key workflows and data stru
 
 | Term | Definition |
 |------|------------|
-| **Story node** | A unit of work in the hierarchical backlog—can be an epic, feature, capability, or task depending on depth |
-| **Stage** | The current workflow phase of a story (e.g., `concept`, `approved`, `active`, `implemented`) |
+| **Story node** | A unit of work in the hierarchical backlog—can be an epic, feature, capability, or task depending on depth. May have its own direct work AND children simultaneously. |
+| **Stage** | The current workflow phase of a story (e.g., `concept`, `approved`, `active`, `implemented`); represents multi-faceted state covering both own work and children's work |
 | **Hold reason** | A temporary blocking state that preserves the current stage (e.g., `blocked`, `paused`, `refine`) |
 | **Disposition** | A terminal state indicating the story will not progress further (e.g., `rejected`, `deprecated`, `wishlist`) |
 | **Closure table** | A database pattern that stores all ancestor-descendant relationships, enabling efficient hierarchy queries |
@@ -79,6 +80,25 @@ stateDiagram-v2
 
     released --> [*]
 ```
+
+### Multi-Faceted Stage Meanings
+
+Each stage represents multiple facets that apply simultaneously. A node can have its own direct work AND organize child work at the same time—these are not mutually exclusive.
+
+| Stage | Facets (all apply at once) |
+|-------|----------------------------|
+| `concept` | New idea proposed |
+| `approved` | Ready for own implementation planning; ready to receive child concept proposals |
+| `planned` | Own implementation planned; children have been planned |
+| `queued` | Own dependencies met, ready to start; children ready to start |
+| `active` | Own code in progress; children's work in progress |
+| `reviewing` | Own code under review; reviewing child integration |
+| `verifying` | Own implementation being tested; verifying children work together |
+| `implemented` | Own code complete; all children implemented and integrated |
+| `ready` | Own work fully tested; entire subtree fully tested |
+| `released` | Shipped |
+
+**Key insight:** A node cannot reach `implemented` until both its own work is complete AND all children have reached `implemented` or later. This keeps attention focused on incomplete work rather than dispersing it up the hierarchy.
 
 ### Hold States (Temporary, Preserves Stage)
 
