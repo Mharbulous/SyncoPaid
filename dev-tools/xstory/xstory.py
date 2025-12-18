@@ -1350,16 +1350,15 @@ class XstoryExplorer(QMainWindow):
             super().keyPressEvent(event)
 
 
-def kill_duplicate_instances() -> bool:
+def is_already_running() -> bool:
     """
-    Check for existing Xstory instances and kill them if found.
+    Check if another Xstory instance is already running.
 
     Returns:
-        True if duplicates were found and killed (caller should exit),
-        False if no duplicates found (safe to proceed).
+        True if an existing instance is found (caller should exit),
+        False if no other instance found (safe to proceed).
     """
     current_pid = os.getpid()
-    xstory_processes = []
 
     for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
         try:
@@ -1376,32 +1375,18 @@ def kill_duplicate_instances() -> bool:
                 # Verify it's actually a Python/Xstory process
                 proc_name = (proc.info.get('name') or '').lower()
                 if 'python' in proc_name or 'xstory' in proc_name:
-                    xstory_processes.append(proc)
+                    print(f"Xstory is already running (PID {proc.pid}). Exiting.")
+                    return True
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             continue
-
-    if xstory_processes:
-        print(f"Found {len(xstory_processes)} existing Xstory instance(s). Terminating...")
-        for proc in xstory_processes:
-            try:
-                print(f"  Killing PID {proc.pid}")
-                proc.terminate()
-                proc.wait(timeout=3)
-            except (psutil.NoSuchProcess, psutil.TimeoutExpired):
-                try:
-                    proc.kill()
-                except psutil.NoSuchProcess:
-                    pass
-        print("Duplicate instances terminated. Exiting this instance as well.")
-        return True
 
     return False
 
 
 def main():
     """Main entry point."""
-    # Check for and kill duplicate instances before starting
-    if kill_duplicate_instances():
+    # Prevent multiple instances - exit if already running
+    if is_already_running():
         sys.exit(0)
 
     app = QApplication(sys.argv)
