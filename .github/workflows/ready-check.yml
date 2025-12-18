@@ -1,10 +1,10 @@
 name: Daily Ready Check
 
-# Run at 3:30 AM PST (11:30 UTC) every day - AFTER verify-stories
+# Run at 2:20 AM PST (10:20 UTC) every day - FIRST in DRAIN phase
 # Checks implemented stories for integration readiness and advances to 'ready' stage
 on:
   schedule:
-    - cron: '30 11 * * *'
+    - cron: '20 10 * * *'
   workflow_dispatch:  # Manual trigger for testing
 
 concurrency:

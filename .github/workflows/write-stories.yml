@@ -1,9 +1,9 @@
 name: Daily Story Generation
 
-# Run at 2:00 AM PST (10:00 AM UTC) every day
+# Run at 4:40 AM PST (12:40 UTC) every day - after approve-stories
 on:
   schedule:
-    - cron: '0 10 * * *'
+    - cron: '40 12 * * *'
   workflow_dispatch:  # Manual trigger for testing
 
 concurrency:
