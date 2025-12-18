@@ -180,7 +180,8 @@ class SyncoPaidApp:
             idle_threshold=self.config.idle_threshold_seconds,
             merge_threshold=self.config.merge_threshold_seconds,
             screenshot_worker=self.screenshot_worker,
-            screenshot_interval=self.config.screenshot_interval_seconds
+            screenshot_interval=self.config.screenshot_interval_seconds,
+            minimum_idle_duration=self.config.minimum_idle_duration_seconds
         )
 
         # Tracking state
