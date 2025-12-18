@@ -86,6 +86,7 @@ jobs:
             - 30-minute timeout
 
           # Tool permissions for file operations, database access, and git
+          # Using Opus 4.5 for planning - higher quality plans lead to better execution
           claude_args: |
             --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Skill,SlashCommand,TodoWrite"
-            --model claude-sonnet-4-5-20250929
+            --model claude-opus-4-5-20250929
