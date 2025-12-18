@@ -64,11 +64,32 @@ The skill vets **concepts only** — deciding what ideas to present to the human
 
 Effective status is computed as `COALESCE(disposition, hold_reason, stage)`.
 
-**Mergeable with concepts (stage/hold_reason):** `concept`, `wishlist`, `refine`
+**Mergeable with concepts:**
+- `stage = 'concept'`
+- `disposition = 'wishlist'`
+- `hold_reason = 'refine'`
 
-**Block against (hold_reason/disposition):** `rejected`, `infeasible`, `broken`, `pending`, `blocked`
+**Block against:**
+- `disposition IN ('rejected', 'infeasible')`
+- `hold_reason IN ('broken', 'pending', 'blocked')`
 
-**Auto-delete/reject against (stage/disposition):** `approved`, `planned`, `implemented`, `queued`, `paused`, `active`, `reviewing`, `ready`, `polish`, `released`, `legacy`, `deprecated`, `archived`
+**Auto-delete/reject against:**
+- `stage IN ('approved', 'planned', 'queued', 'active', 'reviewing', 'implemented', 'ready', 'polish', 'released')`
+- `disposition IN ('legacy', 'deprecated', 'archived')`
+
+### Three-Field System Internals
+
+The vetting system computes a pseudo-status field using:
+```sql
+COALESCE(disposition, hold_reason, stage) AS status
+```
+
+Priority: disposition (terminal) > hold_reason (paused) > stage (position)
+
+This means:
+- Story with `disposition='rejected'` shows status='rejected' regardless of stage
+- Story with `hold_reason='pending'` shows status='pending' (stage preserved for resume)
+- Story with only stage set shows that stage value
 
 ---
 
@@ -143,6 +164,7 @@ python .claude/skills/story-vetting/candidate_detector.py
   ]
 }
 ```
+*Note: The `status` field is computed as `COALESCE(disposition, hold_reason, stage)` from the three-field system.*
 
 **Detection thresholds:** Pairs flagged if any: shared implementation keywords ≥1, title Jaccard >0.15, title overlap >0.4, description Jaccard >0.10.
 
