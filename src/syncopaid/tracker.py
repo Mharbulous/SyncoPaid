@@ -116,6 +116,26 @@ class ActivityEvent:
         return asdict(self)
 
 
+@dataclass
+class IdleResumptionEvent:
+    """
+    Event emitted when user resumes work after significant idle period.
+
+    This event signals a natural transition point for prompting time categorization.
+    Only emitted when idle period exceeds minimum_idle_duration threshold (default 180s).
+
+    Fields:
+        resumption_timestamp: ISO8601 timestamp when user became active again
+        idle_duration: Duration of idle period in seconds
+    """
+    resumption_timestamp: str  # ISO8601 format: "2025-12-18T10:30:00+00:00"
+    idle_duration: float  # Seconds user was idle
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON export or event handling."""
+        return asdict(self)
+
+
 # ============================================================================
 # WINDOWS API FUNCTIONS
 # ============================================================================
