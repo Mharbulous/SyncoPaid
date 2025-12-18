@@ -15,6 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import psutil
+
 try:
     from PySide6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -1348,8 +1350,45 @@ class XstoryExplorer(QMainWindow):
             super().keyPressEvent(event)
 
 
+def is_already_running() -> bool:
+    """
+    Check if another Xstory instance is already running.
+
+    Returns:
+        True if an existing instance is found (caller should exit),
+        False if no other instance found (safe to proceed).
+    """
+    current_pid = os.getpid()
+
+    for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+        try:
+            # Skip current process
+            if proc.pid == current_pid:
+                continue
+
+            # Check if it's a Python process running xstory
+            cmdline = proc.info.get('cmdline') or []
+            cmdline_str = ' '.join(cmdline).lower()
+
+            # Look for xstory.py in the command line
+            if 'xstory.py' in cmdline_str or 'xstory' in cmdline_str:
+                # Verify it's actually a Python/Xstory process
+                proc_name = (proc.info.get('name') or '').lower()
+                if 'python' in proc_name or 'xstory' in proc_name:
+                    print(f"Xstory is already running (PID {proc.pid}). Exiting.")
+                    return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
+
+    return False
+
+
 def main():
     """Main entry point."""
+    # Prevent multiple instances - exit if already running
+    if is_already_running():
+        sys.exit(0)
+
     app = QApplication(sys.argv)
     window = XstoryExplorer()
     window.show()
