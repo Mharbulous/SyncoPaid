@@ -11,7 +11,7 @@ on:
     inputs:
       max_cycles:
         type: number
-        default: 5
+        default: 1
         description: Maximum loop iterations (safety limit)
 
 concurrency:
