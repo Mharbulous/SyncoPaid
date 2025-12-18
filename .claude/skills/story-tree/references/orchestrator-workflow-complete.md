@@ -32,6 +32,7 @@ stateDiagram-v2
 
     [*] --> concept: write-stories<br/>(fill capacity)
 
+    state "💡 concept (queued)" as CONCEPT_QUEUED
     state "💡 concept (no hold)" as CONCEPT
     state "✅ approved (no hold)" as APPROVED
     state "📋 planned (no hold)" as PLANNED
@@ -44,10 +45,12 @@ stateDiagram-v2
     state "🏁 ready (no hold)" as READY
     state "🚀 released" as RELEASED
 
-    concept --> CONCEPT: new story created
+    concept --> CONCEPT_QUEUED: write-stories<br/>new story created
 
-    CONCEPT --> APPROVED: approve-stories<br/>vetted clean
-    CONCEPT --> [*]: vet-stories<br/>conflict → rejected
+    CONCEPT_QUEUED --> CONCEPT: vet-stories<br/>no conflicts
+    CONCEPT_QUEUED --> [*]: vet-stories<br/>conflict → rejected
+
+    CONCEPT --> APPROVED: approve-stories
 
     APPROVED --> PLANNED: plan-stories
 
@@ -171,18 +174,18 @@ flowchart TD
             subgraph F1["Step 6: write-stories"]
                 F1_CHECK{Capacity for<br/>new stories?}
                 F1_RUN["story-writing skill"]
-                F1_DONE["NEW → concept"]
+                F1_DONE["NEW → concept (queued)"]
             end
 
             subgraph F2["Step 7: vet-stories"]
-                F2_CHECK{Concept stories<br/>to vet?}
+                F2_CHECK{Queued concepts<br/>to vet?}
                 F2_RUN["story-vetting skill"]
                 F2_REJECT["disposition='rejected'"]
-                F2_CLEAN["no conflicts"]
+                F2_CLEAN["clear queued hold"]
             end
 
             subgraph F3["Step 8: approve-stories"]
-                F3_CHECK{Clean concepts<br/>to auto-approve?}
+                F3_CHECK{Vetted concepts<br/>(no hold)?}
                 F3_RUN["auto-approve logic"]
                 F3_DONE["concept → approved"]
             end
@@ -235,9 +238,9 @@ flowchart TD
 | 3 | `execute-stories` | active (no hold) | reviewing/verifying | → (paused) if blocking |
 | 4 | `activate-stories` | planned (no hold) | active (no hold) | → (blocked) if deps unmet |
 | 5 | `plan-stories` | approved (no hold) | planned (no hold) | - |
-| 6 | `write-stories` | NEW | concept (no hold) | - |
-| 7 | `vet-stories` | concept (no hold) | concept (no hold) | → rejected if conflicts |
-| 8 | `approve-stories` | concept (no hold, vetted) | approved (no hold) | - |
+| 6 | `write-stories` | NEW | concept (queued) | - |
+| 7 | `vet-stories` | concept (queued) | concept (no hold) | → rejected if conflicts |
+| 8 | `approve-stories` | concept (no hold) | approved (no hold) | - |
 
 ---
 
