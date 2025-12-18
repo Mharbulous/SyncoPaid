@@ -11,47 +11,20 @@ References:
 """
 
 import sqlite3
+import sys
+import os
 from datetime import datetime
 from typing import Optional, Dict, Any
 
-
-DB_PATH = '.claude/data/story-tree.db'
-
-# Valid classification types
-CLASSIFICATIONS = {
-    'duplicate',
-    'scope_overlap',
-    'competing',
-    'incompatible',
-    'false_positive'
-}
-
-# Valid action types
-ACTIONS = {
-    'SKIP',
-    'DELETE_CONCEPT',
-    'REJECT_CONCEPT',
-    'BLOCK_CONCEPT',
-    'TRUE_MERGE',
-    'PICK_BETTER',
-    'HUMAN_REVIEW',
-    'DEFER_PENDING'
-}
-
-
-def make_pair_key(id_a: str, id_b: str) -> str:
-    """Create canonical pair key with smaller ID first.
-
-    This ensures consistent lookup regardless of comparison order.
-
-    Examples:
-        make_pair_key("1.8.4", "1.1") -> "1.1|1.8.4"
-        make_pair_key("1.1", "1.8.4") -> "1.1|1.8.4"
-    """
-    if id_a < id_b:
-        return f"{id_a}|{id_b}"
-    else:
-        return f"{id_b}|{id_a}"
+# Import common utilities from story-tree
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'story-tree', 'utility'))
+from story_db_common import (
+    DB_PATH,
+    CLASSIFICATIONS,
+    ACTIONS,
+    make_pair_key,
+    get_story_version,
+)
 
 
 def migrate_schema(conn: Optional[sqlite3.Connection] = None) -> Dict[str, Any]:
@@ -192,17 +165,17 @@ def store_decision(conn: sqlite3.Connection, id_a: str, id_b: str,
     """
     pair_key = make_pair_key(id_a, id_b)
 
-    # Get current versions
-    ver_a = conn.execute('SELECT version FROM story_nodes WHERE id = ?', (id_a,)).fetchone()
-    ver_b = conn.execute('SELECT version FROM story_nodes WHERE id = ?', (id_b,)).fetchone()
+    # Get current versions using common utility
+    ver_a = get_story_version(conn, id_a)
+    ver_b = get_story_version(conn, id_b)
 
     # Ensure canonical ordering in storage (smaller ID first)
     if id_a < id_b:
-        story_a_id, story_a_ver = id_a, (ver_a[0] if ver_a else 1) or 1
-        story_b_id, story_b_ver = id_b, (ver_b[0] if ver_b else 1) or 1
+        story_a_id, story_a_ver = id_a, ver_a
+        story_b_id, story_b_ver = id_b, ver_b
     else:
-        story_a_id, story_a_ver = id_b, (ver_b[0] if ver_b else 1) or 1
-        story_b_id, story_b_ver = id_a, (ver_a[0] if ver_a else 1) or 1
+        story_a_id, story_a_ver = id_b, ver_b
+        story_b_id, story_b_ver = id_a, ver_a
 
     conn.execute('''
         INSERT OR REPLACE INTO vetting_decisions

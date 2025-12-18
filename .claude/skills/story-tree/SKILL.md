@@ -167,9 +167,37 @@ Stories use three orthogonal dimensions instead of a single status:
 - Stage is **preserved** when held or disposed (know where to resume)
 - Query by dimension for clearer intent
 
+## Shared Database Utilities
+
+Python scripts that interact with the story-tree database should import from the shared utility module:
+
+```python
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'story-tree', 'utility'))
+from story_db_common import (
+    DB_PATH,                    # '.claude/data/story-tree.db'
+    MERGEABLE_STATUSES,         # {'concept', 'wishlist', 'refine'}
+    BLOCK_STATUSES,             # {'rejected', 'infeasible', 'broken', 'pending', 'blocked'}
+    get_connection,             # Get SQLite connection
+    make_pair_key,              # Canonical pair key for caching
+    get_story_version,          # Get story version number
+    compute_effective_status,   # COALESCE(disposition, hold_reason, stage)
+    delete_story,               # Cascade delete from story_nodes + story_paths
+    reject_concept,             # Set disposition='rejected' with note
+    block_concept,              # Set hold_reason='blocked' with note
+    defer_concept,              # Set hold_reason='pending' with note
+    merge_concepts,             # Merge two stories into one
+)
+```
+
+**Location:** `.claude/skills/story-tree/utility/story_db_common.py`
+
+This ensures DRY principles - all story-related skills use the same database operations.
+
 ## References
 
 - `references/schema.sql` - Database schema
 - `references/sql-queries.md` - Query patterns
 - `references/rationales.md` - Design decisions
+- `utility/story_db_common.py` - Shared database utilities
 - `.claude/skills/story-writing/SKILL.md` - Story generation

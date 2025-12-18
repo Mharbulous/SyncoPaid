@@ -11,29 +11,22 @@ import sys
 import os
 from typing import Dict, List, Tuple, Optional
 
+# Import common utilities from story-tree
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'story-tree', 'utility'))
+from story_db_common import (
+    DB_PATH,
+    MERGEABLE_STATUSES,
+    BLOCK_STATUSES,
+    delete_story,
+    reject_concept as _reject_concept,
+    block_concept as _block_concept,
+    defer_concept as _defer_concept,
+    merge_concepts as _merge_concepts,
+)
+
 # Import cache functions
-try:
-    from vetting_cache import migrate_schema, store_decision
-except ImportError:
-    # When run as script from different directory
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from vetting_cache import migrate_schema, store_decision
+from vetting_cache import migrate_schema, store_decision
 
-# Constants
-# Three-field system mappings (values from COALESCE(disposition, hold_reason, stage))
-# - 'concept' = stage='concept'
-# - 'wishlist' = disposition='wishlist'
-# - 'refine' = hold_reason='refine'
-MERGEABLE_STATUSES = {'concept', 'wishlist', 'refine'}
-
-# Three-field system mappings (values from COALESCE(disposition, hold_reason, stage))
-# - 'rejected' = disposition='rejected'
-# - 'infeasible' = disposition='infeasible'
-# - 'broken' = hold_reason='broken'
-# - 'pending' = hold_reason='pending'
-# - 'blocked' = hold_reason='blocked'
-BLOCK_STATUSES = {'rejected', 'infeasible', 'broken', 'pending', 'blocked'}
-DB_PATH = '.claude/data/story-tree.db'
 CI_MODE = True  # Always use CI mode in this script
 
 # Statistics counters
@@ -125,51 +118,28 @@ def classify_conflict(story_a: Dict, story_b: Dict) -> str:
 
 def delete_concept(conn: sqlite3.Connection, concept_id: str) -> None:
     """Delete a concept from the database."""
-    conn.execute('DELETE FROM story_paths WHERE descendant_id = ?', (concept_id,))
-    conn.execute('DELETE FROM story_nodes WHERE id = ?', (concept_id,))
+    delete_story(conn, concept_id)
     stats['deleted'] += 1
 
 def reject_concept(conn: sqlite3.Connection, concept_id: str, conflicting_id: str) -> None:
     """Set concept disposition to rejected with note."""
-    conn.execute('''
-        UPDATE story_nodes
-        SET disposition = 'rejected',
-            notes = COALESCE(notes || char(10), '') || 'Conflicts with story node ' || ?
-        WHERE id = ?
-    ''', (conflicting_id, concept_id))
+    _reject_concept(conn, concept_id, conflicting_id)
     stats['rejected'] += 1
 
 def block_concept(conn: sqlite3.Connection, concept_id: str, conflicting_id: str) -> None:
     """Set concept hold_reason to blocked with note (stage preserved)."""
-    conn.execute('''
-        UPDATE story_nodes
-        SET hold_reason = 'blocked', human_review = 1,
-            notes = COALESCE(notes || char(10), '') || 'Blocked due to conflict with story node ' || ?
-        WHERE id = ?
-    ''', (conflicting_id, concept_id))
+    _block_concept(conn, concept_id, conflicting_id)
     stats['blocked'] += 1
 
 def defer_pending(conn: sqlite3.Connection, concept_id: str, conflicting_id: str) -> None:
     """Set concept hold_reason to pending for later human review (stage preserved)."""
-    conn.execute('''
-        UPDATE story_nodes
-        SET hold_reason = 'pending', human_review = 1,
-            notes = COALESCE(notes || char(10), '') || 'Scope overlap with ' || ? || ' - needs human review'
-        WHERE id = ?
-    ''', (conflicting_id, concept_id))
+    _defer_concept(conn, concept_id, conflicting_id)
     stats['deferred'] += 1
 
 def merge_concepts(conn: sqlite3.Connection, keep_id: str, delete_id: str,
                    merged_title: str, merged_desc: str) -> None:
     """Merge two concepts into one."""
-    conn.execute('''
-        UPDATE story_nodes
-        SET title = ?, description = ?,
-            notes = COALESCE(notes || char(10), '') || 'Merged from story node ' || ?
-        WHERE id = ?
-    ''', (merged_title, merged_desc, delete_id, keep_id))
-    conn.execute('DELETE FROM story_paths WHERE descendant_id = ?', (delete_id,))
-    conn.execute('DELETE FROM story_nodes WHERE id = ?', (delete_id,))
+    _merge_concepts(conn, keep_id, delete_id, merged_title, merged_desc)
     stats['merged'] += 1
 
 def simple_merge(story_a: Dict, story_b: Dict) -> Tuple[str, str]:

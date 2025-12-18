@@ -11,10 +11,14 @@ Actions:
   - Mark specific criteria as checked in description
 """
 import json
+import os
 import re
 import sqlite3
 import sys
 
+# Import common utilities from story-tree
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'story-tree', 'utility'))
+from story_db_common import DB_PATH
 
 # Valid stages for the three-field system
 VALID_STAGES = {
@@ -35,7 +39,7 @@ def update_status(story_id: str, new_stage: str, notes: str = None, hold: bool =
     if new_stage not in VALID_STAGES:
         return {"error": f"Invalid stage: {new_stage}", "valid_stages": list(VALID_STAGES)}
 
-    conn = sqlite3.connect('.claude/data/story-tree.db')
+    conn = sqlite3.connect(DB_PATH)
 
     # Get current story
     cursor = conn.execute('SELECT stage, hold_reason, notes FROM story_nodes WHERE id = ?', (story_id,))
@@ -87,7 +91,7 @@ def update_status(story_id: str, new_stage: str, notes: str = None, hold: bool =
 
 def mark_criteria_checked(story_id: str, indices: list[int]) -> dict:
     """Mark specific acceptance criteria as checked in the description."""
-    conn = sqlite3.connect('.claude/data/story-tree.db')
+    conn = sqlite3.connect(DB_PATH)
 
     cursor = conn.execute('SELECT description FROM story_nodes WHERE id = ?', (story_id,))
     row = cursor.fetchone()
@@ -141,7 +145,7 @@ def mark_criteria_checked(story_id: str, indices: list[int]) -> dict:
 
 def get_verification_summary(story_id: str) -> dict:
     """Get current verification status of a story."""
-    conn = sqlite3.connect('.claude/data/story-tree.db')
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
 
     story = conn.execute('''
