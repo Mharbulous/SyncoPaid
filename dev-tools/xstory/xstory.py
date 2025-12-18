@@ -21,10 +21,13 @@ try:
         QTreeWidget, QTreeWidgetItem, QSplitter, QGroupBox, QCheckBox,
         QPushButton, QLabel, QTextEdit, QDialog, QDialogButtonBox,
         QFileDialog, QMessageBox, QScrollArea, QFrame, QStatusBar,
-        QMenu, QLineEdit
+        QMenu, QLineEdit, QStyledItemDelegate, QStyleOptionViewItem
     )
-    from PySide6.QtCore import Qt, Signal, QSize
-    from PySide6.QtGui import QBrush, QColor, QFont, QAction, QPixmap, QPainter, QPen, QIcon
+    from PySide6.QtCore import Qt, Signal, QSize, QRect, QPoint
+    from PySide6.QtGui import (
+        QBrush, QColor, QFont, QAction, QPixmap, QPainter, QPen, QIcon,
+        QLinearGradient, QFontMetrics
+    )
 except ImportError:
     print("Error: PySide6 is required. Install with: pip install PySide6")
     sys.exit(1)
@@ -100,6 +103,186 @@ HOLD_ICONS = {
     'conflict': '⚔',     # Conflict - inconsistent with another story
     'wishlist': '💭',    # Wishlist - indefinite hold, maybe someday
 }
+
+
+def calculate_stage_color(stage: str) -> QColor:
+    """
+    Calculate the gradient start color based on the node's stage.
+
+    Uses HSL color space with:
+    - Hue: Linear interpolation from 120° (green) to 240° (blue)
+    - Saturation: Fixed at 100%
+    - Lightness: Fixed at 40% for visibility on light backgrounds
+
+    Args:
+        stage: The stage value from STAGE_ORDER
+
+    Returns:
+        QColor representing the stage color
+    """
+    if stage not in STAGE_ORDER:
+        # Default to first stage color for unknown stages
+        stage = 'concept'
+
+    stage_index = STAGE_ORDER.index(stage)
+    total_stages = len(STAGE_ORDER)
+
+    # Calculate hue: 120° (green) to 240° (blue)
+    # Formula: Hue = 120 + (current_stage_index * (120 / (total_stages - 1)))
+    if total_stages > 1:
+        hue = 120 + (stage_index * (120 / (total_stages - 1)))
+    else:
+        hue = 120
+
+    # HSL values: hue 0-360, saturation 0-1, lightness 0-1
+    # Qt uses 0-359 for hue, 0-255 for saturation and lightness
+    color = QColor()
+    color.setHslF(hue / 360.0, 1.0, 0.40)
+    return color
+
+
+def calculate_gradient_colors(node: 'StoryNode') -> Tuple[QColor, QColor]:
+    """
+    Calculate the gradient start and end colors for a tree node.
+
+    Color Logic:
+    - StartColor (left): Based on stage (green to blue gradient)
+    - EndColor (right): Priority-based override:
+      1. Disposition active → Red (HSL 0, 100%, 45%)
+      2. Hold Status active → Black (HSL 0, 0%, 0%)
+      3. Default → Same as StartColor (solid color)
+
+    Args:
+        node: StoryNode object with stage, hold_reason, and disposition
+
+    Returns:
+        Tuple of (start_color, end_color) as QColor objects
+    """
+    # Calculate start color based on stage
+    start_color = calculate_stage_color(node.stage)
+
+    # Determine end color based on priority
+    if node.disposition:
+        # Priority 1: Disposition active → Red
+        end_color = QColor()
+        end_color.setHslF(0 / 360.0, 1.0, 0.45)  # HSL 0, 100%, 45%
+    elif node.hold_reason:
+        # Priority 2: Hold Status active → Black
+        end_color = QColor()
+        end_color.setHslF(0 / 360.0, 0.0, 0.0)  # Black
+    else:
+        # Priority 3: Default → Same as start (solid color)
+        end_color = start_color
+
+    return start_color, end_color
+
+
+class GradientTextDelegate(QStyledItemDelegate):
+    """
+    Custom delegate for rendering tree node text with gradient colors.
+
+    Renders node labels with a horizontal linear gradient based on:
+    - Stage (determines start color: green → blue progression)
+    - Hold Status (if active, gradient ends in black)
+    - Disposition (if active, gradient ends in red - highest priority)
+    """
+
+    def __init__(self, parent=None, app=None):
+        super().__init__(parent)
+        self.app = app  # Reference to XstoryExplorer for node lookup
+
+    def paint(self, painter: QPainter, option: QStyleOptionViewItem, index):
+        """Custom paint method for gradient text rendering."""
+        # Get the node ID from column 0 of the same row
+        tree_widget = option.widget
+        item = tree_widget.itemFromIndex(index)
+        if not item:
+            super().paint(painter, option, index)
+            return
+
+        node_id = item.text(0)  # ID is always in column 0
+
+        # Get the node data
+        if not self.app or node_id not in self.app.nodes:
+            super().paint(painter, option, index)
+            return
+
+        node = self.app.nodes[node_id]
+
+        # Check if this node is a faded ancestor
+        is_faded = item.data(0, Qt.UserRole) == 'faded'
+
+        # Get text to display
+        text = index.data(Qt.DisplayRole) or ''
+
+        # Save painter state
+        painter.save()
+
+        # Draw selection/hover background if needed
+        if option.state & 0x00000010:  # State_Selected
+            painter.fillRect(option.rect, option.palette.highlight())
+        elif option.state & 0x00000080:  # State_MouseOver
+            painter.fillRect(option.rect, option.palette.light())
+
+        # Calculate text rectangle with padding
+        text_rect = option.rect.adjusted(4, 0, -4, 0)
+
+        # Get font metrics
+        font = option.font
+        painter.setFont(font)
+        fm = QFontMetrics(font)
+
+        # For faded nodes, use gray solid color
+        if is_faded:
+            painter.setPen(QColor('#999999'))
+            painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, text)
+            painter.restore()
+            return
+
+        # Calculate gradient colors
+        start_color, end_color = calculate_gradient_colors(node)
+
+        # Check if this is a solid color (start == end)
+        if start_color == end_color:
+            painter.setPen(start_color)
+            painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, text)
+            painter.restore()
+            return
+
+        # Create gradient for text
+        # We need to render character by character with interpolated colors
+        text_width = fm.horizontalAdvance(text)
+        if text_width == 0:
+            painter.restore()
+            return
+
+        # Draw text with gradient effect using character-by-character rendering
+        x_pos = text_rect.left()
+        y_pos = text_rect.top() + (text_rect.height() + fm.ascent() - fm.descent()) // 2
+
+        total_width = min(text_width, text_rect.width())
+        current_x = 0
+
+        for char in text:
+            char_width = fm.horizontalAdvance(char)
+            if current_x + char_width > text_rect.width():
+                break
+
+            # Calculate interpolation factor (0.0 at start, 1.0 at end)
+            t = current_x / total_width if total_width > 0 else 0
+
+            # Interpolate color
+            r = int(start_color.red() + t * (end_color.red() - start_color.red()))
+            g = int(start_color.green() + t * (end_color.green() - start_color.green()))
+            b = int(start_color.blue() + t * (end_color.blue() - start_color.blue()))
+
+            painter.setPen(QColor(r, g, b))
+            painter.drawText(x_pos + current_x, y_pos, char)
+
+            current_x += char_width
+
+        painter.restore()
+
 
 # Designer mode transitions (approval, quality, priority, end-of-life decisions)
 DESIGNER_TRANSITIONS = {
@@ -844,6 +1027,11 @@ class XstoryExplorer(QMainWindow):
         self.tree.itemSelectionChanged.connect(self._on_tree_select)
         self.tree.itemDoubleClicked.connect(self._on_tree_double_click)
 
+        # Apply gradient text delegate to all columns
+        self.gradient_delegate = GradientTextDelegate(self.tree, app=self)
+        for col in range(3):
+            self.tree.setItemDelegateForColumn(col, self.gradient_delegate)
+
         tree_container_layout.addWidget(self.tree)
         splitter.addWidget(tree_container)
 
@@ -1368,7 +1556,13 @@ class XstoryExplorer(QMainWindow):
 
     def _add_filtered_node(self, node: StoryNode, parent_item: Optional[QTreeWidgetItem],
                            visible_nodes: set, faded_nodes: set):
-        """Add a node to the filtered tree with appropriate coloring."""
+        """Add a node to the filtered tree with gradient coloring.
+
+        Gradient coloring is applied via the GradientTextDelegate:
+        - StartColor: Based on stage (green→blue progression)
+        - EndColor: Red if disposition active, black if on hold, else same as start
+        - Faded ancestors: Gray text (not gradient)
+        """
         if node.id not in visible_nodes:
             return
 
@@ -1389,31 +1583,19 @@ class XstoryExplorer(QMainWindow):
         if tooltip:
             item.setToolTip(1, tooltip)
 
-        # Get status color (use effective status for coloring)
-        status_color = STATUS_COLORS.get(node.status, '#000000')
-
+        # Mark faded nodes with UserRole data for the delegate
         if node.id in faded_nodes:
-            # Faded ancestor: gray text for ID and Title, keep status color
-            gray_brush = QBrush(QColor('#999999'))
-            status_brush = QBrush(QColor(status_color))
-
-            item.setForeground(0, gray_brush)  # ID column
-            item.setForeground(1, status_brush)  # Status column
-            item.setForeground(2, gray_brush)  # Title column
-
+            item.setData(0, Qt.UserRole, 'faded')
             # Set italic font for faded items
             italic_font = QFont()
             italic_font.setItalic(True)
             item.setFont(0, italic_font)
             item.setFont(2, italic_font)
         else:
-            # Normal node: colored status, black ID and title
-            black_brush = QBrush(QColor('#000000'))
-            status_brush = QBrush(QColor(status_color))
+            item.setData(0, Qt.UserRole, 'normal')
 
-            item.setForeground(0, black_brush)  # ID column
-            item.setForeground(1, status_brush)  # Status column
-            item.setForeground(2, black_brush)  # Title column
+        # Note: Actual text coloring is handled by GradientTextDelegate
+        # which reads node data and applies gradient colors
 
         # Add to tree
         if parent_item:
