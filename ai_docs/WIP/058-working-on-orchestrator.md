@@ -109,4 +109,25 @@ The standalone `activate-stories.yml` is now updated with the two-step flow. To 
 2. Consider migrating existing `'blocked'` entries to `'blocked:ID'` format
 
 ---
+
+### Verification Session 2025-12-18 (Session 2)
+
+**Verifier**: Claude (new session)
+
+**Verification Method**: Full code review of `activate-stories.yml`
+
+**Verified Claims**:
+
+| Claim | Status | Evidence |
+|-------|--------|----------|
+| UNBLOCK step (Step 4a) added | ✅ VERIFIED | Lines 52-115 query `hold_reason LIKE 'blocked:%'`, parse blocker IDs, check resolution |
+| `blocked:ID1,ID2` format | ✅ VERIFIED | Lines 321, 324 set `hold_reason = 'blocked:' || ?` |
+| Cycle detection implemented | ✅ VERIFIED | `get_block_chain()` function at lines 223-242, cycle resolution at lines 302-318 |
+| Full dependency check | ✅ VERIFIED | Lines 148-177 check cross-branch deps + children |
+
+**Conclusion**: Line 058 transition is **FULLY IMPLEMENTED** in standalone workflow. Integration into orchestrator main loop is separate work item (orchestrator expansion, not this specific transition).
+
+**Status**: ✅ VERIFIED COMPLETE - No further work needed for this specific transition.
+
+---
 *Last updated: 2025-12-18*
