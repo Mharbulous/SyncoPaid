@@ -116,8 +116,8 @@ END;
 --
 -- HOLD_REASON (6 values + NULL): Why work is stopped (orthogonal to stage)
 --   NULL    = Not held, work can proceed
---   queued  = Waiting to be processed
---   pending = Awaiting human decision to clear this status
+--   queued  = Waiting for automated processing (algorithm hasn't run yet)
+--   pending = Awaiting human decision (algorithm ran but can't decide)
 --   paused  = Execution blocked by critical issue
 --   blocked = External dependency
 --   broken  = Something wrong with story definition

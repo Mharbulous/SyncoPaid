@@ -100,11 +100,11 @@ Each stage represents multiple facets that apply simultaneously. A node can have
 mindmap
   root((Any Stage))
     queued
-      Waiting to be processed
-      Clear: Processing begins
+      Awaiting automated processing
+      Clear: Algorithm runs
     pending
       Awaiting human decision
-      Clear: Human clears status
+      Clear: Human decides
     paused
       Work paused
       Clear: Resume work
