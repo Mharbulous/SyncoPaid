@@ -1,0 +1,167 @@
+name: Daily Story Execution
+
+# Run at 3:30 AM PST (11:30 UTC) every day - after activate-stories
+on:
+  schedule:
+    - cron: '30 11 * * *'
+  workflow_dispatch:  # Manual trigger for testing
+
+concurrency:
+  group: daily-story-execution
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  execute-stories:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Full history for git operations
+
+      - name: Run Claude Code to execute stories
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          # GitHub token for repository operations (required for scheduled workflows)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Use OAuth token for Max subscription
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Show full output for debugging
+          show_full_output: true
+
+          # Direct prompt mode for scheduled automation (CI-optimized)
+          prompt: |
+            MODE: Daily Story Execution (CI - fully autonomous)
+
+            ## Step 1: Early Exit Check
+
+            First, check if there are active stories without holds:
+            ```python
+            python -c "
+            import sqlite3
+            conn = sqlite3.connect('.claude/data/story-tree.db')
+            count = conn.execute('SELECT COUNT(*) FROM story_nodes WHERE stage=\"active\" AND hold_reason IS NULL AND disposition IS NULL').fetchone()[0]
+            print(f'Active stories: {count}')
+            conn.close()
+            "
+            ```
+
+            If count is 0, output "No active stories available for execution" and exit successfully.
+
+            ## Step 2: Execute Story (if active stories exist)
+
+            Use the story-execution skill (CI mode auto-detected):
+            ```
+            Skill(skill="story-execution")
+            ```
+
+            Follow the skill workflow to:
+            - Select and load the oldest active story's plan from .claude/data/plans/
+            - Review plan critically (CI mode: classify issues as blocking or deferrable)
+            - Execute tasks in batches of 3 with TDD cycles (RED-GREEN-COMMIT)
+            - Update story status:
+              - If blocking issues: set hold_reason='paused', do not implement
+              - If deferrable issues: execute, set stage='reviewing'
+              - If no issues: execute, set stage='verifying'
+
+            ## Step 3: Git Operations
+
+            After executing the story:
+            ```bash
+            git checkout main && git pull origin main
+            git add -A
+            git diff --cached --quiet || git commit -m "ci: execute story $(date -u +'%Y-%m-%d')"
+            git push origin main
+            ```
+
+            **CRITICAL**: Push changes before exiting.
+
+            ## Constraints
+            - Execute only 1 story per run
+            - 60-minute timeout (execution takes longer than planning)
+
+          # Tool permissions for file operations, database access, git, and testing
+          claude_args: |
+            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pytest:*),Bash(npm:*),Skill,SlashCommand,TodoWrite"
+            --model claude-sonnet-4-5-20250929
+
+      - name: Report Token Usage
+        if: always()
+        run: |
+          echo "## Token Usage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          EXEC_FILE="${{ steps.claude.outputs.execution_file }}"
+          if [ -f "$EXEC_FILE" ]; then
+            # Debug: Show file format
+            echo "::debug::Execution file size: $(wc -c < "$EXEC_FILE") bytes"
+
+            # Determine file format (JSONL vs JSON array) and extract data
+            # Try to parse as JSON array first, fall back to JSONL
+            if jq -e 'type == "array"' "$EXEC_FILE" > /dev/null 2>&1; then
+              # JSON array format - sum usage from all messages with message.usage
+              INPUT_TOKENS=$(jq '[.[] | select(.message?.usage?) | .message.usage.input_tokens // 0] | add // 0' "$EXEC_FILE")
+              OUTPUT_TOKENS=$(jq '[.[] | select(.message?.usage?) | .message.usage.output_tokens // 0] | add // 0' "$EXEC_FILE")
+              CACHE_CREATION=$(jq '[.[] | select(.message?.usage?) | .message.usage.cache_creation_input_tokens // 0] | add // 0' "$EXEC_FILE")
+              CACHE_READ=$(jq '[.[] | select(.message?.usage?) | .message.usage.cache_read_input_tokens // 0] | add // 0' "$EXEC_FILE")
+              # Get cost and duration from result entry
+              TOTAL_COST=$(jq '[.[] | select(.type == "result")] | last | .total_cost_usd // .cost_usd // "N/A"' "$EXEC_FILE" | tr -d '"')
+              DURATION_MS=$(jq '[.[] | select(.type == "result")] | last | .duration_ms // "N/A"' "$EXEC_FILE" | tr -d '"')
+            else
+              # JSONL format - use grep + jq
+              INPUT_TOKENS=$(grep -o '"input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              OUTPUT_TOKENS=$(grep -o '"output_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              CACHE_CREATION=$(grep -o '"cache_creation_input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              CACHE_READ=$(grep -o '"cache_read_input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              RESULT=$(grep '"type":"result"' "$EXEC_FILE" | tail -1)
+              if [ -n "$RESULT" ]; then
+                TOTAL_COST=$(echo "$RESULT" | jq -r '.total_cost_usd // .cost_usd // "N/A"')
+                DURATION_MS=$(echo "$RESULT" | jq -r '.duration_ms // "N/A"')
+              else
+                TOTAL_COST="N/A"
+                DURATION_MS="N/A"
+              fi
+            fi
+
+            # Validate we got numeric values
+            if ! [[ "$INPUT_TOKENS" =~ ^[0-9]+$ ]]; then INPUT_TOKENS=0; fi
+            if ! [[ "$OUTPUT_TOKENS" =~ ^[0-9]+$ ]]; then OUTPUT_TOKENS=0; fi
+            if ! [[ "$CACHE_CREATION" =~ ^[0-9]+$ ]]; then CACHE_CREATION=0; fi
+            if ! [[ "$CACHE_READ" =~ ^[0-9]+$ ]]; then CACHE_READ=0; fi
+
+            # Calculate total tokens
+            if [ "$INPUT_TOKENS" -gt 0 ] || [ "$OUTPUT_TOKENS" -gt 0 ]; then
+              TOTAL_TOKENS=$((INPUT_TOKENS + OUTPUT_TOKENS))
+            else
+              TOTAL_TOKENS="N/A"
+            fi
+
+            # Format duration in seconds
+            if [[ "$DURATION_MS" =~ ^[0-9]+$ ]]; then
+              DURATION_S=$(echo "scale=1; $DURATION_MS / 1000" | bc)
+            else
+              DURATION_S="N/A"
+            fi
+
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Input Tokens | $INPUT_TOKENS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Output Tokens | $OUTPUT_TOKENS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Cache Creation Tokens | $CACHE_CREATION |" >> $GITHUB_STEP_SUMMARY
+            echo "| Cache Read Tokens | $CACHE_READ |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Total Tokens** | **$TOTAL_TOKENS** |" >> $GITHUB_STEP_SUMMARY
+            echo "| Total Cost | \$$TOTAL_COST |" >> $GITHUB_STEP_SUMMARY
+            echo "| Duration | ${DURATION_S}s |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Execution file not found: $EXEC_FILE" >> $GITHUB_STEP_SUMMARY
+          fi
