@@ -258,3 +258,4 @@ conn.close()
 - **Database:** `.claude/data/story-tree.db`
 - **Schema:** `.claude/skills/story-tree/references/schema.sql`
 - **Three-Field System:** `.claude/skills/story-tree/SKILL.md` (stage + hold_reason + disposition)
+- **Shared Utilities:** `.claude/skills/story-tree/utility/story_db_common.py` (DB_PATH, etc.)

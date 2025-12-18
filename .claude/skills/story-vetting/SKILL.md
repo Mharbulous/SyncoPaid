@@ -315,3 +315,4 @@ Actions taken:
 - **Schema:** `.claude/skills/story-tree/references/schema.sql`
 - **SQL Queries:** `.claude/skills/story-tree/references/sql-queries.md`
 - **Three-Field System:** `.claude/skills/story-tree/SKILL.md` (stage + hold_reason + disposition)
+- **Shared Utilities:** `.claude/skills/story-tree/utility/story_db_common.py` (DB_PATH, delete_story, reject_concept, etc.)
