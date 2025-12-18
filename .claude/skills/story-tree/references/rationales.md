@@ -12,7 +12,10 @@ Stores ALL ancestor-descendant paths, enabling subtree queries without recursion
 
 ## Status Exclusions
 
-Priority algorithm excludes: `concept`, `rejected`, `deprecated`, `infeasible`, `bugged`
+Priority algorithm excludes stories where:
+- `stage = 'concept'` (not yet approved)
+- `hold_reason IS NOT NULL` (blocked/pending/broken/refine)
+- `disposition IS NOT NULL` (rejected/archived/etc)
 
 ## Dynamic Capacity
 

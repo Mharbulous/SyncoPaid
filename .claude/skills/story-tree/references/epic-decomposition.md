@@ -7,7 +7,7 @@
    - Children may be rejected even if parent was approved
    - Prevents scope creep from approved epics
 
-2. **Excluded from generation** - `epic` is excluded from priority algorithm because epic nodes already have approved scope and need decomposition, not more children
+2. **Excluded from generation** - Parent/epic nodes (identified by `capacity > 5` or children) are excluded from priority algorithm. They should have `stage >= 'approved'` and focus on decomposition.
 
 ## `wishlist` vs `rejected`
 
