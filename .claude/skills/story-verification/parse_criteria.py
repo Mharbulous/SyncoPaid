@@ -10,6 +10,11 @@ import sqlite3
 import json
 import re
 import sys
+import os
+
+# Import common utilities from story-tree
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'story-tree', 'utility'))
+from story_db_common import DB_PATH
 
 
 def parse_acceptance_criteria(description: str) -> list[dict]:
@@ -33,7 +38,7 @@ def parse_acceptance_criteria(description: str) -> list[dict]:
 
 def get_story_criteria(story_id: str) -> dict:
     """Get story and parse its acceptance criteria."""
-    conn = sqlite3.connect('.claude/data/story-tree.db')
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
 
     story = conn.execute('''
