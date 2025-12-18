@@ -41,7 +41,6 @@ STATUS_COLORS = {
     'pending': '#00CC00',     # Pure Green
     'approved': '#00CC33',     # Spring Green
     'planned': '#00CC66',      # Emerald
-    'queued': '#00CC99',       # Teal Green
     'paused': '#00CCCC',       # Dark Cyan
     'active': '#0099CC',       # Cerulean
     'reviewing': '#0066CC',    # Azure
@@ -58,7 +57,7 @@ STATUS_COLORS = {
 ALL_STATUSES = [
     'infeasible', 'rejected', 'wishlist',
     'concept', 'broken', 'blocked', 'refine',
-    'pending', 'approved', 'planned', 'queued', 'paused',
+    'pending', 'approved', 'planned', 'paused',
     'active', 'reviewing',
     'implemented',
     'ready', 'polish', 'released',
@@ -66,7 +65,7 @@ ALL_STATUSES = [
 ]
 
 # Three-field system: classify each status into its field type
-STAGE_VALUES = {'concept', 'approved', 'planned', 'queued', 'active',
+STAGE_VALUES = {'concept', 'approved', 'planned', 'active',
                 'reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released'}
 HOLD_REASON_VALUES = {'pending', 'paused', 'blocked', 'broken', 'refine'}
 DISPOSITION_VALUES = {'rejected', 'infeasible', 'wishlist', 'legacy', 'deprecated', 'archived'}
@@ -96,11 +95,10 @@ DESIGNER_TRANSITIONS = {
 # Engineer mode transitions (workflow, blockers, bugs, progress)
 ENGINEER_TRANSITIONS = {
     'approved': ['planned'],
-    'blocked': ['planned', 'queued'],
-    'planned': ['queued', 'blocked'],
-    'queued': ['active', 'blocked', 'paused', 'planned'],
-    'broken': ['active', 'paused', 'blocked', 'queued'],
-    'paused': ['active', 'queued', 'blocked'],
+    'blocked': ['planned', 'active'],
+    'planned': ['active', 'blocked'],
+    'broken': ['active', 'paused', 'blocked'],
+    'paused': ['active', 'blocked'],
     'active': ['reviewing', 'paused', 'broken', 'blocked'],
     'reviewing': ['active', 'broken'],
     'implemented': ['reviewing', 'broken'],
