@@ -28,3 +28,15 @@ def test_idle_resumption_event_to_dict():
     data = event.to_dict()
     assert data['resumption_timestamp'] == "2025-12-18T10:30:00+00:00"
     assert data['idle_duration'] == 900.0
+
+
+def test_config_has_minimum_idle_duration():
+    """Verify config includes minimum_idle_duration setting."""
+    from syncopaid.config import DEFAULT_CONFIG, Config
+
+    assert 'minimum_idle_duration_seconds' in DEFAULT_CONFIG
+    assert DEFAULT_CONFIG['minimum_idle_duration_seconds'] == 180
+
+    # Verify Config dataclass accepts it
+    config = Config(minimum_idle_duration_seconds=300)
+    assert config.minimum_idle_duration_seconds == 300
