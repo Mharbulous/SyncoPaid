@@ -21,7 +21,7 @@ try:
         QTreeWidget, QTreeWidgetItem, QSplitter, QGroupBox, QCheckBox,
         QPushButton, QLabel, QTextEdit, QDialog, QDialogButtonBox,
         QFileDialog, QMessageBox, QScrollArea, QFrame, QStatusBar,
-        QMenu, QLineEdit, QStyledItemDelegate, QStyleOptionViewItem
+        QMenu, QLineEdit, QStyledItemDelegate, QStyleOptionViewItem, QStyle
     )
     from PySide6.QtCore import Qt, Signal, QSize, QRect, QPoint
     from PySide6.QtGui import (
@@ -232,9 +232,9 @@ class GradientTextDelegate(QStyledItemDelegate):
         painter.save()
 
         # Draw selection/hover background if needed
-        if option.state & 0x00000010:  # State_Selected
+        if option.state & QStyle.State_Selected:
             painter.fillRect(option.rect, option.palette.highlight())
-        elif option.state & 0x00000080:  # State_MouseOver
+        elif option.state & QStyle.State_MouseOver:
             painter.fillRect(option.rect, option.palette.light())
 
         # Calculate text rectangle with padding
