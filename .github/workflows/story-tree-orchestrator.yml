@@ -149,7 +149,7 @@ jobs:
               claude_output=$(claude --print --dangerously-skip-permissions \
                 --output-format json \
                 --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Skill,SlashCommand,TodoWrite" \
-                --model claude-sonnet-4-5-20250929 \
+                --model claude-opus-4-5-20251101 \
                 "MODE: Story Planning (CI - autonomous)
 
               Use the story-planning skill to plan ONE approved story (CI mode auto-detected):
