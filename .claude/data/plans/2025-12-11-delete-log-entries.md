@@ -460,7 +460,7 @@ after entries are deleted."
 
 ```bash
 git add -A
-git commit -m "feat: complete delete log entries feature (story 1.1.4.3)
+git commit -m "feat: complete delete log entries feature (story 1.4.3)
 
 Adds ability to delete selected log entries from View Time window:
 - Multi-select enabled (click, Ctrl+click, Shift+click)

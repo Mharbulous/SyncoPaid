@@ -40,30 +40,30 @@ Options:
 ### ASCII Format (default)
 ```
 SyncoPaid [6/10] ●
-├── 1.1 Window activity tracking [4/4] ✓
-│   ├── 1.1.1 Poll active window every second ✓
-│   ├── 1.1.2 Extract application name from process ✓
-│   ├── 1.1.3 Merge consecutive identical events ✓
-│   └── 1.1.4 Detect system idle state ✓
-├── 1.2 Periodic screenshot capture [5/5] ✓
+├── 1 Window activity tracking [4/4] ✓
+│   ├── 1.1 Poll active window every second ✓
+│   ├── 1.2 Extract application name from process ✓
+│   ├── 1.3 Merge consecutive identical events ✓
+│   └── 1.4 Detect system idle state ✓
+├── 2 Periodic screenshot capture [5/5] ✓
 │   └── ...
-└── 1.3 Action-based screenshot capture [4/4] ✓
+└── 3 Action-based screenshot capture [4/4] ✓
     └── ...
 ```
 
 ### Compact Format
 ```
 root: SyncoPaid
-  1.1: Window activity tracking
-    1.1.1: Poll active window every second
-    1.1.2: Extract application name from process
+  1: Window activity tracking
+    1.1: Poll active window every second
+    1.2: Extract application name from process
 ```
 
 ### Markdown Format
 ```markdown
 - **SyncoPaid** [6/10] `active`
-  - **1.1 Window activity tracking** [4/4] `implemented`
-    - 1.1.1 Poll active window every second `implemented`
+  - **1 Window activity tracking** [4/4] `implemented`
+    - 1.1 Poll active window every second `implemented`
 ```
 
 ## Status Indicators
@@ -225,8 +225,8 @@ python tree-view.py --show-capacity --show-status
 # Only implemented stories, compact view
 python tree-view.py --status implemented --compact
 
-# Subtree from node 1.2, max 2 levels deep
-python tree-view.py --root 1.2 --depth 2
+# Subtree from node 2, max 2 levels deep
+python tree-view.py --root 2 --depth 2
 
 # Markdown output for documentation
 python tree-view.py --format markdown > tree.md
@@ -252,7 +252,7 @@ python .claude/skills/story-tree/tree-view.py --show-capacity --show-status
 Manual verification:
 1. Run with default options - should show full tree
 2. Test `--depth 1` - should show only root's direct children
-3. Test `--root 1.1` - should show subtree
+3. Test `--root 1` - should show subtree
 4. Test `--status implemented` - should filter correctly
 5. Test `--format markdown` - should produce valid markdown
 6. Test `--no-color` - should have no ANSI codes
