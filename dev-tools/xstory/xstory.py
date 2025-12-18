@@ -159,7 +159,7 @@ def calculate_gradient_colors(node: 'StoryNode') -> Tuple[QColor, QColor]:
     Calculate the gradient start and end colors for a tree node.
 
     Color Logic:
-    - Disposition active → Solid stage color (no gradient, disposition shown in Stage column)
+    - Disposition active → Solid disposition color (no gradient)
     - Hold Status active (no disposition) → Gradient from stage color to black
     - Default → Solid stage color (no gradient)
 
@@ -169,15 +169,19 @@ def calculate_gradient_colors(node: 'StoryNode') -> Tuple[QColor, QColor]:
     Returns:
         Tuple of (start_color, end_color) as QColor objects
     """
+    # Determine color based on priority: disposition > hold_reason > stage
+    if node.disposition:
+        # Disposition active → Use disposition color (solid, no gradient)
+        color_hex = STATUS_COLORS.get(node.disposition, '#CC3300')  # Default to rejected color
+        start_color = QColor(color_hex)
+        end_color = start_color
+        return start_color, end_color
+
     # Calculate start color based on stage
     start_color = calculate_stage_color(node.stage)
 
-    # Determine end color based on priority
-    if node.disposition:
-        # Disposition active → Solid color (no gradient)
-        # The disposition reason is shown in the Stage column instead
-        end_color = start_color
-    elif node.hold_reason:
+    # Determine end color based on hold status
+    if node.hold_reason:
         # Hold Status active → Gradient to black
         end_color = QColor()
         end_color.setHslF(0 / 360.0, 0.0, 0.0)  # Black
