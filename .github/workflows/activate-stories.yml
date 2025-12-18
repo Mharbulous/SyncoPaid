@@ -1,0 +1,208 @@
+name: Daily Story Activation
+
+# Run at 3:00 AM PST (11:00 UTC) every day - after plan-stories
+on:
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch:  # Manual trigger for testing
+
+concurrency:
+  group: daily-story-activation
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  activate-stories:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Full history for git operations
+
+      - name: Run Claude Code to activate stories
+        uses: anthropics/claude-code-action@v1
+        with:
+          # GitHub token for repository operations (required for scheduled workflows)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Use OAuth token for Max subscription
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Show full output for debugging
+          show_full_output: true
+
+          # Direct prompt mode for scheduled automation (CI-optimized)
+          prompt: |
+            MODE: Daily Story Activation (CI - fully autonomous)
+
+            ## Step 1: Early Exit Check
+
+            First, check if there are planned stories without holds:
+            ```python
+            python -c "
+            import sqlite3
+            conn = sqlite3.connect('.claude/data/story-tree.db')
+            count = conn.execute('SELECT COUNT(*) FROM story_nodes WHERE stage=\"planned\" AND hold_reason IS NULL AND disposition IS NULL').fetchone()[0]
+            print(f'Planned stories: {count}')
+            conn.close()
+            "
+            ```
+
+            If count is 0, output "No planned stories available for activation" and exit successfully.
+
+            ## Step 2: Process Planned Stories
+
+            For EACH planned story (oldest first), run the dependency check:
+
+            ```python
+            python -c "
+            import sqlite3, re, json
+
+            conn = sqlite3.connect('.claude/data/story-tree.db')
+            conn.row_factory = sqlite3.Row
+
+            # Get all planned stories without holds, ordered by updated_at
+            planned = conn.execute('''
+                SELECT id, title, description, notes FROM story_nodes
+                WHERE stage = 'planned'
+                  AND hold_reason IS NULL AND disposition IS NULL
+                ORDER BY updated_at ASC
+            ''').fetchall()
+
+            IMPLEMENTED_STAGES = ('implemented', 'ready', 'polish', 'released')
+            PLANNED_OR_LATER = ('planned', 'active', 'reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released')
+
+            results = []
+            for story in planned:
+                story_id = story['id']
+                text = (story['description'] or '') + ' ' + (story['notes'] or '')
+
+                # Extract dependency IDs (patterns: 1.2, 1.3.1, etc., or explicit 'depends on X')
+                dep_pattern = r'(?:depends on|requires|after|needs)\s+(\d+(?:\.\d+)*)|(?<!\d)(\d+\.\d+(?:\.\d+)*)(?!\d)'
+                deps = set()
+                for match in re.finditer(dep_pattern, text, re.IGNORECASE):
+                    dep_id = match.group(1) or match.group(2)
+                    if dep_id and dep_id != story_id:
+                        deps.add(dep_id)
+
+                # Check dependency stories are implemented
+                unmet_deps = []
+                for dep_id in deps:
+                    dep = conn.execute('SELECT id, title, stage FROM story_nodes WHERE id = ? AND disposition IS NULL', (dep_id,)).fetchone()
+                    if dep and dep['stage'] not in IMPLEMENTED_STAGES:
+                        unmet_deps.append({'id': dep_id, 'title': dep['title'], 'stage': dep['stage']})
+
+                # Check all children are at least planned
+                unplanned_children = []
+                children = conn.execute('''
+                    SELECT s.id, s.title, s.stage FROM story_nodes s
+                    JOIN story_paths p ON s.id = p.descendant_id
+                    WHERE p.ancestor_id = ? AND p.depth = 1
+                      AND s.disposition IS NULL
+                ''', (story_id,)).fetchall()
+
+                for child in children:
+                    if child['stage'] not in PLANNED_OR_LATER:
+                        unplanned_children.append({'id': child['id'], 'title': child['title'], 'stage': child['stage']})
+
+                ready = len(unmet_deps) == 0 and len(unplanned_children) == 0
+                results.append({
+                    'id': story_id,
+                    'title': story['title'],
+                    'ready': ready,
+                    'unmet_deps': unmet_deps,
+                    'unplanned_children': unplanned_children
+                })
+
+            print(json.dumps(results, indent=2))
+            conn.close()
+            "
+            ```
+
+            ## Step 3: Apply Transitions
+
+            For each story in the results:
+
+            **If ready = true:** Transition to active
+            ```python
+            python -c "
+            import sqlite3
+            conn = sqlite3.connect('.claude/data/story-tree.db')
+            conn.execute('''
+                UPDATE story_nodes
+                SET stage = 'active',
+                    notes = COALESCE(notes || char(10), '') || 'Activated by CI: ' || datetime('now'),
+                    updated_at = datetime('now')
+                WHERE id = '[STORY_ID]'
+            ''')
+            conn.commit()
+            print('Activated [STORY_ID]')
+            conn.close()
+            "
+            ```
+
+            **If ready = false:** Block the story with reason
+            ```python
+            python -c "
+            import sqlite3
+            conn = sqlite3.connect('.claude/data/story-tree.db')
+
+            # Build blocking reason from unmet deps and unplanned children
+            reason = '[BLOCKING_REASON]'  # e.g., 'Unmet deps: 1.2 (approved), 1.3 (planned); Unplanned children: 1.4.1 (concept)'
+
+            conn.execute('''
+                UPDATE story_nodes
+                SET hold_reason = 'blocked',
+                    human_review = 1,
+                    notes = COALESCE(notes || char(10), '') || 'BLOCKED by CI: ' || datetime('now') || char(10) || ?,
+                    updated_at = datetime('now')
+                WHERE id = ?
+            ''', (reason, '[STORY_ID]'))
+            conn.commit()
+            print('Blocked [STORY_ID]: ' + reason)
+            conn.close()
+            "
+            ```
+
+            ## Step 4: Git Operations
+
+            After processing all stories:
+            ```bash
+            git checkout main && git pull origin main
+            git add -A
+            git diff --cached --quiet || git commit -m "ci: activate stories $(date -u +'%Y-%m-%d')"
+            git push origin main
+            ```
+
+            ## Step 5: Summary Output
+
+            Output a summary like:
+            ```
+            === Story Activation Complete ===
+            Activated: [count]
+            Blocked: [count]
+
+            Activated stories:
+            - [ID]: [title]
+
+            Blocked stories:
+            - [ID]: [title] - [reason]
+            ```
+
+            **CRITICAL**: Push changes before exiting.
+
+            ## Constraints
+            - Process all planned stories in one run
+            - 30-minute timeout
+
+          # Tool permissions for file operations, database access, and git
+          claude_args: |
+            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Skill,SlashCommand,TodoWrite"
+            --model claude-sonnet-4-5-20250929
