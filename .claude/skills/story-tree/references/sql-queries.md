@@ -129,9 +129,9 @@ WHERE disposition IS NULL
 GROUP BY stage ORDER BY
   CASE stage
     WHEN 'concept' THEN 1 WHEN 'approved' THEN 2 WHEN 'planned' THEN 3
-    WHEN 'queued' THEN 4 WHEN 'active' THEN 5 WHEN 'reviewing' THEN 6
-    WHEN 'verifying' THEN 7 WHEN 'implemented' THEN 8 WHEN 'ready' THEN 9
-    WHEN 'polish' THEN 10 WHEN 'released' THEN 11
+    WHEN 'active' THEN 4 WHEN 'reviewing' THEN 5 WHEN 'verifying' THEN 6
+    WHEN 'implemented' THEN 7 WHEN 'ready' THEN 8 WHEN 'polish' THEN 9
+    WHEN 'released' THEN 10
   END;
 ```
 

@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS story_nodes (
     -- Replaces single 'status' column with orthogonal dimensions
     stage TEXT NOT NULL DEFAULT 'concept'
         CHECK (stage IN (
-            'concept', 'approved', 'planned', 'queued', 'active',
+            'concept', 'approved', 'planned', 'active',
             'reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released'
         )),
     hold_reason TEXT DEFAULT NULL
@@ -110,8 +110,8 @@ END;
 -- THREE-FIELD SYSTEM REFERENCE
 -- =============================================================================
 --
--- STAGE (11 values): Linear workflow position
---   concept → approved → planned → queued → active → reviewing → verifying
+-- STAGE (10 values): Linear workflow position
+--   concept → approved → planned → active → reviewing → verifying
 --   → implemented → ready → polish → released
 --
 -- HOLD_REASON (5 values + NULL): Why work is stopped (orthogonal to stage)

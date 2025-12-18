@@ -61,9 +61,7 @@ stateDiagram-v2
 
     approved --> planned: Plan created
 
-    planned --> queued: Dependencies met
-
-    queued --> active: Work begins
+    planned --> active: Dependencies met, work begins
 
     active --> reviewing: Code complete
 
@@ -89,8 +87,7 @@ Each stage represents multiple facets that apply simultaneously. A node can have
 |-------|----------------------------|
 | `concept` | New idea proposed |
 | `approved` | Ready for own implementation planning; ready to receive child concept proposals |
-| `planned` | Own implementation planned; children have been approved |
-| `queued` | Own dependencies met, ready to start; all children planned |
+| `planned` | Own implementation planned; dependencies verified; children have been approved |
 | `active` | Own code in progress; children's code in progress |
 | `reviewing` | Own code under review; reviewing child code |
 | `verifying` | Own implementation being tested; verifying integration with children |

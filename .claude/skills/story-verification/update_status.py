@@ -22,7 +22,7 @@ from story_db_common import DB_PATH
 
 # Valid stages for the three-field system
 VALID_STAGES = {
-    'concept', 'approved', 'planned', 'queued', 'active',
+    'concept', 'approved', 'planned', 'active',
     'reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released'
 }
 

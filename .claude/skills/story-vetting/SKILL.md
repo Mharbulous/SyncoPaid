@@ -74,7 +74,7 @@ Effective status is computed as `COALESCE(disposition, hold_reason, stage)`.
 - `hold_reason IN ('broken', 'pending', 'blocked')`
 
 **Auto-delete/reject against:**
-- `stage IN ('approved', 'planned', 'queued', 'active', 'reviewing', 'implemented', 'ready', 'polish', 'released')`
+- `stage IN ('approved', 'planned', 'active', 'reviewing', 'implemented', 'ready', 'polish', 'released')`
 - `disposition IN ('legacy', 'deprecated', 'archived')`
 
 ### Three-Field System Internals
