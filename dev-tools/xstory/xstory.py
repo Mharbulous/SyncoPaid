@@ -413,11 +413,13 @@ class DetailView(QWidget):
         # Node ID and Title header
         id_label = QLabel(node.id)
         id_label.setStyleSheet("font-weight: bold; font-size: 14pt;")
+        id_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.content_layout.addWidget(id_label)
 
         title_label = QLabel(node.title)
         title_label.setStyleSheet("font-size: 12pt;")
         title_label.setWordWrap(True)
+        title_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.content_layout.addWidget(title_label)
 
         self._add_separator()
@@ -501,6 +503,7 @@ class DetailView(QWidget):
 
         value_widget = QLabel(value)
         value_widget.setWordWrap(True)
+        value_widget.setTextInteractionFlags(Qt.TextSelectableByMouse)
         if color:
             value_widget.setStyleSheet(f"color: {color};")
         row_layout.addWidget(value_widget)
