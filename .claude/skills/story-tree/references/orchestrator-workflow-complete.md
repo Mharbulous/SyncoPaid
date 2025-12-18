@@ -44,11 +44,12 @@ stateDiagram-v2
     state "✔️ implemented (no hold)" as IMPLEMENTED
     state "🏁 ready (no hold)" as READY
     state "🚀 released" as RELEASED
+    state "❌ disposed (conflict)" as DISPOSED
 
     concept --> CONCEPT_QUEUED: write-stories<br/>new story created
 
     CONCEPT_QUEUED --> CONCEPT: vet-stories<br/>no conflicts
-    CONCEPT_QUEUED --> [*]: vet-stories<br/>disposition='conflict'
+    CONCEPT_QUEUED --> DISPOSED: vet-stories<br/>disposition='conflict'
 
     CONCEPT --> APPROVED: approve-stories
 
@@ -70,8 +71,6 @@ stateDiagram-v2
     IMPLEMENTED --> READY: ready-check<br/>integration OK
 
     READY --> RELEASED: deploy.yml<br/>(manual trigger)
-
-    RELEASED --> [*]
 ```
 
 ---
@@ -284,7 +283,6 @@ flowchart LR
     H4 -->|"Human fixes tests"| H4_CLEAR["verifying"]
 
     A1 -->|"verify-stories: deps now met"| A1_CLEAR["active"]
-    C1 -->|"Removed from pipeline"| C1_END["[*]"]
 ```
 
 ---
