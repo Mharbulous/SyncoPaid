@@ -89,11 +89,11 @@ Each stage represents multiple facets that apply simultaneously. A node can have
 |-------|----------------------------|
 | `concept` | New idea proposed |
 | `approved` | Ready for own implementation planning; ready to receive child concept proposals |
-| `planned` | Own implementation planned; children have been planned |
-| `queued` | Own dependencies met, ready to start; children ready to start |
-| `active` | Own code in progress; children's work in progress |
-| `reviewing` | Own code under review; reviewing child integration |
-| `verifying` | Own implementation being tested; verifying children work together |
+| `planned` | Own implementation planned; children have been approved |
+| `queued` | Own dependencies met, ready to start; all children planned |
+| `active` | Own code in progress; children's code in progress |
+| `reviewing` | Own code under review; reviewing child code |
+| `verifying` | Own implementation being tested; verifying integration with children |
 | `implemented` | Own code complete; all children implemented and integrated |
 | `ready` | Own work fully tested; entire subtree fully tested |
 | `released` | Shipped |
