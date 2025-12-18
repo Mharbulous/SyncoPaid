@@ -18,7 +18,9 @@ cursor.execute('''
             JOIN story_paths sp ON p.id = sp.ancestor_id
             WHERE sp.descendant_id = s.id AND sp.depth = 1) as parent_title
     FROM story_nodes s
-    WHERE s.status = 'concept'
+    WHERE s.stage = 'concept'
+      AND s.hold_reason IS NULL
+      AND s.disposition IS NULL
     ORDER BY node_depth ASC, s.created_at ASC
     LIMIT 1
 ''')
@@ -49,7 +51,7 @@ else:
 |-------|-------|
 | **ID** | [id] |
 | **Parent** | [parent_title] |
-| **Status** | concept |
+| **Stage** | concept |
 | **Created** | [created_at] |
 
 ### User Story
@@ -63,24 +65,72 @@ else:
 
 ## Handle Response
 
-- **Approve**: Ask for refinements first, then mark approved
-- **Reject**: Ask for reason (optional), mark rejected
-- **Refine**: Mark as refine
-- **Wishlist**: Mark as wishlist
+Use three-field system (stage + hold_reason + disposition):
+
+- **Approve**: `SET stage = 'approved'`
+- **Reject**: `SET disposition = 'rejected'`
+- **Refine**: `SET hold_reason = 'refine', human_review = 1`
+- **Wishlist**: `SET disposition = 'wishlist'`
 
 ```python
+# For APPROVE:
 python -c "
 import sqlite3
 conn = sqlite3.connect('.claude/data/story-tree.db')
 cursor = conn.cursor()
 cursor.execute('''
     UPDATE story_nodes
-    SET status = '[NEW_STATUS]', updated_at = datetime('now')
+    SET stage = 'approved', updated_at = datetime('now')
     WHERE id = '[STORY_ID]'
 ''')
 conn.commit()
 conn.close()
-print('Story [STORY_ID] marked as [NEW_STATUS]')
+print('Story [STORY_ID] approved')
+"
+
+# For REJECT:
+python -c "
+import sqlite3
+conn = sqlite3.connect('.claude/data/story-tree.db')
+cursor = conn.cursor()
+cursor.execute('''
+    UPDATE story_nodes
+    SET disposition = 'rejected', notes = COALESCE(notes || char(10), '') || '[REASON]', updated_at = datetime('now')
+    WHERE id = '[STORY_ID]'
+''')
+conn.commit()
+conn.close()
+print('Story [STORY_ID] rejected')
+"
+
+# For REFINE:
+python -c "
+import sqlite3
+conn = sqlite3.connect('.claude/data/story-tree.db')
+cursor = conn.cursor()
+cursor.execute('''
+    UPDATE story_nodes
+    SET hold_reason = 'refine', human_review = 1, updated_at = datetime('now')
+    WHERE id = '[STORY_ID]'
+''')
+conn.commit()
+conn.close()
+print('Story [STORY_ID] marked for refinement')
+"
+
+# For WISHLIST:
+python -c "
+import sqlite3
+conn = sqlite3.connect('.claude/data/story-tree.db')
+cursor = conn.cursor()
+cursor.execute('''
+    UPDATE story_nodes
+    SET disposition = 'wishlist', updated_at = datetime('now')
+    WHERE id = '[STORY_ID]'
+''')
+conn.commit()
+conn.close()
+print('Story [STORY_ID] moved to wishlist')
 "
 ```
 

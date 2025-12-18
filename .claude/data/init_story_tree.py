@@ -5,7 +5,7 @@ import os
 import re
 
 # Read schema
-schema_path = '.claude/skills/story-tree/schema.sql'
+schema_path = '.claude/skills/story-tree/references/schema.sql'
 with open(schema_path, 'r') as f:
     schema = f.read()
 
@@ -39,8 +39,9 @@ except FileNotFoundError:
     pass
 
 # Insert root node (represents THIS project)
+# Uses three-field system: stage/hold_reason/disposition (status column removed)
 cursor.execute('''
-    INSERT INTO story_nodes (id, title, description, capacity, status, created_at, updated_at)
+    INSERT INTO story_nodes (id, title, description, capacity, stage, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
 ''', ('root', project_name, project_desc, 10, 'active'))
 
