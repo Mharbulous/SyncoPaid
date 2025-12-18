@@ -1,0 +1,260 @@
+name: Daily Ready Check
+
+# Run at 3:30 AM PST (11:30 UTC) every day - AFTER verify-stories
+# Performs integration checks on 'implemented' stories and advances to 'ready' if OK
+on:
+  schedule:
+    - cron: '30 11 * * *'
+  workflow_dispatch:  # Manual trigger for testing
+
+concurrency:
+  group: daily-ready-check
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  ready-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Full history for git operations
+
+      - name: Run Claude Code to perform ready checks
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          # GitHub token for repository operations (required for scheduled workflows)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Use OAuth token for Max subscription
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Show full output for debugging
+          show_full_output: true
+
+          # Direct prompt mode for scheduled automation (CI-optimized)
+          # Transition: implemented (no hold) → ready (pass) or implemented (broken)
+          prompt: |
+            MODE: Daily Ready Check (CI - fully autonomous)
+
+            This workflow performs integration checks on stories that have passed verification.
+            Stories in 'implemented' stage have been verified and need integration check before
+            being marked as 'ready' for release.
+
+            ## Step 1: Find Stories Ready for Integration Check
+
+            Query implemented stories without holds:
+
+            ```python
+            python3 << 'QUERY_SCRIPT'
+            import sqlite3
+            import json
+
+            conn = sqlite3.connect('.claude/data/story-tree.db')
+            conn.row_factory = sqlite3.Row
+
+            # Find all implemented stories without holds
+            stories = conn.execute("""
+                SELECT id, title, description, notes, project_path
+                FROM story_nodes
+                WHERE stage = 'implemented'
+                  AND hold_reason IS NULL
+                  AND disposition IS NULL
+                ORDER BY updated_at ASC
+            """).fetchall()
+
+            print(f"Found {len(stories)} story(ies) ready for integration check:")
+            for s in stories:
+                print(f"  - {s['id']}: {s['title'][:60]}...")
+
+            result = {
+                'count': len(stories),
+                'stories': [
+                    {
+                        'id': s['id'],
+                        'title': s['title'],
+                        'description': s['description'],
+                        'project_path': s['project_path'],
+                        'notes': s['notes']
+                    } for s in stories
+                ]
+            }
+            print(json.dumps(result, indent=2))
+            conn.close()
+            QUERY_SCRIPT
+            ```
+
+            If count is 0, output "✓ No stories ready for integration check" and exit successfully.
+
+            ## Step 2: Perform Integration Checks
+
+            For each story, perform lightweight integration checks:
+
+            ### 2a. Check Project Structure
+            - Verify the story's project_path exists (if specified)
+            - Check for any obvious structural issues
+
+            ### 2b. Run Basic Integration Tests
+            For this SyncoPaid project:
+            ```bash
+            # Try to import the main package (catches import errors)
+            python3 -c "import sys; sys.path.insert(0, 'src'); import syncopaid" 2>&1 || echo "IMPORT_FAILED"
+
+            # Run quick module syntax checks (if src/syncopaid exists)
+            if [ -d "src/syncopaid" ]; then
+                python3 -m py_compile src/syncopaid/*.py 2>&1 || echo "COMPILE_FAILED"
+            fi
+            ```
+
+            ### 2c. Check for Conflicts
+            - Verify no merge conflicts exist in the repository
+            - Check that the story doesn't break other implemented stories
+
+            ### Integration Decision Matrix
+
+            | Result | Action |
+            |--------|--------|
+            | All checks PASS | → `ready` |
+            | Import/compile fails | → `implemented` with `hold_reason='broken'` |
+            | Structural issues | → `implemented` with `hold_reason='broken'` |
+
+            ## Step 3: Update Story Status
+
+            ```python
+            python3 << 'UPDATE_SCRIPT'
+            import sqlite3
+            import json
+            from datetime import datetime
+
+            conn = sqlite3.connect('.claude/data/story-tree.db')
+            conn.row_factory = sqlite3.Row
+
+            # Claude fills in INTEGRATION_RESULTS based on analysis
+            # Format: [{"id": "1.2.3", "decision": "PASS|FAIL", "reason": "..."}]
+            INTEGRATION_RESULTS = []  # Claude replaces this with actual results
+
+            passed = []
+            failed = []
+
+            for result in INTEGRATION_RESULTS:
+                story_id = result['id']
+                decision = result['decision']
+                reason = result.get('reason', '')
+
+                if decision == 'PASS':
+                    # Transition to ready
+                    conn.execute("""
+                        UPDATE story_nodes
+                        SET stage = 'ready',
+                            notes = COALESCE(notes || char(10), '') ||
+                                    'READY: ' || ? || ' ' || datetime('now'),
+                            updated_at = datetime('now')
+                        WHERE id = ?
+                    """, (reason, story_id))
+                    passed.append({'id': story_id, 'reason': reason})
+                else:
+                    # Mark as broken
+                    conn.execute("""
+                        UPDATE story_nodes
+                        SET hold_reason = 'broken',
+                            notes = COALESCE(notes || char(10), '') ||
+                                    'INTEGRATION FAILED: ' || ? || ' ' || datetime('now'),
+                            updated_at = datetime('now')
+                        WHERE id = ?
+                    """, (reason, story_id))
+                    failed.append({'id': story_id, 'reason': reason})
+
+            conn.commit()
+
+            print("=== Integration Check Complete ===")
+            print(f"Passed: {len(passed)} story(ies) → ready")
+            print(f"Failed: {len(failed)} story(ies) → broken")
+            print("")
+            if passed:
+                print("Ready for release:")
+                for p in passed:
+                    print(f"  ✓ {p['id']}: {p['reason'][:60]}...")
+            if failed:
+                print("Failed integration:")
+                for f in failed:
+                    print(f"  ✗ {f['id']}: {f['reason'][:60]}...")
+
+            print(json.dumps({'passed': passed, 'failed': failed}, indent=2))
+            conn.close()
+            UPDATE_SCRIPT
+            ```
+
+            **IMPORTANT**: Replace the `INTEGRATION_RESULTS = []` line with actual results
+            based on your analysis. Example:
+            ```python
+            INTEGRATION_RESULTS = [
+                {"id": "1.3.1", "decision": "PASS", "reason": "Integration check passed - no import errors"},
+                {"id": "1.3.2", "decision": "FAIL", "reason": "Import error in database module"}
+            ]
+            ```
+
+            ## Step 4: Git Operations
+
+            After checking stories:
+            ```bash
+            git checkout main && git pull origin main
+            git add -A
+            git diff --cached --quiet || git commit -m "ci: ready-check stories $(date -u +'%Y-%m-%d')"
+            git push origin main
+            ```
+
+            **CRITICAL**: Push changes before exiting.
+
+            ## Constraints
+            - Process all eligible implemented stories in one run
+            - 20-minute timeout (lightweight integration checks)
+            - Integration check is simpler than verification - focus on structural integrity
+            - Document specific check results in the notes
+
+          # Tool permissions for file operations, database access, git
+          claude_args: |
+            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pytest:*),Bash(npm:*),Skill,SlashCommand,TodoWrite"
+            --model claude-sonnet-4-5-20250929
+
+      - name: Report Token Usage
+        if: always()
+        run: |
+          echo "## Token Usage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          EXEC_FILE="${{ steps.claude.outputs.execution_file }}"
+          if [ -f "$EXEC_FILE" ]; then
+            # Determine file format (JSONL vs JSON array) and extract data
+            if jq -e 'type == "array"' "$EXEC_FILE" > /dev/null 2>&1; then
+              # JSON array format
+              INPUT_TOKENS=$(jq '[.[] | select(.message?.usage?) | .message.usage.input_tokens // 0] | add // 0' "$EXEC_FILE")
+              OUTPUT_TOKENS=$(jq '[.[] | select(.message?.usage?) | .message.usage.output_tokens // 0] | add // 0' "$EXEC_FILE")
+              TOTAL_COST=$(jq '[.[] | select(.type == "result")] | last | .total_cost_usd // .cost_usd // "N/A"' "$EXEC_FILE" | tr -d '"')
+            else
+              # JSONL format
+              INPUT_TOKENS=$(grep -o '"input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              OUTPUT_TOKENS=$(grep -o '"output_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              RESULT=$(grep '"type":"result"' "$EXEC_FILE" | tail -1)
+              TOTAL_COST=$(echo "$RESULT" | jq -r '.total_cost_usd // .cost_usd // "N/A"' 2>/dev/null || echo "N/A")
+            fi
+
+            # Validate we got numeric values
+            if ! [[ "$INPUT_TOKENS" =~ ^[0-9]+$ ]]; then INPUT_TOKENS=0; fi
+            if ! [[ "$OUTPUT_TOKENS" =~ ^[0-9]+$ ]]; then OUTPUT_TOKENS=0; fi
+
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Input Tokens | $INPUT_TOKENS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Output Tokens | $OUTPUT_TOKENS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Total Cost | \$$TOTAL_COST |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Execution file not found" >> $GITHUB_STEP_SUMMARY
+          fi
