@@ -31,10 +31,15 @@ except ImportError:
 
 # Status colors (22-status rainbow system - optimized for visibility)
 STATUS_COLORS = {
+    # Dispositions (reds/pinks - terminal states)
     'infeasible': '#CC0000',   # Deep Red
     'rejected': '#CC3300',     # Red-Orange
     'duplicative': '#CC4400',  # Dark Orange (algorithm-detected duplicate)
     'wishlist': '#CC6600',     # Pumpkin Orange
+    'legacy': '#CC00CC',       # Magenta
+    'deprecated': '#CC0099',   # Fuchsia
+    'archived': '#CC0066',     # Deep Pink
+    # Stages (greens/blues - workflow progression)
     'concept': '#CC9900',      # Goldenrod
     'broken': '#CCCC00',       # Dark Gold / Olive
     'conflict': '#AACC00',     # Yellow-Green (inconsistent, needs resolution)
@@ -43,15 +48,22 @@ STATUS_COLORS = {
     'pending': '#00CC00',      # Pure Green
     'approved': '#00CC33',     # Spring Green
     'planned': '#00CC66',      # Emerald
-    'paused': '#00CCCC',       # Dark Cyan
     'active': '#0099CC',       # Cerulean
     'reviewing': '#0066CC',    # Azure
+    'verifying': '#0033CC',    # Royal Blue
     'implemented': '#0000CC',  # Pure Blue
     'ready': '#3300CC',        # Electric Indigo
     'released': '#6600CC',     # Violet
-    'legacy': '#CC00CC',       # Magenta
-    'deprecated': '#CC0099',   # Fuchsia
-    'archived': '#CC0066',     # Deep Pink
+    # Hold reasons (yellows/cyans - work paused)
+    'queued': '#00CC00',       # Pure Green
+    'pending': '#33CC00',      # Lime Green
+    'paused': '#00CCCC',       # Dark Cyan
+    'blocked': '#99CC00',      # Yellow-Green
+    'broken': '#CCCC00',       # Dark Gold / Olive
+    'polish': '#66CC00',       # Chartreuse
+    'no hold': '#888888',      # Grey (no hold reason)
+    # Live status (for items without disposition)
+    'live': '#00FF00',         # Bright Green (active/live)
 }
 
 # All possible statuses (22-status rainbow system - canonical order)
@@ -73,8 +85,9 @@ DISPOSITION_VALUES = {'rejected', 'infeasible', 'duplicative', 'wishlist', 'lega
 
 # Hold reason icons for visual indication in tree view
 HOLD_ICONS = {
-    'paused': '⏸',      # Paused - work temporarily stopped
+    'queued': '📋',      # Queued - waiting in line
     'pending': '⏳',     # Pending - waiting for something
+    'paused': '⏸',      # Paused - work temporarily stopped
     'blocked': '🚧',     # Blocked - missing dependency
     'broken': '🔥',      # Broken - needs fix
     'polish': '💎',      # Polish - needs refinement
@@ -827,51 +840,120 @@ class XstoryExplorer(QMainWindow):
         tree_container_layout.addWidget(self.tree)
         splitter.addWidget(tree_container)
 
-        # Right panel: Filters
-        filter_group = QGroupBox("Status Filters")
-        filter_layout = QVBoxLayout(filter_group)
+        # Right panel: Filters (organized by three-field system)
+        filter_scroll = QScrollArea()
+        filter_scroll.setWidgetResizable(True)
+        filter_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        filter_widget = QWidget()
+        filter_main_layout = QVBoxLayout(filter_widget)
 
-        # Select All / None buttons
-        btn_layout = QHBoxLayout()
+        # Master Select All / None buttons
+        master_btn_layout = QHBoxLayout()
         all_btn = QPushButton("All")
         all_btn.clicked.connect(self._select_all_statuses)
         all_btn.setFixedWidth(60)
-        btn_layout.addWidget(all_btn)
+        master_btn_layout.addWidget(all_btn)
 
         none_btn = QPushButton("None")
         none_btn.clicked.connect(self._select_no_statuses)
         none_btn.setFixedWidth(60)
-        btn_layout.addWidget(none_btn)
-        btn_layout.addStretch()
-        filter_layout.addLayout(btn_layout)
+        master_btn_layout.addWidget(none_btn)
+        master_btn_layout.addStretch()
+        filter_main_layout.addLayout(master_btn_layout)
 
-        # Status checkboxes (with custom colored indicators)
-        for status in ALL_STATUSES:
+        # Three-column layout for filter categories (Stage | Hold Status | Disposition)
+        columns_layout = QHBoxLayout()
+        columns_layout.setSpacing(8)
+
+        # Stage Filters section (left column)
+        stage_group = QGroupBox("Stage")
+        stage_layout = QVBoxLayout(stage_group)
+        stage_btn_layout = QHBoxLayout()
+        stage_all_btn = QPushButton("All")
+        stage_all_btn.setFixedWidth(50)
+        stage_all_btn.clicked.connect(lambda: self._select_category_statuses(STAGE_ORDER, True))
+        stage_btn_layout.addWidget(stage_all_btn)
+        stage_none_btn = QPushButton("None")
+        stage_none_btn.setFixedWidth(50)
+        stage_none_btn.clicked.connect(lambda: self._select_category_statuses(STAGE_ORDER, False))
+        stage_btn_layout.addWidget(stage_none_btn)
+        stage_btn_layout.addStretch()
+        stage_layout.addLayout(stage_btn_layout)
+
+        for status in STAGE_ORDER:
             color = STATUS_COLORS.get(status, '#000000')
-
-            # Create custom checkbox with colored background
             cb = ColoredCheckBox(status, color)
             cb.setChecked(True)
-
-            # Hide the default indicator since we draw everything custom
-            cb.setStyleSheet("""
-                QCheckBox::indicator {
-                    width: 0px;
-                    height: 0px;
-                }
-            """)
-
-            # Connect state change to trigger repaint and apply filters
+            cb.setStyleSheet("QCheckBox::indicator { width: 0px; height: 0px; }")
             cb.stateChanged.connect(lambda state, checkbox=cb: (checkbox.update(), self._apply_filters()))
-
             self.status_checkboxes[status] = cb
-            filter_layout.addWidget(cb)
+            stage_layout.addWidget(cb)
 
-        filter_layout.addStretch()
-        splitter.addWidget(filter_group)
+        stage_layout.addStretch()
+        columns_layout.addWidget(stage_group)
 
-        # Set splitter proportions (3:1)
-        splitter.setSizes([750, 250])
+        # Hold Status Filters section (middle column)
+        hold_group = QGroupBox("Hold Status")
+        hold_layout = QVBoxLayout(hold_group)
+        hold_btn_layout = QHBoxLayout()
+        hold_all_btn = QPushButton("All")
+        hold_all_btn.setFixedWidth(50)
+        hold_all_btn.clicked.connect(lambda: self._select_category_statuses(HOLD_REASON_ORDER, True))
+        hold_btn_layout.addWidget(hold_all_btn)
+        hold_none_btn = QPushButton("None")
+        hold_none_btn.setFixedWidth(50)
+        hold_none_btn.clicked.connect(lambda: self._select_category_statuses(HOLD_REASON_ORDER, False))
+        hold_btn_layout.addWidget(hold_none_btn)
+        hold_btn_layout.addStretch()
+        hold_layout.addLayout(hold_btn_layout)
+
+        for status in HOLD_REASON_ORDER:
+            color = STATUS_COLORS.get(status, '#000000')
+            cb = ColoredCheckBox(status, color)
+            cb.setChecked(True)
+            cb.setStyleSheet("QCheckBox::indicator { width: 0px; height: 0px; }")
+            cb.stateChanged.connect(lambda state, checkbox=cb: (checkbox.update(), self._apply_filters()))
+            self.status_checkboxes[status] = cb
+            hold_layout.addWidget(cb)
+
+        hold_layout.addStretch()
+        columns_layout.addWidget(hold_group)
+
+        # Disposition Filters section (right column)
+        disp_group = QGroupBox("Disposition")
+        disp_layout = QVBoxLayout(disp_group)
+        disp_btn_layout = QHBoxLayout()
+        disp_all_btn = QPushButton("All")
+        disp_all_btn.setFixedWidth(50)
+        disp_all_btn.clicked.connect(lambda: self._select_category_statuses(DISPOSITION_ORDER, True))
+        disp_btn_layout.addWidget(disp_all_btn)
+        disp_none_btn = QPushButton("None")
+        disp_none_btn.setFixedWidth(50)
+        disp_none_btn.clicked.connect(lambda: self._select_category_statuses(DISPOSITION_ORDER, False))
+        disp_btn_layout.addWidget(disp_none_btn)
+        disp_btn_layout.addStretch()
+        disp_layout.addLayout(disp_btn_layout)
+
+        for status in DISPOSITION_ORDER:
+            color = STATUS_COLORS.get(status, '#000000')
+            cb = ColoredCheckBox(status, color)
+            cb.setChecked(True)
+            cb.setStyleSheet("QCheckBox::indicator { width: 0px; height: 0px; }")
+            cb.stateChanged.connect(lambda state, checkbox=cb: (checkbox.update(), self._apply_filters()))
+            self.status_checkboxes[status] = cb
+            disp_layout.addWidget(cb)
+
+        disp_layout.addStretch()
+        columns_layout.addWidget(disp_group)
+
+        filter_main_layout.addLayout(columns_layout)
+
+        filter_main_layout.addStretch()
+        filter_scroll.setWidget(filter_widget)
+        splitter.addWidget(filter_scroll)
+
+        # Set splitter proportions (tree view : filter panel)
+        splitter.setSizes([600, 400])
         tree_view_layout.addWidget(splitter)
 
         # Description panel at bottom of tree view
@@ -1229,9 +1311,26 @@ class XstoryExplorer(QMainWindow):
         """Apply status filters and color the tree."""
         visible_statuses = {s for s, cb in self.status_checkboxes.items() if cb.isChecked()}
 
+        # Special filter flags
+        show_no_hold = 'no hold' in visible_statuses
+        show_live = 'live' in visible_statuses
+
+        def node_matches_filter(node):
+            """Check if node matches the current filters."""
+            # Check effective status
+            if node.status in visible_statuses:
+                return True
+            # 'no hold' matches nodes with no hold_reason
+            if show_no_hold and not node.hold_reason:
+                return True
+            # 'live' matches nodes with no disposition
+            if show_live and not node.disposition:
+                return True
+            return False
+
         # Step 1: Find all nodes that directly match the filter
         matching_nodes = {node_id for node_id, node in self.nodes.items()
-                         if node.status in visible_statuses}
+                         if node_matches_filter(node)}
 
         # Step 2: Collect ancestors of all matching nodes
         ancestor_nodes = set()
@@ -1334,6 +1433,12 @@ class XstoryExplorer(QMainWindow):
         """Deselect all status filters."""
         for cb in self.status_checkboxes.values():
             cb.setChecked(False)
+
+    def _select_category_statuses(self, statuses: List[str], checked: bool):
+        """Select or deselect a category of status filters."""
+        for status in statuses:
+            if status in self.status_checkboxes:
+                self.status_checkboxes[status].setChecked(checked)
 
     def closeEvent(self, event):
         """Handle window close - return to tree view if in detail view."""
