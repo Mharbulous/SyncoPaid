@@ -124,7 +124,7 @@ score = min(depth, 5) * 0.30 \
 
 **Story ID:** [ID]
 **Created:** [YYYY-MM-DD]
-**Status:** `planned`
+**Stage:** `planned`
 
 ---
 
@@ -237,7 +237,7 @@ If issues arise:
 
 ---
 
-**Story ID:** [ID] | **Created:** [YYYY-MM-DD] | **Status:** `planned`
+**Story ID:** [ID] | **Created:** [YYYY-MM-DD] | **Stage:** `planned`
 
 ---
 
@@ -373,7 +373,7 @@ Present two options:
   Score: [score]/1.0
   Plan: .claude/data/plans/[filename].md
   Tasks: [N] TDD cycles
-  Status: approved -> planned
+  Stage: approved -> planned
 ```
 
 **CI Mode - No stories:**
