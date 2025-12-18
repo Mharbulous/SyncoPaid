@@ -223,9 +223,10 @@ jobs:
             - Be thorough but decisive - don't leave stories in limbo
 
           # Tool permissions for file operations, database access, git, and testing
+          # Using Opus 4.5 for code review - better judgment on deferrable vs blocking issues
           claude_args: |
             --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pytest:*),Skill,SlashCommand,TodoWrite"
-            --model claude-sonnet-4-5-20250929
+            --model claude-opus-4-5-20250929
 
       - name: Report Token Usage
         if: always()
