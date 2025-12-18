@@ -38,7 +38,7 @@ stateDiagram-v2
     state "📋 planned (no hold)" as PLANNED
     state "📋 planned (blocked)" as PLANNED_BLOCKED
     state "🔨 active (no hold)" as ACTIVE
-    state "🔨 active (paused)" as ACTIVE_PAUSED
+    state "🔨 active (pending)" as ACTIVE_PENDING
     state "👀 reviewing (no hold)" as REVIEWING
     state "🧪 verifying (no hold)" as VERIFYING
     state "✔️ implemented (no hold)" as IMPLEMENTED
@@ -61,8 +61,7 @@ stateDiagram-v2
 
     ACTIVE --> REVIEWING: execute-stories<br/>deferrable issues
     ACTIVE --> VERIFYING: execute-stories<br/>no issues
-    ACTIVE --> ACTIVE_PAUSED: execute-stories<br/>blocking issues
-    ACTIVE_PAUSED --> ACTIVE: HUMAN<br/>fixes plan
+    ACTIVE --> ACTIVE_PENDING: execute-stories<br/>blocking issues
 
     REVIEWING --> VERIFYING: review-stories<br/>review passed
 
@@ -112,7 +111,7 @@ flowchart TD
                 D3_RUN["story-execution skill"]
                 D3_CLEAN["active → verifying"]
                 D3_DEFER["active → reviewing"]
-                D3_BLOCK["active (paused)"]
+                D3_BLOCK["active (pending)"]
             end
 
             subgraph D4["Step 4: activate-stories"]
@@ -235,7 +234,7 @@ flowchart TD
 | 1 | `verify-stories` | verifying (no hold) | implemented (no hold) | → (broken) if tests fail |
 | 1b | `verify-stories` | planned (blocked) | active (no hold) | Unblocks dependents when impl verified |
 | 2 | `review-stories` | reviewing (no hold) | verifying (no hold) | → (broken) if issues found |
-| 3 | `execute-stories` | active (no hold) | reviewing/verifying | → (paused) if blocking |
+| 3 | `execute-stories` | active (no hold) | reviewing/verifying | → (pending) if blocking |
 | 4 | `activate-stories` | planned (no hold) | active (no hold) | → (blocked) if deps unmet |
 | 5 | `plan-stories` | approved (no hold) | planned (no hold) | - |
 | 6 | `write-stories` | NEW | concept (queued) | - |
@@ -265,7 +264,7 @@ flowchart TD
 ```mermaid
 flowchart LR
     subgraph "Human Review Required"
-        H2["active (paused)<br/>blocking plan issues"]
+        H2["active (pending)<br/>blocking plan issues"]
         H3["reviewing (broken)<br/>review failed"]
         H4["verifying (broken)<br/>tests failed"]
     end
@@ -278,7 +277,6 @@ flowchart LR
         C1["concept → conflict<br/>overlap detected"]
     end
 
-    H2 -->|"Human fixes plan"| H2_CLEAR["active"]
     H3 -->|"Human fixes code"| H3_CLEAR["reviewing"]
     H4 -->|"Human fixes tests"| H4_CLEAR["verifying"]
 
