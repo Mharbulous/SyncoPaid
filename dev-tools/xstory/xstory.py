@@ -56,13 +56,16 @@ STATUS_COLORS = {
     'blocked': '#99CC00',      # Yellow-Green
     'broken': '#CCCC00',       # Dark Gold / Olive
     'polish': '#66CC00',       # Chartreuse
+    'no hold': '#888888',      # Grey (no hold reason)
+    # Live status (for items without disposition)
+    'live': '#00FF00',         # Bright Green (active/live)
 }
 
 # Three-field system: ordered lists for UI display (workflow order)
 STAGE_ORDER = ['concept', 'approved', 'planned', 'active', 'reviewing',
                'verifying', 'implemented', 'ready', 'released']
-HOLD_REASON_ORDER = ['queued', 'pending', 'paused', 'blocked', 'broken', 'polish']
-DISPOSITION_ORDER = ['rejected', 'infeasible', 'conflict', 'wishlist', 'legacy', 'deprecated', 'archived']
+HOLD_REASON_ORDER = ['no hold', 'queued', 'pending', 'paused', 'blocked', 'broken', 'polish']
+DISPOSITION_ORDER = ['live', 'rejected', 'infeasible', 'conflict', 'wishlist', 'legacy', 'deprecated', 'archived']
 
 # All possible statuses (combined from three-field system)
 ALL_STATUSES = STAGE_ORDER + HOLD_REASON_ORDER + DISPOSITION_ORDER
@@ -849,7 +852,11 @@ class XstoryExplorer(QMainWindow):
         master_btn_layout.addStretch()
         filter_main_layout.addLayout(master_btn_layout)
 
-        # Stage Filters section
+        # Three-column layout for filter categories (Stage | Hold Status | Disposition)
+        columns_layout = QHBoxLayout()
+        columns_layout.setSpacing(8)
+
+        # Stage Filters section (left column)
         stage_group = QGroupBox("Stage")
         stage_layout = QVBoxLayout(stage_group)
         stage_btn_layout = QHBoxLayout()
@@ -873,9 +880,10 @@ class XstoryExplorer(QMainWindow):
             self.status_checkboxes[status] = cb
             stage_layout.addWidget(cb)
 
-        filter_main_layout.addWidget(stage_group)
+        stage_layout.addStretch()
+        columns_layout.addWidget(stage_group)
 
-        # Hold Status Filters section
+        # Hold Status Filters section (middle column)
         hold_group = QGroupBox("Hold Status")
         hold_layout = QVBoxLayout(hold_group)
         hold_btn_layout = QHBoxLayout()
@@ -899,9 +907,10 @@ class XstoryExplorer(QMainWindow):
             self.status_checkboxes[status] = cb
             hold_layout.addWidget(cb)
 
-        filter_main_layout.addWidget(hold_group)
+        hold_layout.addStretch()
+        columns_layout.addWidget(hold_group)
 
-        # Disposition Filters section
+        # Disposition Filters section (right column)
         disp_group = QGroupBox("Disposition")
         disp_layout = QVBoxLayout(disp_group)
         disp_btn_layout = QHBoxLayout()
@@ -925,14 +934,17 @@ class XstoryExplorer(QMainWindow):
             self.status_checkboxes[status] = cb
             disp_layout.addWidget(cb)
 
-        filter_main_layout.addWidget(disp_group)
+        disp_layout.addStretch()
+        columns_layout.addWidget(disp_group)
+
+        filter_main_layout.addLayout(columns_layout)
 
         filter_main_layout.addStretch()
         filter_scroll.setWidget(filter_widget)
         splitter.addWidget(filter_scroll)
 
-        # Set splitter proportions (3:1)
-        splitter.setSizes([750, 250])
+        # Set splitter proportions (tree view : filter panel)
+        splitter.setSizes([600, 400])
         tree_view_layout.addWidget(splitter)
 
         # Description panel at bottom of tree view
@@ -1290,9 +1302,26 @@ class XstoryExplorer(QMainWindow):
         """Apply status filters and color the tree."""
         visible_statuses = {s for s, cb in self.status_checkboxes.items() if cb.isChecked()}
 
+        # Special filter flags
+        show_no_hold = 'no hold' in visible_statuses
+        show_live = 'live' in visible_statuses
+
+        def node_matches_filter(node):
+            """Check if node matches the current filters."""
+            # Check effective status
+            if node.status in visible_statuses:
+                return True
+            # 'no hold' matches nodes with no hold_reason
+            if show_no_hold and not node.hold_reason:
+                return True
+            # 'live' matches nodes with no disposition
+            if show_live and not node.disposition:
+                return True
+            return False
+
         # Step 1: Find all nodes that directly match the filter
         matching_nodes = {node_id for node_id, node in self.nodes.items()
-                         if node.status in visible_statuses}
+                         if node_matches_filter(node)}
 
         # Step 2: Collect ancestors of all matching nodes
         ancestor_nodes = set()
