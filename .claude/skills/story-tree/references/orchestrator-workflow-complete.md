@@ -56,8 +56,8 @@ stateDiagram-v2
     APPROVED --> PLANNED: plan-stories
 
     PLANNED --> ACTIVE: activate-stories<br/>deps met
-    PLANNED --> PLANNED_BLOCKED: activate-stories<br/>deps unmet
-    PLANNED_BLOCKED --> ACTIVE: verify-stories<br/>deps now met
+    PLANNED --> PLANNED_BLOCKED: activate-stories<br/>deps unmet + record blockers
+    PLANNED_BLOCKED --> PLANNED: activate-stories<br/>recorded blockers resolved
 
     ACTIVE --> REVIEWING: execute-stories<br/>deferrable issues
     ACTIVE --> VERIFYING: execute-stories<br/>no issues
@@ -71,6 +71,8 @@ stateDiagram-v2
 
     READY --> RELEASED: deploy.yml<br/>(manual trigger)
 ```
+
+**Key Design Decision**: There is NO direct path from `planned (blocked)` to `active`. All planned stories must pass through `planned (no hold)` for a fresh dependency check before activation. This ensures that even if recorded blockers are resolved, any NEW dependencies that emerged are detected.
 
 ---
 
@@ -115,10 +117,11 @@ flowchart TD
             end
 
             subgraph D4["Step 4: activate-stories"]
-                D4_CHECK{planned stories<br/>without holds?}
-                D4_RUN["dependency check"]
+                D4_CHECK{planned stories<br/>to process?}
+                D4_UNBLOCK["Step 4a: UNBLOCK<br/>check recorded blockers"]
+                D4_ACTIVATE["Step 4b: ACTIVATE<br/>full dependency check"]
                 D4_PASS["planned → active"]
-                D4_FAIL["planned (blocked)"]
+                D4_FAIL["planned (blocked:IDs)"]
             end
 
             subgraph D5["Step 5: plan-stories"]
@@ -150,9 +153,10 @@ flowchart TD
             D3_DEFER --> D4_CHECK
             D3_BLOCK --> D4_CHECK
 
-            D4_CHECK -->|Yes| D4_RUN
-            D4_RUN -->|met| D4_PASS
-            D4_RUN -->|unmet| D4_FAIL
+            D4_CHECK -->|Yes| D4_UNBLOCK
+            D4_UNBLOCK --> D4_ACTIVATE
+            D4_ACTIVATE -->|met| D4_PASS
+            D4_ACTIVATE -->|unmet| D4_FAIL
             D4_CHECK -->|No| D5_CHECK
             D4_PASS --> D5_CHECK
             D4_FAIL --> D5_CHECK
@@ -232,10 +236,10 @@ flowchart TD
 | Step | Workflow/Skill | From State | To State | Hold Outcomes |
 |------|---------------|------------|----------|---------------|
 | 1 | `verify-stories` | verifying (no hold) | implemented (no hold) | → (broken) if tests fail |
-| 1b | `verify-stories` | planned (blocked) | active (no hold) | Unblocks dependents when impl verified |
 | 2 | `review-stories` | reviewing (no hold) | verifying (no hold) | → (broken) if issues found |
 | 3 | `execute-stories` | active (no hold) | reviewing/verifying | → (pending) if blocking |
-| 4 | `activate-stories` | planned (no hold) | active (no hold) | → (blocked) if deps unmet |
+| 4a | `activate-stories` | planned (blocked) | planned (no hold) | When recorded blockers resolved |
+| 4b | `activate-stories` | planned (no hold) | active (no hold) | → (blocked:IDs) if deps unmet |
 | 5 | `plan-stories` | approved (no hold) | planned (no hold) | - |
 | 6 | `write-stories` | NEW | concept (queued) | - |
 | 7 | `vet-stories` | concept (queued) | concept (no hold) | → conflict if overlaps |
@@ -250,10 +254,10 @@ flowchart TD
 | `story-tree-orchestrator.yml` | ✅ Partial | Main loop - needs expansion |
 | `write-stories.yml` | ✅ Exists | Standalone - integrate |
 | `plan-stories.yml` | ✅ Exists | Standalone - integrate |
-| `activate-stories.yml` | ✅ Exists | Standalone - integrate |
+| `activate-stories.yml` | ✅ Exists | Needs update for UNBLOCK + cycle detection |
 | `execute-stories.yml` | ✅ Exists | Standalone - integrate |
 | `review-stories.yml` | ❌ Missing | NEW: reviewing → verifying |
-| `verify-stories.yml` | ❌ Missing | NEW: verifying → implemented + unblock dependents |
+| `verify-stories.yml` | ❌ Missing | NEW: verifying → implemented |
 | `ready-check.yml` | ❌ Missing | NEW: implemented → ready |
 | `approve-stories.yml` | ❌ Missing | NEW: auto-approve clean concepts |
 
@@ -269,8 +273,8 @@ flowchart LR
         H4["verifying (broken)<br/>tests failed"]
     end
 
-    subgraph "Auto-Clearable"
-        A1["planned (blocked)<br/>deps unmet"]
+    subgraph "Auto-Clearable by activate-stories"
+        A1["planned (blocked:IDs)<br/>deps unmet"]
     end
 
     subgraph "Auto-Disposed (No Human Review)"
@@ -280,61 +284,290 @@ flowchart LR
     H3 -->|"Human fixes code"| H3_CLEAR["reviewing"]
     H4 -->|"Human fixes tests"| H4_CLEAR["verifying"]
 
-    A1 -->|"verify-stories: deps now met"| A1_CLEAR["active"]
+    A1 -->|"activate-stories:<br/>recorded blockers resolved"| A1_CLEAR["planned (no hold)"]
+    A1_CLEAR -->|"activate-stories:<br/>full dep check"| A1_ACTIVE["active"]
 ```
 
 ---
 
-## Dependency Unblocking Process
+## Dependency Management in activate-stories
 
-When `verify-stories` successfully verifies a story (transitioning it to `implemented`), it triggers an unblocking check for dependent stories:
+The `activate-stories` workflow is responsible for ALL dependency-related transitions for planned stories. This consolidates dependency logic in one place.
 
-### Unblocking Flow
+### hold_reason Format for Blocked Stories
+
+When a story is blocked, the specific blocker node IDs are recorded:
+
+```
+blocked:1.2.1.2,1.3.4,2.1
+```
+
+This format:
+- Starts with `blocked:` prefix
+- Lists comma-separated story node path IDs
+- Makes blocking relationships explicit and traceable
+- Enables efficient unblocking checks without re-querying the full dependency tree
+
+### activate-stories Two-Step Flow
 
 ```mermaid
 flowchart TD
-    V[verify-stories completes<br/>story → implemented] --> FIND
-    FIND[Find blocked stories<br/>planned + hold_reason='blocked']
-    FIND --> LOOP{For each<br/>blocked story}
-    LOOP --> CHECK[Re-check dependencies:<br/>Are all children now at<br/>required stage?]
-    CHECK -->|deps met| UNBLOCK[Clear hold<br/>stage → active]
-    CHECK -->|deps still unmet| SKIP[Keep blocked]
-    UNBLOCK --> LOOP
-    SKIP --> LOOP
-    LOOP -->|done| END[Continue drain phase]
+    START[activate-stories begins]
+
+    subgraph STEP1["Step 1: UNBLOCK (process blocked stories first)"]
+        S1_FIND[Find all planned stories<br/>with hold_reason LIKE 'blocked:%']
+        S1_LOOP{For each<br/>blocked story}
+        S1_PARSE[Parse blocker IDs from hold_reason]
+        S1_CHECK{All blockers<br/>implemented, released,<br/>or disposed?}
+        S1_CLEAR[Clear hold_reason<br/>→ planned (no hold)]
+        S1_KEEP[Keep blocked]
+    end
+
+    subgraph STEP2["Step 2: ACTIVATE (full dependency check)"]
+        S2_FIND[Find all planned stories<br/>without hold_reason]
+        S2_LOOP{For each<br/>unblocked story}
+        S2_ANALYZE[Full dependency analysis]
+        S2_MET{Dependencies<br/>met?}
+        S2_ACTIVATE[→ active (no hold)]
+        S2_BLOCK_NEW[Identify blocker IDs]
+        S2_CYCLE{Cycle<br/>detected?}
+        S2_RESOLVE[Clear stale blocks<br/>in cycle chain]
+        S2_APPLY[→ planned (blocked:IDs)]
+    end
+
+    START --> S1_FIND
+    S1_FIND --> S1_LOOP
+    S1_LOOP -->|next| S1_PARSE
+    S1_PARSE --> S1_CHECK
+    S1_CHECK -->|yes| S1_CLEAR
+    S1_CHECK -->|no| S1_KEEP
+    S1_CLEAR --> S1_LOOP
+    S1_KEEP --> S1_LOOP
+    S1_LOOP -->|done| S2_FIND
+
+    S2_FIND --> S2_LOOP
+    S2_LOOP -->|next| S2_ANALYZE
+    S2_ANALYZE --> S2_MET
+    S2_MET -->|yes| S2_ACTIVATE
+    S2_MET -->|no| S2_BLOCK_NEW
+    S2_BLOCK_NEW --> S2_CYCLE
+    S2_CYCLE -->|yes| S2_RESOLVE
+    S2_CYCLE -->|no| S2_APPLY
+    S2_RESOLVE --> S2_APPLY
+    S2_ACTIVATE --> S2_LOOP
+    S2_APPLY --> S2_LOOP
+    S2_LOOP -->|done| END[activate-stories complete]
 ```
 
-### Unblocking SQL Queries
+### Processing Order Rationale
+
+1. **Blocked stories first**: Check if recorded blockers are resolved, promoting them to `planned (no hold)`
+2. **Unblocked stories second**: Includes both originally unblocked AND freshly unblocked stories from step 1
+
+This ensures freshly unblocked stories get a full dependency re-check in the same cycle, catching any NEW dependencies that may have emerged since they were originally blocked.
+
+---
+
+## Circular Dependency Detection & Resolution
+
+Cross-branch dependencies are allowed, which means circular dependencies are possible. The system detects and resolves them using a "newest analysis wins" strategy.
+
+### Why Newest Wins
+
+Code changes constantly. A dependency analysis from 2 weeks ago may no longer reflect reality. When a cycle is detected, the most recent analysis is considered more trustworthy because it was performed against the current codebase.
+
+### Cycle Detection Algorithm
+
+```
+When activate-stories is about to mark story X as blocked by [B1, B2, ...]:
+
+For each blocker B in [B1, B2, ...]:
+    Walk B's block chain: B → B's blockers → their blockers → ...
+    If X appears anywhere in that chain:
+        ⚠️ CYCLE DETECTED
+
+        Resolution:
+        1. Find all stories in the chain from B back to X
+        2. Clear their hold_reason (set to NULL)
+        3. Add note: "CYCLE RESOLVED: stale block cleared"
+        4. These stories return to planned (no hold) for re-evaluation
+
+Then: Apply new block - X.hold_reason = 'blocked:B1,B2,...'
+```
+
+### Cycle Resolution Example
+
+**Before** (stale state):
+```
+1.1 → blocked:1.2     (old analysis)
+1.2 → blocked:1.3     (old analysis)
+1.3 → (no hold)
+```
+
+**Today**: activate-stories analyzes 1.3, finds it depends on 1.1
+
+**Cycle detected**: 1.3 → 1.1 → 1.2 → 1.3
+
+**Resolution**:
+1. Trace back from 1.1: finds chain 1.1 → 1.2 → 1.3 (back to current story)
+2. Clear stale blocks: 1.1 and 1.2 → `planned (no hold)`
+3. Apply new block: 1.3 → `blocked:1.1`
+
+**After**:
+```
+1.1 → (no hold)        ← cleared, will be re-evaluated
+1.2 → (no hold)        ← cleared, will be re-evaluated
+1.3 → blocked:1.1      ← new, current analysis
+```
+
+### SQL for Cycle Detection
 
 ```sql
--- Find blocked stories that might be unblockable
-SELECT id, title FROM story_nodes
-WHERE stage = 'planned' AND hold_reason = 'blocked';
+-- Walk the block chain from a given story
+-- Returns all stories that would be in the dependency chain
+WITH RECURSIVE block_chain AS (
+    -- Start with the potential blocker
+    SELECT
+        id,
+        node_path,
+        hold_reason,
+        1 as depth
+    FROM story_nodes
+    WHERE node_path = :blocker_path
+      AND hold_reason LIKE 'blocked:%'
 
--- For each blocked story, check if deps are now met
--- (all children at 'planned' or beyond)
-SELECT COUNT(*) FROM story_nodes s
-JOIN story_paths p ON s.id = p.descendant_id
-WHERE p.ancestor_id = :blocked_story_id AND p.depth = 1
-  AND s.disposition IS NULL
-  AND s.stage NOT IN ('planned', 'active', 'reviewing',
-                       'verifying', 'implemented', 'ready', 'released');
+    UNION ALL
 
--- If count = 0, deps are met. Unblock and activate:
-UPDATE story_nodes
-SET hold_reason = NULL, human_review = 0, stage = 'active',
-    notes = COALESCE(notes || char(10), '') ||
-            'UNBLOCKED - Dependencies met: ' || datetime('now'),
-    updated_at = datetime('now')
-WHERE id = :blocked_story_id;
+    -- Follow each blocker in the chain
+    SELECT
+        s.id,
+        s.node_path,
+        s.hold_reason,
+        bc.depth + 1
+    FROM story_nodes s
+    JOIN block_chain bc ON
+        -- Parse blocker IDs from hold_reason and join
+        s.node_path IN (
+            SELECT value FROM json_each(
+                '["' || REPLACE(
+                    SUBSTR(bc.hold_reason, 9), -- Remove 'blocked:' prefix
+                    ',', '","'
+                ) || '"]'
+            )
+        )
+    WHERE s.hold_reason LIKE 'blocked:%'
+      AND bc.depth < 20  -- Safety limit
+)
+SELECT * FROM block_chain
+WHERE node_path = :current_story_path;  -- Cycle if this returns rows
 ```
 
-### Key Points
+```sql
+-- Clear stale blocks in the cycle chain
+UPDATE story_nodes
+SET
+    hold_reason = NULL,
+    notes = COALESCE(notes || char(10), '') ||
+            'CYCLE RESOLVED: Block cleared - newer analysis found reverse dependency. ' ||
+            datetime('now'),
+    updated_at = datetime('now')
+WHERE node_path IN (:chain_story_paths);
+```
 
-1. **When**: Unblocking happens as a side-effect of `verify-stories`, after successfully verifying a story
-2. **Trigger**: A story reaching `implemented` may satisfy dependencies for other blocked stories
-3. **Direct to Active**: Unblocked stories go directly to `active`, skipping re-evaluation in `activate-stories`
-4. **Batch Processing**: All blocked stories are checked each time a verification completes
+---
+
+## SQL Queries for activate-stories
+
+### Step 1: Find Blocked Stories to Check
+
+```sql
+SELECT id, node_path, title, hold_reason
+FROM story_nodes
+WHERE stage = 'planned'
+  AND hold_reason LIKE 'blocked:%'
+  AND disposition IS NULL;
+```
+
+### Step 1: Check if Recorded Blockers are Resolved
+
+```sql
+-- For a story with hold_reason = 'blocked:1.2.1,1.3.4'
+-- Check if ALL listed blockers are resolved (implemented, released, or disposed)
+SELECT COUNT(*) as unresolved_count
+FROM story_nodes
+WHERE node_path IN ('1.2.1', '1.3.4')
+  AND disposition IS NULL  -- Not disposed
+  AND stage NOT IN ('implemented', 'ready', 'released');
+
+-- If unresolved_count = 0, all blockers are resolved
+```
+
+### Step 1: Clear Hold When Blockers Resolved
+
+```sql
+UPDATE story_nodes
+SET
+    hold_reason = NULL,
+    notes = COALESCE(notes || char(10), '') ||
+            'UNBLOCKED: Recorded blockers [1.2.1, 1.3.4] resolved. ' ||
+            datetime('now'),
+    updated_at = datetime('now')
+WHERE id = :story_id;
+```
+
+### Step 2: Find Unblocked Planned Stories
+
+```sql
+SELECT id, node_path, title
+FROM story_nodes
+WHERE stage = 'planned'
+  AND hold_reason IS NULL
+  AND disposition IS NULL;
+```
+
+### Step 2: Full Dependency Check
+
+Dependencies can include:
+1. **Children** (hierarchical): Parent must wait for children
+2. **Cross-branch**: Explicit dependencies on other nodes
+
+```sql
+-- Check for unmet child dependencies (depth=1 children not yet implemented)
+SELECT s.node_path, s.title, s.stage
+FROM story_nodes s
+JOIN story_paths p ON s.id = p.descendant_id
+WHERE p.ancestor_id = :story_id
+  AND p.depth = 1
+  AND s.disposition IS NULL
+  AND s.stage NOT IN ('implemented', 'ready', 'released');
+```
+
+### Step 2: Apply New Block with Blocker IDs
+
+```sql
+UPDATE story_nodes
+SET
+    hold_reason = 'blocked:' || :blocker_ids,  -- e.g., 'blocked:1.2.1,1.3.4'
+    notes = COALESCE(notes || char(10), '') ||
+            'BLOCKED: Waiting on [' || :blocker_ids || ']. ' ||
+            datetime('now'),
+    updated_at = datetime('now')
+WHERE id = :story_id;
+```
+
+### Step 2: Activate Story (Dependencies Met)
+
+```sql
+UPDATE story_nodes
+SET
+    stage = 'active',
+    hold_reason = NULL,
+    notes = COALESCE(notes || char(10), '') ||
+            'ACTIVATED: All dependencies met. ' ||
+            datetime('now'),
+    updated_at = datetime('now')
+WHERE id = :story_id;
+```
 
 ---
 
@@ -353,12 +586,13 @@ WHERE id = :blocked_story_id;
 
 Recommended order for implementing missing components:
 
-1. **approve-stories** - Low complexity, high value (closes loop)
-2. **review-stories** - Medium complexity, enables reviewing→verifying
-3. **verify-stories** - Medium complexity, uses existing skill
-4. **ready-check** - Low complexity, integration verification
-5. **Orchestrator expansion** - High complexity, integrates everything
+1. **activate-stories update** - Add UNBLOCK step + cycle detection (critical path)
+2. **approve-stories** - Low complexity, high value (closes loop)
+3. **review-stories** - Medium complexity, enables reviewing→verifying
+4. **verify-stories** - Medium complexity, uses existing skill
+5. **ready-check** - Low complexity, integration verification
+6. **Orchestrator expansion** - High complexity, integrates everything
 
 ---
 
-*Generated: 2025-12-18*
+*Updated: 2025-12-18 - Revised dependency management: activate-stories now handles both blocking and unblocking, with explicit blocker IDs and circular dependency detection*
