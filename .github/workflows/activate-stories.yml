@@ -1,6 +1,7 @@
 name: Daily Story Activation
 
 # Run at 3:00 AM PST (11:00 UTC) every day - after plan-stories
+# Two-step flow: UNBLOCK (check recorded blockers) → ACTIVATE (full dep check)
 on:
   schedule:
     - cron: '0 11 * * *'
@@ -40,45 +41,105 @@ jobs:
           show_full_output: true
 
           # Direct prompt mode for scheduled automation (CI-optimized)
+          # Two-step flow per orchestrator-workflow-complete.md spec
           prompt: |
             MODE: Daily Story Activation (CI - fully autonomous)
 
-            ## Step 1: Early Exit Check
+            This workflow implements the two-step activate-stories flow:
+            - Step 4a: UNBLOCK - Check if recorded blockers are resolved
+            - Step 4b: ACTIVATE - Full dependency check for unblocked stories
 
-            First, check if there are planned stories without holds:
+            ## Step 1: UNBLOCK - Check Recorded Blockers
+
+            First, find all planned stories with recorded blockers (hold_reason LIKE 'blocked:%'):
+
             ```python
-            python -c "
+            python3 << 'UNBLOCK_SCRIPT'
             import sqlite3
+            import json
+            from datetime import datetime
+
             conn = sqlite3.connect('.claude/data/story-tree.db')
-            count = conn.execute('SELECT COUNT(*) FROM story_nodes WHERE stage=\"planned\" AND hold_reason IS NULL AND disposition IS NULL').fetchone()[0]
-            print(f'Planned stories: {count}')
+            conn.row_factory = sqlite3.Row
+
+            # Find all planned stories with recorded blockers
+            blocked_stories = conn.execute("""
+                SELECT id, title, hold_reason
+                FROM story_nodes
+                WHERE stage = 'planned'
+                  AND hold_reason LIKE 'blocked:%'
+                  AND disposition IS NULL
+            """).fetchall()
+
+            unblocked = []
+            still_blocked = []
+
+            for story in blocked_stories:
+                # Parse blocker IDs from hold_reason (format: 'blocked:1.2.1,1.3.4')
+                blocker_ids_str = story['hold_reason'][8:]  # Remove 'blocked:' prefix
+                blocker_ids = [bid.strip() for bid in blocker_ids_str.split(',') if bid.strip()]
+
+                # Check if ALL blockers are resolved (implemented, ready, released, or disposed)
+                placeholders = ','.join(['?' for _ in blocker_ids])
+                unresolved = conn.execute(f"""
+                    SELECT id, stage FROM story_nodes
+                    WHERE id IN ({placeholders})
+                      AND disposition IS NULL
+                      AND stage NOT IN ('implemented', 'ready', 'released')
+                """, blocker_ids).fetchall()
+
+                if len(unresolved) == 0:
+                    # All blockers resolved - clear hold_reason
+                    conn.execute("""
+                        UPDATE story_nodes
+                        SET hold_reason = NULL,
+                            notes = COALESCE(notes || char(10), '') ||
+                                    'UNBLOCKED: Recorded blockers [' || ? || '] resolved. ' ||
+                                    datetime('now'),
+                            updated_at = datetime('now')
+                        WHERE id = ?
+                    """, (blocker_ids_str, story['id']))
+                    unblocked.append({'id': story['id'], 'title': story['title'], 'blockers': blocker_ids})
+                else:
+                    still_blocked.append({
+                        'id': story['id'],
+                        'title': story['title'],
+                        'blockers': blocker_ids,
+                        'unresolved': [{'id': u['id'], 'stage': u['stage']} for u in unresolved]
+                    })
+
+            conn.commit()
+            print(json.dumps({'unblocked': unblocked, 'still_blocked': still_blocked}, indent=2))
             conn.close()
-            "
+            UNBLOCK_SCRIPT
             ```
 
-            If count is 0, output "No planned stories available for activation" and exit successfully.
+            ## Step 2: ACTIVATE - Full Dependency Check
 
-            ## Step 2: Process Planned Stories
-
-            For EACH planned story (oldest first), run the dependency check:
+            Now process all planned stories without hold_reason (including freshly unblocked):
 
             ```python
-            python -c "
-            import sqlite3, re, json
+            python3 << 'ACTIVATE_SCRIPT'
+            import sqlite3
+            import re
+            import json
 
             conn = sqlite3.connect('.claude/data/story-tree.db')
             conn.row_factory = sqlite3.Row
 
             # Get all planned stories without holds, ordered by updated_at
-            planned = conn.execute('''
+            planned = conn.execute("""
                 SELECT id, title, description, notes FROM story_nodes
                 WHERE stage = 'planned'
-                  AND hold_reason IS NULL AND disposition IS NULL
+                  AND hold_reason IS NULL
+                  AND disposition IS NULL
                 ORDER BY updated_at ASC
-            ''').fetchall()
+            """).fetchall()
 
-            IMPLEMENTED_STAGES = ('implemented', 'ready', 'polish', 'released')
-            PLANNED_OR_LATER = ('planned', 'active', 'reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released')
+            print(f"Found {len(planned)} planned stories without holds")
+
+            IMPLEMENTED_STAGES = ('implemented', 'ready', 'released')
+            PLANNED_OR_LATER = ('planned', 'active', 'reviewing', 'verifying', 'implemented', 'ready', 'released')
 
             results = []
             for story in planned:
@@ -94,82 +155,192 @@ jobs:
                         deps.add(dep_id)
 
                 # Check dependency stories are implemented
-                unmet_deps = []
+                blocker_ids = []
                 for dep_id in deps:
-                    dep = conn.execute('SELECT id, title, stage FROM story_nodes WHERE id = ? AND disposition IS NULL', (dep_id,)).fetchone()
+                    dep = conn.execute(
+                        'SELECT id, title, stage FROM story_nodes WHERE id = ? AND disposition IS NULL',
+                        (dep_id,)
+                    ).fetchone()
                     if dep and dep['stage'] not in IMPLEMENTED_STAGES:
-                        unmet_deps.append({'id': dep_id, 'title': dep['title'], 'stage': dep['stage']})
+                        blocker_ids.append(dep_id)
 
                 # Check all children are at least planned
-                unplanned_children = []
-                children = conn.execute('''
+                children = conn.execute("""
                     SELECT s.id, s.title, s.stage FROM story_nodes s
                     JOIN story_paths p ON s.id = p.descendant_id
                     WHERE p.ancestor_id = ? AND p.depth = 1
                       AND s.disposition IS NULL
-                ''', (story_id,)).fetchall()
+                """, (story_id,)).fetchall()
 
                 for child in children:
                     if child['stage'] not in PLANNED_OR_LATER:
-                        unplanned_children.append({'id': child['id'], 'title': child['title'], 'stage': child['stage']})
+                        blocker_ids.append(child['id'])
 
-                ready = len(unmet_deps) == 0 and len(unplanned_children) == 0
+                ready = len(blocker_ids) == 0
                 results.append({
                     'id': story_id,
                     'title': story['title'],
                     'ready': ready,
-                    'unmet_deps': unmet_deps,
-                    'unplanned_children': unplanned_children
+                    'blocker_ids': blocker_ids
                 })
 
             print(json.dumps(results, indent=2))
             conn.close()
-            "
+            ACTIVATE_SCRIPT
             ```
 
-            ## Step 3: Apply Transitions
+            ## Step 3: Cycle Detection and Apply Transitions
 
-            For each story in the results:
+            For each story in the results, check for cycles before blocking:
 
-            **If ready = true:** Transition to active
             ```python
-            python -c "
+            python3 << 'APPLY_SCRIPT'
             import sqlite3
+            import json
+            import sys
+
+            # Read results from previous step (passed as argument or re-query)
             conn = sqlite3.connect('.claude/data/story-tree.db')
-            conn.execute('''
-                UPDATE story_nodes
-                SET stage = 'active',
-                    notes = COALESCE(notes || char(10), '') || 'Activated by CI: ' || datetime('now'),
-                    updated_at = datetime('now')
-                WHERE id = '[STORY_ID]'
-            ''')
+            conn.row_factory = sqlite3.Row
+
+            # Re-query to get current state
+            planned = conn.execute("""
+                SELECT id, title, description, notes FROM story_nodes
+                WHERE stage = 'planned'
+                  AND hold_reason IS NULL
+                  AND disposition IS NULL
+                ORDER BY updated_at ASC
+            """).fetchall()
+
+            import re
+            IMPLEMENTED_STAGES = ('implemented', 'ready', 'released')
+            PLANNED_OR_LATER = ('planned', 'active', 'reviewing', 'verifying', 'implemented', 'ready', 'released')
+
+            activated = []
+            blocked = []
+            cycles_resolved = []
+
+            def get_block_chain(story_id, visited=None):
+                """Walk the block chain from a story, return all stories in chain."""
+                if visited is None:
+                    visited = set()
+                if story_id in visited:
+                    return visited
+                visited.add(story_id)
+
+                row = conn.execute("""
+                    SELECT hold_reason FROM story_nodes
+                    WHERE id = ? AND hold_reason LIKE 'blocked:%'
+                """, (story_id,)).fetchone()
+
+                if row:
+                    blocker_ids_str = row['hold_reason'][8:]
+                    for bid in blocker_ids_str.split(','):
+                        bid = bid.strip()
+                        if bid:
+                            get_block_chain(bid, visited)
+                return visited
+
+            for story in planned:
+                story_id = story['id']
+                text = (story['description'] or '') + ' ' + (story['notes'] or '')
+
+                # Extract dependencies
+                dep_pattern = r'(?:depends on|requires|after|needs)\s+(\d+(?:\.\d+)*)|(?<!\d)(\d+\.\d+(?:\.\d+)*)(?!\d)'
+                deps = set()
+                for match in re.finditer(dep_pattern, text, re.IGNORECASE):
+                    dep_id = match.group(1) or match.group(2)
+                    if dep_id and dep_id != story_id:
+                        deps.add(dep_id)
+
+                # Check dependencies
+                blocker_ids = []
+                for dep_id in deps:
+                    dep = conn.execute(
+                        'SELECT id, stage FROM story_nodes WHERE id = ? AND disposition IS NULL',
+                        (dep_id,)
+                    ).fetchone()
+                    if dep and dep['stage'] not in IMPLEMENTED_STAGES:
+                        blocker_ids.append(dep_id)
+
+                # Check children
+                children = conn.execute("""
+                    SELECT s.id, s.stage FROM story_nodes s
+                    JOIN story_paths p ON s.id = p.descendant_id
+                    WHERE p.ancestor_id = ? AND p.depth = 1
+                      AND s.disposition IS NULL
+                """, (story_id,)).fetchall()
+
+                for child in children:
+                    if child['stage'] not in PLANNED_OR_LATER:
+                        blocker_ids.append(child['id'])
+
+                if len(blocker_ids) == 0:
+                    # ACTIVATE - all deps met
+                    conn.execute("""
+                        UPDATE story_nodes
+                        SET stage = 'active',
+                            hold_reason = NULL,
+                            notes = COALESCE(notes || char(10), '') ||
+                                    'ACTIVATED: All dependencies met. ' || datetime('now'),
+                            updated_at = datetime('now')
+                        WHERE id = ?
+                    """, (story_id,))
+                    activated.append({'id': story_id, 'title': story['title']})
+                else:
+                    # Check for cycles before blocking
+                    cycle_found = False
+                    cycle_chain = []
+
+                    for blocker_id in blocker_ids:
+                        chain = get_block_chain(blocker_id)
+                        if story_id in chain:
+                            cycle_found = True
+                            cycle_chain = list(chain)
+                            break
+
+                    if cycle_found:
+                        # Resolve cycle: clear stale blocks in chain
+                        for chain_id in cycle_chain:
+                            if chain_id != story_id:
+                                conn.execute("""
+                                    UPDATE story_nodes
+                                    SET hold_reason = NULL,
+                                        notes = COALESCE(notes || char(10), '') ||
+                                                'CYCLE RESOLVED: Block cleared - newer analysis found reverse dependency. ' ||
+                                                datetime('now'),
+                                        updated_at = datetime('now')
+                                    WHERE id = ? AND hold_reason LIKE 'blocked:%'
+                                """, (chain_id,))
+                        cycles_resolved.append({
+                            'story_id': story_id,
+                            'chain': cycle_chain
+                        })
+
+                    # BLOCK with specific blocker IDs
+                    blocker_ids_str = ','.join(blocker_ids)
+                    conn.execute("""
+                        UPDATE story_nodes
+                        SET hold_reason = 'blocked:' || ?,
+                            notes = COALESCE(notes || char(10), '') ||
+                                    'BLOCKED: Waiting on [' || ? || ']. ' || datetime('now'),
+                            updated_at = datetime('now')
+                        WHERE id = ?
+                    """, (blocker_ids_str, blocker_ids_str, story_id))
+                    blocked.append({
+                        'id': story_id,
+                        'title': story['title'],
+                        'blockers': blocker_ids
+                    })
+
             conn.commit()
-            print('Activated [STORY_ID]')
+            print(json.dumps({
+                'activated': activated,
+                'blocked': blocked,
+                'cycles_resolved': cycles_resolved
+            }, indent=2))
             conn.close()
-            "
-            ```
-
-            **If ready = false:** Block the story with reason
-            ```python
-            python -c "
-            import sqlite3
-            conn = sqlite3.connect('.claude/data/story-tree.db')
-
-            # Build blocking reason from unmet deps and unplanned children
-            reason = '[BLOCKING_REASON]'  # e.g., 'Unmet deps: 1.2 (approved), 1.3 (planned); Unplanned children: 1.4.1 (concept)'
-
-            conn.execute('''
-                UPDATE story_nodes
-                SET hold_reason = 'blocked',
-                    human_review = 1,
-                    notes = COALESCE(notes || char(10), '') || 'BLOCKED by CI: ' || datetime('now') || char(10) || ?,
-                    updated_at = datetime('now')
-                WHERE id = ?
-            ''', (reason, '[STORY_ID]'))
-            conn.commit()
-            print('Blocked [STORY_ID]: ' + reason)
-            conn.close()
-            "
+            APPLY_SCRIPT
             ```
 
             ## Step 4: Git Operations
@@ -187,14 +358,19 @@ jobs:
             Output a summary like:
             ```
             === Story Activation Complete ===
+            Unblocked (from UNBLOCK step): [count]
             Activated: [count]
             Blocked: [count]
+            Cycles Resolved: [count]
+
+            Unblocked stories (blockers resolved):
+            - [ID]: [title]
 
             Activated stories:
             - [ID]: [title]
 
             Blocked stories:
-            - [ID]: [title] - [reason]
+            - [ID]: [title] - blocked:[blocker_ids]
             ```
 
             **CRITICAL**: Push changes before exiting.
