@@ -75,10 +75,31 @@ SELECT * FROM story_nodes
 WHERE stage = 'approved' AND hold_reason IS NULL AND disposition IS NULL;
 ```
 
-### Ready to Execute (planned, not held)
+### Ready to Execute (queued or planned, not held)
 ```sql
+-- Prefer queued (dependencies verified), then planned (needs verification)
 SELECT * FROM story_nodes
-WHERE stage = 'planned' AND hold_reason IS NULL AND disposition IS NULL;
+WHERE stage IN ('queued', 'planned')
+  AND hold_reason IS NULL AND disposition IS NULL
+ORDER BY CASE stage WHEN 'queued' THEN 0 ELSE 1 END, updated_at ASC;
+```
+
+### Transition planned → queued (verify dependencies first)
+```sql
+-- Check if all children are at least planned (required for queued)
+SELECT s.id, s.title, s.stage FROM story_nodes s
+JOIN story_paths p ON s.id = p.descendant_id
+WHERE p.ancestor_id = ? AND p.depth = 1
+  AND s.disposition IS NULL
+  AND s.stage NOT IN ('planned', 'queued', 'active', 'reviewing',
+                       'verifying', 'implemented', 'ready', 'polish', 'released');
+
+-- If above returns empty AND dependencies are met, transition to queued:
+UPDATE story_nodes
+SET stage = 'queued',
+    notes = COALESCE(notes || char(10), '') || 'Dependencies verified, queued: ' || datetime('now'),
+    updated_at = datetime('now')
+WHERE id = ? AND stage = 'planned';
 ```
 
 ### Update to Hold (preserves stage)
