@@ -48,16 +48,16 @@ cursor.execute('''
 ''')
 result['capacity_nodes'] = [dict(row) for row in cursor.fetchall()]
 
-# Stories with 'refine' hold_reason (limit 2)
+# Stories with 'polish' hold_reason (limit 2)
 cursor.execute('''
     SELECT s.id, s.title, s.description, s.notes,
         (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth
     FROM story_nodes s
-    WHERE s.hold_reason = 'refine'
+    WHERE s.hold_reason = 'polish'
     ORDER BY s.updated_at ASC
     LIMIT 2
 ''')
-result['refine_nodes'] = [dict(row) for row in cursor.fetchall()]
+result['polish_nodes'] = [dict(row) for row in cursor.fetchall()]
 
 print(json.dumps(result, indent=2))
 conn.close()
@@ -68,9 +68,9 @@ conn.close()
 
 If `capacity_nodes` found, invoke `story-writing` skill for 1 story.
 
-### Refine Stories
+### Polish Stories
 
-For each `refine_nodes` story:
+For each `polish_nodes` story:
 
 1. **Archive to notes** with timestamp:
 ```python

@@ -69,7 +69,7 @@ print(subprocess.run(cmd, capture_output=True, text=True).stdout)
 
 **Excluded from generation:** Stories where:
 - `stage = 'concept'` (not yet approved)
-- `hold_reason IS NOT NULL` (blocked/pending/etc)
+- `hold_reason IS NOT NULL` (queued/pending/blocked/etc)
 - `disposition IS NOT NULL` (rejected/archived/etc)
 
 **Priority algorithm** (shallower under-capacity nodes first):
@@ -136,15 +136,16 @@ Stories use three orthogonal dimensions instead of a single status:
 | polish | Minor refinements |
 | released | Deployed to production |
 
-### Hold Reason (5 values + NULL) - Why work is stopped
-| Hold | Description | Valid Stages |
-|------|-------------|--------------|
-| NULL | Not held, work can proceed | Any |
-| pending | Awaiting human decision | Any |
-| blocked | External dependency | Any |
-| paused | Execution blocked by critical issue | active only |
-| broken | Something wrong with story definition | concept only |
-| refine | Needs more detail | concept only |
+### Hold Reason (6 values + NULL) - Why work is stopped
+| Hold | Description |
+|------|-------------|
+| NULL | Not held, work can proceed |
+| queued | Waiting to be processed |
+| pending | Awaiting human decision to clear this status |
+| blocked | External dependency |
+| paused | Execution blocked by critical issue |
+| broken | Something wrong with story definition |
+| polish | Needs refinement before proceeding |
 
 ### Disposition (6 values + NULL) - Terminal state
 | Disposition | Description | Stage Required |
@@ -175,8 +176,8 @@ import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'story-tree', 'utility'))
 from story_db_common import (
     DB_PATH,                    # '.claude/data/story-tree.db'
-    MERGEABLE_STATUSES,         # {'concept', 'wishlist', 'refine'}
-    BLOCK_STATUSES,             # {'rejected', 'infeasible', 'broken', 'pending', 'blocked'}
+    MERGEABLE_STATUSES,         # {'concept', 'wishlist', 'polish'}
+    BLOCK_STATUSES,             # {'rejected', 'infeasible', 'broken', 'queued', 'pending', 'blocked'}
     get_connection,             # Get SQLite connection
     make_pair_key,              # Canonical pair key for caching
     get_story_version,          # Get story version number

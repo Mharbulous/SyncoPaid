@@ -19,7 +19,7 @@ if sys.platform == 'win32':
 
 STATUS_SYMBOLS_UNICODE = {
     'infeasible': '∅', 'rejected': '✗', 'wishlist': '?',
-    'concept': '·', 'refine': '◈', 'pending': '⏸', 'approved': '✓',
+    'concept': '·', 'queued': '⏳', 'pending': '❓', 'approved': '✓',
     'blocked': '⊗', 'planned': '○', 'broken': '⚠', 'paused': '⏸',
     'active': '●',
     'reviewing': '👁', 'implemented': '★',
@@ -29,7 +29,7 @@ STATUS_SYMBOLS_UNICODE = {
 
 STATUS_SYMBOLS_ASCII = {
     'infeasible': '0', 'rejected': 'x', 'wishlist': 'W',
-    'concept': '.', 'refine': 'r', 'pending': '=', 'approved': 'v',
+    'concept': '.', 'queued': 'Q', 'pending': '?', 'approved': 'v',
     'blocked': 'X', 'planned': 'o', 'broken': '!', 'paused': '|',
     'active': 'O',
     'reviewing': 'R', 'implemented': '+',
@@ -40,7 +40,7 @@ STATUS_SYMBOLS_ASCII = {
 ANSI_COLORS = {
     'infeasible': '\033[38;2;139;0;0m', 'rejected': '\033[38;2;255;69;0m',
     'wishlist': '\033[38;2;255;140;0m', 'concept': '\033[38;2;255;165;0m',
-    'refine': '\033[38;2;255;179;71m', 'pending': '\033[38;2;255;215;0m',
+    'queued': '\033[38;2;255;200;0m', 'pending': '\033[38;2;255;215;0m',
     'approved': '\033[38;2;255;219;88m', 'blocked': '\033[38;2;184;134;11m',
     'planned': '\033[38;2;238;232;170m', 'broken': '\033[38;2;218;165;32m',
     'paused': '\033[38;2;189;183;107m', 'active': '\033[38;2;50;205;50m',

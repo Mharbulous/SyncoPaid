@@ -99,9 +99,12 @@ Each stage represents multiple facets that apply simultaneously. A node can have
 ```mermaid
 mindmap
   root((Any Stage))
+    queued
+      Waiting to be processed
+      Clear: Processing begins
     pending
-      Needs decision
-      Clear: Decision made
+      Awaiting human decision
+      Clear: Human clears status
     paused
       Work paused
       Clear: Resume work
