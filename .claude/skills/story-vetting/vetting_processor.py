@@ -18,7 +18,7 @@ from story_db_common import (
     MERGEABLE_STATUSES,
     BLOCK_STATUSES,
     delete_story,
-    reject_concept as _reject_concept,
+    conflict_concept as _conflict_concept,
     block_concept as _block_concept,
     defer_concept as _defer_concept,
     merge_concepts as _merge_concepts,
@@ -34,7 +34,7 @@ stats = {
     'candidates_scanned': 0,
     'deleted': 0,
     'merged': 0,
-    'rejected': 0,
+    'conflicted': 0,
     'blocked': 0,
     'skipped': 0,
     'deferred': 0,
@@ -71,7 +71,7 @@ def get_action(conflict_type: str, status_a: str, status_b: str) -> str:
         elif status_b in BLOCK_STATUSES:
             return 'BLOCK_CONCEPT'
         else:
-            return 'REJECT_CONCEPT'
+            return 'CONFLICT_CONCEPT'
 
     if conflict_type == 'incompatible':
         return 'PICK_BETTER'
@@ -121,10 +121,10 @@ def delete_concept(conn: sqlite3.Connection, concept_id: str) -> None:
     delete_story(conn, concept_id)
     stats['deleted'] += 1
 
-def reject_concept(conn: sqlite3.Connection, concept_id: str, conflicting_id: str) -> None:
-    """Set concept disposition to rejected with note."""
-    _reject_concept(conn, concept_id, conflicting_id)
-    stats['rejected'] += 1
+def conflict_concept(conn: sqlite3.Connection, concept_id: str, conflicting_id: str) -> None:
+    """Set concept disposition to conflict (algorithm detected overlap)."""
+    _conflict_concept(conn, concept_id, conflicting_id)
+    stats['conflicted'] += 1
 
 def block_concept(conn: sqlite3.Connection, concept_id: str, conflicting_id: str) -> None:
     """Set concept hold_reason to blocked with note (stage preserved)."""
@@ -199,8 +199,8 @@ def process_candidate(conn: sqlite3.Connection, candidate: Dict) -> None:
     elif action == 'DELETE_CONCEPT':
         delete_concept(conn, story_a['id'])
 
-    elif action == 'REJECT_CONCEPT':
-        reject_concept(conn, story_a['id'], story_b['id'])
+    elif action == 'CONFLICT_CONCEPT':
+        conflict_concept(conn, story_a['id'], story_b['id'])
 
     elif action == 'BLOCK_CONCEPT':
         block_concept(conn, story_a['id'], story_b['id'])
@@ -267,7 +267,7 @@ def main():
         print("Actions taken:", file=sys.stderr)
         print(f"  - Deleted: {stats['deleted']} duplicate concepts", file=sys.stderr)
         print(f"  - Merged: {stats['merged']} concept pairs", file=sys.stderr)
-        print(f"  - Rejected: {stats['rejected']} competing concepts", file=sys.stderr)
+        print(f"  - Conflicted: {stats['conflicted']} overlapping concepts", file=sys.stderr)
         print(f"  - Blocked: {stats['blocked']} concepts", file=sys.stderr)
         print(f"  - Skipped: {stats['skipped']} false positives", file=sys.stderr)
         print(f"  - Deferred to pending: {stats['deferred']} scope overlaps", file=sys.stderr)

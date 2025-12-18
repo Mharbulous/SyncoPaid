@@ -31,8 +31,8 @@ DB_PATH = '.claude/data/story-tree.db'
 # Statuses that allow merging (early-stage concepts)
 MERGEABLE_STATUSES = {'concept', 'wishlist', 'polish'}
 
-# Statuses that indicate blocking conditions
-BLOCK_STATUSES = {'rejected', 'infeasible', 'broken', 'queued', 'pending', 'blocked'}
+# Statuses that indicate blocking conditions (story not actively progressing)
+BLOCK_STATUSES = {'rejected', 'infeasible', 'conflict', 'broken', 'queued', 'pending', 'blocked'}
 
 # Valid vetting classification types
 CLASSIFICATIONS = {
@@ -47,7 +47,8 @@ CLASSIFICATIONS = {
 ACTIONS = {
     'SKIP',
     'DELETE_CONCEPT',
-    'REJECT_CONCEPT',
+    'REJECT_CONCEPT',    # Human rejection (indicates non-goal)
+    'CONFLICT_CONCEPT',  # Algorithm detected overlap (not a goal signal)
     'BLOCK_CONCEPT',
     'TRUE_MERGE',
     'PICK_BETTER',
@@ -178,17 +179,19 @@ def delete_story(conn: sqlite3.Connection, story_id: str) -> None:
 def reject_concept(
     conn: sqlite3.Connection,
     concept_id: str,
-    conflicting_id: str
+    reason: str
 ) -> None:
-    """Set concept disposition to rejected with conflict note.
+    """Set concept disposition to rejected (human decision, indicates non-goal).
 
-    This marks a concept as rejected due to conflict with another story.
-    The stage is preserved but disposition overrides it in effective status.
+    Use this when a HUMAN decides not to implement a concept.
+    The rejection is a meaningful signal about user goals/non-goals.
+
+    For algorithm-detected conflicts, use conflict_concept() instead.
 
     Args:
         conn: SQLite connection
         concept_id: ID of concept to reject
-        conflicting_id: ID of conflicting story (for note)
+        reason: Human-provided reason for rejection
 
     Note:
         Does NOT commit - caller should commit after all operations complete
@@ -196,6 +199,34 @@ def reject_concept(
     conn.execute('''
         UPDATE story_nodes
         SET disposition = 'rejected',
+            notes = COALESCE(notes || char(10), '') || ?
+        WHERE id = ?
+    ''', (reason, concept_id))
+
+
+def conflict_concept(
+    conn: sqlite3.Connection,
+    concept_id: str,
+    conflicting_id: str
+) -> None:
+    """Set concept disposition to conflict (algorithm detected overlap).
+
+    Use this when the ALGORITHM detects overlap with existing story.
+    This is NOT a signal about user goals - just prevents duplicate work.
+
+    For human rejections (non-goals), use reject_concept() instead.
+
+    Args:
+        conn: SQLite connection
+        concept_id: ID of concept to mark as conflict
+        conflicting_id: ID of conflicting story (for note)
+
+    Note:
+        Does NOT commit - caller should commit after all operations complete
+    """
+    conn.execute('''
+        UPDATE story_nodes
+        SET disposition = 'conflict',
             notes = COALESCE(notes || char(10), '') || 'Conflicts with story node ' || ?
         WHERE id = ?
     ''', (conflicting_id, concept_id))

@@ -20,7 +20,7 @@ Vetting filters OUT conflicting concepts automatically:
 2. **LLM analysis** - Removes semantic conflicts
 3. **Human review** - Approves only clean, non-conflicting concepts
 
-Conflicting concepts are auto-rejected (`disposition='rejected'`), NOT held for human review. The human's job is to evaluate good ideas, not arbitrate conflicts.
+Conflicting concepts are auto-disposed (`disposition='conflict'`), NOT held for human review. The human's job is to evaluate good ideas, not arbitrate conflicts. Using `conflict` instead of `rejected` preserves goal/non-goal signal clarity.
 
 ---
 
@@ -48,7 +48,7 @@ stateDiagram-v2
     concept --> CONCEPT_QUEUED: write-stories<br/>new story created
 
     CONCEPT_QUEUED --> CONCEPT: vet-stories<br/>no conflicts
-    CONCEPT_QUEUED --> [*]: vet-stories<br/>conflict → rejected
+    CONCEPT_QUEUED --> [*]: vet-stories<br/>disposition='conflict'
 
     CONCEPT --> APPROVED: approve-stories
 
@@ -180,7 +180,7 @@ flowchart TD
             subgraph F2["Step 7: vet-stories"]
                 F2_CHECK{Queued concepts<br/>to vet?}
                 F2_RUN["story-vetting skill"]
-                F2_REJECT["disposition='rejected'"]
+                F2_CONFLICT["disposition='conflict'"]
                 F2_CLEAN["clear queued hold"]
             end
 
@@ -196,10 +196,10 @@ flowchart TD
             F1_DONE --> F2_CHECK
 
             F2_CHECK -->|Yes| F2_RUN
-            F2_RUN -->|conflict| F2_REJECT
+            F2_RUN -->|conflict| F2_CONFLICT
             F2_RUN -->|clean| F2_CLEAN
             F2_CHECK -->|No| F3_CHECK
-            F2_REJECT --> F3_CHECK
+            F2_CONFLICT --> F3_CHECK
             F2_CLEAN --> F3_CHECK
 
             F3_CHECK -->|Yes| F3_RUN
@@ -239,7 +239,7 @@ flowchart TD
 | 4 | `activate-stories` | planned (no hold) | active (no hold) | → (blocked) if deps unmet |
 | 5 | `plan-stories` | approved (no hold) | planned (no hold) | - |
 | 6 | `write-stories` | NEW | concept (queued) | - |
-| 7 | `vet-stories` | concept (queued) | concept (no hold) | → rejected if conflicts |
+| 7 | `vet-stories` | concept (queued) | concept (no hold) | → conflict if overlaps |
 | 8 | `approve-stories` | concept (no hold) | approved (no hold) | - |
 
 ---
@@ -274,8 +274,8 @@ flowchart LR
         A1["planned (blocked)<br/>deps unmet"]
     end
 
-    subgraph "Auto-Rejected (No Human Review)"
-        R1["concept → rejected<br/>conflict detected"]
+    subgraph "Auto-Disposed (No Human Review)"
+        C1["concept → conflict<br/>overlap detected"]
     end
 
     H2 -->|"Human fixes plan"| H2_CLEAR["active"]
@@ -283,7 +283,7 @@ flowchart LR
     H4 -->|"Human fixes tests"| H4_CLEAR["verifying"]
 
     A1 -->|"Deps reach required stage"| A1_CLEAR["active"]
-    R1 -->|"Removed from pipeline"| R1_END["[*]"]
+    C1 -->|"Removed from pipeline"| C1_END["[*]"]
 ```
 
 ---

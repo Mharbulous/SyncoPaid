@@ -73,8 +73,8 @@ def migrate_schema(conn: Optional[sqlite3.Connection] = None) -> Dict[str, Any]:
                         'incompatible', 'false_positive'
                     )),
                     action_taken TEXT CHECK (action_taken IN (
-                        'SKIP', 'DELETE_CONCEPT', 'REJECT_CONCEPT', 'BLOCK_CONCEPT',
-                        'TRUE_MERGE', 'PICK_BETTER', 'HUMAN_REVIEW', 'DEFER_PENDING'
+                        'SKIP', 'DELETE_CONCEPT', 'REJECT_CONCEPT', 'CONFLICT_CONCEPT',
+                        'BLOCK_CONCEPT', 'TRUE_MERGE', 'PICK_BETTER', 'HUMAN_REVIEW', 'DEFER_PENDING'
                     )),
                     decided_at TEXT NOT NULL,
                     FOREIGN KEY (story_a_id) REFERENCES story_nodes(id) ON DELETE CASCADE,
