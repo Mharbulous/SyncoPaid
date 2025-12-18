@@ -20,7 +20,18 @@ except ImportError:
     from vetting_cache import migrate_schema, store_decision
 
 # Constants
+# Three-field system mappings (values from COALESCE(disposition, hold_reason, stage))
+# - 'concept' = stage='concept'
+# - 'wishlist' = disposition='wishlist'
+# - 'refine' = hold_reason='refine'
 MERGEABLE_STATUSES = {'concept', 'wishlist', 'refine'}
+
+# Three-field system mappings (values from COALESCE(disposition, hold_reason, stage))
+# - 'rejected' = disposition='rejected'
+# - 'infeasible' = disposition='infeasible'
+# - 'broken' = hold_reason='broken'
+# - 'pending' = hold_reason='pending'
+# - 'blocked' = hold_reason='blocked'
 BLOCK_STATUSES = {'rejected', 'infeasible', 'broken', 'pending', 'blocked'}
 DB_PATH = '.claude/data/story-tree.db'
 CI_MODE = True  # Always use CI mode in this script
