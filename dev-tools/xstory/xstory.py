@@ -615,10 +615,32 @@ class DetailView(QWidget):
         return f"#{r:02x}{g:02x}{b:02x}"
 
     def _on_status_button_clicked(self, node_id: str, new_status: str):
-        """Handle status button click - change status and refresh view."""
+        """Handle status button click - change status and navigate to next node with same original status."""
+        # Get the original status before changing
+        original_status = self.app.nodes[node_id].status if node_id in self.app.nodes else None
+
+        # Get list of nodes with the original status (before the change)
+        nodes_with_original_status = self._get_nodes_with_status(original_status) if original_status else []
+
+        # Find the current node's position and the next node in the list
+        next_node_id = None
+        if node_id in nodes_with_original_status:
+            current_index = nodes_with_original_status.index(node_id)
+            # Look for the next node (after this one) with the original status
+            if current_index < len(nodes_with_original_status) - 1:
+                next_node_id = nodes_with_original_status[current_index + 1]
+            elif current_index > 0:
+                # If no next, fall back to previous node with original status
+                next_node_id = nodes_with_original_status[current_index - 1]
+
+        # Change the status
         self.app._change_node_status(node_id, new_status)
-        # Refresh the detail view to show updated status
-        if self.current_node_id:
+
+        # Navigate to the next node with the original status, or stay on current if none
+        if next_node_id:
+            self.show_node(next_node_id, add_to_history=True)
+        elif self.current_node_id:
+            # No other nodes with original status - stay on current node
             self.show_node(self.current_node_id, add_to_history=False)
 
     def _update_nav_buttons(self):
