@@ -54,7 +54,7 @@ The skill vets **concepts only** — deciding what ideas to present to the human
 | **SCOPE_OVERLAP** | `concept` | TRUE MERGE → concept |
 | **SCOPE_OVERLAP** | any other | HUMAN REVIEW |
 | **COMPETING** | `concept`, `wishlist`, `refine` | TRUE MERGE |
-| **COMPETING** | `rejected`, `infeasible`, `broken`, `pending`, `blocked` | BLOCK concept with note |
+| **COMPETING** | `rejected`, `infeasible`, `broken`, `queued`, `pending`, `blocked` | BLOCK concept with note |
 | **COMPETING** | everything else | AUTO-REJECT with note |
 | **INCOMPATIBLE** | `concept` | Claude picks better, DELETE other |
 | **FALSE_POSITIVE** | — | SKIP (no action) |
@@ -71,7 +71,7 @@ Effective status is computed as `COALESCE(disposition, hold_reason, stage)`.
 
 **Block against:**
 - `disposition IN ('rejected', 'infeasible')`
-- `hold_reason IN ('broken', 'pending', 'blocked')`
+- `hold_reason IN ('broken', 'queued', 'pending', 'blocked')`
 
 **Auto-delete/reject against:**
 - `stage IN ('approved', 'planned', 'active', 'reviewing', 'implemented', 'ready', 'polish', 'released')`
@@ -191,7 +191,7 @@ Use this lookup based on classification and effective statuses (computed from th
 ```python
 # Effective status = COALESCE(disposition, hold_reason, stage)
 MERGEABLE_STATUSES = {'concept', 'wishlist', 'refine'}
-BLOCK_STATUSES = {'rejected', 'infeasible', 'broken', 'pending', 'blocked'}
+BLOCK_STATUSES = {'rejected', 'infeasible', 'broken', 'queued', 'pending', 'blocked'}
 
 def get_action(conflict_type, eff_status_a, eff_status_b, ci_mode=False):
     # Ensure concept is always story_a for consistent logic

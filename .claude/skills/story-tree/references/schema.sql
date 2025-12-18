@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS story_nodes (
         )),
     hold_reason TEXT DEFAULT NULL
         CHECK (hold_reason IS NULL OR hold_reason IN (
-            'pending', 'paused', 'blocked', 'broken', 'refine'
+            'queued', 'pending', 'paused', 'blocked', 'broken', 'refine'
         )),
     disposition TEXT DEFAULT NULL
         CHECK (disposition IS NULL OR disposition IN (
@@ -114,9 +114,10 @@ END;
 --   concept → approved → planned → active → reviewing → verifying
 --   → implemented → ready → polish → released
 --
--- HOLD_REASON (5 values + NULL): Why work is stopped (orthogonal to stage)
+-- HOLD_REASON (6 values + NULL): Why work is stopped (orthogonal to stage)
 --   NULL    = Not held, work can proceed
---   pending = Awaiting human decision (any stage)
+--   queued  = Waiting to be processed (any stage)
+--   pending = Awaiting human decision to clear this status (any stage)
 --   paused  = Execution blocked by critical issue (active stage only)
 --   blocked = External dependency (any stage)
 --   broken  = Something wrong with story definition (concept stage only)
