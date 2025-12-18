@@ -1,51 +1,25 @@
 #!/usr/bin/env python3
 """
 Process vetting candidates systematically with caching support.
+
+Uses consolidated database operations from story-tree utility.
 """
 import sqlite3
 import json
 import sys
+import os
 
-def get_cached_decision(conn, id_a, id_b):
-    """Check if decision is cached for this pair."""
-    # Normalize pair key (smaller ID first)
-    if id_a > id_b:
-        id_a, id_b = id_b, id_a
-    pair_key = f"{id_a}|{id_b}"
+# Import common utilities from story-tree
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'story-tree', 'utility'))
+from story_db_common import DB_PATH, get_story_version
 
-    cursor = conn.execute("""
-        SELECT classification, action_taken, decided_at, story_a_version, story_b_version
-        FROM vetting_decisions
-        WHERE pair_key = ?
-    """, (pair_key,))
-    return cursor.fetchone()
+# Import cache functions from vetting_cache
+from vetting_cache import get_cached_decision, store_decision
 
-def get_story_version(conn, story_id):
-    """Get current version of a story."""
-    cursor = conn.execute("SELECT version FROM story_nodes WHERE id = ?", (story_id,))
-    result = cursor.fetchone()
-    return result[0] if result else 1
-
-def cache_decision(conn, id_a, id_b, classification, action):
-    """Cache a vetting decision."""
-    # Normalize pair key (smaller ID first)
-    if id_a > id_b:
-        id_a, id_b = id_b, id_a
-    pair_key = f"{id_a}|{id_b}"
-
-    version_a = get_story_version(conn, id_a)
-    version_b = get_story_version(conn, id_b)
-
-    conn.execute("""
-        INSERT OR REPLACE INTO vetting_decisions
-        (pair_key, story_a_id, story_b_id, story_a_version, story_b_version, classification, action_taken)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (pair_key, id_a, id_b, version_a, version_b, classification, action))
-    conn.commit()
 
 def filter_uncached_candidates(candidates_json):
     """Filter candidates to only those not in cache or with stale versions."""
-    conn = sqlite3.connect('.claude/data/story-tree.db')
+    conn = sqlite3.connect(DB_PATH)
 
     needs_processing = []
     cache_hits = 0
@@ -56,14 +30,10 @@ def filter_uncached_candidates(candidates_json):
 
         cached = get_cached_decision(conn, id_a, id_b)
         if cached:
-            # Check if versions match
-            version_a = get_story_version(conn, id_a)
-            version_b = get_story_version(conn, id_b)
-
-            if cached[3] == version_a and cached[4] == version_b:
-                # Cache hit - valid decision
-                cache_hits += 1
-                continue
+            # get_cached_decision already handles version validation
+            # If it returns a result, the cache is valid
+            cache_hits += 1
+            continue
 
         # Need to process this candidate
         needs_processing.append(candidate)
@@ -74,6 +44,7 @@ def filter_uncached_candidates(candidates_json):
     print(f"Need processing: {len(needs_processing)}/{len(candidates_json['candidates'])}", file=sys.stderr)
 
     return needs_processing
+
 
 def score_candidate(candidate):
     """Score candidate by signal strength for prioritization."""
@@ -93,6 +64,7 @@ def score_candidate(candidate):
     score += signals['desc_similarity'] * 2
 
     return score
+
 
 if __name__ == '__main__':
     # Read candidates from stdin

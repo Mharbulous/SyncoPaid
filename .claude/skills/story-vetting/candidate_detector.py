@@ -9,23 +9,17 @@ import sqlite3
 import json
 import re
 import sys
+import os
 from typing import Dict, List, Set, Any, Optional
 
+# Import common utilities from story-tree
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'story-tree', 'utility'))
+from story_db_common import DB_PATH
+
 # Import cache functions
-try:
-    from vetting_cache import (
-        migrate_schema, get_cached_decision, make_pair_key, get_cache_stats
-    )
-except ImportError:
-    # When run as script from different directory
-    import os
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from vetting_cache import (
-        migrate_schema, get_cached_decision, make_pair_key, get_cache_stats
-    )
-
-
-DB_PATH = '.claude/data/story-tree.db'
+from vetting_cache import (
+    migrate_schema, get_cached_decision, make_pair_key, get_cache_stats
+)
 
 
 def tokenize(text: Optional[str]) -> Set[str]:
