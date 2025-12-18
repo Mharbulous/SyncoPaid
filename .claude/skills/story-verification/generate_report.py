@@ -186,22 +186,22 @@ def generate_report(story_id: str, run_tests_flag: bool = True, ci_mode: bool = 
     else:
         recommendation = "REVIEW"
 
-    # Suggested status transition
+    # Suggested stage transition
     if recommendation == "READY":
-        suggested_status = "ready"
+        suggested_stage = "ready"
     elif recommendation == "MANUAL_REVIEW":
-        suggested_status = "reviewing"
+        suggested_stage = "reviewing"
     else:
-        suggested_status = story_data.get('status')  # Keep current
+        suggested_stage = story_data.get('display_state')  # Keep current
 
     report = {
         "story_id": story_id,
         "title": story_data.get('title'),
-        "current_status": story_data.get('status'),
+        "current_stage": story_data.get('display_state'),
         "criteria_results": results,
         "summary": summary,
         "recommendation": recommendation,
-        "suggested_status": suggested_status,
+        "suggested_stage": suggested_stage,
         "failures": [
             f"Criterion {r['index']}: {r['text'][:60]}..."
             for r in results
@@ -219,7 +219,7 @@ def format_text_report(report: dict) -> str:
         "=" * 50,
         "",
         f"Story: {report['story_id']} - {report['title']}",
-        f"Current Status: {report['current_status']}",
+        f"Current Stage: {report['current_stage']}",
         "",
         "ACCEPTANCE CRITERIA RESULTS:",
         ""
@@ -264,7 +264,7 @@ def format_text_report(report: dict) -> str:
         f"  Skipped:    {summary.get('skipped', 0)}/{summary.get('total', 0)}",
         "",
         f"RECOMMENDATION: {report.get('recommendation', 'UNKNOWN')}",
-        f"Suggested Status: {report.get('suggested_status', 'unchanged')}"
+        f"Suggested Stage: {report.get('suggested_stage', 'unchanged')}"
     ])
 
     if report.get('failures'):
