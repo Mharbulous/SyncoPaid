@@ -70,6 +70,15 @@ STAGE_VALUES = {'concept', 'approved', 'planned', 'active',
 HOLD_REASON_VALUES = {'pending', 'paused', 'blocked', 'broken', 'refine'}
 DISPOSITION_VALUES = {'rejected', 'infeasible', 'wishlist', 'legacy', 'deprecated', 'archived'}
 
+# Hold reason icons for visual indication in tree view
+HOLD_ICONS = {
+    'paused': '⏸',      # Paused - work temporarily stopped
+    'pending': '⏳',     # Pending - waiting for something
+    'blocked': '🚧',     # Blocked - missing dependency
+    'broken': '⚠️',      # Broken - needs fix
+    'refine': '💎',      # Refine - needs polishing
+}
+
 # Designer mode transitions (approval, quality, priority, end-of-life decisions)
 DESIGNER_TRANSITIONS = {
     'infeasible': ['concept', 'wishlist', 'archived'],
@@ -203,10 +212,12 @@ class StoryNode:
     def __init__(self, id: str, title: str, status: str, capacity: Optional[int],
                  description: str = '', depth: int = 0, parent_id: Optional[str] = None,
                  notes: str = '', project_path: str = '', created_at: str = '',
-                 updated_at: str = '', last_implemented: str = ''):
+                 updated_at: str = '', last_implemented: str = '',
+                 stage: str = '', hold_reason: Optional[str] = None,
+                 disposition: Optional[str] = None):
         self.id = id
         self.title = title
-        self.status = status
+        self.status = status  # Effective status: COALESCE(disposition, hold_reason, stage)
         self.capacity = capacity
         self.description = description
         self.depth = depth
@@ -216,6 +227,10 @@ class StoryNode:
         self.created_at = created_at
         self.updated_at = updated_at
         self.last_implemented = last_implemented
+        # Three-field system components
+        self.stage = stage
+        self.hold_reason = hold_reason
+        self.disposition = disposition
         self.children: List['StoryNode'] = []
 
 
@@ -1172,7 +1187,10 @@ class XstoryExplorer(QMainWindow):
                 project_path=row['project_path'] or '',
                 created_at=row['created_at'] or '',
                 updated_at=row['updated_at'] or '',
-                last_implemented=row['last_implemented'] or ''
+                last_implemented=row['last_implemented'] or '',
+                stage=row['stage'] or 'concept',
+                hold_reason=row['hold_reason'],
+                disposition=row['disposition']
             )
             self.nodes[node.id] = node
 
@@ -1247,10 +1265,24 @@ class XstoryExplorer(QMainWindow):
         if node.id not in visible_nodes:
             return
 
-        # Create tree item
-        item = QTreeWidgetItem([node.id, node.status, node.title])
+        # Determine status display text and tooltip
+        if node.hold_reason and node.hold_reason in HOLD_ICONS:
+            # Show icon + underlying stage when on hold
+            icon = HOLD_ICONS[node.hold_reason]
+            status_text = f"{icon} {node.stage}"
+            tooltip = f"{node.hold_reason.capitalize()} - Stage: {node.stage}"
+        else:
+            status_text = node.status
+            tooltip = None
 
-        # Get status color
+        # Create tree item
+        item = QTreeWidgetItem([node.id, status_text, node.title])
+
+        # Set tooltip if hold reason exists
+        if tooltip:
+            item.setToolTip(1, tooltip)
+
+        # Get status color (use effective status for coloring)
         status_color = STATUS_COLORS.get(node.status, '#000000')
 
         if node.id in faded_nodes:
