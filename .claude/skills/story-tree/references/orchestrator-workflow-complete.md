@@ -55,8 +55,8 @@ stateDiagram-v2
 
     APPROVED --> PLANNED: plan-stories
 
-    PLANNED --> ACTIVE: activate-stories<br/>deps met
-    PLANNED --> PLANNED_BLOCKED: activate-stories<br/>deps unmet + record blockers
+    PLANNED --> ACTIVE: activate-stories<br/>prereqs met
+    PLANNED --> PLANNED_BLOCKED: activate-stories<br/>prereqs unmet + record blockers
     PLANNED_BLOCKED --> PLANNED: activate-stories<br/>recorded blockers resolved
 
     ACTIVE --> REVIEWING: execute-stories<br/>deferrable issues
@@ -283,7 +283,7 @@ flowchart TD
 | 2 | `review-stories` | reviewing (no hold) | verifying (no hold) | → (broken) if issues found | 👤 Human |
 | 3 | `execute-stories` | active (no hold) | reviewing/verifying | → (pending) if blocking | 🤖 CI |
 | 4a | `activate-stories` | planned (blocked) | planned (no hold) | When recorded blockers resolved | 🤖 CI |
-| 4b | `activate-stories` | planned (no hold) | active (no hold) | → (blocked:IDs) if deps unmet | 🤖 CI |
+| 4b | `activate-stories` | planned (no hold) | active (no hold) | → (blocked:IDs) if prereqs unmet | 🤖 CI |
 | 5 | `plan-stories` | approved (no hold) | planned (no hold) | - | 🤖 CI |
 | 6 | `write-stories` | NEW | concept (queued) | - | 🤖 CI |
 | 7 | `vet-stories` | concept (queued) | concept (no hold) | → conflict if overlaps | 🤖 CI |
@@ -353,9 +353,13 @@ flowchart LR
 
 ---
 
-## Dependency Management in activate-stories
+## Prerequisites Management in activate-stories
 
-The `activate-stories` workflow is responsible for ALL dependency-related transitions for planned stories. This consolidates dependency logic in one place.
+The `activate-stories` workflow is responsible for ALL prerequisite-related transitions for planned stories. This consolidates prerequisites logic in one place.
+
+**Terminology:**
+- **Prerequisites** = Other stories that must complete before this one (story-to-story relationships)
+- **Dependencies** = External libraries, APIs, or systems the feature requires
 
 ### hold_reason Format for Blocked Stories
 
@@ -369,7 +373,7 @@ This format:
 - Starts with `blocked:` prefix
 - Lists comma-separated story node path IDs
 - Makes blocking relationships explicit and traceable
-- Enables efficient unblocking checks without re-querying the full dependency tree
+- Enables efficient unblocking checks without re-querying the full prerequisites tree
 
 ### activate-stories Two-Step Flow
 
@@ -386,11 +390,11 @@ flowchart TD
         S1_KEEP[Keep blocked]
     end
 
-    subgraph STEP2["Step 2: ACTIVATE (full dependency check)"]
+    subgraph STEP2["Step 2: ACTIVATE (full prerequisites check)"]
         S2_FIND[Find all planned stories<br/>without hold_reason]
         S2_LOOP{For each<br/>unblocked story}
-        S2_ANALYZE[Full dependency analysis]
-        S2_MET{Dependencies<br/>met?}
+        S2_ANALYZE[Full prerequisites analysis]
+        S2_MET{Prerequisites<br/>met?}
         S2_ACTIVATE[→ active (no hold)]
         S2_BLOCK_NEW[Identify blocker IDs]
         S2_CYCLE{Cycle<br/>detected?}
@@ -446,17 +450,17 @@ flowchart TD
 1. **Blocked stories first**: Check if recorded blockers are resolved, promoting them to `planned (no hold)`
 2. **Unblocked stories second**: Includes both originally unblocked AND freshly unblocked stories from step 1
 
-This ensures freshly unblocked stories get a full dependency re-check in the same cycle, catching any NEW dependencies that may have emerged since they were originally blocked.
+This ensures freshly unblocked stories get a full prerequisites re-check in the same cycle, catching any NEW prerequisites that may have emerged since they were originally blocked.
 
 ---
 
-## Circular Dependency Detection & Resolution
+## Circular Prerequisites Detection & Resolution
 
-Cross-branch dependencies are allowed, which means circular dependencies are possible. The system detects and resolves them using a "newest analysis wins" strategy.
+Cross-branch prerequisites are allowed, which means circular prerequisites are possible. The system detects and resolves them using a "newest analysis wins" strategy.
 
 ### Why Newest Wins
 
-Code changes constantly. A dependency analysis from 2 weeks ago may no longer reflect reality. When a cycle is detected, the most recent analysis is considered more trustworthy because it was performed against the current codebase.
+Code changes constantly. A prerequisites analysis from 2 weeks ago may no longer reflect reality. When a cycle is detected, the most recent analysis is considered more trustworthy because it was performed against the current codebase.
 
 ### Cycle Detection Algorithm
 
@@ -550,7 +554,7 @@ UPDATE story_nodes
 SET
     hold_reason = NULL,
     notes = COALESCE(notes || char(10), '') ||
-            'CYCLE RESOLVED: Block cleared - newer analysis found reverse dependency. ' ||
+            'CYCLE RESOLVED: Block cleared - newer analysis found reverse prerequisite. ' ||
             datetime('now'),
     updated_at = datetime('now')
 WHERE node_path IN (:chain_story_paths);
@@ -607,14 +611,14 @@ WHERE stage = 'planned'
   AND disposition IS NULL;
 ```
 
-### Step 2: Full Dependency Check
+### Step 2: Full Prerequisites Check
 
-Dependencies can include:
+Prerequisites can include:
 1. **Children** (hierarchical): Parent must wait for children
-2. **Cross-branch**: Explicit dependencies on other nodes
+2. **Cross-branch**: Explicit prerequisites on other nodes
 
 ```sql
--- Check for unmet child dependencies (depth=1 children not yet implemented)
+-- Check for unmet child prerequisites (depth=1 children not yet implemented)
 SELECT s.node_path, s.title, s.stage
 FROM story_nodes s
 JOIN story_paths p ON s.id = p.descendant_id
@@ -637,7 +641,7 @@ SET
 WHERE id = :story_id;
 ```
 
-### Step 2: Activate Story (Dependencies Met)
+### Step 2: Activate Story (Prerequisites Met)
 
 ```sql
 UPDATE story_nodes
@@ -645,7 +649,7 @@ SET
     stage = 'active',
     hold_reason = NULL,
     notes = COALESCE(notes || char(10), '') ||
-            'ACTIVATED: All dependencies met. ' ||
+            'ACTIVATED: All prerequisites met. ' ||
             datetime('now'),
     updated_at = datetime('now')
 WHERE id = :story_id;
@@ -668,7 +672,7 @@ WHERE id = :story_id;
 
 Recommended order for implementing missing components:
 
-1. **activate-stories update** - Add UNBLOCK step + cycle detection (critical path)
+1. **activate-stories update** - Add UNBLOCK step + cycle detection for prerequisites (critical path)
 2. **approve-stories** - Low complexity, high value (closes loop)
 3. **review-stories** - Medium complexity, enables reviewing→verifying
 4. **verify-stories** - Medium complexity, uses existing skill
@@ -677,4 +681,4 @@ Recommended order for implementing missing components:
 
 ---
 
-*Updated: 2025-12-18 - Revised dependency management: activate-stories now handles both blocking and unblocking, with explicit blocker IDs and circular dependency detection*
+*Updated: 2025-12-18 - Revised prerequisites management: activate-stories now handles both blocking and unblocking, with explicit blocker IDs and circular prerequisites detection. Terminology clarified: "prerequisites" for story-to-story relationships, "dependencies" for external libraries/systems.*

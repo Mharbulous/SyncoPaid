@@ -47,7 +47,10 @@ jobs:
 
             This workflow implements the two-step activate-stories flow:
             - Step 4a: UNBLOCK - Check if recorded blockers are resolved
-            - Step 4b: ACTIVATE - Full dependency check for unblocked stories
+            - Step 4b: ACTIVATE - Full prerequisites check for unblocked stories
+
+            Note: "Prerequisites" are story-to-story relationships (stories that must complete first).
+            "Dependencies" refer to external libraries/systems.
 
             ## Step 1: UNBLOCK - Check Recorded Blockers
 
@@ -114,7 +117,7 @@ jobs:
             UNBLOCK_SCRIPT
             ```
 
-            ## Step 2: ACTIVATE - Full Dependency Check
+            ## Step 2: ACTIVATE - Full Prerequisites Check
 
             Now process all planned stories without hold_reason (including freshly unblocked):
 
@@ -146,23 +149,23 @@ jobs:
                 story_id = story['id']
                 text = (story['description'] or '') + ' ' + (story['notes'] or '')
 
-                # Extract dependency IDs (patterns: 1.2, 1.3.1, etc., or explicit 'depends on X')
-                dep_pattern = r'(?:depends on|requires|after|needs)\s+(\d+(?:\.\d+)*)|(?<!\d)(\d+\.\d+(?:\.\d+)*)(?!\d)'
-                deps = set()
-                for match in re.finditer(dep_pattern, text, re.IGNORECASE):
-                    dep_id = match.group(1) or match.group(2)
-                    if dep_id and dep_id != story_id:
-                        deps.add(dep_id)
+                # Extract prerequisite IDs (patterns: 1.2, 1.3.1, etc., or explicit 'depends on X', 'Prerequisites: X')
+                prereq_pattern = r'(?:depends on|requires|after|needs|prerequisites:?)\s+(\d+(?:\.\d+)*)|(?<!\d)(\d+\.\d+(?:\.\d+)*)(?!\d)'
+                prereqs = set()
+                for match in re.finditer(prereq_pattern, text, re.IGNORECASE):
+                    prereq_id = match.group(1) or match.group(2)
+                    if prereq_id and prereq_id != story_id:
+                        prereqs.add(prereq_id)
 
-                # Check dependency stories are implemented
+                # Check prerequisite stories are implemented
                 blocker_ids = []
-                for dep_id in deps:
-                    dep = conn.execute(
+                for prereq_id in prereqs:
+                    prereq = conn.execute(
                         'SELECT id, title, stage FROM story_nodes WHERE id = ? AND disposition IS NULL',
-                        (dep_id,)
+                        (prereq_id,)
                     ).fetchone()
-                    if dep and dep['stage'] not in IMPLEMENTED_STAGES:
-                        blocker_ids.append(dep_id)
+                    if prereq and prereq['stage'] not in IMPLEMENTED_STAGES:
+                        blocker_ids.append(prereq_id)
 
                 # Check all children are at least planned
                 children = conn.execute("""
@@ -191,7 +194,7 @@ jobs:
 
             ## Step 3: Cycle Detection and Apply Transitions
 
-            For each story in the results, check for cycles before blocking:
+            For each story in the results, check for prerequisite cycles before blocking:
 
             ```python
             python3 << 'APPLY_SCRIPT'
@@ -245,23 +248,23 @@ jobs:
                 story_id = story['id']
                 text = (story['description'] or '') + ' ' + (story['notes'] or '')
 
-                # Extract dependencies
-                dep_pattern = r'(?:depends on|requires|after|needs)\s+(\d+(?:\.\d+)*)|(?<!\d)(\d+\.\d+(?:\.\d+)*)(?!\d)'
-                deps = set()
-                for match in re.finditer(dep_pattern, text, re.IGNORECASE):
-                    dep_id = match.group(1) or match.group(2)
-                    if dep_id and dep_id != story_id:
-                        deps.add(dep_id)
+                # Extract prerequisites
+                prereq_pattern = r'(?:depends on|requires|after|needs|prerequisites:?)\s+(\d+(?:\.\d+)*)|(?<!\d)(\d+\.\d+(?:\.\d+)*)(?!\d)'
+                prereqs = set()
+                for match in re.finditer(prereq_pattern, text, re.IGNORECASE):
+                    prereq_id = match.group(1) or match.group(2)
+                    if prereq_id and prereq_id != story_id:
+                        prereqs.add(prereq_id)
 
-                # Check dependencies
+                # Check prerequisites
                 blocker_ids = []
-                for dep_id in deps:
-                    dep = conn.execute(
+                for prereq_id in prereqs:
+                    prereq = conn.execute(
                         'SELECT id, stage FROM story_nodes WHERE id = ? AND disposition IS NULL',
-                        (dep_id,)
+                        (prereq_id,)
                     ).fetchone()
-                    if dep and dep['stage'] not in IMPLEMENTED_STAGES:
-                        blocker_ids.append(dep_id)
+                    if prereq and prereq['stage'] not in IMPLEMENTED_STAGES:
+                        blocker_ids.append(prereq_id)
 
                 # Check children
                 children = conn.execute("""
@@ -276,13 +279,13 @@ jobs:
                         blocker_ids.append(child['id'])
 
                 if len(blocker_ids) == 0:
-                    # ACTIVATE - all deps met
+                    # ACTIVATE - all prerequisites met
                     conn.execute("""
                         UPDATE story_nodes
                         SET stage = 'active',
                             hold_reason = NULL,
                             notes = COALESCE(notes || char(10), '') ||
-                                    'ACTIVATED: All dependencies met. ' || datetime('now'),
+                                    'ACTIVATED: All prerequisites met. ' || datetime('now'),
                             updated_at = datetime('now')
                         WHERE id = ?
                     """, (story_id,))
@@ -307,7 +310,7 @@ jobs:
                                     UPDATE story_nodes
                                     SET hold_reason = NULL,
                                         notes = COALESCE(notes || char(10), '') ||
-                                                'CYCLE RESOLVED: Block cleared - newer analysis found reverse dependency. ' ||
+                                                'CYCLE RESOLVED: Block cleared - newer analysis found reverse prerequisite. ' ||
                                                 datetime('now'),
                                         updated_at = datetime('now')
                                     WHERE id = ? AND hold_reason LIKE 'blocked:%'

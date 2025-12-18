@@ -64,13 +64,15 @@ conn.close()
 
 Select the first available plan and read the plan file.
 
-### Step 1.5: Dependency Check
+### Step 1.5: Prerequisites Check
 
-Before proceeding, verify the story's dependencies are met:
+Before proceeding, verify the story's prerequisites are met:
 
-1. **Check dependency stories** - Extract story IDs mentioned in description/notes (patterns like "1.2", "depends on X")
-2. **Verify dependencies are implemented** - Referenced stories must be in stage >= `implemented`
+1. **Check prerequisite stories** - Extract story IDs from Prerequisites field or patterns in description/notes ("depends on X", "requires X")
+2. **Verify prerequisites are implemented** - Referenced stories must be in stage >= `implemented`
 3. **Check all children are planned** - All child stories must be in stage >= `planned`
+
+**Note:** Prerequisites are story-to-story relationships (other stories that must complete first). Dependencies refer to external libraries/systems.
 
 ```python
 python -c "
@@ -87,21 +89,21 @@ if not story:
 
 text = (story[0] or '') + ' ' + (story[1] or '')
 
-# Extract dependency IDs (patterns: 1.2, 1.3.1, etc., or explicit 'depends on X')
-dep_pattern = r'(?:depends on|requires|after|needs)\s+(\d+(?:\.\d+)*)|(?<!\d)(\d+\.\d+(?:\.\d+)*)(?!\d)'
-deps = set()
-for match in re.finditer(dep_pattern, text, re.IGNORECASE):
-    dep_id = match.group(1) or match.group(2)
-    if dep_id and dep_id != story_id:
-        deps.add(dep_id)
+# Extract prerequisite IDs (patterns: 1.2, 1.3.1, etc., or explicit 'depends on X', 'Prerequisites: X')
+prereq_pattern = r'(?:depends on|requires|after|needs|prerequisites:?)\s+(\d+(?:\.\d+)*)|(?<!\d)(\d+\.\d+(?:\.\d+)*)(?!\d)'
+prereqs = set()
+for match in re.finditer(prereq_pattern, text, re.IGNORECASE):
+    prereq_id = match.group(1) or match.group(2)
+    if prereq_id and prereq_id != story_id:
+        prereqs.add(prereq_id)
 
-# Check dependency stories are implemented (stage >= implemented)
+# Check prerequisite stories are implemented (stage >= implemented)
 IMPLEMENTED_STAGES = ('implemented', 'ready', 'polish', 'released')
-unmet_deps = []
-for dep_id in deps:
-    dep = conn.execute('SELECT stage FROM story_nodes WHERE id = ? AND disposition IS NULL', (dep_id,)).fetchone()
-    if dep and dep[0] not in IMPLEMENTED_STAGES:
-        unmet_deps.append({'id': dep_id, 'stage': dep[0]})
+unmet_prereqs = []
+for prereq_id in prereqs:
+    prereq = conn.execute('SELECT stage FROM story_nodes WHERE id = ? AND disposition IS NULL', (prereq_id,)).fetchone()
+    if prereq and prereq[0] not in IMPLEMENTED_STAGES:
+        unmet_prereqs.append({'id': prereq_id, 'stage': prereq[0]})
 
 # Check all children are at least planned
 PLANNED_OR_LATER = ('planned', 'active', 'reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released')
@@ -117,11 +119,11 @@ for child in children:
     if child[2] not in PLANNED_OR_LATER:
         unplanned_children.append({'id': child[0], 'title': child[1], 'stage': child[2]})
 
-ready = len(unmet_deps) == 0 and len(unplanned_children) == 0
+ready = len(unmet_prereqs) == 0 and len(unplanned_children) == 0
 print(json.dumps({
     'ready': ready,
-    'dependencies_found': list(deps),
-    'unmet_dependencies': unmet_deps,
+    'prerequisites_found': list(prereqs),
+    'unmet_prerequisites': unmet_prereqs,
     'unplanned_children': unplanned_children
 }))
 conn.close()
@@ -133,11 +135,11 @@ conn.close()
 **If not ready:** Block the story and try the next candidate:
 
 ```python
-# Block story with dependency issues
+# Block story with unmet prerequisites
 conn.execute('''
     UPDATE story_nodes
     SET hold_reason = 'blocked', human_review = 1,
-        notes = COALESCE(notes || chr(10), '') || 'BLOCKED - Dependencies not met: ' || datetime('now') || chr(10) || ?,
+        notes = COALESCE(notes || chr(10), '') || 'BLOCKED - Prerequisites not met: ' || datetime('now') || chr(10) || ?,
         updated_at = datetime('now')
     WHERE id = ?
 ''', (blocking_reason, story_id))
@@ -149,7 +151,7 @@ conn.commit()
 Before executing anything:
 - Read the entire plan
 - Identify any questions, concerns, or ambiguities
-- Check prerequisites (dependencies implemented, baseline tests pass)
+- Check prerequisites are met (prerequisite stories implemented, baseline tests pass)
 
 Classify any concerns found:
 - **Blocking issues:** Require human decision before implementation (architectural choices, security implications, breaking changes)
@@ -252,7 +254,7 @@ After all tasks complete:
 ## When to Stop and Ask for Help
 
 Stop immediately when encountering:
-- **Mid-batch blockers:** Missing dependencies, failed tests that shouldn't fail, unclear instructions
+- **Mid-batch blockers:** Missing prerequisites, failed tests that shouldn't fail, unclear instructions
 - **Critical plan gaps:** Missing information that prevents starting a task
 - **RED phase passes:** Test should fail but passes (feature may already exist)
 - **Repeated verification failures:** Same test failing after multiple attempts
@@ -265,7 +267,7 @@ Stop immediately when encountering:
 Return to plan review when:
 - User updates the plan based on your feedback
 - Fundamental approach needs rethinking after discovering new information
-- Dependencies change mid-execution
+- Prerequisites change mid-execution
 
 ## Remember
 
@@ -435,8 +437,8 @@ Need: [what clarification or help is needed]
 
 - Plan format: `.claude/data/plans/*.md`
 - Stage workflow: concept → approved → planned → active → reviewing → verifying → implemented
-- `planned` → `active`: After dependency check passes (Step 1.5 → Step 2)
-- Dependencies not met: `hold_reason = 'blocked'`
+- `planned` → `active`: After prerequisites check passes (Step 1.5 → Step 2)
+- Prerequisites not met: `hold_reason = 'blocked'`
 - CI pause: hold_reason='paused' (stage preserved at 'active')
 - Three-field system: stage shows position, hold_reason shows why stopped, stage preserved when held
 - Commit format: Include `Story: [ID]` in commit body for traceability
