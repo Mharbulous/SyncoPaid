@@ -8,7 +8,7 @@
 
 ## 2. Not Matching Commits First
 
-Always run git analysis before generation. Update status from in-progress → implemented if match found.
+Always run git analysis before generation. Update stage from 'active' or 'reviewing' → 'implemented' if match found.
 
 ## 3. Uniform Capacity
 
