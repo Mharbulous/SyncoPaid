@@ -11,6 +11,7 @@ This document provides visual representations of the key workflows and data stru
 1. [Definitions](#definitions)
 2. [Three-Field Workflow Model](#three-field-workflow-model)
    - Stage Transitions
+   - Stage Meaning by Node Type
    - Hold States
    - Disposition States
 3. [Database Architecture](#database-architecture)
@@ -31,7 +32,9 @@ This document provides visual representations of the key workflows and data stru
 | Term | Definition |
 |------|------------|
 | **Story node** | A unit of work in the hierarchical backlog—can be an epic, feature, capability, or task depending on depth |
-| **Stage** | The current workflow phase of a story (e.g., `concept`, `approved`, `active`, `implemented`) |
+| **Leaf node** | A story node with no children; does work directly (code, tests, documentation) |
+| **Parent node** | A story node with children; organizes work rather than doing it directly |
+| **Stage** | The current workflow phase of a story (e.g., `concept`, `approved`, `active`, `implemented`); meaning varies by node type |
 | **Hold reason** | A temporary blocking state that preserves the current stage (e.g., `blocked`, `paused`, `refine`) |
 | **Disposition** | A terminal state indicating the story will not progress further (e.g., `rejected`, `deprecated`, `wishlist`) |
 | **Closure table** | A database pattern that stores all ancestor-descendant relationships, enabling efficient hierarchy queries |
@@ -79,6 +82,25 @@ stateDiagram-v2
 
     released --> [*]
 ```
+
+### Stage Meaning by Node Type
+
+Stages have different semantic meanings depending on whether a node is a **leaf node** (does work directly) or a **parent node** (organizes child work):
+
+| Stage | Leaf Node | Parent Node |
+|-------|-----------|-------------|
+| `concept` | New idea proposed | New idea proposed |
+| `approved` | Ready for implementation planning | Ready to receive child concept proposals |
+| `planned` | Implementation plan exists | Sub-features/children have been planned |
+| `queued` | Dependencies met, ready to start | Decomposition complete, children ready to start |
+| `active` | Code being written | Incomplete work exists in children below |
+| `reviewing` | Code review in progress | Reviewing that child work integrates properly |
+| `verifying` | Testing this node's implementation | Verifying children work together as a whole |
+| `implemented` | Code complete | All children implemented and integrated |
+| `ready` | Fully tested | Entire subtree fully tested |
+| `released` | Shipped | Shipped |
+
+**Key insight:** A parent node's stage reflects the aggregate state of its children, not independent work. A parent cannot be `implemented` until all children reach `implemented` or later. This keeps attention focused on the actual work items (leaf nodes) rather than dispersing it across the hierarchy.
 
 ### Hold States (Temporary, Preserves Stage)
 
