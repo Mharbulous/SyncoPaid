@@ -66,7 +66,7 @@ Effective status is computed as `COALESCE(disposition, hold_reason, stage)`.
 
 **Mergeable with concepts:**
 - `stage = 'concept'`
-- `disposition = 'wishlist'`
+- `hold_reason = 'wishlist'`
 - `hold_reason = 'polish'`
 
 **Block against:**
@@ -190,6 +190,7 @@ Use this lookup based on classification and effective statuses (computed from th
 
 ```python
 # Effective status = COALESCE(disposition, hold_reason, stage)
+# Note: concept=stage, wishlist/polish=hold_reason
 MERGEABLE_STATUSES = {'concept', 'wishlist', 'polish'}
 BLOCK_STATUSES = {'rejected', 'infeasible', 'duplicative', 'broken', 'queued', 'pending', 'blocked', 'conflict'}
 
