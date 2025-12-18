@@ -33,7 +33,7 @@ This document provides visual representations of the key workflows and data stru
 |------|------------|
 | **Story node** | A unit of work in the hierarchical backlog—can be an epic, feature, capability, or task depending on depth. May have its own direct work AND children simultaneously. |
 | **Stage** | The current workflow phase of a story (e.g., `concept`, `approved`, `active`, `implemented`); represents multi-faceted state covering both own work and children's work |
-| **Hold reason** | A temporary blocking state that preserves the current stage (e.g., `blocked`, `paused`, `refine`) |
+| **Hold reason** | A temporary blocking state that preserves the current stage (e.g., `blocked`, `paused`, `polish`) |
 | **Disposition** | A terminal state indicating the story will not progress further (e.g., `rejected`, `deprecated`, `wishlist`) |
 | **Closure table** | A database pattern that stores all ancestor-descendant relationships, enabling efficient hierarchy queries |
 | **Capacity** | The maximum number of children a node can have; grows dynamically based on completed work |
@@ -71,9 +71,6 @@ stateDiagram-v2
 
     implemented --> ready: Fully tested
 
-    ready --> polish: Minor tweaks needed
-    polish --> ready: Polish complete
-
     ready --> released: Shipped
 
     released --> [*]
@@ -109,14 +106,14 @@ mindmap
       Work paused
       Clear: Resume work
     blocked
-      External dependency
+      Missing dependency
       Clear: Unblocked
     broken
       Issues found
       Clear: Fixed
-    refine
-      Needs rework
-      Clear: Rework complete
+    polish
+      Needs refinement
+      Clear: Refinement complete
 ```
 
 ### Disposition States (Terminal)

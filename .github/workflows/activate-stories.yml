@@ -216,43 +216,65 @@ jobs:
 
           EXEC_FILE="${{ steps.claude.outputs.execution_file }}"
           if [ -f "$EXEC_FILE" ]; then
-            # Extract the result entry from the JSONL file
-            RESULT=$(grep '"type":"result"' "$EXEC_FILE" | tail -1)
+            # Debug: Show file format
+            echo "::debug::Execution file size: $(wc -c < "$EXEC_FILE") bytes"
 
-            if [ -n "$RESULT" ]; then
-              INPUT_TOKENS=$(echo "$RESULT" | jq -r '.usage.input_tokens // "N/A"')
-              OUTPUT_TOKENS=$(echo "$RESULT" | jq -r '.usage.output_tokens // "N/A"')
-              CACHE_CREATION=$(echo "$RESULT" | jq -r '.usage.cache_creation_input_tokens // 0')
-              CACHE_READ=$(echo "$RESULT" | jq -r '.usage.cache_read_input_tokens // 0')
-              TOTAL_COST=$(echo "$RESULT" | jq -r '.total_cost_usd // .cost_usd // "N/A"')
-              DURATION_MS=$(echo "$RESULT" | jq -r '.duration_ms // "N/A"')
-
-              # Calculate total tokens
-              if [ "$INPUT_TOKENS" != "N/A" ] && [ "$OUTPUT_TOKENS" != "N/A" ]; then
-                TOTAL_TOKENS=$((INPUT_TOKENS + OUTPUT_TOKENS))
-              else
-                TOTAL_TOKENS="N/A"
-              fi
-
-              # Format duration in seconds
-              if [ "$DURATION_MS" != "N/A" ]; then
-                DURATION_S=$(echo "scale=1; $DURATION_MS / 1000" | bc)
-              else
-                DURATION_S="N/A"
-              fi
-
-              echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-              echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-              echo "| Input Tokens | $INPUT_TOKENS |" >> $GITHUB_STEP_SUMMARY
-              echo "| Output Tokens | $OUTPUT_TOKENS |" >> $GITHUB_STEP_SUMMARY
-              echo "| Cache Creation Tokens | $CACHE_CREATION |" >> $GITHUB_STEP_SUMMARY
-              echo "| Cache Read Tokens | $CACHE_READ |" >> $GITHUB_STEP_SUMMARY
-              echo "| **Total Tokens** | **$TOTAL_TOKENS** |" >> $GITHUB_STEP_SUMMARY
-              echo "| Total Cost | \$$TOTAL_COST |" >> $GITHUB_STEP_SUMMARY
-              echo "| Duration | ${DURATION_S}s |" >> $GITHUB_STEP_SUMMARY
+            # Determine file format (JSONL vs JSON array) and extract data
+            # Try to parse as JSON array first, fall back to JSONL
+            if jq -e 'type == "array"' "$EXEC_FILE" > /dev/null 2>&1; then
+              # JSON array format - sum usage from all messages with message.usage
+              INPUT_TOKENS=$(jq '[.[] | select(.message?.usage?) | .message.usage.input_tokens // 0] | add // 0' "$EXEC_FILE")
+              OUTPUT_TOKENS=$(jq '[.[] | select(.message?.usage?) | .message.usage.output_tokens // 0] | add // 0' "$EXEC_FILE")
+              CACHE_CREATION=$(jq '[.[] | select(.message?.usage?) | .message.usage.cache_creation_input_tokens // 0] | add // 0' "$EXEC_FILE")
+              CACHE_READ=$(jq '[.[] | select(.message?.usage?) | .message.usage.cache_read_input_tokens // 0] | add // 0' "$EXEC_FILE")
+              # Get cost and duration from result entry
+              TOTAL_COST=$(jq '[.[] | select(.type == "result")] | last | .total_cost_usd // .cost_usd // "N/A"' "$EXEC_FILE" | tr -d '"')
+              DURATION_MS=$(jq '[.[] | select(.type == "result")] | last | .duration_ms // "N/A"' "$EXEC_FILE" | tr -d '"')
             else
-              echo "⚠️ No result entry found in execution file" >> $GITHUB_STEP_SUMMARY
+              # JSONL format - use grep + jq
+              INPUT_TOKENS=$(grep -o '"input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              OUTPUT_TOKENS=$(grep -o '"output_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              CACHE_CREATION=$(grep -o '"cache_creation_input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              CACHE_READ=$(grep -o '"cache_read_input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              RESULT=$(grep '"type":"result"' "$EXEC_FILE" | tail -1)
+              if [ -n "$RESULT" ]; then
+                TOTAL_COST=$(echo "$RESULT" | jq -r '.total_cost_usd // .cost_usd // "N/A"')
+                DURATION_MS=$(echo "$RESULT" | jq -r '.duration_ms // "N/A"')
+              else
+                TOTAL_COST="N/A"
+                DURATION_MS="N/A"
+              fi
             fi
+
+            # Validate we got numeric values
+            if ! [[ "$INPUT_TOKENS" =~ ^[0-9]+$ ]]; then INPUT_TOKENS=0; fi
+            if ! [[ "$OUTPUT_TOKENS" =~ ^[0-9]+$ ]]; then OUTPUT_TOKENS=0; fi
+            if ! [[ "$CACHE_CREATION" =~ ^[0-9]+$ ]]; then CACHE_CREATION=0; fi
+            if ! [[ "$CACHE_READ" =~ ^[0-9]+$ ]]; then CACHE_READ=0; fi
+
+            # Calculate total tokens
+            if [ "$INPUT_TOKENS" -gt 0 ] || [ "$OUTPUT_TOKENS" -gt 0 ]; then
+              TOTAL_TOKENS=$((INPUT_TOKENS + OUTPUT_TOKENS))
+            else
+              TOTAL_TOKENS="N/A"
+            fi
+
+            # Format duration in seconds
+            if [[ "$DURATION_MS" =~ ^[0-9]+$ ]]; then
+              DURATION_S=$(echo "scale=1; $DURATION_MS / 1000" | bc)
+            else
+              DURATION_S="N/A"
+            fi
+
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Input Tokens | $INPUT_TOKENS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Output Tokens | $OUTPUT_TOKENS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Cache Creation Tokens | $CACHE_CREATION |" >> $GITHUB_STEP_SUMMARY
+            echo "| Cache Read Tokens | $CACHE_READ |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Total Tokens** | **$TOTAL_TOKENS** |" >> $GITHUB_STEP_SUMMARY
+            echo "| Total Cost | \$$TOTAL_COST |" >> $GITHUB_STEP_SUMMARY
+            echo "| Duration | ${DURATION_S}s |" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ Execution file not found: $EXEC_FILE" >> $GITHUB_STEP_SUMMARY
           fi
