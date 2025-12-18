@@ -16,5 +16,13 @@ dependencies = [
     "imagehash>=4.3.0",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=7.0.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
