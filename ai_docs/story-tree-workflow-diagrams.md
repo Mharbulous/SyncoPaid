@@ -83,20 +83,23 @@ stateDiagram-v2
 ### Hold States (Temporary, Preserves Stage)
 
 ```mermaid
-stateDiagram-v2
-    state "Any Stage" as any
-
-    any --> pending: Needs decision
-    any --> paused: Work paused
-    any --> blocked: External dependency
-    any --> broken: Issues found
-    any --> refine: Needs rework
-
-    pending --> any: Decision made
-    paused --> any: Resume work
-    blocked --> any: Unblocked
-    broken --> any: Fixed
-    refine --> any: Rework complete
+mindmap
+  root((Any Stage))
+    pending
+      Needs decision
+      Clear: Decision made
+    paused
+      Work paused
+      Clear: Resume work
+    blocked
+      External dependency
+      Clear: Unblocked
+    broken
+      Issues found
+      Clear: Fixed
+    refine
+      Needs rework
+      Clear: Rework complete
 ```
 
 ### Disposition States (Terminal)
