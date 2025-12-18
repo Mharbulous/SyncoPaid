@@ -38,7 +38,7 @@ def get_story_criteria(story_id: str) -> dict:
 
     story = conn.execute('''
         SELECT id, title, description,
-               COALESCE(disposition, hold_reason, stage) AS status,
+               COALESCE(disposition, hold_reason, stage) AS display_state,
                project_path
         FROM story_nodes
         WHERE id = ?
@@ -55,7 +55,7 @@ def get_story_criteria(story_id: str) -> dict:
     return {
         "story_id": story_dict['id'],
         "title": story_dict['title'],
-        "status": story_dict['status'],
+        "display_state": story_dict['display_state'],
         "project_path": story_dict['project_path'],
         "criteria": criteria,
         "criteria_count": len(criteria),

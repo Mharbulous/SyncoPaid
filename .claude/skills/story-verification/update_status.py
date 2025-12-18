@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Update story status based on verification results.
+Update story stage and hold_reason based on verification results.
 
 Usage:
-  python update_status.py <story_id> <new_status> ["<verification_notes>"]
+  python update_status.py <story_id> <new_stage> ["<verification_notes>"]
   python update_status.py <story_id> mark-criteria <criterion_indices>
 
 Actions:
-  - Update story status with verification notes
+  - Update story stage with verification notes
   - Mark specific criteria as checked in description
 """
 import json
@@ -22,17 +22,6 @@ VALID_STAGES = {
     'reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released'
 }
 
-# Legacy: kept for backward compatibility
-VALID_STATUSES = {
-    'infeasible', 'rejected', 'wishlist',
-    'concept', 'broken', 'blocked', 'refine',
-    'pending', 'approved', 'planned', 'queued', 'paused',
-    'active',
-    'reviewing', 'verifying', 'implemented',
-    'ready', 'polish', 'released',
-    'legacy', 'deprecated', 'archived'
-}
-
 
 def update_status(story_id: str, new_stage: str, notes: str = None, hold: bool = False) -> dict:
     """Update story stage and optionally add verification notes.
@@ -43,8 +32,7 @@ def update_status(story_id: str, new_stage: str, notes: str = None, hold: bool =
         notes: Optional verification notes to append
         hold: If True, set hold_reason='pending' and human_review=1 (for failures/untestable)
     """
-    # Accept both new stage values and legacy status values for compatibility
-    if new_stage not in VALID_STAGES and new_stage not in VALID_STATUSES:
+    if new_stage not in VALID_STAGES:
         return {"error": f"Invalid stage: {new_stage}", "valid_stages": list(VALID_STAGES)}
 
     conn = sqlite3.connect('.claude/data/story-tree.db')
@@ -212,7 +200,7 @@ if __name__ == '__main__':
         indices = [int(i.strip()) for i in sys.argv[3].split(',')]
         result = mark_criteria_checked(story_id, indices)
 
-    elif action in VALID_STAGES or action in VALID_STATUSES:
+    elif action in VALID_STAGES:
         # Check for --hold flag
         hold = '--hold' in sys.argv
         # Get notes (skip --hold if present)
