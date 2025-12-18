@@ -305,19 +305,34 @@ class TrackerLoop:
                 if self.was_idle and not is_idle:
                     # User just resumed after idle period
                     if hasattr(self, '_peak_idle_seconds') and self._peak_idle_seconds >= self.minimum_idle_duration:
-                        resumption_event = IdleResumptionEvent(
-                            resumption_timestamp=datetime.now(timezone.utc).isoformat(),
-                            idle_duration=self._peak_idle_seconds
-                        )
-                        logging.info(f"User resumed after {self._peak_idle_seconds:.1f} seconds idle")
-                        self.last_idle_resumption_time = datetime.now(timezone.utc)
-                        yield resumption_event
+                        # Check if enough time passed since last resumption (prevent duplicates)
+                        should_emit = True
+                        if self.last_idle_resumption_time:
+                            time_since_last = (datetime.now(timezone.utc) - self.last_idle_resumption_time).total_seconds()
+                            # Only emit if at least 60 seconds passed since last resumption
+                            # This prevents rapid fire events from flaky idle detection
+                            if time_since_last < 60.0:
+                                should_emit = False
+                                logging.debug(f"Suppressing duplicate resumption event (last: {time_since_last:.1f}s ago)")
+
+                        if should_emit:
+                            idle_minutes = self._peak_idle_seconds / 60.0
+                            resumption_event = IdleResumptionEvent(
+                                resumption_timestamp=datetime.now(timezone.utc).isoformat(),
+                                idle_duration=self._peak_idle_seconds
+                            )
+                            logging.info(f"User resumed after {idle_minutes:.1f} minutes idle")
+                            self.last_idle_resumption_time = datetime.now(timezone.utc)
+                            yield resumption_event
+
+                        # Always reset peak after processing transition
                         self._peak_idle_seconds = 0.0
 
                 # Track idle state for next iteration
                 if is_idle and not self.was_idle:
                     # Just became idle - start tracking peak
                     self._peak_idle_seconds = idle_seconds
+                    logging.debug(f"User went idle (idle_seconds={idle_seconds:.1f}s)")
                 elif is_idle:
                     # Still idle - update peak
                     self._peak_idle_seconds = max(getattr(self, '_peak_idle_seconds', 0.0), idle_seconds)
