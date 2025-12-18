@@ -43,11 +43,6 @@ STATUS_COLORS = {
     'archived': '#CC0066',     # Deep Pink
     # Stages (greens/blues - workflow progression)
     'concept': '#CC9900',      # Goldenrod
-    'broken': '#CCCC00',       # Dark Gold / Olive
-    'conflict': '#AACC00',     # Yellow-Green (inconsistent, needs resolution)
-    'blocked': '#99CC00',      # Lime Green
-    'polish': '#66CC00',       # Chartreuse (hold state: needs refinement)
-    'pending': '#00CC00',      # Pure Green
     'approved': '#00CC33',     # Spring Green
     'planned': '#00CC66',      # Emerald
     'active': '#0099CC',       # Cerulean
@@ -56,14 +51,15 @@ STATUS_COLORS = {
     'implemented': '#0000CC',  # Pure Blue
     'ready': '#3300CC',        # Electric Indigo
     'released': '#6600CC',     # Violet
-    # Hold reasons (yellows/cyans - work paused)
-    'queued': '#00CC00',       # Pure Green
-    'pending': '#33CC00',      # Lime Green
-    'paused': '#00CCCC',       # Dark Cyan
-    'blocked': '#99CC00',      # Yellow-Green
-    'broken': '#CCCC00',       # Dark Gold / Olive
-    'polish': '#66CC00',       # Chartreuse
-    'wishlist': '#CC6600',     # Pumpkin Orange (indefinite hold)
+    # Hold reasons (gradient: reddish-orange to blue by urgency, HSL S=100% L=40%)
+    'broken': '#CC4400',       # Hue 20° - reddish orange (most urgent)
+    'conflict': '#CCAE00',     # Hue 51° - golden yellow
+    'blocked': '#7ECC00',      # Hue 83° - yellow-green
+    'pending': '#13CC00',      # Hue 114° - green
+    'paused': '#00CC57',       # Hue 146° - spring green
+    'polish': '#00CCC2',       # Hue 177° - cyan
+    'queued': '#006ACC',       # Hue 209° - azure blue
+    'wishlist': '#0000CC',     # Hue 240° - bold blue (least urgent)
     'no hold': '#888888',      # Grey (no hold reason)
     # Live status (for items without disposition)
     'live': '#00FF00',         # Bright Green (active/live)
