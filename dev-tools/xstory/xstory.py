@@ -65,6 +65,12 @@ ALL_STATUSES = [
     'legacy', 'deprecated', 'archived'
 ]
 
+# Three-field system: classify each status into its field type
+STAGE_VALUES = {'concept', 'approved', 'planned', 'queued', 'active',
+                'reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released'}
+HOLD_REASON_VALUES = {'pending', 'paused', 'blocked', 'broken', 'refine'}
+DISPOSITION_VALUES = {'rejected', 'infeasible', 'wishlist', 'legacy', 'deprecated', 'archived'}
+
 # Designer mode transitions (approval, quality, priority, end-of-life decisions)
 DESIGNER_TRANSITIONS = {
     'infeasible': ['concept', 'wishlist', 'archived'],
@@ -958,7 +964,7 @@ class XstoryExplorer(QMainWindow):
             self._update_node_status_in_db(node_id, new_status, notes or '')
 
     def _update_node_status_in_db(self, node_id: str, new_status: str, notes: str):
-        """Update node status and notes in the database."""
+        """Update node status and notes in the database using three-field system."""
         if not self.db_path:
             QMessageBox.critical(self, "Error", "No database loaded.")
             return
@@ -985,11 +991,36 @@ class XstoryExplorer(QMainWindow):
             else:
                 updated_notes = new_note_entry
 
-            # Update status and notes
-            cursor.execute(
-                "UPDATE story_nodes SET status = ?, notes = ?, updated_at = ? WHERE id = ?",
-                (new_status, updated_notes, datetime.now().isoformat(), node_id)
-            )
+            # Three-field system: determine which field(s) to update
+            # - disposition: terminal states (exits pipeline)
+            # - hold_reason: work stopped (stays in pipeline)
+            # - stage: workflow position (active progress)
+            if new_status in DISPOSITION_VALUES:
+                # Setting disposition clears hold_reason
+                cursor.execute(
+                    """UPDATE story_nodes
+                       SET disposition = ?, hold_reason = NULL, notes = ?, updated_at = ?
+                       WHERE id = ?""",
+                    (new_status, updated_notes, datetime.now().isoformat(), node_id)
+                )
+            elif new_status in HOLD_REASON_VALUES:
+                # Setting hold_reason clears disposition
+                cursor.execute(
+                    """UPDATE story_nodes
+                       SET hold_reason = ?, disposition = NULL, notes = ?, updated_at = ?
+                       WHERE id = ?""",
+                    (new_status, updated_notes, datetime.now().isoformat(), node_id)
+                )
+            elif new_status in STAGE_VALUES:
+                # Setting stage clears both hold_reason and disposition
+                cursor.execute(
+                    """UPDATE story_nodes
+                       SET stage = ?, hold_reason = NULL, disposition = NULL, notes = ?, updated_at = ?
+                       WHERE id = ?""",
+                    (new_status, updated_notes, datetime.now().isoformat(), node_id)
+                )
+            else:
+                raise ValueError(f"Unknown status value: {new_status}")
 
             conn.commit()
             conn.close()
@@ -1085,9 +1116,13 @@ class XstoryExplorer(QMainWindow):
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
+        # Three-field system: effective status = COALESCE(disposition, hold_reason, stage)
         query = """
             SELECT
-                s.id, s.title, s.status, s.capacity, s.description,
+                s.id, s.title,
+                COALESCE(s.disposition, s.hold_reason, s.stage) as status,
+                s.stage, s.hold_reason, s.disposition,
+                s.capacity, s.description,
                 s.notes, s.project_path, s.created_at, s.updated_at, s.last_implemented,
                 COALESCE(
                     (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id AND ancestor_id != s.id),
