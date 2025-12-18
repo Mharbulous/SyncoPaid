@@ -1,6 +1,6 @@
 ---
 name: story-writing
-description: Use when user says "brainstorm stories", "generate story ideas", "brainstorm features", "create stories for [node]", or asks for new story ideas - FIRST refines any existing stories with hold_reason='refine' before generating new stories. Then generates evidence-based user stories for nodes with capacity based on git commit analysis, existing children, and gap analysis. Works with story-tree database to create concept stories with proper user story format and acceptance criteria.
+description: Use when user says "brainstorm stories", "generate story ideas", "brainstorm features", "create stories for [node]", or asks for new story ideas - FIRST polishes any existing stories with hold_reason='polish' before generating new stories. Then generates evidence-based user stories for nodes with capacity based on git commit analysis, existing children, and gap analysis. Works with story-tree database to create concept stories with proper user story format and acceptance criteria.
 ---
 
 # Story Writing - Evidence-Based Story Generator
@@ -13,7 +13,7 @@ Generate user stories grounded in git commits and gap analysis.
 
 ## Priority Order
 
-1. **FIRST:** Refine any stories with `hold_reason='refine'`
+1. **FIRST:** Polish any stories with `hold_reason='polish'`
 2. **THEN:** Generate new stories for target node
 
 ## Multi-Node Batching
@@ -38,19 +38,19 @@ conn.row_factory = sqlite3.Row
 stories = [dict(row) for row in conn.execute('''
     SELECT s.id, s.title, s.description, s.stage, s.hold_reason, s.notes,
            (SELECT ancestor_id FROM story_paths WHERE descendant_id = s.id AND depth = 1) as parent_id
-    FROM story_nodes s WHERE s.hold_reason = 'refine' ORDER BY s.created_at
+    FROM story_nodes s WHERE s.hold_reason = 'polish' ORDER BY s.created_at
 ''').fetchall()]
 print(json.dumps({'count': len(stories), 'stories': stories}, indent=2))
 conn.close()
 "
 ```
 
-**If stories with `hold_reason='refine'` exist:** Process each one:
+**If stories with `hold_reason='polish'` exist:** Process each one:
 1. Identify issues (vague criteria, missing evidence, too broad, unclear role)
 2. Rework with quality standards
 3. Clear hold: `SET hold_reason = NULL, human_review = 0` (stage remains 'concept')
 
-**Only proceed to new story generation AFTER all held-for-refine stories are processed.**
+**Only proceed to new story generation AFTER all held-for-polish stories are processed.**
 
 ### Step 0a: Check Goals Files
 
@@ -182,7 +182,7 @@ Include: Goals status, context analysis, commits analyzed, gaps identified (with
 
 ## Key Rules
 
-- **Always check `hold_reason='refine'` first** before generating new stories
+- **Always check `hold_reason='polish'` first** before generating new stories
 - **Always check goals files** before generating (if they exist)
 - Max 3 stories per invocation (max 1 per node when batching)
 - Every story must reference commits OR specific gap

@@ -69,7 +69,7 @@ Use three-field system (stage + hold_reason + disposition):
 
 - **Approve**: `SET stage = 'approved'`
 - **Reject**: `SET disposition = 'rejected'`
-- **Refine**: `SET hold_reason = 'refine', human_review = 1`
+- **Polish**: `SET hold_reason = 'polish', human_review = 1`
 - **Wishlist**: `SET disposition = 'wishlist'`
 
 ```python
@@ -103,14 +103,14 @@ conn.close()
 print('Story [STORY_ID] rejected')
 "
 
-# For REFINE:
+# For POLISH:
 python -c "
 import sqlite3
 conn = sqlite3.connect('.claude/data/story-tree.db')
 cursor = conn.cursor()
 cursor.execute('''
     UPDATE story_nodes
-    SET hold_reason = 'refine', human_review = 1, updated_at = datetime('now')
+    SET hold_reason = 'polish', human_review = 1, updated_at = datetime('now')
     WHERE id = '[STORY_ID]'
 ''')
 conn.commit()

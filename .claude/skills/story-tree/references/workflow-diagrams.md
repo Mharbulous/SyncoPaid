@@ -114,8 +114,8 @@ mindmap
     broken
       Issues found
       Clear: Fixed
-    refine
-      Needs more detail
+    polish
+      Needs refinement
       Clear: Refinement complete
 ```
 
