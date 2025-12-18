@@ -13,6 +13,15 @@ The orchestrator should:
 2. **Fill from the top** - Only add new work when capacity exists
 3. **Gate appropriately** - Use holds to pause stories needing attention
 
+**Vetting as a Funnel**: Reduce human workload, don't add to it.
+
+Vetting filters OUT conflicting concepts automatically:
+1. **Deterministic script** - Removes obvious duplicates/overlaps
+2. **LLM analysis** - Removes semantic conflicts
+3. **Human review** - Approves only clean, non-conflicting concepts
+
+Conflicting concepts are auto-rejected (`disposition='rejected'`), NOT held for human review. The human's job is to evaluate good ideas, not arbitrate conflicts.
+
 ---
 
 ## Complete Stage Lifecycle
@@ -24,7 +33,6 @@ stateDiagram-v2
     [*] --> concept: write-stories<br/>(fill capacity)
 
     state "💡 concept (no hold)" as CONCEPT
-    state "💡 concept (pending)" as CONCEPT_PENDING
     state "✅ approved (no hold)" as APPROVED
     state "📋 planned (no hold)" as PLANNED
     state "📋 planned (blocked)" as PLANNED_BLOCKED
@@ -37,10 +45,9 @@ stateDiagram-v2
     state "🚀 released" as RELEASED
 
     concept --> CONCEPT: new story created
-    CONCEPT --> CONCEPT_PENDING: vet-stories<br/>conflict detected
 
-    CONCEPT --> APPROVED: approve-stories<br/>no conflicts
-    CONCEPT_PENDING --> APPROVED: HUMAN<br/>clears pending
+    CONCEPT --> APPROVED: approve-stories<br/>vetted clean
+    CONCEPT --> [*]: vet-stories<br/>conflict → rejected
 
     APPROVED --> PLANNED: plan-stories
 
@@ -170,7 +177,7 @@ flowchart TD
             subgraph F2["Step 7: vet-stories"]
                 F2_CHECK{Concept stories<br/>to vet?}
                 F2_RUN["story-vetting skill"]
-                F2_CONFLICT["concept (pending)"]
+                F2_REJECT["disposition='rejected'"]
                 F2_CLEAN["no conflicts"]
             end
 
@@ -186,10 +193,10 @@ flowchart TD
             F1_DONE --> F2_CHECK
 
             F2_CHECK -->|Yes| F2_RUN
-            F2_RUN -->|conflict| F2_CONFLICT
+            F2_RUN -->|conflict| F2_REJECT
             F2_RUN -->|clean| F2_CLEAN
             F2_CHECK -->|No| F3_CHECK
-            F2_CONFLICT --> F3_CHECK
+            F2_REJECT --> F3_CHECK
             F2_CLEAN --> F3_CHECK
 
             F3_CHECK -->|Yes| F3_RUN
@@ -229,7 +236,7 @@ flowchart TD
 | 4 | `activate-stories` | planned (no hold) | active (no hold) | → (blocked) if deps unmet |
 | 5 | `plan-stories` | approved (no hold) | planned (no hold) | - |
 | 6 | `write-stories` | NEW | concept (no hold) | - |
-| 7 | `vet-stories` | concept (no hold) | concept (pending) | → (pending) if conflicts |
+| 7 | `vet-stories` | concept (no hold) | concept (no hold) | → rejected if conflicts |
 | 8 | `approve-stories` | concept (no hold, vetted) | approved (no hold) | - |
 
 ---
@@ -255,7 +262,6 @@ flowchart TD
 ```mermaid
 flowchart LR
     subgraph "Human Review Required"
-        H1["concept (pending)<br/>conflict detected"]
         H2["active (paused)<br/>blocking plan issues"]
         H3["reviewing (broken)<br/>review failed"]
         H4["verifying (broken)<br/>tests failed"]
@@ -265,12 +271,16 @@ flowchart LR
         A1["planned (blocked)<br/>deps unmet"]
     end
 
-    H1 -->|"Human clears"| H1_CLEAR["approved"]
+    subgraph "Auto-Rejected (No Human Review)"
+        R1["concept → rejected<br/>conflict detected"]
+    end
+
     H2 -->|"Human fixes plan"| H2_CLEAR["active"]
     H3 -->|"Human fixes code"| H3_CLEAR["reviewing"]
     H4 -->|"Human fixes tests"| H4_CLEAR["verifying"]
 
     A1 -->|"Deps reach required stage"| A1_CLEAR["active"]
+    R1 -->|"Removed from pipeline"| R1_END["[*]"]
 ```
 
 ---
