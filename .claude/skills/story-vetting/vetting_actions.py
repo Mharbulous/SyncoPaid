@@ -5,7 +5,18 @@ Execute vetting actions on the database.
 import sqlite3
 import sys
 
+# Three-field system mappings (values from COALESCE(disposition, hold_reason, stage))
+# - 'concept' = stage='concept'
+# - 'wishlist' = disposition='wishlist'
+# - 'refine' = hold_reason='refine'
 MERGEABLE_STATUSES = {'concept', 'wishlist', 'refine'}
+
+# Three-field system mappings (values from COALESCE(disposition, hold_reason, stage))
+# - 'rejected' = disposition='rejected'
+# - 'infeasible' = disposition='infeasible'
+# - 'broken' = hold_reason='broken'
+# - 'pending' = hold_reason='pending'
+# - 'blocked' = hold_reason='blocked'
 BLOCK_STATUSES = {'rejected', 'infeasible', 'broken', 'pending', 'blocked'}
 
 def _cache_decision_internal(conn, id_a, id_b, classification, action):
