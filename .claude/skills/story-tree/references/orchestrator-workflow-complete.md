@@ -63,14 +63,21 @@ stateDiagram-v2
     ACTIVE --> VERIFYING: execute-stories<br/>no issues
     ACTIVE --> ACTIVE_PENDING: execute-stories<br/>blocking issues
 
-    REVIEWING --> VERIFYING: review-stories<br/>review passed
+    REVIEWING --> VERIFYING: 👤 review-stories<br/>review passed
 
     VERIFYING --> IMPLEMENTED: verify-stories<br/>tests pass
 
     IMPLEMENTED --> READY: ready-check<br/>integration OK
 
-    READY --> RELEASED: deploy.yml<br/>(manual trigger)
+    READY --> RELEASED: 👤 deploy.yml<br/>(manual trigger)
+
+    %% Styling for human-required transitions
+    classDef humanRequired fill:#ffcccc,stroke:#cc0000,stroke-width:2px
+    class REVIEWING humanRequired
+    class READY humanRequired
 ```
+
+**Legend**: 🤖 CI-automatable transitions (default styling) | 👤 Human-required transitions (red styling)
 
 **Key Design Decision**: There is NO direct path from `planned (blocked)` to `active`. All planned stories must pass through `planned (no hold)` for a fresh dependency check before activation. This ensures that even if recorded blockers are resolved, any NEW dependencies that emerged are detected.
 
@@ -101,9 +108,9 @@ flowchart TD
                 D1_FAIL["verifying (broken)"]
             end
 
-            subgraph D2["Step 2: review-stories"]
+            subgraph D2["Step 2: review-stories 👤 HUMAN REQUIRED"]
                 D2_CHECK{reviewing stories<br/>without holds?}
-                D2_RUN["code review check"]
+                D2_RUN["Human code review<br/>(not automated)"]
                 D2_PASS["reviewing → verifying"]
                 D2_FAIL["reviewing (broken)"]
             end
@@ -227,39 +234,52 @@ flowchart TD
     SUMMARY[Generate Progress Report]
     IDLE --> SUMMARY
     MAX --> SUMMARY
+
+    %% Styling for human-required steps (outside CI automation)
+    style D2 fill:#ffcccc,stroke:#cc0000,stroke-width:2px
+    style D2_CHECK fill:#ffe6e6
+    style D2_RUN fill:#ffe6e6
+    style D2_PASS fill:#ffe6e6
+    style D2_FAIL fill:#ffe6e6
 ```
+
+**Note**: The D2 (review-stories) step is shown for completeness but is **NOT automated** by the orchestrator. Stories in `reviewing` stage wait for human code review before transitioning to `verifying`.
 
 ---
 
 ## Transition Summary Table
 
-| Step | Workflow/Skill | From State | To State | Hold Outcomes |
-|------|---------------|------------|----------|---------------|
-| 1 | `verify-stories` | verifying (no hold) | implemented (no hold) | → (broken) if tests fail |
-| 2 | `review-stories` | reviewing (no hold) | verifying (no hold) | → (broken) if issues found |
-| 3 | `execute-stories` | active (no hold) | reviewing/verifying | → (pending) if blocking |
-| 4a | `activate-stories` | planned (blocked) | planned (no hold) | When recorded blockers resolved |
-| 4b | `activate-stories` | planned (no hold) | active (no hold) | → (blocked:IDs) if deps unmet |
-| 5 | `plan-stories` | approved (no hold) | planned (no hold) | - |
-| 6 | `write-stories` | NEW | concept (queued) | - |
-| 7 | `vet-stories` | concept (queued) | concept (no hold) | → conflict if overlaps |
-| 8 | `approve-stories` | concept (no hold) | approved (no hold) | - |
+| Step | Workflow/Skill | From State | To State | Hold Outcomes | Automation |
+|------|---------------|------------|----------|---------------|------------|
+| 1 | `verify-stories` | verifying (no hold) | implemented (no hold) | → (broken) if tests fail | 🤖 CI |
+| 2 | `review-stories` | reviewing (no hold) | verifying (no hold) | → (broken) if issues found | 👤 Human |
+| 3 | `execute-stories` | active (no hold) | reviewing/verifying | → (pending) if blocking | 🤖 CI |
+| 4a | `activate-stories` | planned (blocked) | planned (no hold) | When recorded blockers resolved | 🤖 CI |
+| 4b | `activate-stories` | planned (no hold) | active (no hold) | → (blocked:IDs) if deps unmet | 🤖 CI |
+| 5 | `plan-stories` | approved (no hold) | planned (no hold) | - | 🤖 CI |
+| 6 | `write-stories` | NEW | concept (queued) | - | 🤖 CI |
+| 7 | `vet-stories` | concept (queued) | concept (no hold) | → conflict if overlaps | 🤖 CI |
+| 8 | `approve-stories` | concept (no hold) | approved (no hold) | - | 🤖 CI |
+| 9 | `deploy.yml` | ready (no hold) | released | - | 👤 Human |
 
 ---
 
 ## Workflows to Implement
 
-| Workflow | Status | Purpose |
-|----------|--------|---------|
-| `story-tree-orchestrator.yml` | ✅ Partial | Main loop - needs expansion |
-| `write-stories.yml` | ✅ Exists | Standalone - integrate |
-| `plan-stories.yml` | ✅ Exists | Standalone - integrate |
-| `activate-stories.yml` | ✅ Exists | Needs update for UNBLOCK + cycle detection |
-| `execute-stories.yml` | ✅ Exists | Standalone - integrate |
-| `review-stories.yml` | ❌ Missing | NEW: reviewing → verifying |
-| `verify-stories.yml` | ❌ Missing | NEW: verifying → implemented |
-| `ready-check.yml` | ❌ Missing | NEW: implemented → ready |
-| `approve-stories.yml` | ❌ Missing | NEW: auto-approve clean concepts |
+| Workflow | Status | Purpose | Integration |
+|----------|--------|---------|-------------|
+| `story-tree-orchestrator.yml` | ✅ Partial | Main loop - needs expansion | 🤖 CI Core |
+| `write-stories.yml` | ✅ Exists | Standalone - integrate | 🤖 CI |
+| `plan-stories.yml` | ✅ Exists | Standalone - integrate | 🤖 CI |
+| `activate-stories.yml` | ✅ Exists | Needs update for UNBLOCK + cycle detection | 🤖 CI |
+| `execute-stories.yml` | ✅ Exists | Standalone - integrate | 🤖 CI |
+| `review-stories.yml` | ❌ Missing | NEW: reviewing → verifying | 👤 Standalone only |
+| `verify-stories.yml` | ❌ Missing | NEW: verifying → implemented | 🤖 CI |
+| `ready-check.yml` | ❌ Missing | NEW: implemented → ready | 🤖 CI |
+| `approve-stories.yml` | ❌ Missing | NEW: auto-approve clean concepts | 🤖 CI |
+| `deploy.yml` | ❌ Missing | NEW: ready → released | 👤 Manual trigger |
+
+> **Note**: `review-stories.yml` is **standalone-only** and NOT part of the orchestrator loop. Human code review cannot be automated; this workflow provides tooling to assist the review process but requires human judgment to complete the transition.
 
 ---
 
