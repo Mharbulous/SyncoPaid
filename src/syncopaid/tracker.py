@@ -301,6 +301,29 @@ class TrackerLoop:
                 idle_seconds = get_idle_seconds()
                 is_idle = idle_seconds >= self.idle_threshold
 
+                # Detect idle→active transition for resumption events
+                if self.was_idle and not is_idle:
+                    # User just resumed after idle period
+                    if hasattr(self, '_peak_idle_seconds') and self._peak_idle_seconds >= self.minimum_idle_duration:
+                        resumption_event = IdleResumptionEvent(
+                            resumption_timestamp=datetime.now(timezone.utc).isoformat(),
+                            idle_duration=self._peak_idle_seconds
+                        )
+                        logging.info(f"User resumed after {self._peak_idle_seconds:.1f} seconds idle")
+                        self.last_idle_resumption_time = datetime.now(timezone.utc)
+                        yield resumption_event
+                        self._peak_idle_seconds = 0.0
+
+                # Track idle state for next iteration
+                if is_idle and not self.was_idle:
+                    # Just became idle - start tracking peak
+                    self._peak_idle_seconds = idle_seconds
+                elif is_idle:
+                    # Still idle - update peak
+                    self._peak_idle_seconds = max(getattr(self, '_peak_idle_seconds', 0.0), idle_seconds)
+
+                self.was_idle = is_idle
+
                 # Create state dict for comparison
                 state = {
                     'app': window['app'],
