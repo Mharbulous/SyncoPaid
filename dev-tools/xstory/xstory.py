@@ -159,11 +159,9 @@ def calculate_gradient_colors(node: 'StoryNode') -> Tuple[QColor, QColor]:
     Calculate the gradient start and end colors for a tree node.
 
     Color Logic:
-    - StartColor (left): Based on stage (green to blue gradient)
-    - EndColor (right): Priority-based override:
-      1. Disposition active → Red (HSL 0, 100%, 45%)
-      2. Hold Status active → Black (HSL 0, 0%, 0%)
-      3. Default → Same as StartColor (solid color)
+    - Disposition active → Solid stage color (no gradient, disposition shown in Stage column)
+    - Hold Status active (no disposition) → Gradient from stage color to black
+    - Default → Solid stage color (no gradient)
 
     Args:
         node: StoryNode object with stage, hold_reason, and disposition
@@ -176,15 +174,15 @@ def calculate_gradient_colors(node: 'StoryNode') -> Tuple[QColor, QColor]:
 
     # Determine end color based on priority
     if node.disposition:
-        # Priority 1: Disposition active → Red
-        end_color = QColor()
-        end_color.setHslF(0 / 360.0, 1.0, 0.45)  # HSL 0, 100%, 45%
+        # Disposition active → Solid color (no gradient)
+        # The disposition reason is shown in the Stage column instead
+        end_color = start_color
     elif node.hold_reason:
-        # Priority 2: Hold Status active → Black
+        # Hold Status active → Gradient to black
         end_color = QColor()
         end_color.setHslF(0 / 360.0, 0.0, 0.0)  # Black
     else:
-        # Priority 3: Default → Same as start (solid color)
+        # Default → Solid stage color (no gradient)
         end_color = start_color
 
     return start_color, end_color
@@ -194,10 +192,10 @@ class GradientTextDelegate(QStyledItemDelegate):
     """
     Custom delegate for rendering tree node text with gradient colors.
 
-    Renders node labels with a horizontal linear gradient based on:
-    - Stage (determines start color: green → blue progression)
-    - Hold Status (if active, gradient ends in black)
-    - Disposition (if active, gradient ends in red - highest priority)
+    Renders node labels with colors based on:
+    - Stage (determines base color: green → blue progression)
+    - Hold Status (if active and no disposition, gradient ends in black)
+    - Disposition (if active, solid stage color - disposition shown in Stage column)
     """
 
     def __init__(self, parent=None, app=None):
@@ -1582,10 +1580,10 @@ class XstoryExplorer(QMainWindow):
         # Determine status display text and tooltip
         # Priority: disposition > hold_reason > default play icon
         if node.disposition and node.disposition in DISPOSITION_ICONS:
-            # Disposition overrides everything - show disposition icon + stage
+            # Disposition overrides everything - show disposition icon + disposition reason
             icon = DISPOSITION_ICONS[node.disposition]
-            status_text = f"{icon} {node.stage}"
-            tooltip = f"{node.disposition.capitalize()} - Stage: {node.stage}"
+            status_text = f"{icon} {node.disposition}"
+            tooltip = f"Stage: {node.stage}"
         elif node.hold_reason and node.hold_reason in HOLD_ICONS:
             # Show hold icon + underlying stage when on hold
             icon = HOLD_ICONS[node.hold_reason]
