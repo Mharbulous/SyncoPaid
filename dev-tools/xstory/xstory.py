@@ -29,7 +29,7 @@ except ImportError:
     print("Error: PySide6 is required. Install with: pip install PySide6")
     sys.exit(1)
 
-# Status colors (21-status rainbow system - optimized for visibility)
+# Status colors (20-status rainbow system - optimized for visibility)
 STATUS_COLORS = {
     'infeasible': '#CC0000',   # Deep Red
     'rejected': '#CC3300',     # Red-Orange
@@ -37,8 +37,8 @@ STATUS_COLORS = {
     'concept': '#CC9900',      # Goldenrod
     'broken': '#CCCC00',       # Dark Gold / Olive
     'blocked': '#99CC00',      # Lime Green
-    'refine': '#66CC00',       # Chartreuse
-    'pending': '#00CC00',     # Pure Green
+    'polish': '#66CC00',       # Chartreuse (hold state: needs refinement)
+    'pending': '#00CC00',      # Pure Green
     'approved': '#00CC33',     # Spring Green
     'planned': '#00CC66',      # Emerald
     'paused': '#00CCCC',       # Dark Cyan
@@ -46,28 +46,27 @@ STATUS_COLORS = {
     'reviewing': '#0066CC',    # Azure
     'implemented': '#0000CC',  # Pure Blue
     'ready': '#3300CC',        # Electric Indigo
-    'polish': '#6600CC',       # Violet
-    'released': '#9900CC',     # Purple
+    'released': '#6600CC',     # Violet
     'legacy': '#CC00CC',       # Magenta
     'deprecated': '#CC0099',   # Fuchsia
     'archived': '#CC0066',     # Deep Pink
 }
 
-# All possible statuses (21-status rainbow system - canonical order)
+# All possible statuses (20-status rainbow system - canonical order)
 ALL_STATUSES = [
     'infeasible', 'rejected', 'wishlist',
-    'concept', 'broken', 'blocked', 'refine',
+    'concept', 'broken', 'blocked', 'polish',
     'pending', 'approved', 'planned', 'paused',
     'active', 'reviewing',
     'implemented',
-    'ready', 'polish', 'released',
+    'ready', 'released',
     'legacy', 'deprecated', 'archived'
 ]
 
 # Three-field system: classify each status into its field type
 STAGE_VALUES = {'concept', 'approved', 'planned', 'active',
-                'reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released'}
-HOLD_REASON_VALUES = {'pending', 'paused', 'blocked', 'broken', 'refine'}
+                'reviewing', 'verifying', 'implemented', 'ready', 'released'}
+HOLD_REASON_VALUES = {'pending', 'paused', 'blocked', 'broken', 'polish'}
 DISPOSITION_VALUES = {'rejected', 'infeasible', 'wishlist', 'legacy', 'deprecated', 'archived'}
 
 # Hold reason icons for visual indication in tree view
@@ -75,8 +74,8 @@ HOLD_ICONS = {
     'paused': '⏸',      # Paused - work temporarily stopped
     'pending': '⏳',     # Pending - waiting for something
     'blocked': '🚧',     # Blocked - missing dependency
-    'broken': '⚠️',      # Broken - needs fix
-    'refine': '💎',      # Refine - needs polishing
+    'broken': '🔥',      # Broken - needs fix
+    'polish': '💎',      # Polish - needs refinement
 }
 
 # Designer mode transitions (approval, quality, priority, end-of-life decisions)
@@ -84,8 +83,8 @@ DESIGNER_TRANSITIONS = {
     'infeasible': ['concept', 'wishlist', 'archived'],
     'rejected': ['concept', 'wishlist', 'archived'],
     'wishlist': ['concept', 'rejected', 'archived'],
-    'concept': ['approved', 'pending', 'rejected', 'wishlist', 'refine'],
-    'refine': ['concept', 'rejected', 'wishlist'],
+    'concept': ['approved', 'pending', 'rejected', 'wishlist', 'polish'],
+    'polish': ['concept', 'ready', 'rejected', 'wishlist'],
     'pending': ['approved', 'wishlist', 'rejected'],
     'approved': ['pending', 'rejected'],
     'blocked': ['pending'],
@@ -94,7 +93,6 @@ DESIGNER_TRANSITIONS = {
     'reviewing': ['implemented'],
     'implemented': ['ready'],
     'ready': ['released', 'polish'],
-    'polish': ['ready', 'released'],
     'released': ['polish', 'legacy'],
     'legacy': ['deprecated', 'released', 'archived'],
     'deprecated': ['archived', 'legacy'],
@@ -269,8 +267,8 @@ class StatusChangeDialog(QDialog):
         # Prompt text based on status
         if self.new_status == 'approved':
             prompt_text = "Please note how high a priority this story is:"
-        elif self.new_status == 'refine':
-            prompt_text = "Please explain what needs to be refined (required):"
+        elif self.new_status == 'polish':
+            prompt_text = "Please explain what needs refinement (required):"
         else:
             prompt_text = "Add a note about this decision (optional):"
 
@@ -993,7 +991,7 @@ class XstoryExplorer(QMainWindow):
             return
 
         # Determine if notes are mandatory
-        mandatory = (new_status == 'refine')
+        mandatory = (new_status == 'polish')
 
         # Show dialog
         dialog = StatusChangeDialog(self, node_id, new_status, mandatory=mandatory)
