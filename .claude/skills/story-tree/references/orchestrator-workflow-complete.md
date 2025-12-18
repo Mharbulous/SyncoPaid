@@ -38,17 +38,18 @@ stateDiagram-v2
     state "📋 planned (no hold)" as PLANNED
     state "📋 planned (blocked)" as PLANNED_BLOCKED
     state "🔨 active (no hold)" as ACTIVE
-    state "🔨 active (paused)" as ACTIVE_PAUSED
+    state "🔨 active (pending)" as ACTIVE_PENDING
     state "👀 reviewing (no hold)" as REVIEWING
     state "🧪 verifying (no hold)" as VERIFYING
     state "✔️ implemented (no hold)" as IMPLEMENTED
     state "🏁 ready (no hold)" as READY
     state "🚀 released" as RELEASED
+    state "❌ disposed (conflict)" as DISPOSED
 
     concept --> CONCEPT_QUEUED: write-stories<br/>new story created
 
     CONCEPT_QUEUED --> CONCEPT: vet-stories<br/>no conflicts
-    CONCEPT_QUEUED --> [*]: vet-stories<br/>disposition='conflict'
+    CONCEPT_QUEUED --> DISPOSED: vet-stories<br/>disposition='conflict'
 
     CONCEPT --> APPROVED: approve-stories
 
@@ -56,12 +57,11 @@ stateDiagram-v2
 
     PLANNED --> ACTIVE: activate-stories<br/>deps met
     PLANNED --> PLANNED_BLOCKED: activate-stories<br/>deps unmet
-    PLANNED_BLOCKED --> PLANNED: UNBLOCK<br/>deps now met
+    PLANNED_BLOCKED --> ACTIVE: verify-stories<br/>deps now met
 
     ACTIVE --> REVIEWING: execute-stories<br/>deferrable issues
     ACTIVE --> VERIFYING: execute-stories<br/>no issues
-    ACTIVE --> ACTIVE_PAUSED: execute-stories<br/>blocking issues
-    ACTIVE_PAUSED --> ACTIVE: HUMAN<br/>fixes plan
+    ACTIVE --> ACTIVE_PENDING: execute-stories<br/>blocking issues
 
     REVIEWING --> VERIFYING: review-stories<br/>review passed
 
@@ -70,8 +70,6 @@ stateDiagram-v2
     IMPLEMENTED --> READY: ready-check<br/>integration OK
 
     READY --> RELEASED: deploy.yml<br/>(manual trigger)
-
-    RELEASED --> [*]
 ```
 
 ---
@@ -113,7 +111,7 @@ flowchart TD
                 D3_RUN["story-execution skill"]
                 D3_CLEAN["active → verifying"]
                 D3_DEFER["active → reviewing"]
-                D3_BLOCK["active (paused)"]
+                D3_BLOCK["active (pending)"]
             end
 
             subgraph D4["Step 4: activate-stories"]
@@ -234,8 +232,9 @@ flowchart TD
 | Step | Workflow/Skill | From State | To State | Hold Outcomes |
 |------|---------------|------------|----------|---------------|
 | 1 | `verify-stories` | verifying (no hold) | implemented (no hold) | → (broken) if tests fail |
+| 1b | `verify-stories` | planned (blocked) | active (no hold) | Unblocks dependents when impl verified |
 | 2 | `review-stories` | reviewing (no hold) | verifying (no hold) | → (broken) if issues found |
-| 3 | `execute-stories` | active (no hold) | reviewing/verifying | → (paused) if blocking |
+| 3 | `execute-stories` | active (no hold) | reviewing/verifying | → (pending) if blocking |
 | 4 | `activate-stories` | planned (no hold) | active (no hold) | → (blocked) if deps unmet |
 | 5 | `plan-stories` | approved (no hold) | planned (no hold) | - |
 | 6 | `write-stories` | NEW | concept (queued) | - |
@@ -254,7 +253,7 @@ flowchart TD
 | `activate-stories.yml` | ✅ Exists | Standalone - integrate |
 | `execute-stories.yml` | ✅ Exists | Standalone - integrate |
 | `review-stories.yml` | ❌ Missing | NEW: reviewing → verifying |
-| `verify-stories.yml` | ❌ Missing | NEW: verifying → implemented |
+| `verify-stories.yml` | ❌ Missing | NEW: verifying → implemented + unblock dependents |
 | `ready-check.yml` | ❌ Missing | NEW: implemented → ready |
 | `approve-stories.yml` | ❌ Missing | NEW: auto-approve clean concepts |
 
@@ -265,7 +264,7 @@ flowchart TD
 ```mermaid
 flowchart LR
     subgraph "Human Review Required"
-        H2["active (paused)<br/>blocking plan issues"]
+        H2["active (pending)<br/>blocking plan issues"]
         H3["reviewing (broken)<br/>review failed"]
         H4["verifying (broken)<br/>tests failed"]
     end
@@ -278,13 +277,64 @@ flowchart LR
         C1["concept → conflict<br/>overlap detected"]
     end
 
-    H2 -->|"Human fixes plan"| H2_CLEAR["active"]
     H3 -->|"Human fixes code"| H3_CLEAR["reviewing"]
     H4 -->|"Human fixes tests"| H4_CLEAR["verifying"]
 
-    A1 -->|"Deps reach required stage"| A1_CLEAR["active"]
-    C1 -->|"Removed from pipeline"| C1_END["[*]"]
+    A1 -->|"verify-stories: deps now met"| A1_CLEAR["active"]
 ```
+
+---
+
+## Dependency Unblocking Process
+
+When `verify-stories` successfully verifies a story (transitioning it to `implemented`), it triggers an unblocking check for dependent stories:
+
+### Unblocking Flow
+
+```mermaid
+flowchart TD
+    V[verify-stories completes<br/>story → implemented] --> FIND
+    FIND[Find blocked stories<br/>planned + hold_reason='blocked']
+    FIND --> LOOP{For each<br/>blocked story}
+    LOOP --> CHECK[Re-check dependencies:<br/>Are all children now at<br/>required stage?]
+    CHECK -->|deps met| UNBLOCK[Clear hold<br/>stage → active]
+    CHECK -->|deps still unmet| SKIP[Keep blocked]
+    UNBLOCK --> LOOP
+    SKIP --> LOOP
+    LOOP -->|done| END[Continue drain phase]
+```
+
+### Unblocking SQL Queries
+
+```sql
+-- Find blocked stories that might be unblockable
+SELECT id, title FROM story_nodes
+WHERE stage = 'planned' AND hold_reason = 'blocked';
+
+-- For each blocked story, check if deps are now met
+-- (all children at 'planned' or beyond)
+SELECT COUNT(*) FROM story_nodes s
+JOIN story_paths p ON s.id = p.descendant_id
+WHERE p.ancestor_id = :blocked_story_id AND p.depth = 1
+  AND s.disposition IS NULL
+  AND s.stage NOT IN ('planned', 'active', 'reviewing',
+                       'verifying', 'implemented', 'ready', 'released');
+
+-- If count = 0, deps are met. Unblock and activate:
+UPDATE story_nodes
+SET hold_reason = NULL, human_review = 0, stage = 'active',
+    notes = COALESCE(notes || char(10), '') ||
+            'UNBLOCKED - Dependencies met: ' || datetime('now'),
+    updated_at = datetime('now')
+WHERE id = :blocked_story_id;
+```
+
+### Key Points
+
+1. **When**: Unblocking happens as a side-effect of `verify-stories`, after successfully verifying a story
+2. **Trigger**: A story reaching `implemented` may satisfy dependencies for other blocked stories
+3. **Direct to Active**: Unblocked stories go directly to `active`, skipping re-evaluation in `activate-stories`
+4. **Batch Processing**: All blocked stories are checked each time a verification completes
 
 ---
 

@@ -108,6 +108,30 @@ SET hold_reason = 'pending', human_review = 1,
 WHERE id = ?;
 ```
 
+### Unblock Dependents (verify-stories side-effect)
+```sql
+-- Find all blocked stories that might be unblockable
+SELECT id, title FROM story_nodes
+WHERE stage = 'planned' AND hold_reason = 'blocked';
+
+-- For each blocked story, check if deps are now met
+-- (returns 0 if all children are at 'planned' or beyond)
+SELECT COUNT(*) FROM story_nodes s
+JOIN story_paths p ON s.id = p.descendant_id
+WHERE p.ancestor_id = ? AND p.depth = 1
+  AND s.disposition IS NULL
+  AND s.stage NOT IN ('planned', 'active', 'reviewing',
+                       'verifying', 'implemented', 'ready', 'released');
+
+-- If count = 0, unblock and activate:
+UPDATE story_nodes
+SET hold_reason = NULL, human_review = 0, stage = 'active',
+    notes = COALESCE(notes || char(10), '') ||
+            'UNBLOCKED - Dependencies met: ' || datetime('now'),
+    updated_at = datetime('now')
+WHERE id = ?;
+```
+
 ### Clear Hold (resume from preserved stage)
 ```sql
 UPDATE story_nodes
