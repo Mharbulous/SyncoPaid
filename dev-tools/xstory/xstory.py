@@ -847,77 +847,72 @@ class DetailView(QWidget):
         self.breadcrumb_layout.addStretch()
 
     def _add_title_section(self, node: StoryNode):
-        """Add the title section with ID badge and stage badge."""
-        # Header row with ID badge, stage badge, and title
+        """Add the title section with ID, stage, and optional hold/disposition."""
         header_widget = QWidget()
         header_widget.setStyleSheet("background: transparent;")
         header_layout = QVBoxLayout(header_widget)
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(8)
 
-        # Top row: ID badge + Stage badge
-        badges_row = QHBoxLayout()
-        badges_row.setSpacing(12)
+        # Top row: ID · Stage · Hold/Disposition
+        meta_row = QHBoxLayout()
+        meta_row.setSpacing(12)
 
-        # ID badge
-        id_badge = QLabel(node.id)
-        id_badge.setStyleSheet("""
-            background-color: #e9ecef;
-            color: #495057;
-            padding: 4px 10px;
-            border-radius: 4px;
+        # ID label
+        id_label = QLabel(node.id)
+        id_label.setStyleSheet("""
+            color: #6c757d;
             font-family: monospace;
             font-size: 10pt;
         """)
-        badges_row.addWidget(id_badge)
+        meta_row.addWidget(id_label)
 
-        # Stage badge with icon
+        # Separator
+        sep1 = QLabel("·")
+        sep1.setStyleSheet("color: #adb5bd; font-size: 10pt;")
+        meta_row.addWidget(sep1)
+
+        # Stage label with icon
         stage_color = STATUS_COLORS.get(node.stage, '#666666')
         stage_icon = self._get_stage_icon(node)
-        stage_badge = QLabel(f"{stage_icon} {node.stage}")
-        stage_badge.setStyleSheet(f"""
-            background-color: {self._lighten_color(stage_color, 0.85)};
+        stage_label = QLabel(f"{stage_icon} {node.stage}")
+        stage_label.setStyleSheet(f"""
             color: {stage_color};
-            padding: 4px 12px;
-            border-radius: 12px;
             font-weight: bold;
             font-size: 9pt;
-            border: 1px solid {self._lighten_color(stage_color, 0.7)};
         """)
-        badges_row.addWidget(stage_badge)
+        meta_row.addWidget(stage_label)
 
-        # Hold/Disposition badge if applicable
+        # Hold/Disposition label if applicable
         if node.disposition:
             disp_color = '#CC0000'
             disp_icon = DISPOSITION_ICONS.get(node.disposition, '')
-            disp_badge = QLabel(f"{disp_icon} {node.disposition}")
-            disp_badge.setStyleSheet(f"""
-                background-color: #fce4e4;
+            sep2 = QLabel("·")
+            sep2.setStyleSheet("color: #adb5bd; font-size: 10pt;")
+            meta_row.addWidget(sep2)
+            disp_label = QLabel(f"{disp_icon} {node.disposition}")
+            disp_label.setStyleSheet(f"""
                 color: {disp_color};
-                padding: 4px 12px;
-                border-radius: 12px;
                 font-weight: bold;
                 font-size: 9pt;
-                border: 1px solid #f5c6c6;
             """)
-            badges_row.addWidget(disp_badge)
+            meta_row.addWidget(disp_label)
         elif node.hold_reason:
             hold_color = STATUS_COLORS.get(node.hold_reason, '#888888')
             hold_icon = HOLD_ICONS.get(node.hold_reason, '')
-            hold_badge = QLabel(f"{hold_icon} {node.hold_reason}")
-            hold_badge.setStyleSheet(f"""
-                background-color: {self._lighten_color(hold_color, 0.85)};
+            sep2 = QLabel("·")
+            sep2.setStyleSheet("color: #adb5bd; font-size: 10pt;")
+            meta_row.addWidget(sep2)
+            hold_label = QLabel(f"{hold_icon} {node.hold_reason}")
+            hold_label.setStyleSheet(f"""
                 color: {hold_color};
-                padding: 4px 12px;
-                border-radius: 12px;
                 font-weight: bold;
                 font-size: 9pt;
-                border: 1px solid {self._lighten_color(hold_color, 0.7)};
             """)
-            badges_row.addWidget(hold_badge)
+            meta_row.addWidget(hold_label)
 
-        badges_row.addStretch()
-        header_layout.addLayout(badges_row)
+        meta_row.addStretch()
+        header_layout.addLayout(meta_row)
 
         # Title
         title_label = QLabel(node.title)
@@ -1097,6 +1092,46 @@ class DetailView(QWidget):
         so_that_text.setWordWrap(True)
         so_that_text.setTextInteractionFlags(Qt.TextSelectableByMouse)
         story_layout.addWidget(so_that_text)
+
+        self.content_layout.addWidget(story_widget)
+
+    def _add_user_story_display(self, node: StoryNode):
+        """Add the User Story section displaying the story field.
+
+        Args:
+            node: The story node being displayed
+        """
+        # Story content box with gradient background
+        story_widget = QWidget()
+        story_widget.setStyleSheet("""
+            QWidget {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #fefefe, stop:1 #f8f9fa);
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+            }
+        """)
+        story_layout = QVBoxLayout(story_widget)
+        story_layout.setContentsMargins(16, 12, 16, 12)
+        story_layout.setSpacing(8)
+
+        # Header
+        header = QLabel("User Story")
+        header.setStyleSheet("""
+            color: #6c757d;
+            font-size: 9pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            background: transparent;
+        """)
+        story_layout.addWidget(header)
+
+        # Story text
+        story_text = QLabel(node.story)
+        story_text.setStyleSheet("color: #212529; font-size: 11pt; background: transparent;")
+        story_text.setWordWrap(True)
+        story_text.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        story_layout.addWidget(story_text)
 
         self.content_layout.addWidget(story_widget)
 
@@ -1383,20 +1418,20 @@ class DetailView(QWidget):
         # Title section with badges
         self._add_title_section(node)
 
-        # Parse user story from description
-        story = self._parse_user_story(node.description)
-
-        # User Story section (parsed from description if user story format present)
-        if story:
-            self._add_story_section(node, story)
+        # Display user story from story field, or parse from description as fallback
+        if node.story:
+            self._add_user_story_display(node)
+        else:
+            # Fallback: parse user story from description
+            story = self._parse_user_story(node.description)
+            if story:
+                self._add_story_section(node, story)
 
         # Workflow progress bar
         self._add_progress_bar(node)
 
-        # Description section - show remaining content after user story, or full description if no story format
-        if story and story.get('remaining'):
-            self._add_description_section(node, story['remaining'])
-        elif not story and node.description:
+        # Description section - always show if present
+        if node.description:
             self._add_description_section(node, node.description)
 
         # Notes section
