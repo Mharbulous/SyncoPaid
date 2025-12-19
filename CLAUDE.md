@@ -2,10 +2,11 @@
 
 ## Critical Rules
 
-- **IMPORTANT**: Do not build fallbacks to avoid problematic code—doing so only hides the problem
+- **IMPORTANT**: Do not build fallbacks to avoid problematic code; it only hides code rot.
+- **ALWAYS**: Identify root causes before attempting to fix or avoid problems.
 - **YOU MUST** activate virtual environment before running commands: `venv\Scripts\activate`
 - **ALWAYS** use native Windows path format with backslashes (`\`) for file operations
-- Never modify SQLite database directly
+- **NEVER** modify SQLite database directly
 
 ## Project Summary
 
@@ -63,10 +64,6 @@ src/syncopaid/
 | Screenshots | `%LOCALAPPDATA%\SyncoPaid\screenshots\YYYY-MM-DD\` |
 | Docs | `ai_docs/` |
 
-## Known Limitations
-
-- New Outlook doesn't expose email subjects (use Legacy Outlook)
-- Outlook reading pane shows generic "Inbox" instead of subjects
 
 ## Reference
 
