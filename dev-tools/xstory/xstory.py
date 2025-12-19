@@ -51,15 +51,15 @@ STATUS_COLORS = {
     'implemented': '#0000CC',  # Pure Blue
     'ready': '#3300CC',        # Electric Indigo
     'released': '#6600CC',     # Violet
-    # Hold reasons (gradient: reddish-orange to pale yellow, HSL S=100% L=40%→70%)
+    # Hold reasons (gradient: reddish-orange to yellow, HSL S=100% L=40%→50% dimmed)
     'broken': '#CC4400',       # Hue 20°, L=40% - bold reddish orange (most urgent)
-    'conflict': '#D46600',     # Hue 26°, L=44% - dark orange
-    'blocked': '#DB8700',      # Hue 31°, L=49% - orange
-    'pending': '#E3A800',      # Hue 37°, L=53% - golden orange
-    'paused': '#EBC900',       # Hue 43°, L=57% - gold
-    'polish': '#FFD93A',       # Hue 49°, L=61% - light gold
-    'queued': '#FFEE50',       # Hue 54°, L=66% - light yellow
-    'wishlist': '#FEFF65',     # Hue 60°, L=70% - pale yellow (least urgent)
+    'conflict': '#D25B00',     # Hue 26°, L=41% - dark orange
+    'blocked': '#DB7100',      # Hue 31°, L=43% - orange
+    'pending': '#E28B00',      # Hue 37°, L=44% - golden orange
+    'paused': '#E8A600',       # Hue 43°, L=45% - gold
+    'polish': '#EFC300',       # Hue 49°, L=47% - dark gold
+    'queued': '#F8DF00',       # Hue 54°, L=48% - dark yellow
+    'wishlist': '#FEFF00',     # Hue 60°, L=50% - yellow (least urgent)
     'no hold': '#888888',      # Grey (no hold reason)
     # Live status (for items without disposition)
     'live': '#00FF00',         # Bright Green (active/live)
