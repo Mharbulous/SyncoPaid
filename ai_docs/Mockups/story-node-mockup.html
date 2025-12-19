@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story Node Detail - Improved</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .story-card {
+            background: linear-gradient(to bottom, #fefefe, #fafafa);
+        }
+        
+        .stage-badge {
+            animation: pulse-subtle 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-subtle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
+        .criterion-item:hover {
+            background-color: #f9fafb;
+        }
+        
+        .breadcrumb-item:hover {
+            background-color: #e5e7eb;
+        }
+        
+        .action-button {
+            transition: all 0.2s ease;
+        }
+        
+        .action-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-6">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="bg-white rounded-t-lg border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <button class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                <div class="text-sm text-gray-500 font-mono">story-tree.db</div>
+            </div>
+            <button class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                Designer
+            </button>
+        </div>
+
+        <!-- Breadcrumb Navigation -->
+        <div class="bg-white px-6 py-3 border-b border-gray-200 flex items-center space-x-2 text-sm">
+            <a href="#" class="breadcrumb-item text-blue-600 hover:text-blue-800 px-2 py-1 rounded">🏠 Root</a>
+            <span class="text-gray-400">→</span>
+            <a href="#" class="breadcrumb-item text-blue-600 hover:text-blue-800 px-2 py-1 rounded">15 - AI Screenshot Intelligence & T...</a>
+            <span class="text-gray-400">→</span>
+            <span class="text-gray-700 font-medium px-2 py-1">15.1 - Automatic Screenshot Analysis</span>
+        </div>
+
+        <div class="flex gap-6">
+            <!-- Main Content -->
+            <div class="flex-1 bg-white rounded-b-lg shadow-sm">
+                <div class="p-6">
+                    <!-- Title & Status -->
+                    <div class="mb-6">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <span class="text-sm font-mono text-gray-500 bg-gray-100 px-2 py-1 rounded">15.1</span>
+                                    <span class="stage-badge inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                                        <svg class="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                        </svg>
+                                        concept
+                                    </span>
+                                </div>
+                                <h1 class="text-3xl font-bold text-gray-900 mb-2">Automatic Screenshot Analysis</h1>
+                            </div>
+                            <button class="action-button ml-4 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 shadow-sm">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                Approve Concept
+                            </button>
+                        </div>
+
+                        <!-- Workflow Progress -->
+                        <div class="mb-4">
+                            <div class="flex items-center justify-between text-xs text-gray-500 mb-2">
+                                <span>Workflow Progress</span>
+                                <span>Step 1 of 10</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-yellow-500 h-2 rounded-full" style="width: 10%"></div>
+                            </div>
+                            <div class="flex justify-between mt-2 text-xs text-gray-400">
+                                <span>concept</span>
+                                <span>approved</span>
+                                <span>planned</span>
+                                <span>active</span>
+                                <span>...</span>
+                                <span>released</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Story Format -->
+                    <div class="story-card border border-gray-200 rounded-lg p-5 mb-6">
+                        <div class="space-y-3">
+                            <div class="flex items-start">
+                                <span class="text-2xl mr-3">👤</span>
+                                <div class="flex-1">
+                                    <span class="text-sm font-semibold text-gray-500 uppercase tracking-wide">As a</span>
+                                    <p class="text-lg text-gray-900 mt-1">solo practitioner</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start">
+                                <span class="text-2xl mr-3">🎯</span>
+                                <div class="flex-1">
+                                    <span class="text-sm font-semibold text-gray-500 uppercase tracking-wide">I want</span>
+                                    <p class="text-lg text-gray-900 mt-1">SyncoPaid to automatically understand what I'm working on from my screen</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start">
+                                <span class="text-2xl mr-3">✨</span>
+                                <div class="flex-1">
+                                    <span class="text-sm font-semibold text-gray-500 uppercase tracking-wide">So that</span>
+                                    <p class="text-lg text-gray-900 mt-1">I don't have to manually describe every task I perform</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="mb-6">
+                        <h2 class="text-lg font-semibold text-gray-900 mb-3">Description</h2>
+                        <p class="text-gray-700 leading-relaxed">
+                            As a solo practitioner, I want SyncoPaid to automatically understand what I'm working on from my screen, 
+                            so that I don't have to manually describe every task I perform.
+                        </p>
+                    </div>
+
+                    <!-- Acceptance Criteria -->
+                    <div class="mb-6">
+                        <h2 class="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                            Acceptance Criteria
+                            <span class="ml-2 text-sm font-normal text-gray-500">(4 criteria)</span>
+                        </h2>
+                        <div class="space-y-2">
+                            <div class="criterion-item flex items-start p-3 rounded-lg transition-colors">
+                                <input type="checkbox" class="mt-1 mr-3 h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                <div class="flex-1">
+                                    <p class="text-gray-700">System captures screenshots at regular intervals</p>
+                                    <p class="text-sm text-gray-500 mt-1">✅ Already done in <span class="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">Phase 1</span></p>
+                                </div>
+                            </div>
+                            <div class="criterion-item flex items-start p-3 rounded-lg transition-colors">
+                                <input type="checkbox" class="mt-1 mr-3 h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                <div class="flex-1">
+                                    <p class="text-gray-700">AI extracts: application name, document/file names, visible case numbers, email subjects, webpage titles</p>
+                                </div>
+                            </div>
+                            <div class="criterion-item flex items-start p-3 rounded-lg transition-colors">
+                                <input type="checkbox" class="mt-1 mr-3 h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                <div class="flex-1">
+                                    <p class="text-gray-700">Extracted data is stored alongside timestamp and window title</p>
+                                </div>
+                            </div>
+                            <div class="criterion-item flex items-start p-3 rounded-lg transition-colors">
+                                <input type="checkbox" class="mt-1 mr-3 h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                <div class="flex-1">
+                                    <p class="text-gray-700">Processing happens without interrupting my work</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="border-t border-gray-200 px-6 py-4 bg-gray-50 rounded-b-lg flex items-center justify-between">
+                    <div class="flex gap-2">
+                        <button class="action-button px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 font-medium flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            → approved
+                        </button>
+                        <button class="action-button px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-medium flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            → pending
+                        </button>
+                        <button class="action-button px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                            → rejected
+                        </button>
+                        <button class="action-button px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 font-medium flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+                            </svg>
+                            → wishlist
+                        </button>
+                        <button class="action-button px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+                            </svg>
+                            → polish
+                        </button>
+                    </div>
+                    <button class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="w-80 space-y-4">
+                <!-- Metadata Card -->
+                <div class="bg-white rounded-lg shadow-sm p-5">
+                    <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Metadata</h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-xs text-gray-500 uppercase tracking-wide">Parent Story</label>
+                            <a href="#" class="mt-1 flex items-center text-blue-600 hover:text-blue-800">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                                <span class="text-sm">15 - AI Screenshot Intelligence & T...</span>
+                            </a>
+                        </div>
+
+                        <div class="border-t border-gray-200 pt-4">
+                            <label class="text-xs text-gray-500 uppercase tracking-wide">Children</label>
+                            <div class="mt-2 text-2xl font-bold text-gray-900">0</div>
+                            <p class="text-xs text-gray-500 mt-1">No child stories yet</p>
+                        </div>
+
+                        <div class="border-t border-gray-200 pt-4">
+                            <label class="text-xs text-gray-500 uppercase tracking-wide">Capacity</label>
+                            <div class="mt-2">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm font-medium text-gray-900">Dynamic</span>
+                                    <span class="text-xs text-gray-500">0 / 3</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: 0%"></div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-2">Capacity: 3 + implemented children</p>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-gray-200 pt-4">
+                            <label class="text-xs text-gray-500 uppercase tracking-wide">Descendants</label>
+                            <div class="mt-2 text-2xl font-bold text-gray-900">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mini Tree View -->
+                <div class="bg-white rounded-lg shadow-sm p-5">
+                    <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Story Tree Context</h3>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex items-center text-gray-400">
+                            <div class="w-4 text-center mr-2">└</div>
+                            <div class="text-gray-900 font-medium">15 - AI Screenshot Intelligence</div>
+                        </div>
+                        <div class="flex items-center text-blue-600 bg-blue-50 rounded px-2 py-1 -ml-2">
+                            <div class="w-4 text-center mr-2">├</div>
+                            <div class="font-medium">15.1 - Automatic Screenshot Analysis</div>
+                        </div>
+                        <div class="flex items-center text-gray-400 ml-4">
+                            <div class="w-4 text-center mr-2">└</div>
+                            <div class="text-gray-500 italic">No children</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="bg-white rounded-lg shadow-sm p-5">
+                    <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Recent Activity</h3>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex items-start">
+                            <div class="w-2 h-2 mt-2 bg-blue-500 rounded-full mr-3 flex-shrink-0"></div>
+                            <div class="flex-1">
+                                <p class="text-gray-700">Story created</p>
+                                <p class="text-xs text-gray-500 mt-1">3 days ago</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="bg-white rounded-lg shadow-sm p-5">
+                    <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Quick Actions</h3>
+                    <div class="space-y-2">
+                        <button class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                            Edit Story
+                        </button>
+                        <button class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Add Child Story
+                        </button>
+                        <button class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            Generate Plan
+                        </button>
+                        <button class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            View Help
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'a' && !e.ctrlKey && !e.metaKey) {
+                console.log('Approve shortcut triggered');
+            }
+        });
+        
+        // Simulate checkbox interactions
+        document.querySelectorAll('.criterion-item input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const item = this.closest('.criterion-item');
+                if (this.checked) {
+                    item.style.opacity = '0.6';
+                    item.querySelector('p').style.textDecoration = 'line-through';
+                } else {
+                    item.style.opacity = '1';
+                    item.querySelector('p').style.textDecoration = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
