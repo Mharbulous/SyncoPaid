@@ -576,12 +576,12 @@ class DetailView(QWidget):
             }
         """)
         header_layout = QHBoxLayout(header_widget)
-        header_layout.setContentsMargins(12, 8, 12, 8)
+        header_layout.setContentsMargins(8, 1, 8, 1)
 
         # Back button
         self.back_btn = QPushButton("<")
         self.back_btn.clicked.connect(self._go_back)
-        self.back_btn.setFixedSize(32, 32)
+        self.back_btn.setFixedSize(18, 18)
         self.back_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
@@ -597,7 +597,7 @@ class DetailView(QWidget):
         # Forward button
         self.forward_btn = QPushButton(">")
         self.forward_btn.clicked.connect(self._go_forward)
-        self.forward_btn.setFixedSize(32, 32)
+        self.forward_btn.setFixedSize(18, 18)
         self.forward_btn.setStyleSheet("""
             QPushButton {
                 background-color: transparent;
@@ -630,7 +630,7 @@ class DetailView(QWidget):
             }
         """)
         self.breadcrumb_layout = QHBoxLayout(self.breadcrumb_widget)
-        self.breadcrumb_layout.setContentsMargins(12, 6, 12, 6)
+        self.breadcrumb_layout.setContentsMargins(8, 1, 8, 1)
         self.breadcrumb_layout.setSpacing(4)
         main_layout.addWidget(self.breadcrumb_widget)
 
