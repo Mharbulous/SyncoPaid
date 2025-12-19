@@ -1104,7 +1104,7 @@ class XstoryExplorer(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Xstory v1.2 (PySide6)")
-        self.setGeometry(100, 100, 1000, 700)
+        self.setGeometry(100, 100, 900, 700)
 
         self.db_path: Optional[str] = None
         self.nodes: Dict[str, StoryNode] = {}
@@ -1298,7 +1298,7 @@ class XstoryExplorer(QMainWindow):
         splitter.addWidget(filter_scroll)
 
         # Set splitter proportions (tree view : filter panel)
-        splitter.setSizes([600, 400])
+        splitter.setSizes([500, 400])
         tree_view_layout.addWidget(splitter)
 
         # Description panel at bottom of tree view
