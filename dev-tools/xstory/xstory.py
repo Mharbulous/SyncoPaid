@@ -429,7 +429,8 @@ class StoryNode:
                  notes: str = '', project_path: str = '', created_at: str = '',
                  updated_at: str = '', last_implemented: str = '',
                  stage: str = '', hold_reason: Optional[str] = None,
-                 disposition: Optional[str] = None, descendants_count: int = 0):
+                 disposition: Optional[str] = None, descendants_count: int = 0,
+                 story: str = ''):
         self.id = id
         self.title = title
         self.status = status  # Effective status: COALESCE(disposition, hold_reason, stage)
@@ -447,6 +448,7 @@ class StoryNode:
         self.hold_reason = hold_reason
         self.disposition = disposition
         self.descendants_count = descendants_count
+        self.story = story  # User story text
         self.children: List['StoryNode'] = []
 
 
@@ -1098,6 +1100,46 @@ class DetailView(QWidget):
 
         self.content_layout.addWidget(story_widget)
 
+    def _add_user_story_display(self, node: StoryNode):
+        """Add the User Story section displaying the story field.
+
+        Args:
+            node: The story node being displayed
+        """
+        # Story content box with gradient background
+        story_widget = QWidget()
+        story_widget.setStyleSheet("""
+            QWidget {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #fefefe, stop:1 #f8f9fa);
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+            }
+        """)
+        story_layout = QVBoxLayout(story_widget)
+        story_layout.setContentsMargins(16, 12, 16, 12)
+        story_layout.setSpacing(8)
+
+        # Header
+        header = QLabel("User Story")
+        header.setStyleSheet("""
+            color: #6c757d;
+            font-size: 9pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            background: transparent;
+        """)
+        story_layout.addWidget(header)
+
+        # Story text
+        story_text = QLabel(node.story)
+        story_text.setStyleSheet("color: #212529; font-size: 11pt; background: transparent;")
+        story_text.setWordWrap(True)
+        story_text.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        story_layout.addWidget(story_text)
+
+        self.content_layout.addWidget(story_widget)
+
     def _update_sidebar(self, node: StoryNode):
         """Update sidebar with metadata, tree context, and actions."""
         # Clear existing sidebar content
@@ -1300,20 +1342,20 @@ class DetailView(QWidget):
         # Title section with badges
         self._add_title_section(node)
 
-        # Parse user story from description
-        story = self._parse_user_story(node.description)
-
-        # User Story section (parsed from description if user story format present)
-        if story:
-            self._add_story_section(node, story)
+        # Display user story from story field, or parse from description as fallback
+        if node.story:
+            self._add_user_story_display(node)
+        else:
+            # Fallback: parse user story from description
+            story = self._parse_user_story(node.description)
+            if story:
+                self._add_story_section(node, story)
 
         # Workflow progress bar
         self._add_progress_bar(node)
 
-        # Description section - show remaining content after user story, or full description if no story format
-        if story and story.get('remaining'):
-            self._add_description_section(node, story['remaining'])
-        elif not story and node.description:
+        # Description section - always show if present
+        if node.description:
             self._add_description_section(node, node.description)
 
         # Notes section
@@ -2080,7 +2122,7 @@ class XstoryExplorer(QMainWindow):
                 s.id, s.title,
                 COALESCE(s.disposition, s.hold_reason, s.stage) as status,
                 s.stage, s.hold_reason, s.disposition,
-                s.capacity, s.description,
+                s.capacity, s.description, s.story,
                 s.notes, s.project_path, s.created_at, s.updated_at, s.last_implemented,
                 COALESCE(
                     (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id AND ancestor_id != s.id),
@@ -2112,7 +2154,8 @@ class XstoryExplorer(QMainWindow):
                 stage=row['stage'] or 'concept',
                 hold_reason=row['hold_reason'],
                 disposition=row['disposition'],
-                descendants_count=row['descendants_count'] or 0
+                descendants_count=row['descendants_count'] or 0,
+                story=row['story'] or ''
             )
             self.nodes[node.id] = node
 
