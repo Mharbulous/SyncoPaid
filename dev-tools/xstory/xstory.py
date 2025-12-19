@@ -755,7 +755,8 @@ class DetailView(QWidget):
     def _parse_user_story(self, description: str) -> Optional[dict]:
         """Parse user story format from description.
 
-        Returns dict with 'as_a', 'i_want', 'so_that' keys if found, None otherwise.
+        Returns dict with 'as_a', 'i_want', 'so_that', and 'remaining' keys if found, None otherwise.
+        The 'remaining' key contains any text after the user story (e.g., acceptance criteria).
         """
         import re
 
@@ -763,14 +764,18 @@ class DetailView(QWidget):
             return None
 
         # Pattern to match user story format (case insensitive)
-        pattern = r'\*?\*?As a\*?\*?\s+(.+?)\s+\*?\*?I want\*?\*?\s+(.+?)\s+\*?\*?So that\*?\*?\s+(.+?)(?:\n|$)'
+        # Captures content up to a double newline or end of string for 'so_that'
+        pattern = r'\*?\*?As a\*?\*?\s+(.+?)\s+\*?\*?I want\*?\*?\s+(.+?)\s+\*?\*?So that\*?\*?\s+(.+?)(?:\n\n|$)'
         match = re.search(pattern, description, re.IGNORECASE | re.DOTALL)
 
         if match:
+            # Get the remaining text after the user story
+            remaining = description[match.end():].strip()
             return {
                 'as_a': match.group(1).strip(),
                 'i_want': match.group(2).strip(),
-                'so_that': match.group(3).strip()
+                'so_that': match.group(3).strip(),
+                'remaining': remaining
             }
         return None
 
@@ -1010,13 +1015,13 @@ class DetailView(QWidget):
 
         self.content_layout.addWidget(progress_widget)
 
-    def _add_story_section(self, node: StoryNode):
-        """Add the Story section with user story format and icons."""
-        story = self._parse_user_story(node.description)
+    def _add_story_section(self, node: StoryNode, story: dict):
+        """Add the Story section with user story format and icons.
 
-        if not story:
-            return  # No user story format found
-
+        Args:
+            node: The story node being displayed
+            story: Parsed user story dict with 'as_a', 'i_want', 'so_that' keys
+        """
         # Story content box with gradient background
         story_widget = QWidget()
         story_widget.setStyleSheet("""
@@ -1295,16 +1300,21 @@ class DetailView(QWidget):
         # Title section with badges
         self._add_title_section(node)
 
+        # Parse user story from description
+        story = self._parse_user_story(node.description)
+
         # User Story section (parsed from description if user story format present)
-        self._add_story_section(node)
+        if story:
+            self._add_story_section(node, story)
 
         # Workflow progress bar
         self._add_progress_bar(node)
 
-        # Description section (if description doesn't have user story format)
-        story = self._parse_user_story(node.description)
-        if not story:
-            self._add_description_section(node)
+        # Description section - show remaining content after user story, or full description if no story format
+        if story and story.get('remaining'):
+            self._add_description_section(node, story['remaining'])
+        elif not story and node.description:
+            self._add_description_section(node, node.description)
 
         # Notes section
         if node.notes:
@@ -1319,9 +1329,14 @@ class DetailView(QWidget):
         # Add status action buttons to footer
         self._add_status_actions(node)
 
-    def _add_description_section(self, node: StoryNode):
-        """Add the description section."""
-        if not node.description:
+    def _add_description_section(self, node: StoryNode, description_text: str):
+        """Add the description section.
+
+        Args:
+            node: The story node being displayed
+            description_text: The text to display (may be full description or remaining after user story)
+        """
+        if not description_text:
             return
 
         desc_widget = QWidget()
@@ -1334,7 +1349,7 @@ class DetailView(QWidget):
         header.setStyleSheet("font-size: 12pt; font-weight: bold; color: #212529;")
         desc_layout.addWidget(header)
 
-        text = QLabel(node.description)
+        text = QLabel(description_text)
         text.setStyleSheet("""
             color: #495057;
             font-size: 10pt;
