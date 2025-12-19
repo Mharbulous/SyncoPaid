@@ -23,17 +23,30 @@ from datetime import datetime
 DB_PATH = Path(__file__).parent.parent.parent / '.claude/data/story-tree.db'
 
 # Regex patterns for parsing description field
-# Matches: **As a** X **I want** Y **So that** Z
-STORY_PATTERN = re.compile(
+# Format 1 (bold): **As a** X **I want** Y **So that** Z
+STORY_PATTERN_BOLD = re.compile(
     r'\*\*As a\*\*\s*(.+?)\s*'
     r'\*\*I want\*\*\s*(.+?)\s*'
     r'\*\*So that\*\*\s*(.+?)(?=\n\n|\*\*Acceptance|\Z)',
     re.IGNORECASE | re.DOTALL
 )
 
-# Matches: **Acceptance Criteria:** followed by checklist items
-CRITERIA_PATTERN = re.compile(
+# Format 2 (plain): As a X\nI want Y\nSo that Z
+STORY_PATTERN_PLAIN = re.compile(
+    r'^As a\s+(.+?)\n'
+    r'I want\s+(.+?)\n'
+    r'So that\s+(.+?)(?=\n\n|Acceptance|\Z)',
+    re.IGNORECASE | re.DOTALL | re.MULTILINE
+)
+
+# Matches: **Acceptance Criteria:** OR Acceptance Criteria: followed by checklist/list items
+CRITERIA_PATTERN_BOLD = re.compile(
     r'\*\*Acceptance Criteria:\*\*\s*\n((?:- \[.\].*(?:\n|$))+)',
+    re.IGNORECASE
+)
+
+CRITERIA_PATTERN_PLAIN = re.compile(
+    r'Acceptance Criteria:\s*\n((?:- .*(?:\n|$))+)',
     re.IGNORECASE
 )
 
@@ -41,6 +54,10 @@ CRITERIA_PATTERN = re.compile(
 def parse_description(description: str) -> tuple[str, str, str]:
     """
     Parse description into (story, success_criteria, remaining_description).
+
+    Handles two formats:
+    - Bold: **As a** X **I want** Y **So that** Z
+    - Plain: As a X\\nI want Y\\nSo that Z
 
     Returns:
         story: "As a X, I want Y, so that Z" (plain text, no markdown bold)
@@ -54,8 +71,11 @@ def parse_description(description: str) -> tuple[str, str, str]:
     success_criteria = ''
     remaining = description
 
-    # Extract user story
-    story_match = STORY_PATTERN.search(description)
+    # Try bold format first, then plain format
+    story_match = STORY_PATTERN_BOLD.search(description)
+    if not story_match:
+        story_match = STORY_PATTERN_PLAIN.search(description)
+
     if story_match:
         persona = story_match.group(1).strip()
         want = story_match.group(2).strip()
@@ -64,12 +84,17 @@ def parse_description(description: str) -> tuple[str, str, str]:
         # Remove matched portion from remaining
         remaining = remaining[:story_match.start()] + remaining[story_match.end():]
 
-    # Extract acceptance criteria
-    criteria_match = CRITERIA_PATTERN.search(remaining)
+    # Try bold criteria format first, then plain format
+    criteria_match = CRITERIA_PATTERN_BOLD.search(remaining)
+    header_text = '**Acceptance Criteria:**'
+    if not criteria_match:
+        criteria_match = CRITERIA_PATTERN_PLAIN.search(remaining)
+        header_text = 'Acceptance Criteria:'
+
     if criteria_match:
         success_criteria = criteria_match.group(1).strip()
         # Find and remove the full header + criteria block
-        full_match_start = remaining.find('**Acceptance Criteria:**')
+        full_match_start = remaining.find(header_text)
         if full_match_start != -1:
             remaining = remaining[:full_match_start] + remaining[criteria_match.end():]
 
