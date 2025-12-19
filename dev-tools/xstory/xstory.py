@@ -1292,11 +1292,6 @@ class DetailView(QWidget):
 
         self._update_nav_buttons()
 
-        # Update database name in header if available
-        if self.app.db_path:
-            import os
-            self.header_db_label.setText(os.path.basename(self.app.db_path))
-
         # Update breadcrumbs
         self._update_breadcrumbs(node)
 
