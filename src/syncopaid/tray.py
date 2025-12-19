@@ -2,10 +2,10 @@
 System tray UI module for SyncoPaid.
 
 Provides a minimal system tray interface with:
-- Custom SYNCOPaiD icon with state overlays:
-  - Normal = tracking active
-  - ❚❚ overlay = user manually paused
-  - 💤 overlay = no activity for 5min
+- State-specific icons:
+  - stopwatch-pictogram-green = tracking active
+  - stopwatch-pictogram-orange = user manually paused (with ❚❚ overlay)
+  - stopwatch-pictogram-faded = no activity for 5min (with 💤 overlay)
 - Right-click menu with Start/Pause, View Time, Start with Windows, About
 - Notifications for key events
 """
@@ -282,9 +282,9 @@ class TrayIcon:
     System tray icon manager.
 
     Provides a simple interface for controlling the tracker with three states:
-    - Custom SYNCOPaiD icon = tracking active
-    - Custom icon + ❚❚ overlay = user manually paused
-    - Custom icon + 💤 overlay = no activity for 5min
+    - stopwatch-pictogram-green = tracking active
+    - stopwatch-pictogram-orange + ❚❚ overlay = user manually paused
+    - stopwatch-pictogram-faded + 💤 overlay = no activity for 5min
 
     Menu options:
     - Start/Pause Tracking
@@ -327,7 +327,7 @@ class TrayIcon:
     
     def create_icon_image(self, state: str = "on") -> Optional["Image.Image"]:
         """
-        Create system tray icon using custom SYNCOPaiD icon with state overlays.
+        Create system tray icon using state-specific icon files.
 
         Args:
             state: One of "on" (tracking), "paused" (user paused), "inactive" (no activity)
@@ -340,9 +340,16 @@ class TrayIcon:
 
         size = 64
 
-        # Use custom SyncoPaid icon for all states
-        # Overlays are added for paused (❚❚) and inactive (💤) states
-        ico_path = get_resource_path("assets/SYNCOPaiD.ico")
+        # Select icon file based on state
+        # Active (on): green stopwatch
+        # Paused: orange stopwatch (user clicked pause)
+        # Inactive: faded stopwatch with sleep emoji overlay (5min idle)
+        if state == "inactive":
+            ico_path = get_resource_path("assets/stopwatch-pictogram-faded.ico")
+        elif state == "paused":
+            ico_path = get_resource_path("assets/stopwatch-pictogram-orange.ico")
+        else:  # "on" or default
+            ico_path = get_resource_path("assets/stopwatch-pictogram-green.ico")
 
         image = None
         if ico_path.exists():
