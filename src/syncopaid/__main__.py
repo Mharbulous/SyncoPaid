@@ -44,41 +44,6 @@ def _set_window_icon(root: tk.Tk) -> None:
         logging.warning(f"Could not set window icon: {e}")
 
 
-def _parse_duration_to_seconds(duration_str: str) -> float:
-    """
-    Parse a duration string like '2h 15m' or '45m' or '30s' back to seconds.
-
-    Args:
-        duration_str: Duration in format from format_duration()
-
-    Returns:
-        Duration in seconds
-    """
-    if not duration_str:
-        return 0.0
-
-    total = 0.0
-
-    # Handle hours
-    if 'h' in duration_str:
-        parts = duration_str.split('h')
-        total += int(parts[0].strip()) * 3600
-        duration_str = parts[1] if len(parts) > 1 else ''
-
-    # Handle minutes
-    if 'm' in duration_str:
-        parts = duration_str.split('m')
-        total += int(parts[0].strip()) * 60
-        duration_str = parts[1] if len(parts) > 1 else ''
-
-    # Handle seconds
-    if 's' in duration_str:
-        parts = duration_str.split('s')
-        total += int(parts[0].strip())
-
-    return total
-
-
 # Version info
 try:
     from syncopaid import __product_version__
@@ -463,168 +428,9 @@ class SyncoPaidApp:
                 scrollbar = ttk.Scrollbar(root, orient=tk.VERTICAL, command=tree.yview)
                 tree.configure(yscrollcommand=scrollbar.set)
 
-                # Function to recalculate and update header totals
-                def update_header_totals():
-                    """Recalculate and update the header with current totals."""
-                    total_secs = 0
-                    count = 0
-                    for item in tree.get_children():
-                        values = tree.item(item, 'values')
-                        dur_str = values[2]  # Duration is third column (index 2)
-                        if dur_str:
-                            # Parse duration string back to seconds
-                            total_secs += _parse_duration_to_seconds(dur_str)
-                        count += 1
-                    header_label.config(
-                        text=f"Activity: {format_duration(total_secs)} ({count} events)"
-                    )
-
-                # Function to handle command execution
-                def execute_command(event=None):
-                    """Execute command entered in the text field."""
-                    command = command_entry.get().strip().lower()
-
-                    if not command:
-                        return
-
-                    try:
-                        # Check for quit command first (case insensitive)
-                        if command == "quit":
-                            # Close the view time window
-                            root.destroy()
-                            # Quit the application
-                            logging.info("Quit command received from command field")
-                            # Stop the tray icon first to release the main thread event loop
-                            if self.tray and self.tray.icon:
-                                self.tray.icon.stop()
-                            # Then run cleanup
-                            self.quit_app()
-                            return
-
-                        # Check for delete command
-                        if command == "delete":
-                            # Get selected items
-                            selected = tree.selection()
-
-                            if not selected:
-                                messagebox.showwarning(
-                                    "No Selection",
-                                    "Please select one or more entries to delete.",
-                                    parent=root
-                                )
-                                command_entry.delete(0, tk.END)
-                                return
-
-                            # Get event IDs from selected rows
-                            event_ids = []
-                            for item in selected:
-                                values = tree.item(item, 'values')
-                                event_id = int(values[0])  # ID is first column
-                                event_ids.append(event_id)
-
-                            # Confirm deletion
-                            count = len(event_ids)
-                            confirm = messagebox.askyesno(
-                                "Confirm Deletion",
-                                f"Delete {count} selected {'entry' if count == 1 else 'entries'}?\n\n"
-                                f"This action cannot be undone.",
-                                parent=root
-                            )
-
-                            if not confirm:
-                                command_entry.delete(0, tk.END)
-                                return
-
-                            # Delete from database
-                            deleted = self.database.delete_events_by_ids(event_ids)
-                            logging.info(f"Deleted {deleted} events via delete command")
-
-                            # Remove from Treeview
-                            for item in selected:
-                                tree.delete(item)
-
-                            # Update header totals
-                            update_header_totals()
-
-                            # Show success message
-                            messagebox.showinfo(
-                                "Deleted",
-                                f"Successfully deleted {deleted} {'entry' if deleted == 1 else 'entries'}.",
-                                parent=root
-                            )
-
-                            command_entry.delete(0, tk.END)
-                            return
-
-                        # Determine which directory to open based on command
-                        if command == "screenshots":
-                            # Main screenshots directory
-                            target_dir = get_screenshot_directory().parent
-                        elif command == "periodic":
-                            # Periodic screenshots subdirectory
-                            target_dir = get_screenshot_directory()
-                        elif command == "actions":
-                            # Actions screenshots subdirectory
-                            target_dir = get_action_screenshot_directory()
-                        else:
-                            # Unknown command
-                            messagebox.showwarning(
-                                "Unknown Command",
-                                f"Unknown command: '{command}'\n\n"
-                                f"Available commands:\n"
-                                f"  • delete - Delete selected entries\n"
-                                f"  • screenshots - Open main screenshots folder\n"
-                                f"  • periodic - Open periodic screenshots folder\n"
-                                f"  • actions - Open action screenshots folder\n"
-                                f"  • quit - Close application",
-                                parent=root
-                            )
-                            return
-
-                        # Ensure the directory exists
-                        target_dir.mkdir(parents=True, exist_ok=True)
-
-                        # Open in Windows Explorer
-                        os.startfile(str(target_dir))
-                        logging.info(f"Opened directory: {target_dir}")
-
-                        # Clear the command entry
-                        command_entry.delete(0, tk.END)
-
-                    except Exception as e:
-                        logging.error(f"Error executing command '{command}': {e}")
-                        messagebox.showerror(
-                            "Error",
-                            f"Could not open directory:\n{str(e)}",
-                            parent=root
-                        )
-
-                # Button frame - pack BEFORE treeview so it reserves space at top
+                # Button frame
                 btn_frame = tk.Frame(root, pady=5)
                 btn_frame.pack(fill=tk.X, side=tk.TOP)
-
-                # Command label
-                tk.Label(
-                    btn_frame,
-                    text="Command:",
-                    font=('Segoe UI', 9)
-                ).pack(side=tk.LEFT, padx=(10, 5))
-
-                # Command entry field
-                command_entry = tk.Entry(
-                    btn_frame,
-                    width=30,
-                    font=('Segoe UI', 9)
-                )
-                command_entry.pack(side=tk.LEFT, padx=5)
-                command_entry.bind('<Return>', execute_command)
-
-                # Help text
-                tk.Label(
-                    btn_frame,                    
-                    font=('Segoe UI', 8),
-                    foreground='gray'
-                ).pack(side=tk.LEFT, padx=5)
 
                 tk.Button(
                     btn_frame,
@@ -633,7 +439,7 @@ class SyncoPaidApp:
                     width=10
                 ).pack(side=tk.RIGHT, padx=10)
 
-                # Pack treeview and scrollbar AFTER button frame
+                # Pack treeview and scrollbar
                 tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
                 scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
