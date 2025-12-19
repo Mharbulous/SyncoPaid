@@ -25,19 +25,17 @@ from syncopaid.config import ConfigManager, print_config
 from syncopaid.database import Database, format_duration
 from syncopaid.tracker import TrackerLoop
 from syncopaid.exporter import Exporter
-from syncopaid.tray import TrayIcon, sync_startup_registry
+from syncopaid.tray import TrayIcon, sync_startup_registry, get_resource_path
 from syncopaid.screenshot import ScreenshotWorker, get_screenshot_directory
 from syncopaid.action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
-
-# Paths to the application icons
-_ICON_VIEWTIME_ICO_PATH = Path(__file__).parent / "assets" / "SYNCOPaiD.ico"
-
 
 def _set_window_icon(root: tk.Tk) -> None:
     """Set the SyncoPaid icon on a tkinter window (View Time window)."""
     try:
-        if sys.platform == 'win32' and _ICON_VIEWTIME_ICO_PATH.exists():
-            root.iconbitmap(str(_ICON_VIEWTIME_ICO_PATH))
+        if sys.platform == 'win32':
+            icon_path = get_resource_path("assets/SYNCOPaiD.ico")
+            if icon_path.exists():
+                root.iconbitmap(str(icon_path))
     except Exception as e:
         logging.debug(f"Could not set window icon: {e}")
 
