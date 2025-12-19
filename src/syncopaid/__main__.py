@@ -362,6 +362,38 @@ class SyncoPaidApp:
                 menubar = tk.Menu(root)
                 root.config(menu=menubar)
 
+                # File menu with Exit
+                file_menu = tk.Menu(menubar, tearoff=0)
+                menubar.add_cascade(label="File", menu=file_menu)
+
+                def exit_program():
+                    """Exit the application."""
+                    root.destroy()
+                    logging.info("Exit command received from File menu")
+                    if self.tray and self.tray.icon:
+                        self.tray.icon.stop()
+                    self.quit_app()
+
+                file_menu.add_command(label="Exit", command=exit_program)
+
+                # View menu with View Screenshots
+                view_menu = tk.Menu(menubar, tearoff=0)
+                menubar.add_cascade(label="View", menu=view_menu)
+
+                def view_screenshots():
+                    """Open screenshots folder in File Explorer."""
+                    screenshots_dir = get_screenshot_directory().parent
+                    if screenshots_dir.exists():
+                        os.startfile(str(screenshots_dir))
+                    else:
+                        messagebox.showwarning(
+                            "Screenshots",
+                            f"Screenshots folder not found:\n{screenshots_dir}",
+                            parent=root
+                        )
+
+                view_menu.add_command(label="View Screenshots", command=view_screenshots)
+
                 # Help menu with About
                 help_menu = tk.Menu(menubar, tearoff=0)
                 menubar.add_cascade(label="Help", menu=help_menu)
