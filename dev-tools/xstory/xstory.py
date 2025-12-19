@@ -34,13 +34,13 @@ except ImportError:
 
 # Status colors (22-status rainbow system - optimized for visibility)
 STATUS_COLORS = {
-    # Dispositions (reds/pinks - terminal states)
-    'infeasible': '#CC0000',   # Deep Red
-    'rejected': '#CC3300',     # Red-Orange
-    'duplicative': '#CC4400',  # Dark Orange (algorithm-detected duplicate)
-    'legacy': '#CC00CC',       # Magenta
-    'deprecated': '#CC0099',   # Fuchsia
-    'archived': '#CC0066',     # Deep Pink
+    # Dispositions (consistent red - terminal states, harshest to mildest)
+    'infeasible': '#CC0000',   # Red (harshest - fundamentally impossible)
+    'rejected': '#CC0000',     # Red (explicitly declined)
+    'duplicative': '#CC0000',  # Red (redundant with another story)
+    'deprecated': '#CC0000',   # Red (being phased out)
+    'legacy': '#CC0000',       # Red (outdated/superseded)
+    'archived': '#CC0000',     # Red (mildest - final cold storage)
     # Stages (greens/blues - workflow progression)
     'concept': '#CC9900',      # Goldenrod
     'approved': '#00CC33',     # Spring Green
@@ -86,7 +86,7 @@ DISPOSITION_VALUES = {'rejected', 'infeasible', 'duplicative', 'legacy', 'deprec
 STAGE_ORDER = ['concept', 'approved', 'planned', 'active',
                'reviewing', 'verifying', 'implemented', 'ready', 'released']
 HOLD_REASON_ORDER = ['broken', 'conflict', 'blocked', 'pending', 'paused', 'polish', 'queued', 'wishlist']
-DISPOSITION_ORDER = ['rejected', 'infeasible', 'duplicative', 'legacy', 'deprecated', 'archived']
+DISPOSITION_ORDER = ['infeasible', 'rejected', 'duplicative', 'deprecated', 'legacy', 'archived']
 
 # Hold reason icons for visual indication in tree view
 HOLD_ICONS = {
