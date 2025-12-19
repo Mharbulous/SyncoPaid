@@ -6,7 +6,7 @@ a = Analysis(
     pathex=['src'],
     binaries=[],
     datas=[
-        ('src/syncopaid/assets/SYNCOPaiD.ico', '.'),  # Include icon in root of bundle
+        ('src/syncopaid/assets/SYNCOPaiD.ico', 'syncopaid/assets'),  # View Time window icon
         ('src/syncopaid/assets/stopwatch-pictogram-faded.ico', 'syncopaid/assets'),
         ('src/syncopaid/assets/stopwatch-pictogram-orange.ico', 'syncopaid/assets'),
         ('src/syncopaid/assets/stopwatch-pictogram-green.ico', 'syncopaid/assets'),

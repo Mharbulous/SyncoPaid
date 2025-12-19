@@ -34,10 +34,14 @@ def _set_window_icon(root: tk.Tk) -> None:
     try:
         if sys.platform == 'win32':
             icon_path = get_resource_path("assets/SYNCOPaiD.ico")
+            logging.debug(f"Window icon path: {icon_path}")
             if icon_path.exists():
                 root.iconbitmap(str(icon_path))
+                logging.debug("Window icon set successfully")
+            else:
+                logging.warning(f"Window icon not found: {icon_path}")
     except Exception as e:
-        logging.debug(f"Could not set window icon: {e}")
+        logging.warning(f"Could not set window icon: {e}")
 
 
 def _parse_duration_to_seconds(duration_str: str) -> float:
