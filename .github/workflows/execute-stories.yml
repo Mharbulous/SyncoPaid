@@ -19,6 +19,7 @@ permissions:
 jobs:
   execute-stories:
     runs-on: ubuntu-latest
+    timeout-minutes: 60  # Explicit job timeout
 
     steps:
       - name: Checkout repository
@@ -92,8 +93,9 @@ jobs:
 
           # Tool permissions for file operations, database access, git, and testing
           claude_args: |
-            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pytest:*),Bash(npm:*),Skill,SlashCommand,TodoWrite"
+            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pytest:*),Bash(npm:*),Bash(pip:*),BashOutput,Skill,SlashCommand,TodoWrite"
             --model claude-sonnet-4-5-20250929
+            --max-turns 100
 
       - name: Report Token Usage
         if: always()

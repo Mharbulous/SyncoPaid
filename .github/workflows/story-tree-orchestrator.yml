@@ -148,7 +148,7 @@ jobs:
               # Invoke Claude Code for planning with JSON output
               claude_output=$(claude --print --dangerously-skip-permissions \
                 --output-format json \
-                --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Skill,SlashCommand,TodoWrite" \
+                --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pip:*),BashOutput,Skill,SlashCommand,TodoWrite" \
                 --model claude-opus-4-5-20251101 \
                 "MODE: Story Planning (CI - autonomous)
 
@@ -218,7 +218,7 @@ jobs:
               # Invoke Claude Code for story generation with JSON output
               claude_output=$(claude --print --dangerously-skip-permissions \
                 --output-format json \
-                --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Skill,SlashCommand,TodoWrite" \
+                --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pip:*),BashOutput,Skill,SlashCommand,TodoWrite" \
                 --model claude-sonnet-4-5-20250929 \
                 "MODE: Story Generation (CI - autonomous)
 
@@ -280,7 +280,7 @@ jobs:
             # Invoke Claude Code for story vetting with JSON output
             vet_output=$(claude --print --dangerously-skip-permissions \
               --output-format json \
-              --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Skill,SlashCommand,TodoWrite" \
+              --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pip:*),BashOutput,Skill,SlashCommand,TodoWrite" \
               --model claude-sonnet-4-5-20250929 \
               "MODE: Story Vetting (CI - autonomous)
 

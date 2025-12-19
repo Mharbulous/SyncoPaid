@@ -19,6 +19,7 @@ permissions:
 jobs:
   visualize:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     name: Update vision documentation
 
     steps:
@@ -57,8 +58,9 @@ jobs:
 
           # Tool permissions for file operations, database access, and git
           claude_args: |
-            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Skill,SlashCommand,TodoWrite"
+            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pip:*),BashOutput,Skill,SlashCommand,TodoWrite"
             --model claude-sonnet-4-5-20250929
+            --max-turns 30
 
       - name: Workflow summary
         run: |

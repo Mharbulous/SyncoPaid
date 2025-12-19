@@ -20,6 +20,7 @@ permissions:
 jobs:
   review-stories:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -225,8 +226,9 @@ jobs:
           # Tool permissions for file operations, database access, git, and testing
           # Using Opus 4.5 for code review - better judgment on deferrable vs blocking issues
           claude_args: |
-            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pytest:*),Skill,SlashCommand,TodoWrite"
+            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pytest:*),Bash(pip:*),BashOutput,Skill,SlashCommand,TodoWrite"
             --model claude-opus-4-5-20250929
+            --max-turns 50
 
       - name: Report Token Usage
         if: always()
