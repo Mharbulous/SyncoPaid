@@ -569,7 +569,7 @@ class DetailView(QWidget):
 
         # Combined header bar with navigation, db label, and breadcrumbs
         header_widget = QWidget()
-        header_widget.setFixedHeight(24)
+        header_widget.setFixedHeight(30)
         header_widget.setStyleSheet("""
             QWidget {
                 background-color: #f8f9fa;
@@ -615,16 +615,6 @@ class DetailView(QWidget):
         header_layout.addWidget(self.forward_btn)
 
         header_layout.addSpacing(8)
-
-        # Database label
-        self.header_db_label = QLabel("story-tree.db")
-        self.header_db_label.setStyleSheet("color: #6c757d; font-size: 8pt;")
-        header_layout.addWidget(self.header_db_label)
-
-        # Separator
-        sep_label = QLabel("|")
-        sep_label.setStyleSheet("color: #ced4da; font-size: 8pt;")
-        header_layout.addWidget(sep_label)
 
         # Breadcrumb area (inline with header)
         self.breadcrumb_widget = QWidget()
@@ -800,34 +790,22 @@ class DetailView(QWidget):
             ancestors.insert(0, parent)
             current = parent
 
-        # Add root link if we have ancestors or if current node is not root
-        if ancestors or node.parent_id:
-            root_btn = QPushButton("Root")
-            root_btn.setStyleSheet("""
-                QPushButton {
-                    background: transparent;
-                    border: none;
-                    color: #0066CC;
-                    padding: 4px 8px;
-                    font-size: 9pt;
-                }
-                QPushButton:hover { background-color: #e9ecef; border-radius: 4px; }
-            """)
-            root_btn.setCursor(Qt.PointingHandCursor)
-            if 'root' in self.app.nodes:
-                root_btn.clicked.connect(lambda: self.show_node('root'))
-            self.breadcrumb_layout.addWidget(root_btn)
-
-        # Add ancestors
+        # Add ancestors (root node shows title only, others show "id - title")
+        is_first = True
         for ancestor in ancestors:
-            # Arrow separator
-            arrow = QLabel(" > ")
-            arrow.setStyleSheet("color: #6c757d; font-size: 9pt;")
-            self.breadcrumb_layout.addWidget(arrow)
+            # Arrow separator (skip for first ancestor)
+            if not is_first:
+                arrow = QLabel(" > ")
+                arrow.setStyleSheet("color: #6c757d; font-size: 9pt;")
+                self.breadcrumb_layout.addWidget(arrow)
+            is_first = False
 
-            # Ancestor link
+            # Ancestor link - root node shows only title
             title = ancestor.title[:25] + '...' if len(ancestor.title) > 25 else ancestor.title
-            btn = QPushButton(f"{ancestor.id} - {title}")
+            if ancestor.id == 'root':
+                btn = QPushButton(title)
+            else:
+                btn = QPushButton(f"{ancestor.id} - {title}")
             btn.setStyleSheet("""
                 QPushButton {
                     background: transparent;
@@ -845,13 +823,17 @@ class DetailView(QWidget):
             self.breadcrumb_layout.addWidget(btn)
 
         # Add current node (not clickable)
-        if ancestors or node.parent_id:
+        if ancestors:
             arrow = QLabel(" > ")
             arrow.setStyleSheet("color: #6c757d; font-size: 9pt;")
             self.breadcrumb_layout.addWidget(arrow)
 
+        # Current node - root shows title only, others show "id - title"
         title = node.title[:30] + '...' if len(node.title) > 30 else node.title
-        current_label = QLabel(f"{node.id} - {title}")
+        if node.id == 'root':
+            current_label = QLabel(title)
+        else:
+            current_label = QLabel(f"{node.id} - {title}")
         current_label.setStyleSheet("color: #212529; font-weight: 500; font-size: 9pt; padding: 4px 8px;")
         self.breadcrumb_layout.addWidget(current_label)
 
