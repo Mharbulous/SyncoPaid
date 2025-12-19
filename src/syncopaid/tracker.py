@@ -350,6 +350,7 @@ class TrackerLoop:
                 state = {
                     'app': window['app'],
                     'title': window['title'],
+                    'url': window.get('url'),  # Extracted context (URL, subject, or filepath)
                     'is_idle': is_idle
                 }
 
