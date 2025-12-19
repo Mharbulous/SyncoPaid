@@ -430,7 +430,7 @@ class StoryNode:
                  updated_at: str = '', last_implemented: str = '',
                  stage: str = '', hold_reason: Optional[str] = None,
                  disposition: Optional[str] = None, descendants_count: int = 0,
-                 story: str = ''):
+                 success_criteria: str = ''):
         self.id = id
         self.title = title
         self.status = status  # Effective status: COALESCE(disposition, hold_reason, stage)
@@ -448,7 +448,7 @@ class StoryNode:
         self.hold_reason = hold_reason
         self.disposition = disposition
         self.descendants_count = descendants_count
-        self.story = story  # User story text
+        self.success_criteria = success_criteria
         self.children: List['StoryNode'] = []
 
 
@@ -1148,6 +1148,9 @@ class DetailView(QWidget):
         # Metadata Card
         self._add_sidebar_metadata(node)
 
+        # Acceptance Criteria Card
+        self._add_acceptance_criteria_card(node)
+
         self.sidebar_layout.addStretch()
 
     def _add_sidebar_metadata(self, node: StoryNode):
@@ -1237,6 +1240,84 @@ class DetailView(QWidget):
         desc_row.addWidget(desc_value)
         desc_row.addStretch()
         card_layout.addLayout(desc_row)
+
+        self.sidebar_layout.addWidget(card)
+
+    def _add_acceptance_criteria_card(self, node: StoryNode):
+        """Add acceptance criteria card to sidebar."""
+        if not node.success_criteria:
+            return
+
+        card = QWidget()
+        card.setStyleSheet("""
+            QWidget {
+                background-color: #ffffff;
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+            }
+        """)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(16, 12, 16, 12)
+        card_layout.setSpacing(8)
+
+        # Header
+        header = QLabel("Acceptance Criteria")
+        header.setStyleSheet("""
+            color: #6c757d;
+            font-size: 9pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: transparent;
+        """)
+        card_layout.addWidget(header)
+
+        # Parse and display criteria items
+        criteria_lines = node.success_criteria.strip().split('\n')
+        for line in criteria_lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # Check if this is a checkbox item
+            is_checked = False
+            display_text = line
+
+            if line.startswith('- [x]') or line.startswith('- [X]'):
+                is_checked = True
+                display_text = line[5:].strip()
+            elif line.startswith('- [ ]'):
+                is_checked = False
+                display_text = line[5:].strip()
+            elif line.startswith('- '):
+                display_text = line[2:].strip()
+
+            # Create row for criterion
+            row = QHBoxLayout()
+            row.setSpacing(6)
+
+            # Checkbox indicator
+            checkbox_label = QLabel("✓" if is_checked else "○")
+            checkbox_label.setStyleSheet(f"""
+                color: {'#28a745' if is_checked else '#adb5bd'};
+                font-size: 10pt;
+                background: transparent;
+            """)
+            checkbox_label.setFixedWidth(16)
+            row.addWidget(checkbox_label)
+
+            # Criterion text
+            text_label = QLabel(display_text)
+            text_label.setStyleSheet(f"""
+                color: {'#6c757d' if is_checked else '#212529'};
+                font-size: 9pt;
+                background: transparent;
+                {'text-decoration: line-through;' if is_checked else ''}
+            """)
+            text_label.setWordWrap(True)
+            row.addWidget(text_label, 1)
+
+            card_layout.addLayout(row)
 
         self.sidebar_layout.addWidget(card)
 
@@ -2117,7 +2198,7 @@ class XstoryExplorer(QMainWindow):
                 s.id, s.title,
                 COALESCE(s.disposition, s.hold_reason, s.stage) as status,
                 s.stage, s.hold_reason, s.disposition,
-                s.capacity, s.description, s.story,
+                s.capacity, s.description, s.success_criteria,
                 s.notes, s.project_path, s.created_at, s.updated_at, s.last_implemented,
                 COALESCE(
                     (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id AND ancestor_id != s.id),
@@ -2150,7 +2231,7 @@ class XstoryExplorer(QMainWindow):
                 hold_reason=row['hold_reason'],
                 disposition=row['disposition'],
                 descendants_count=row['descendants_count'] or 0,
-                story=row['story'] or ''
+                success_criteria=row['success_criteria'] or ''
             )
             self.nodes[node.id] = node
 
