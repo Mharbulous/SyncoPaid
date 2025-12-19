@@ -190,6 +190,11 @@ def get_active_window() -> Dict[str, Optional[str]]:
 
         # Extract contextual information
         url = extract_context(process, title)
+        if url:
+            logging.debug(f"Extracted context from {process}: {url[:50]}...")  # Log first 50 chars
+        elif process and title:
+            # Only log if we had a valid app and title but extraction returned None
+            logging.debug(f"No context extracted from {process}: {title[:50]}...")
 
         return {"app": process, "title": title, "pid": pid, "url": url}
 
