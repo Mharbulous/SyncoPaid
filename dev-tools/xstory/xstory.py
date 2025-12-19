@@ -562,43 +562,120 @@ class DetailView(QWidget):
         self._setup_ui()
 
     def _setup_ui(self):
-        """Set up the detail view UI."""
+        """Set up the detail view UI with two-column layout."""
         main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        # Navigation toolbar
-        nav_layout = QHBoxLayout()
-        self.back_btn = QPushButton("< Back")
+        # Header bar with navigation and role toggle
+        header_widget = QWidget()
+        header_widget.setStyleSheet("""
+            QWidget {
+                background-color: #f8f9fa;
+                border-bottom: 1px solid #dee2e6;
+            }
+        """)
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(12, 8, 12, 8)
+
+        # Back button
+        self.back_btn = QPushButton("<")
         self.back_btn.clicked.connect(self._go_back)
-        self.back_btn.setFixedWidth(80)
-        nav_layout.addWidget(self.back_btn)
+        self.back_btn.setFixedSize(32, 32)
+        self.back_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #e9ecef; }
+            QPushButton:disabled { color: #adb5bd; border-color: #dee2e6; }
+        """)
+        header_layout.addWidget(self.back_btn)
 
-        self.forward_btn = QPushButton("Forward >")
+        # Forward button
+        self.forward_btn = QPushButton(">")
         self.forward_btn.clicked.connect(self._go_forward)
-        self.forward_btn.setFixedWidth(80)
-        nav_layout.addWidget(self.forward_btn)
+        self.forward_btn.setFixedSize(32, 32)
+        self.forward_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #e9ecef; }
+            QPushButton:disabled { color: #adb5bd; border-color: #dee2e6; }
+        """)
+        header_layout.addWidget(self.forward_btn)
 
-        nav_layout.addStretch()
+        header_layout.addSpacing(12)
 
-        main_layout.addLayout(nav_layout)
+        # Database label
+        self.header_db_label = QLabel("story-tree.db")
+        self.header_db_label.setStyleSheet("color: #6c757d; font-size: 9pt;")
+        header_layout.addWidget(self.header_db_label)
+
+        header_layout.addStretch()
+
+        main_layout.addWidget(header_widget)
+
+        # Breadcrumb navigation bar
+        self.breadcrumb_widget = QWidget()
+        self.breadcrumb_widget.setStyleSheet("""
+            QWidget {
+                background-color: #ffffff;
+                border-bottom: 1px solid #dee2e6;
+            }
+        """)
+        self.breadcrumb_layout = QHBoxLayout(self.breadcrumb_widget)
+        self.breadcrumb_layout.setContentsMargins(12, 6, 12, 6)
+        self.breadcrumb_layout.setSpacing(4)
+        main_layout.addWidget(self.breadcrumb_widget)
+
+        # Two-column layout (main content + sidebar)
+        content_splitter = QSplitter(Qt.Horizontal)
+        content_splitter.setStyleSheet("QSplitter::handle { background-color: #dee2e6; }")
+
+        # Left: Main content area
+        main_content_widget = QWidget()
+        main_content_widget.setStyleSheet("background-color: #ffffff;")
+        main_content_layout = QVBoxLayout(main_content_widget)
+        main_content_layout.setContentsMargins(0, 0, 0, 0)
+        main_content_layout.setSpacing(0)
 
         # Scrollable content area
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setFrameShape(QFrame.NoFrame)
+        scroll_area.setStyleSheet("QScrollArea { border: none; background-color: #ffffff; }")
 
         self.content_widget = QWidget()
+        self.content_widget.setStyleSheet("background-color: #ffffff;")
         self.content_layout = QVBoxLayout(self.content_widget)
+        self.content_layout.setContentsMargins(24, 16, 24, 16)
+        self.content_layout.setSpacing(16)
         self.content_layout.setAlignment(Qt.AlignTop)
 
         scroll_area.setWidget(self.content_widget)
-        main_layout.addWidget(scroll_area)
+        main_content_layout.addWidget(scroll_area)
 
-        # Footer with status buttons (left) and Close button (right)
-        self.footer_layout = QHBoxLayout()
+        # Footer with status buttons
+        footer_widget = QWidget()
+        footer_widget.setStyleSheet("""
+            QWidget {
+                background-color: #f8f9fa;
+                border-top: 1px solid #dee2e6;
+            }
+        """)
+        self.footer_layout = QHBoxLayout(footer_widget)
+        self.footer_layout.setContentsMargins(16, 12, 16, 12)
         self.footer_layout.setSpacing(8)
 
         # Container for status buttons (left-aligned)
         self.status_buttons_widget = QWidget()
+        self.status_buttons_widget.setStyleSheet("background: transparent;")
         self.status_buttons_layout = QHBoxLayout(self.status_buttons_widget)
         self.status_buttons_layout.setContentsMargins(0, 0, 0, 0)
         self.status_buttons_layout.setSpacing(8)
@@ -610,9 +687,48 @@ class DetailView(QWidget):
         close_btn = QPushButton("Close")
         close_btn.clicked.connect(self._close)
         close_btn.setFixedWidth(80)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                padding: 6px 12px;
+            }
+            QPushButton:hover { background-color: #e9ecef; }
+        """)
         self.footer_layout.addWidget(close_btn)
 
-        main_layout.addLayout(self.footer_layout)
+        main_content_layout.addWidget(footer_widget)
+        content_splitter.addWidget(main_content_widget)
+
+        # Right: Sidebar
+        self.sidebar_widget = QWidget()
+        self.sidebar_widget.setMinimumWidth(280)
+        self.sidebar_widget.setMaximumWidth(320)
+        self.sidebar_widget.setStyleSheet("background-color: #f8f9fa;")
+
+        sidebar_scroll = QScrollArea()
+        sidebar_scroll.setWidgetResizable(True)
+        sidebar_scroll.setFrameShape(QFrame.NoFrame)
+        sidebar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        sidebar_scroll.setStyleSheet("QScrollArea { border: none; background-color: #f8f9fa; }")
+
+        sidebar_content = QWidget()
+        sidebar_content.setStyleSheet("background-color: #f8f9fa;")
+        self.sidebar_layout = QVBoxLayout(sidebar_content)
+        self.sidebar_layout.setContentsMargins(16, 16, 16, 16)
+        self.sidebar_layout.setSpacing(16)
+        self.sidebar_layout.setAlignment(Qt.AlignTop)
+
+        sidebar_scroll.setWidget(sidebar_content)
+        sidebar_outer_layout = QVBoxLayout(self.sidebar_widget)
+        sidebar_outer_layout.setContentsMargins(0, 0, 0, 0)
+        sidebar_outer_layout.addWidget(sidebar_scroll)
+
+        content_splitter.addWidget(self.sidebar_widget)
+        content_splitter.setSizes([600, 300])
+
+        main_layout.addWidget(content_splitter)
 
         self._update_nav_buttons()
 
@@ -665,54 +781,662 @@ class DetailView(QWidget):
             }
         return None
 
+    def _update_breadcrumbs(self, node: StoryNode):
+        """Update breadcrumb navigation showing node hierarchy."""
+        # Clear existing breadcrumbs
+        while self.breadcrumb_layout.count():
+            item = self.breadcrumb_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        # Build ancestor chain
+        ancestors = []
+        current = node
+        while current.parent_id and current.parent_id in self.app.nodes:
+            parent = self.app.nodes[current.parent_id]
+            ancestors.insert(0, parent)
+            current = parent
+
+        # Add root link if we have ancestors or if current node is not root
+        if ancestors or node.parent_id:
+            root_btn = QPushButton("Root")
+            root_btn.setStyleSheet("""
+                QPushButton {
+                    background: transparent;
+                    border: none;
+                    color: #0066CC;
+                    padding: 4px 8px;
+                    font-size: 9pt;
+                }
+                QPushButton:hover { background-color: #e9ecef; border-radius: 4px; }
+            """)
+            root_btn.setCursor(Qt.PointingHandCursor)
+            if 'root' in self.app.nodes:
+                root_btn.clicked.connect(lambda: self.show_node('root'))
+            self.breadcrumb_layout.addWidget(root_btn)
+
+        # Add ancestors
+        for ancestor in ancestors:
+            # Arrow separator
+            arrow = QLabel(" > ")
+            arrow.setStyleSheet("color: #6c757d; font-size: 9pt;")
+            self.breadcrumb_layout.addWidget(arrow)
+
+            # Ancestor link
+            title = ancestor.title[:25] + '...' if len(ancestor.title) > 25 else ancestor.title
+            btn = QPushButton(f"{ancestor.id} - {title}")
+            btn.setStyleSheet("""
+                QPushButton {
+                    background: transparent;
+                    border: none;
+                    color: #0066CC;
+                    padding: 4px 8px;
+                    font-size: 9pt;
+                    text-align: left;
+                }
+                QPushButton:hover { background-color: #e9ecef; border-radius: 4px; }
+            """)
+            btn.setCursor(Qt.PointingHandCursor)
+            ancestor_id = ancestor.id
+            btn.clicked.connect(lambda checked, aid=ancestor_id: self.show_node(aid))
+            self.breadcrumb_layout.addWidget(btn)
+
+        # Add current node (not clickable)
+        if ancestors or node.parent_id:
+            arrow = QLabel(" > ")
+            arrow.setStyleSheet("color: #6c757d; font-size: 9pt;")
+            self.breadcrumb_layout.addWidget(arrow)
+
+        title = node.title[:30] + '...' if len(node.title) > 30 else node.title
+        current_label = QLabel(f"{node.id} - {title}")
+        current_label.setStyleSheet("color: #212529; font-weight: 500; font-size: 9pt; padding: 4px 8px;")
+        self.breadcrumb_layout.addWidget(current_label)
+
+        self.breadcrumb_layout.addStretch()
+
+    def _add_title_section(self, node: StoryNode):
+        """Add the title section with ID badge and stage badge."""
+        # Header row with ID badge, stage badge, and title
+        header_widget = QWidget()
+        header_widget.setStyleSheet("background: transparent;")
+        header_layout = QVBoxLayout(header_widget)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(8)
+
+        # Top row: ID badge + Stage badge
+        badges_row = QHBoxLayout()
+        badges_row.setSpacing(12)
+
+        # ID badge
+        id_badge = QLabel(node.id)
+        id_badge.setStyleSheet("""
+            background-color: #e9ecef;
+            color: #495057;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 10pt;
+        """)
+        badges_row.addWidget(id_badge)
+
+        # Stage badge with icon
+        stage_color = STATUS_COLORS.get(node.stage, '#666666')
+        stage_icon = self._get_stage_icon(node)
+        stage_badge = QLabel(f"{stage_icon} {node.stage}")
+        stage_badge.setStyleSheet(f"""
+            background-color: {self._lighten_color(stage_color, 0.85)};
+            color: {stage_color};
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 9pt;
+            border: 1px solid {self._lighten_color(stage_color, 0.7)};
+        """)
+        badges_row.addWidget(stage_badge)
+
+        # Hold/Disposition badge if applicable
+        if node.disposition:
+            disp_color = '#CC0000'
+            disp_icon = DISPOSITION_ICONS.get(node.disposition, '')
+            disp_badge = QLabel(f"{disp_icon} {node.disposition}")
+            disp_badge.setStyleSheet(f"""
+                background-color: #fce4e4;
+                color: {disp_color};
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-weight: bold;
+                font-size: 9pt;
+                border: 1px solid #f5c6c6;
+            """)
+            badges_row.addWidget(disp_badge)
+        elif node.hold_reason:
+            hold_color = STATUS_COLORS.get(node.hold_reason, '#888888')
+            hold_icon = HOLD_ICONS.get(node.hold_reason, '')
+            hold_badge = QLabel(f"{hold_icon} {node.hold_reason}")
+            hold_badge.setStyleSheet(f"""
+                background-color: {self._lighten_color(hold_color, 0.85)};
+                color: {hold_color};
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-weight: bold;
+                font-size: 9pt;
+                border: 1px solid {self._lighten_color(hold_color, 0.7)};
+            """)
+            badges_row.addWidget(hold_badge)
+
+        badges_row.addStretch()
+        header_layout.addLayout(badges_row)
+
+        # Title
+        title_label = QLabel(node.title)
+        title_label.setStyleSheet("font-size: 18pt; font-weight: bold; color: #212529;")
+        title_label.setWordWrap(True)
+        title_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        header_layout.addWidget(title_label)
+
+        self.content_layout.addWidget(header_widget)
+
+    def _get_stage_icon(self, node: StoryNode) -> str:
+        """Get appropriate icon for node's stage."""
+        stage_icons = {
+            'concept': '*',
+            'approved': 'v',
+            'planned': '#',
+            'active': '>',
+            'reviewing': '?',
+            'verifying': '!',
+            'implemented': 'o',
+            'ready': '+',
+            'released': '^',
+        }
+        return stage_icons.get(node.stage, '>')
+
+    def _lighten_color(self, hex_color: str, factor: float = 0.85) -> str:
+        """Lighten a hex color by mixing with white."""
+        hex_color = hex_color.lstrip('#')
+        r = int(hex_color[0:2], 16)
+        g = int(hex_color[2:4], 16)
+        b = int(hex_color[4:6], 16)
+        r = int(r + (255 - r) * factor)
+        g = int(g + (255 - g) * factor)
+        b = int(b + (255 - b) * factor)
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def _add_progress_bar(self, node: StoryNode):
+        """Add workflow progress bar showing stage progression."""
+        progress_widget = QWidget()
+        progress_widget.setStyleSheet("background: transparent;")
+        progress_layout = QVBoxLayout(progress_widget)
+        progress_layout.setContentsMargins(0, 0, 0, 0)
+        progress_layout.setSpacing(4)
+
+        # Progress header
+        header_row = QHBoxLayout()
+        header_label = QLabel("Workflow Progress")
+        header_label.setStyleSheet("color: #6c757d; font-size: 9pt;")
+        header_row.addWidget(header_label)
+        header_row.addStretch()
+
+        # Calculate step
+        stage_index = STAGE_ORDER.index(node.stage) if node.stage in STAGE_ORDER else 0
+        step_label = QLabel(f"Step {stage_index + 1} of {len(STAGE_ORDER)}")
+        step_label.setStyleSheet("color: #6c757d; font-size: 9pt;")
+        header_row.addWidget(step_label)
+        progress_layout.addLayout(header_row)
+
+        # Progress bar
+        progress_percent = ((stage_index + 1) / len(STAGE_ORDER)) * 100
+        stage_color = STATUS_COLORS.get(node.stage, '#666666')
+
+        bar_widget = QWidget()
+        bar_widget.setFixedHeight(8)
+        bar_widget.setStyleSheet(f"""
+            background-color: #e9ecef;
+            border-radius: 4px;
+        """)
+        bar_layout = QHBoxLayout(bar_widget)
+        bar_layout.setContentsMargins(0, 0, 0, 0)
+        bar_layout.setSpacing(0)
+
+        # Filled portion
+        filled = QWidget()
+        filled.setStyleSheet(f"""
+            background-color: {stage_color};
+            border-radius: 4px;
+        """)
+        bar_layout.addWidget(filled, int(progress_percent))
+
+        # Empty portion
+        empty = QWidget()
+        empty.setStyleSheet("background: transparent;")
+        bar_layout.addWidget(empty, int(100 - progress_percent))
+
+        progress_layout.addWidget(bar_widget)
+
+        # Stage labels below bar
+        stages_row = QHBoxLayout()
+        stages_row.setSpacing(0)
+        key_stages = ['concept', 'approved', 'planned', 'active', 'implemented', 'released']
+        for i, stage in enumerate(key_stages):
+            stage_lbl = QLabel(stage)
+            is_current = stage == node.stage
+            is_past = STAGE_ORDER.index(stage) < stage_index if stage in STAGE_ORDER else False
+            color = '#212529' if is_current else ('#6c757d' if is_past else '#adb5bd')
+            weight = 'bold' if is_current else 'normal'
+            stage_lbl.setStyleSheet(f"color: {color}; font-size: 8pt; font-weight: {weight};")
+            if i == 0:
+                stage_lbl.setAlignment(Qt.AlignLeft)
+            elif i == len(key_stages) - 1:
+                stage_lbl.setAlignment(Qt.AlignRight)
+            else:
+                stage_lbl.setAlignment(Qt.AlignCenter)
+            stages_row.addWidget(stage_lbl, 1)
+
+        progress_layout.addLayout(stages_row)
+
+        self.content_layout.addWidget(progress_widget)
+
     def _add_story_section(self, node: StoryNode):
-        """Add the Story section with user story format."""
+        """Add the Story section with user story format and icons."""
         story = self._parse_user_story(node.description)
 
         if not story:
             return  # No user story format found
 
-        # Story header
-        story_header = QLabel("Story")
-        story_header.setStyleSheet("font-weight: bold; font-size: 11pt;")
-        self.content_layout.addWidget(story_header)
-
-        # Story content box
+        # Story content box with gradient background
         story_widget = QWidget()
         story_widget.setStyleSheet("""
             QWidget {
-                background-color: #f5f5f5;
-                border-radius: 4px;
-                padding: 8px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #fefefe, stop:1 #f8f9fa);
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
             }
         """)
         story_layout = QVBoxLayout(story_widget)
-        story_layout.setContentsMargins(12, 8, 12, 8)
-        story_layout.setSpacing(4)
+        story_layout.setContentsMargins(16, 12, 16, 12)
+        story_layout.setSpacing(12)
 
-        # Format each line with bold prefix
-        as_a_label = QLabel(f"<b>As a</b> {story['as_a']}")
-        as_a_label.setTextFormat(Qt.RichText)
-        as_a_label.setWordWrap(True)
-        as_a_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        as_a_label.setStyleSheet("background: transparent;")
-        story_layout.addWidget(as_a_label)
+        # As a row
+        as_a_row = QHBoxLayout()
+        as_a_row.setSpacing(12)
+        as_a_icon = QLabel("As a")
+        as_a_icon.setStyleSheet("""
+            color: #6c757d;
+            font-size: 9pt;
+            font-weight: bold;
+            text-transform: uppercase;
+        """)
+        as_a_row.addWidget(as_a_icon)
+        as_a_row.addStretch()
+        story_layout.addLayout(as_a_row)
 
-        i_want_label = QLabel(f"<b>I want</b> {story['i_want']}")
-        i_want_label.setTextFormat(Qt.RichText)
-        i_want_label.setWordWrap(True)
-        i_want_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        i_want_label.setStyleSheet("background: transparent;")
-        story_layout.addWidget(i_want_label)
+        as_a_text = QLabel(story['as_a'])
+        as_a_text.setStyleSheet("color: #212529; font-size: 11pt; margin-left: 20px; background: transparent;")
+        as_a_text.setWordWrap(True)
+        as_a_text.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        story_layout.addWidget(as_a_text)
 
-        so_that_label = QLabel(f"<b>So that</b> {story['so_that']}")
-        so_that_label.setTextFormat(Qt.RichText)
-        so_that_label.setWordWrap(True)
-        so_that_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        so_that_label.setStyleSheet("background: transparent;")
-        story_layout.addWidget(so_that_label)
+        # I want row
+        i_want_row = QHBoxLayout()
+        i_want_row.setSpacing(12)
+        i_want_icon = QLabel("I want")
+        i_want_icon.setStyleSheet("""
+            color: #6c757d;
+            font-size: 9pt;
+            font-weight: bold;
+            text-transform: uppercase;
+        """)
+        i_want_row.addWidget(i_want_icon)
+        i_want_row.addStretch()
+        story_layout.addLayout(i_want_row)
+
+        i_want_text = QLabel(story['i_want'])
+        i_want_text.setStyleSheet("color: #212529; font-size: 11pt; margin-left: 20px; background: transparent;")
+        i_want_text.setWordWrap(True)
+        i_want_text.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        story_layout.addWidget(i_want_text)
+
+        # So that row
+        so_that_row = QHBoxLayout()
+        so_that_row.setSpacing(12)
+        so_that_icon = QLabel("So that")
+        so_that_icon.setStyleSheet("""
+            color: #6c757d;
+            font-size: 9pt;
+            font-weight: bold;
+            text-transform: uppercase;
+        """)
+        so_that_row.addWidget(so_that_icon)
+        so_that_row.addStretch()
+        story_layout.addLayout(so_that_row)
+
+        so_that_text = QLabel(story['so_that'])
+        so_that_text.setStyleSheet("color: #212529; font-size: 11pt; margin-left: 20px; background: transparent;")
+        so_that_text.setWordWrap(True)
+        so_that_text.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        story_layout.addWidget(so_that_text)
 
         self.content_layout.addWidget(story_widget)
+
+    def _update_sidebar(self, node: StoryNode):
+        """Update sidebar with metadata, tree context, and actions."""
+        # Clear existing sidebar content
+        while self.sidebar_layout.count():
+            item = self.sidebar_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                self._clear_layout(item.layout())
+
+        # Metadata Card
+        self._add_sidebar_metadata(node)
+
+        # Tree Context Card
+        self._add_sidebar_tree_context(node)
+
+        # Quick Actions Card
+        self._add_sidebar_actions(node)
+
+        self.sidebar_layout.addStretch()
+
+    def _add_sidebar_metadata(self, node: StoryNode):
+        """Add metadata card to sidebar."""
+        card = QWidget()
+        card.setStyleSheet("""
+            QWidget {
+                background-color: #ffffff;
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+            }
+        """)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(16, 12, 16, 12)
+        card_layout.setSpacing(12)
+
+        # Header
+        header = QLabel("Metadata")
+        header.setStyleSheet("""
+            color: #6c757d;
+            font-size: 9pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: transparent;
+        """)
+        card_layout.addWidget(header)
+
+        # Parent Story
+        parent_label = QLabel("Parent Story")
+        parent_label.setStyleSheet("color: #6c757d; font-size: 8pt; text-transform: uppercase; background: transparent;")
+        card_layout.addWidget(parent_label)
+
+        if node.parent_id and node.parent_id in self.app.nodes:
+            parent_node = self.app.nodes[node.parent_id]
+            parent_title = parent_node.title[:25] + '...' if len(parent_node.title) > 25 else parent_node.title
+            parent_link = ClickableLabel(f"{node.parent_id} - {parent_title}", node.parent_id)
+            parent_link.setStyleSheet("font-size: 9pt;")
+            parent_link.doubleClicked.connect(self.show_node)
+            card_layout.addWidget(parent_link)
+        else:
+            no_parent = QLabel("(root node)")
+            no_parent.setStyleSheet("color: #adb5bd; font-size: 9pt; background: transparent;")
+            card_layout.addWidget(no_parent)
+
+        # Separator
+        sep1 = QFrame()
+        sep1.setFrameShape(QFrame.HLine)
+        sep1.setStyleSheet("background-color: #dee2e6;")
+        sep1.setFixedHeight(1)
+        card_layout.addWidget(sep1)
+
+        # Children count
+        children_label = QLabel("Children")
+        children_label.setStyleSheet("color: #6c757d; font-size: 8pt; text-transform: uppercase; background: transparent;")
+        card_layout.addWidget(children_label)
+
+        children_count = QLabel(str(len(node.children)))
+        children_count.setStyleSheet("font-size: 18pt; font-weight: bold; color: #212529; background: transparent;")
+        card_layout.addWidget(children_count)
+
+        if not node.children:
+            no_children = QLabel("No child stories yet")
+            no_children.setStyleSheet("color: #6c757d; font-size: 8pt; background: transparent;")
+            card_layout.addWidget(no_children)
+
+        # Separator
+        sep2 = QFrame()
+        sep2.setFrameShape(QFrame.HLine)
+        sep2.setStyleSheet("background-color: #dee2e6;")
+        sep2.setFixedHeight(1)
+        card_layout.addWidget(sep2)
+
+        # Capacity with progress bar
+        capacity_label = QLabel("Capacity")
+        capacity_label.setStyleSheet("color: #6c757d; font-size: 8pt; text-transform: uppercase; background: transparent;")
+        card_layout.addWidget(capacity_label)
+
+        capacity_row = QHBoxLayout()
+        capacity_type = "Dynamic" if node.capacity is None else "Fixed"
+        max_capacity = node.capacity if node.capacity else 3
+        used = len(node.children)
+
+        capacity_text = QLabel(capacity_type)
+        capacity_text.setStyleSheet("font-size: 10pt; font-weight: 500; color: #212529; background: transparent;")
+        capacity_row.addWidget(capacity_text)
+        capacity_row.addStretch()
+
+        usage_text = QLabel(f"{used} / {max_capacity}")
+        usage_text.setStyleSheet("color: #6c757d; font-size: 9pt; background: transparent;")
+        capacity_row.addWidget(usage_text)
+        card_layout.addLayout(capacity_row)
+
+        # Capacity bar
+        usage_percent = min(100, (used / max_capacity) * 100) if max_capacity > 0 else 0
+        cap_bar = QWidget()
+        cap_bar.setFixedHeight(6)
+        cap_bar.setStyleSheet("background-color: #e9ecef; border-radius: 3px;")
+        cap_bar_layout = QHBoxLayout(cap_bar)
+        cap_bar_layout.setContentsMargins(0, 0, 0, 0)
+        cap_bar_layout.setSpacing(0)
+
+        filled = QWidget()
+        filled.setStyleSheet("background-color: #0d6efd; border-radius: 3px;")
+        cap_bar_layout.addWidget(filled, int(usage_percent))
+        empty = QWidget()
+        empty.setStyleSheet("background: transparent;")
+        cap_bar_layout.addWidget(empty, int(100 - usage_percent))
+        card_layout.addWidget(cap_bar)
+
+        # Separator
+        sep3 = QFrame()
+        sep3.setFrameShape(QFrame.HLine)
+        sep3.setStyleSheet("background-color: #dee2e6;")
+        sep3.setFixedHeight(1)
+        card_layout.addWidget(sep3)
+
+        # Descendants
+        desc_label = QLabel("Descendants")
+        desc_label.setStyleSheet("color: #6c757d; font-size: 8pt; text-transform: uppercase; background: transparent;")
+        card_layout.addWidget(desc_label)
+
+        desc_count = QLabel(str(node.descendants_count))
+        desc_count.setStyleSheet("font-size: 18pt; font-weight: bold; color: #212529; background: transparent;")
+        card_layout.addWidget(desc_count)
+
+        self.sidebar_layout.addWidget(card)
+
+    def _add_sidebar_tree_context(self, node: StoryNode):
+        """Add mini tree view showing current node in context."""
+        card = QWidget()
+        card.setStyleSheet("""
+            QWidget {
+                background-color: #ffffff;
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+            }
+        """)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(16, 12, 16, 12)
+        card_layout.setSpacing(8)
+
+        # Header
+        header = QLabel("Story Tree Context")
+        header.setStyleSheet("""
+            color: #6c757d;
+            font-size: 9pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: transparent;
+        """)
+        card_layout.addWidget(header)
+
+        # Tree visualization
+        tree_widget = QWidget()
+        tree_widget.setStyleSheet("background: transparent;")
+        tree_layout = QVBoxLayout(tree_widget)
+        tree_layout.setContentsMargins(0, 4, 0, 0)
+        tree_layout.setSpacing(2)
+
+        # Show parent if exists
+        if node.parent_id and node.parent_id in self.app.nodes:
+            parent = self.app.nodes[node.parent_id]
+            parent_title = parent.title[:22] + '...' if len(parent.title) > 22 else parent.title
+            parent_row = QHBoxLayout()
+            parent_row.setSpacing(4)
+            prefix = QLabel("|-")
+            prefix.setStyleSheet("color: #adb5bd; font-family: monospace; background: transparent;")
+            prefix.setFixedWidth(20)
+            parent_row.addWidget(prefix)
+            parent_text = QLabel(f"{parent.id} - {parent_title}")
+            parent_text.setStyleSheet("color: #212529; font-size: 9pt; background: transparent;")
+            parent_row.addWidget(parent_text)
+            parent_row.addStretch()
+            tree_layout.addLayout(parent_row)
+
+        # Current node (highlighted)
+        current_row = QWidget()
+        current_row.setStyleSheet("""
+            background-color: #e7f1ff;
+            border-radius: 4px;
+            margin-left: 20px;
+        """)
+        current_row_layout = QHBoxLayout(current_row)
+        current_row_layout.setContentsMargins(8, 4, 8, 4)
+        current_row_layout.setSpacing(4)
+        prefix = QLabel(">")
+        prefix.setStyleSheet("color: #0d6efd; font-family: monospace; font-weight: bold; background: transparent;")
+        prefix.setFixedWidth(12)
+        current_row_layout.addWidget(prefix)
+        current_title = node.title[:20] + '...' if len(node.title) > 20 else node.title
+        current_text = QLabel(f"{node.id} - {current_title}")
+        current_text.setStyleSheet("color: #0d6efd; font-size: 9pt; font-weight: 500; background: transparent;")
+        current_row_layout.addWidget(current_text)
+        current_row_layout.addStretch()
+        tree_layout.addWidget(current_row)
+
+        # Show children
+        if node.children:
+            for i, child in enumerate(node.children[:3]):  # Show max 3 children
+                child_row = QHBoxLayout()
+                child_row.setSpacing(4)
+                indent = QLabel("")
+                indent.setFixedWidth(28)
+                child_row.addWidget(indent)
+                prefix = QLabel("|-" if i < len(node.children) - 1 else "`-")
+                prefix.setStyleSheet("color: #adb5bd; font-family: monospace; background: transparent;")
+                prefix.setFixedWidth(20)
+                child_row.addWidget(prefix)
+                child_title = child.title[:18] + '...' if len(child.title) > 18 else child.title
+                child_text = QLabel(f"{child.id} - {child_title}")
+                child_text.setStyleSheet("color: #6c757d; font-size: 9pt; background: transparent;")
+                child_row.addWidget(child_text)
+                child_row.addStretch()
+                tree_layout.addLayout(child_row)
+            if len(node.children) > 3:
+                more_row = QHBoxLayout()
+                more_row.setSpacing(4)
+                indent = QLabel("")
+                indent.setFixedWidth(48)
+                more_row.addWidget(indent)
+                more_text = QLabel(f"... and {len(node.children) - 3} more")
+                more_text.setStyleSheet("color: #adb5bd; font-size: 8pt; font-style: italic; background: transparent;")
+                more_row.addWidget(more_text)
+                more_row.addStretch()
+                tree_layout.addLayout(more_row)
+        else:
+            no_children = QHBoxLayout()
+            no_children.setSpacing(4)
+            indent = QLabel("")
+            indent.setFixedWidth(48)
+            no_children.addWidget(indent)
+            no_text = QLabel("(no children)")
+            no_text.setStyleSheet("color: #adb5bd; font-size: 8pt; font-style: italic; background: transparent;")
+            no_children.addWidget(no_text)
+            no_children.addStretch()
+            tree_layout.addLayout(no_children)
+
+        card_layout.addWidget(tree_widget)
+        self.sidebar_layout.addWidget(card)
+
+    def _add_sidebar_actions(self, node: StoryNode):
+        """Add quick actions card to sidebar."""
+        card = QWidget()
+        card.setStyleSheet("""
+            QWidget {
+                background-color: #ffffff;
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+            }
+        """)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(16, 12, 16, 12)
+        card_layout.setSpacing(4)
+
+        # Header
+        header = QLabel("Quick Actions")
+        header.setStyleSheet("""
+            color: #6c757d;
+            font-size: 9pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: transparent;
+            margin-bottom: 8px;
+        """)
+        card_layout.addWidget(header)
+
+        # Action buttons
+        actions = [
+            ("View in Tree", self._action_view_in_tree),
+        ]
+
+        for label, callback in actions:
+            btn = QPushButton(label)
+            btn.setStyleSheet("""
+                QPushButton {
+                    background: transparent;
+                    border: none;
+                    text-align: left;
+                    padding: 8px 12px;
+                    color: #495057;
+                    font-size: 9pt;
+                }
+                QPushButton:hover {
+                    background-color: #f8f9fa;
+                    border-radius: 4px;
+                }
+            """)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.clicked.connect(callback)
+            card_layout.addWidget(btn)
+
+        self.sidebar_layout.addWidget(card)
+
+    def _action_view_in_tree(self):
+        """Navigate back to tree view with current node selected."""
+        self._close()
 
     def _add_metadata_card(self, node: StoryNode):
         """Add the metadata card with Parent, Children, Capacity, Descendants."""
@@ -781,7 +1505,7 @@ class DetailView(QWidget):
         self.content_layout.addWidget(card_widget)
 
     def show_node(self, node_id: str, add_to_history: bool = True):
-        """Display details for a specific node."""
+        """Display details for a specific node with improved layout."""
         if node_id not in self.app.nodes:
             return
 
@@ -797,7 +1521,15 @@ class DetailView(QWidget):
 
         self._update_nav_buttons()
 
-        # Clear content (widgets AND layouts)
+        # Update database name in header if available
+        if self.app.db_path:
+            import os
+            self.header_db_label.setText(os.path.basename(self.app.db_path))
+
+        # Update breadcrumbs
+        self._update_breadcrumbs(node)
+
+        # Clear main content area (widgets AND layouts)
         while self.content_layout.count():
             item = self.content_layout.takeAt(0)
             if item.widget():
@@ -805,41 +1537,89 @@ class DetailView(QWidget):
             elif item.layout():
                 self._clear_layout(item.layout())
 
-        # Node ID and Title header
-        id_label = QLabel(node.id)
-        id_label.setStyleSheet("font-weight: bold; font-size: 14pt;")
-        id_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        self.content_layout.addWidget(id_label)
+        # Title section with badges
+        self._add_title_section(node)
 
-        title_label = QLabel(node.title)
-        title_label.setStyleSheet("font-size: 12pt;")
-        title_label.setWordWrap(True)
-        title_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        self.content_layout.addWidget(title_label)
-
-        self._add_separator()
-
-        # Status row (inline: Stage + Hold/Disposition)
-        self._add_status_row(node)
+        # Workflow progress bar
+        self._add_progress_bar(node)
 
         # Story section (parsed from description if user story format present)
         self._add_story_section(node)
 
-        # Description section
-        self._add_text_field("Description", node.description or "(no description)")
-
-        # Metadata card (Parent, Children, Capacity, Descendants)
-        self._add_metadata_card(node)
+        # Description section (if description doesn't have user story format or has additional content)
+        story = self._parse_user_story(node.description)
+        if not story:
+            self._add_description_section(node)
 
         # Notes section
         if node.notes:
-            self._add_text_field("Notes", node.notes)
-
-        # Add status action buttons
-        self._add_status_actions(node)
+            self._add_notes_section(node)
 
         # Add stretch at the end
         self.content_layout.addStretch()
+
+        # Update sidebar
+        self._update_sidebar(node)
+
+        # Add status action buttons to footer
+        self._add_status_actions(node)
+
+    def _add_description_section(self, node: StoryNode):
+        """Add the description section."""
+        if not node.description:
+            return
+
+        desc_widget = QWidget()
+        desc_widget.setStyleSheet("background: transparent;")
+        desc_layout = QVBoxLayout(desc_widget)
+        desc_layout.setContentsMargins(0, 0, 0, 0)
+        desc_layout.setSpacing(8)
+
+        header = QLabel("Description")
+        header.setStyleSheet("font-size: 12pt; font-weight: bold; color: #212529;")
+        desc_layout.addWidget(header)
+
+        text = QLabel(node.description)
+        text.setStyleSheet("""
+            color: #495057;
+            font-size: 10pt;
+            line-height: 1.5;
+            background-color: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+        """)
+        text.setWordWrap(True)
+        text.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        desc_layout.addWidget(text)
+
+        self.content_layout.addWidget(desc_widget)
+
+    def _add_notes_section(self, node: StoryNode):
+        """Add the notes section."""
+        notes_widget = QWidget()
+        notes_widget.setStyleSheet("background: transparent;")
+        notes_layout = QVBoxLayout(notes_widget)
+        notes_layout.setContentsMargins(0, 0, 0, 0)
+        notes_layout.setSpacing(8)
+
+        header = QLabel("Notes")
+        header.setStyleSheet("font-size: 12pt; font-weight: bold; color: #212529;")
+        notes_layout.addWidget(header)
+
+        text = QLabel(node.notes)
+        text.setStyleSheet("""
+            color: #495057;
+            font-size: 10pt;
+            background-color: #fff3cd;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #ffc107;
+        """)
+        text.setWordWrap(True)
+        text.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        notes_layout.addWidget(text)
+
+        self.content_layout.addWidget(notes_widget)
 
     def _add_separator(self):
         """Add a horizontal line separator."""
@@ -968,6 +1748,10 @@ class DetailView(QWidget):
         g = int(g * factor)
         b = int(b * factor)
         return f"#{r:02x}{g:02x}{b:02x}"
+
+    def _get_nodes_with_status(self, status: str) -> List[str]:
+        """Get list of node IDs that have the given status."""
+        return [node_id for node_id, node in self.app.nodes.items() if node.status == status]
 
     def _on_status_button_clicked(self, node_id: str, new_status: str):
         """Handle status button click - change status and navigate to next node with same original status."""
