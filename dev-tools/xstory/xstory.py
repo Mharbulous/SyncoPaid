@@ -567,8 +567,9 @@ class DetailView(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Header bar with navigation and role toggle
+        # Combined header bar with navigation, db label, and breadcrumbs
         header_widget = QWidget()
+        header_widget.setFixedHeight(24)
         header_widget.setStyleSheet("""
             QWidget {
                 background-color: #f8f9fa;
@@ -576,7 +577,8 @@ class DetailView(QWidget):
             }
         """)
         header_layout = QHBoxLayout(header_widget)
-        header_layout.setContentsMargins(8, 1, 8, 1)
+        header_layout.setContentsMargins(8, 2, 8, 2)
+        header_layout.setSpacing(4)
 
         # Back button
         self.back_btn = QPushButton("<")
@@ -588,6 +590,7 @@ class DetailView(QWidget):
                 border: 1px solid #ced4da;
                 border-radius: 4px;
                 font-weight: bold;
+                font-size: 8pt;
             }
             QPushButton:hover { background-color: #e9ecef; }
             QPushButton:disabled { color: #adb5bd; border-color: #dee2e6; }
@@ -604,35 +607,35 @@ class DetailView(QWidget):
                 border: 1px solid #ced4da;
                 border-radius: 4px;
                 font-weight: bold;
+                font-size: 8pt;
             }
             QPushButton:hover { background-color: #e9ecef; }
             QPushButton:disabled { color: #adb5bd; border-color: #dee2e6; }
         """)
         header_layout.addWidget(self.forward_btn)
 
-        header_layout.addSpacing(12)
+        header_layout.addSpacing(8)
 
         # Database label
         self.header_db_label = QLabel("story-tree.db")
-        self.header_db_label.setStyleSheet("color: #6c757d; font-size: 9pt;")
+        self.header_db_label.setStyleSheet("color: #6c757d; font-size: 8pt;")
         header_layout.addWidget(self.header_db_label)
+
+        # Separator
+        sep_label = QLabel("|")
+        sep_label.setStyleSheet("color: #ced4da; font-size: 8pt;")
+        header_layout.addWidget(sep_label)
+
+        # Breadcrumb area (inline with header)
+        self.breadcrumb_widget = QWidget()
+        self.breadcrumb_layout = QHBoxLayout(self.breadcrumb_widget)
+        self.breadcrumb_layout.setContentsMargins(0, 0, 0, 0)
+        self.breadcrumb_layout.setSpacing(4)
+        header_layout.addWidget(self.breadcrumb_widget)
 
         header_layout.addStretch()
 
         main_layout.addWidget(header_widget)
-
-        # Breadcrumb navigation bar
-        self.breadcrumb_widget = QWidget()
-        self.breadcrumb_widget.setStyleSheet("""
-            QWidget {
-                background-color: #ffffff;
-                border-bottom: 1px solid #dee2e6;
-            }
-        """)
-        self.breadcrumb_layout = QHBoxLayout(self.breadcrumb_widget)
-        self.breadcrumb_layout.setContentsMargins(8, 1, 8, 1)
-        self.breadcrumb_layout.setSpacing(4)
-        main_layout.addWidget(self.breadcrumb_widget)
 
         # Two-column layout (main content + sidebar)
         content_splitter = QSplitter(Qt.Horizontal)
