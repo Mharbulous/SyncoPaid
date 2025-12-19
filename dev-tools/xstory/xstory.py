@@ -59,7 +59,7 @@ STATUS_COLORS = {
     'paused': '#E8A600',       # Hue 43°, L=45% - gold
     'polish': '#EFC300',       # Hue 49°, L=47% - dark gold
     'queued': '#F8DF00',       # Hue 54°, L=48% - dark yellow
-    'wishlist': '#FEFF00',     # Hue 60°, L=50% - yellow (least urgent)
+    'wishlist': '#989900',     # Hue 60°, L=30% - dark yellow (least urgent)
     'no hold': '#888888',      # Grey (no hold reason)
     # Live status (for items without disposition)
     'live': '#00FF00',         # Bright Green (active/live)
