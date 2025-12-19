@@ -2,7 +2,7 @@
 import sys
 sys.path.insert(0, 'src')
 
-from syncopaid.context_extraction import extract_url_from_browser
+from syncopaid.context_extraction import extract_url_from_browser, extract_subject_from_outlook
 
 def test_extract_url_chrome_with_url():
     """Extract URL from Chrome title with embedded URL."""
@@ -34,6 +34,30 @@ def test_extract_url_non_browser():
     result = extract_url_from_browser("WINWORD.EXE", title)
     assert result is None
 
+def test_extract_subject_inbox_format():
+    """Extract subject from Outlook inbox view."""
+    title = "Inbox - RE: Smith vs Jones Settlement - user@lawfirm.com - Outlook"
+    result = extract_subject_from_outlook("OUTLOOK.EXE", title)
+    assert result == "RE: Smith vs Jones Settlement"
+
+def test_extract_subject_message_format():
+    """Extract subject from Outlook message window."""
+    title = "FW: Discovery Documents - Message (HTML) - Outlook"
+    result = extract_subject_from_outlook("OUTLOOK.EXE", title)
+    assert result == "FW: Discovery Documents"
+
+def test_extract_subject_generic_inbox():
+    """Return None for generic inbox without specific subject."""
+    title = "Inbox - user@lawfirm.com - Outlook"
+    result = extract_subject_from_outlook("OUTLOOK.EXE", title)
+    assert result is None
+
+def test_extract_subject_non_outlook():
+    """Return None for non-Outlook apps."""
+    title = "Email Subject - Thunderbird"
+    result = extract_subject_from_outlook("thunderbird.exe", title)
+    assert result is None
+
 if __name__ == "__main__":
     print("Running context extraction tests...")
     test_extract_url_chrome_with_url()
@@ -41,4 +65,8 @@ if __name__ == "__main__":
     test_extract_url_edge()
     test_extract_url_firefox()
     test_extract_url_non_browser()
+    test_extract_subject_inbox_format()
+    test_extract_subject_message_format()
+    test_extract_subject_generic_inbox()
+    test_extract_subject_non_outlook()
     print("All tests passed!")
