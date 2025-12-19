@@ -1231,7 +1231,9 @@ class XstoryExplorer(QMainWindow):
 
         filter_main_layout.addStretch()
         filter_scroll.setWidget(filter_widget)
+        filter_scroll.setMinimumWidth(380)  # Prevent filter panel from shrinking too small
         splitter.addWidget(filter_scroll)
+        splitter.setCollapsible(1, False)  # Prevent filter panel from collapsing
 
         # Set splitter proportions (tree view : filter panel)
         splitter.setSizes([500, 400])
