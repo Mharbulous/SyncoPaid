@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 from typing import Dict, Optional, Generator
 from dataclasses import dataclass, asdict
 
+from syncopaid.context_extraction import extract_context
+
 # Platform detection
 import sys
 WINDOWS = sys.platform == 'win32'
@@ -149,13 +151,14 @@ if WINDOWS_APIS_AVAILABLE:
 def get_active_window() -> Dict[str, Optional[str]]:
     """
     Get information about the currently active foreground window.
-    
+
     Returns:
         Dictionary with keys:
         - 'app': Executable name (e.g., 'WINWORD.EXE', 'chrome.exe')
         - 'title': Window title text
         - 'pid': Process ID (for debugging)
-    
+        - 'url': Extracted contextual information (URL, subject, or filepath)
+
     Note: Returns mock data on non-Windows platforms for testing.
     """
     if not WINDOWS_APIS_AVAILABLE:
@@ -167,7 +170,8 @@ def get_active_window() -> Dict[str, Optional[str]]:
             ("OUTLOOK.EXE", "Inbox - user@lawfirm.com - Outlook"),
         ]
         app, title = random.choice(mock_apps)
-        return {"app": app, "title": title, "pid": 0}
+        url = extract_context(app, title)
+        return {"app": app, "title": title, "pid": 0, "url": url}
     
     try:
         hwnd = win32gui.GetForegroundWindow()
@@ -184,11 +188,14 @@ def get_active_window() -> Dict[str, Optional[str]]:
         except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError):
             process = None
 
-        return {"app": process, "title": title, "pid": pid}
-    
+        # Extract contextual information
+        url = extract_context(process, title)
+
+        return {"app": process, "title": title, "pid": pid, "url": url}
+
     except Exception as e:
         logging.error(f"Error getting active window: {e}")
-        return {"app": None, "title": None, "pid": None}
+        return {"app": None, "title": None, "pid": None, "url": None}
 
 
 def get_idle_seconds() -> float:
