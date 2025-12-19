@@ -429,7 +429,7 @@ class StoryNode:
                  notes: str = '', project_path: str = '', created_at: str = '',
                  updated_at: str = '', last_implemented: str = '',
                  stage: str = '', hold_reason: Optional[str] = None,
-                 disposition: Optional[str] = None):
+                 disposition: Optional[str] = None, descendants_count: int = 0):
         self.id = id
         self.title = title
         self.status = status  # Effective status: COALESCE(disposition, hold_reason, stage)
@@ -446,6 +446,7 @@ class StoryNode:
         self.stage = stage
         self.hold_reason = hold_reason
         self.disposition = disposition
+        self.descendants_count = descendants_count
         self.children: List['StoryNode'] = []
 
 
@@ -615,6 +616,99 @@ class DetailView(QWidget):
 
         self._update_nav_buttons()
 
+    def _get_effective_status_icon(self, node: StoryNode) -> str:
+        """Get the icon for the effective status based on three-field system priority."""
+        # Priority: disposition > hold_reason > stage
+        if node.disposition:
+            return DISPOSITION_ICONS.get(node.disposition, '📦')
+        if node.hold_reason:
+            return HOLD_ICONS.get(node.hold_reason, '⏸')
+        return DEFAULT_STAGE_ICON
+
+    def _add_status_card(self, node: StoryNode):
+        """Add the three-field status card widget."""
+        # Get effective status and color
+        status_color = STATUS_COLORS.get(node.status, '#000000')
+        icon = self._get_effective_status_icon(node)
+
+        # Create card container with border and background
+        card_widget = QWidget()
+        card_widget.setStyleSheet(f"""
+            QWidget {{
+                background-color: #f8f8f8;
+                border: 2px solid {status_color};
+                border-radius: 8px;
+                padding: 8px;
+            }}
+        """)
+        card_layout = QVBoxLayout(card_widget)
+        card_layout.setContentsMargins(12, 12, 12, 12)
+        card_layout.setSpacing(8)
+
+        # Row 1: Icon + Effective Status (large)
+        status_header = QLabel(f"{icon}  {node.status.upper()}")
+        status_header.setStyleSheet(f"""
+            font-size: 16pt;
+            font-weight: bold;
+            color: {status_color};
+            background: transparent;
+            border: none;
+        """)
+        card_layout.addWidget(status_header)
+
+        # Separator line inside card
+        card_line = QFrame()
+        card_line.setFrameShape(QFrame.HLine)
+        card_line.setStyleSheet("background-color: #cccccc; border: none;")
+        card_line.setFixedHeight(1)
+        card_layout.addWidget(card_line)
+
+        # Row 2: Three-field breakdown
+        stage_color = STATUS_COLORS.get(node.stage, '#666666')
+        hold_color = STATUS_COLORS.get(node.hold_reason, '#888888') if node.hold_reason else '#888888'
+        disp_color = STATUS_COLORS.get(node.disposition, '#888888') if node.disposition else '#888888'
+
+        hold_text = node.hold_reason if node.hold_reason else '---'
+        disp_text = node.disposition if node.disposition else '---'
+
+        fields_layout = QHBoxLayout()
+        fields_layout.setSpacing(20)
+
+        # Stage field
+        stage_label = QLabel(f"Stage: <span style='color: {stage_color};'>{node.stage}</span>")
+        stage_label.setStyleSheet("font-size: 10pt; background: transparent; border: none;")
+        stage_label.setTextFormat(Qt.RichText)
+        fields_layout.addWidget(stage_label)
+
+        # Hold field
+        hold_label = QLabel(f"Hold: <span style='color: {hold_color};'>{hold_text}</span>")
+        hold_label.setStyleSheet("font-size: 10pt; background: transparent; border: none;")
+        hold_label.setTextFormat(Qt.RichText)
+        fields_layout.addWidget(hold_label)
+
+        # Disposition field
+        disp_label = QLabel(f"Disposition: <span style='color: {disp_color};'>{disp_text}</span>")
+        disp_label.setStyleSheet("font-size: 10pt; background: transparent; border: none;")
+        disp_label.setTextFormat(Qt.RichText)
+        fields_layout.addWidget(disp_label)
+
+        fields_layout.addStretch()
+        card_layout.addLayout(fields_layout)
+
+        # Row 3: Resume hint (only when hold_reason is set)
+        if node.hold_reason and not node.disposition:
+            resume_label = QLabel(f'Resume at "{node.stage}" when hold cleared')
+            resume_label.setStyleSheet("""
+                font-size: 9pt;
+                font-style: italic;
+                color: #666666;
+                background: transparent;
+                border: none;
+            """)
+            card_layout.addWidget(resume_label)
+
+        self.content_layout.addWidget(card_widget)
+
     def show_node(self, node_id: str, add_to_history: bool = True):
         """Display details for a specific node."""
         if node_id not in self.app.nodes:
@@ -654,38 +748,87 @@ class DetailView(QWidget):
 
         self._add_separator()
 
-        # Status with color
-        status_color = STATUS_COLORS.get(node.status, '#000000')
-        self._add_field("Status", node.status, color=status_color)
+        # Status Card (three-field system)
+        self._add_status_card(node)
 
         # Status navigation (Previous/Next buttons for same status)
         self._add_status_navigation(node)
 
-        # Capacity
-        capacity_text = str(node.capacity) if node.capacity is not None else "dynamic"
-        self._add_field("Capacity", capacity_text)
-
-        # Depth
-        self._add_field("Depth", str(node.depth))
-
-        self._add_separator()
+        # Row 1: Parent + Depth
+        row1_layout = QHBoxLayout()
+        row1_layout.setSpacing(20)
 
         # Parent (clickable)
+        parent_container = QHBoxLayout()
+        parent_label = QLabel("Parent:")
+        parent_label.setStyleSheet("font-weight: bold;")
+        parent_container.addWidget(parent_label)
+
         if node.parent_id:
-            self._add_link_field("Parent", node.parent_id)
+            parent_node = self.app.nodes.get(node.parent_id)
+            if parent_node:
+                parent_title = parent_node.title[:30] + '...' if len(parent_node.title) > 30 else parent_node.title
+                link_text = f"{node.parent_id} - {parent_title}"
+            else:
+                link_text = node.parent_id
+            parent_link = ClickableLabel(link_text, node.parent_id)
+            parent_link.doubleClicked.connect(self.show_node)
+            parent_container.addWidget(parent_link)
         else:
-            self._add_field("Parent", "(none)")
+            parent_value = QLabel("(none)")
+            parent_container.addWidget(parent_value)
 
-        # Children (clickable list)
-        if node.children:
-            children_label = QLabel("Children:")
-            children_label.setStyleSheet("font-weight: bold;")
-            self.content_layout.addWidget(children_label)
+        parent_container.addStretch()
+        row1_layout.addLayout(parent_container, 3)
 
-            for child in node.children:
-                self._add_child_link(child)
-        else:
-            self._add_field("Children", "(none)")
+        # Depth
+        depth_container = QHBoxLayout()
+        depth_label = QLabel("Depth:")
+        depth_label.setStyleSheet("font-weight: bold;")
+        depth_container.addWidget(depth_label)
+        depth_value = QLabel(str(node.depth))
+        depth_container.addWidget(depth_value)
+        depth_container.addStretch()
+        row1_layout.addLayout(depth_container, 1)
+
+        self.content_layout.addLayout(row1_layout)
+
+        # Row 2: Children + Capacity + Descendants
+        row2_layout = QHBoxLayout()
+        row2_layout.setSpacing(20)
+
+        # Children count
+        children_container = QHBoxLayout()
+        children_label = QLabel("Children:")
+        children_label.setStyleSheet("font-weight: bold;")
+        children_container.addWidget(children_label)
+        children_value = QLabel(str(len(node.children)))
+        children_container.addWidget(children_value)
+        children_container.addStretch()
+        row2_layout.addLayout(children_container, 1)
+
+        # Capacity
+        capacity_container = QHBoxLayout()
+        capacity_label = QLabel("Capacity:")
+        capacity_label.setStyleSheet("font-weight: bold;")
+        capacity_container.addWidget(capacity_label)
+        capacity_text = str(node.capacity) if node.capacity is not None else "dynamic"
+        capacity_value = QLabel(capacity_text)
+        capacity_container.addWidget(capacity_value)
+        capacity_container.addStretch()
+        row2_layout.addLayout(capacity_container, 1)
+
+        # Descendants
+        descendants_container = QHBoxLayout()
+        descendants_label = QLabel("Descendants:")
+        descendants_label.setStyleSheet("font-weight: bold;")
+        descendants_container.addWidget(descendants_label)
+        descendants_value = QLabel(str(node.descendants_count))
+        descendants_container.addWidget(descendants_value)
+        descendants_container.addStretch()
+        row2_layout.addLayout(descendants_container, 1)
+
+        self.content_layout.addLayout(row2_layout)
 
         self._add_separator()
 
@@ -695,10 +838,6 @@ class DetailView(QWidget):
         # Notes
         if node.notes:
             self._add_text_field("Notes", node.notes)
-
-        # Project path
-        if node.project_path:
-            self._add_field("Project Path", node.project_path)
 
         self._add_separator()
 
@@ -1455,7 +1594,8 @@ class XstoryExplorer(QMainWindow):
                     (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id AND ancestor_id != s.id),
                     0
                 ) as depth,
-                (SELECT ancestor_id FROM story_paths WHERE descendant_id = s.id AND depth = 1) as parent_id
+                (SELECT ancestor_id FROM story_paths WHERE descendant_id = s.id AND depth = 1) as parent_id,
+                (SELECT COUNT(*) - 1 FROM story_paths WHERE ancestor_id = s.id) as descendants_count
             FROM story_nodes s
             ORDER BY s.id
         """
@@ -1479,7 +1619,8 @@ class XstoryExplorer(QMainWindow):
                 last_implemented=row['last_implemented'] or '',
                 stage=row['stage'] or 'concept',
                 hold_reason=row['hold_reason'],
-                disposition=row['disposition']
+                disposition=row['disposition'],
+                descendants_count=row['descendants_count'] or 0
             )
             self.nodes[node.id] = node
 
