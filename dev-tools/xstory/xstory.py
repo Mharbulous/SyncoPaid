@@ -731,7 +731,7 @@ class DetailView(QWidget):
         content_splitter.addWidget(self.sidebar_widget)
         content_splitter.setSizes([600, 300])
 
-        main_layout.addWidget(content_splitter)
+        main_layout.addWidget(content_splitter, 1)  # stretch factor ensures it takes remaining space
 
         self._update_nav_buttons()
 
