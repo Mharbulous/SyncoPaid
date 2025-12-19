@@ -955,19 +955,8 @@ class DetailView(QWidget):
         progress_layout.setContentsMargins(0, 0, 0, 0)
         progress_layout.setSpacing(4)
 
-        # Progress header
-        header_row = QHBoxLayout()
-        header_label = QLabel("Workflow Progress")
-        header_label.setStyleSheet("color: #6c757d; font-size: 9pt;")
-        header_row.addWidget(header_label)
-        header_row.addStretch()
-
-        # Calculate step
+        # Calculate stage index for progress
         stage_index = STAGE_ORDER.index(node.stage) if node.stage in STAGE_ORDER else 0
-        step_label = QLabel(f"Step {stage_index + 1} of {len(STAGE_ORDER)}")
-        step_label.setStyleSheet("color: #6c757d; font-size: 9pt;")
-        header_row.addWidget(step_label)
-        progress_layout.addLayout(header_row)
 
         # Progress bar
         progress_percent = ((stage_index + 1) / len(STAGE_ORDER)) * 100
@@ -1306,13 +1295,13 @@ class DetailView(QWidget):
         # Title section with badges
         self._add_title_section(node)
 
+        # User Story section (parsed from description if user story format present)
+        self._add_story_section(node)
+
         # Workflow progress bar
         self._add_progress_bar(node)
 
-        # Story section (parsed from description if user story format present)
-        self._add_story_section(node)
-
-        # Description section (if description doesn't have user story format or has additional content)
+        # Description section (if description doesn't have user story format)
         story = self._parse_user_story(node.description)
         if not story:
             self._add_description_section(node)
