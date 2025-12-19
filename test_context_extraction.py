@@ -2,7 +2,7 @@
 import sys
 sys.path.insert(0, 'src')
 
-from syncopaid.context_extraction import extract_url_from_browser, extract_subject_from_outlook, extract_filepath_from_office
+from syncopaid.context_extraction import extract_url_from_browser, extract_subject_from_outlook, extract_filepath_from_office, extract_context
 
 def test_extract_url_chrome_with_url():
     """Extract URL from Chrome title with embedded URL."""
@@ -88,6 +88,31 @@ def test_extract_filepath_non_office():
     result = extract_filepath_from_office("notepad.exe", title)
     assert result is None
 
+def test_extract_context_browser():
+    """Route browser to URL extraction."""
+    result = extract_context("chrome.exe", "Page - https://example.com - Chrome")
+    assert result == "https://example.com"
+
+def test_extract_context_outlook():
+    """Route Outlook to subject extraction."""
+    result = extract_context("OUTLOOK.EXE", "Inbox - RE: Case File - user@law.com - Outlook")
+    assert result == "RE: Case File"
+
+def test_extract_context_office():
+    """Route Office to filepath extraction."""
+    result = extract_context("WINWORD.EXE", "Contract.docx - Word")
+    assert result == "Contract.docx"
+
+def test_extract_context_unknown_app():
+    """Return None for unknown apps."""
+    result = extract_context("notepad.exe", "Untitled - Notepad")
+    assert result is None
+
+def test_extract_context_none_inputs():
+    """Handle None inputs gracefully."""
+    result = extract_context(None, None)
+    assert result is None
+
 if __name__ == "__main__":
     print("Running context extraction tests...")
     test_extract_url_chrome_with_url()
@@ -104,4 +129,9 @@ if __name__ == "__main__":
     test_extract_filepath_powerpoint()
     test_extract_filepath_filename_only()
     test_extract_filepath_non_office()
+    test_extract_context_browser()
+    test_extract_context_outlook()
+    test_extract_context_office()
+    test_extract_context_unknown_app()
+    test_extract_context_none_inputs()
     print("All tests passed!")

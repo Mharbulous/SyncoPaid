@@ -123,3 +123,45 @@ def extract_filepath_from_office(app: str, title: str) -> str:
         return filepath
 
     return None
+
+def extract_context(app: str, title: str) -> str:
+    """
+    Extract contextual information from window title based on application type.
+
+    Routes to appropriate extraction function:
+    - Browsers → URL extraction
+    - Outlook → Email subject extraction
+    - Office apps → File path extraction
+
+    Args:
+        app: Application executable name (e.g., 'chrome.exe', 'OUTLOOK.EXE')
+        title: Window title text
+
+    Returns:
+        Extracted context string (URL, subject, or filepath), or None if nothing extracted
+    """
+    if not app or not title:
+        return None
+
+    try:
+        # Try browser URL extraction
+        url = extract_url_from_browser(app, title)
+        if url:
+            return url
+
+        # Try Outlook subject extraction
+        subject = extract_subject_from_outlook(app, title)
+        if subject:
+            return subject
+
+        # Try Office filepath extraction
+        filepath = extract_filepath_from_office(app, title)
+        if filepath:
+            return filepath
+
+        return None
+
+    except Exception as e:
+        # Log but don't crash - graceful degradation
+        logging.debug(f"Context extraction failed for {app}: {e}")
+        return None
