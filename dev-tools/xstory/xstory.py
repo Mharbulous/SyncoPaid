@@ -1135,7 +1135,7 @@ class DetailView(QWidget):
         self.sidebar_layout.addStretch()
 
     def _add_sidebar_metadata(self, node: StoryNode):
-        """Add metadata card to sidebar."""
+        """Add metadata card to sidebar with plain text layout."""
         card = QWidget()
         card.setStyleSheet("""
             QWidget {
@@ -1146,7 +1146,7 @@ class DetailView(QWidget):
         """)
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(16, 12, 16, 12)
-        card_layout.setSpacing(12)
+        card_layout.setSpacing(8)
 
         # Header
         header = QLabel("Metadata")
@@ -1160,103 +1160,67 @@ class DetailView(QWidget):
         """)
         card_layout.addWidget(header)
 
-        # Parent Story
-        parent_label = QLabel("Parent Story")
-        parent_label.setStyleSheet("color: #6c757d; font-size: 8pt; text-transform: uppercase; background: transparent;")
-        card_layout.addWidget(parent_label)
+        # Parent row
+        parent_row = QHBoxLayout()
+        parent_row.setSpacing(6)
+        parent_label = QLabel("Parent:")
+        parent_label.setStyleSheet("color: #6c757d; font-size: 9pt; background: transparent;")
+        parent_row.addWidget(parent_label)
 
         if node.parent_id and node.parent_id in self.app.nodes:
             parent_node = self.app.nodes[node.parent_id]
-            parent_title = parent_node.title[:25] + '...' if len(parent_node.title) > 25 else parent_node.title
+            parent_title = parent_node.title[:20] + '...' if len(parent_node.title) > 20 else parent_node.title
             parent_link = ClickableLabel(f"{node.parent_id} - {parent_title}", node.parent_id)
-            parent_link.setStyleSheet("font-size: 9pt;")
+            parent_link.setStyleSheet("font-size: 9pt; background: transparent;")
             parent_link.doubleClicked.connect(self.show_node)
-            card_layout.addWidget(parent_link)
+            parent_row.addWidget(parent_link)
         else:
-            no_parent = QLabel("(root node)")
+            no_parent = QLabel("(root)")
             no_parent.setStyleSheet("color: #adb5bd; font-size: 9pt; background: transparent;")
-            card_layout.addWidget(no_parent)
+            parent_row.addWidget(no_parent)
 
-        # Separator
-        sep1 = QFrame()
-        sep1.setFrameShape(QFrame.HLine)
-        sep1.setStyleSheet("background-color: #dee2e6;")
-        sep1.setFixedHeight(1)
-        card_layout.addWidget(sep1)
+        parent_row.addStretch()
+        card_layout.addLayout(parent_row)
 
-        # Children count
-        children_label = QLabel("Children")
-        children_label.setStyleSheet("color: #6c757d; font-size: 8pt; text-transform: uppercase; background: transparent;")
-        card_layout.addWidget(children_label)
+        # Children row
+        children_row = QHBoxLayout()
+        children_row.setSpacing(6)
+        children_label = QLabel("Children:")
+        children_label.setStyleSheet("color: #6c757d; font-size: 9pt; background: transparent;")
+        children_row.addWidget(children_label)
+        children_value = QLabel(str(len(node.children)))
+        children_value.setStyleSheet("color: #212529; font-size: 9pt; background: transparent;")
+        children_row.addWidget(children_value)
+        children_row.addStretch()
+        card_layout.addLayout(children_row)
 
-        children_count = QLabel(str(len(node.children)))
-        children_count.setStyleSheet("font-size: 18pt; font-weight: bold; color: #212529; background: transparent;")
-        card_layout.addWidget(children_count)
-
-        if not node.children:
-            no_children = QLabel("No child stories yet")
-            no_children.setStyleSheet("color: #6c757d; font-size: 8pt; background: transparent;")
-            card_layout.addWidget(no_children)
-
-        # Separator
-        sep2 = QFrame()
-        sep2.setFrameShape(QFrame.HLine)
-        sep2.setStyleSheet("background-color: #dee2e6;")
-        sep2.setFixedHeight(1)
-        card_layout.addWidget(sep2)
-
-        # Capacity with progress bar
-        capacity_label = QLabel("Capacity")
-        capacity_label.setStyleSheet("color: #6c757d; font-size: 8pt; text-transform: uppercase; background: transparent;")
-        card_layout.addWidget(capacity_label)
-
+        # Capacity row
         capacity_row = QHBoxLayout()
-        capacity_type = "Dynamic" if node.capacity is None else "Fixed"
+        capacity_row.setSpacing(6)
+        capacity_label = QLabel("Capacity:")
+        capacity_label.setStyleSheet("color: #6c757d; font-size: 9pt; background: transparent;")
+        capacity_row.addWidget(capacity_label)
+
+        capacity_type = "dynamic" if node.capacity is None else str(node.capacity)
         max_capacity = node.capacity if node.capacity else 3
         used = len(node.children)
-
-        capacity_text = QLabel(capacity_type)
-        capacity_text.setStyleSheet("font-size: 10pt; font-weight: 500; color: #212529; background: transparent;")
-        capacity_row.addWidget(capacity_text)
+        capacity_value = QLabel(f"{capacity_type} ({used}/{max_capacity})")
+        capacity_value.setStyleSheet("color: #212529; font-size: 9pt; background: transparent;")
+        capacity_row.addWidget(capacity_value)
         capacity_row.addStretch()
-
-        usage_text = QLabel(f"{used} / {max_capacity}")
-        usage_text.setStyleSheet("color: #6c757d; font-size: 9pt; background: transparent;")
-        capacity_row.addWidget(usage_text)
         card_layout.addLayout(capacity_row)
 
-        # Capacity bar
-        usage_percent = min(100, (used / max_capacity) * 100) if max_capacity > 0 else 0
-        cap_bar = QWidget()
-        cap_bar.setFixedHeight(6)
-        cap_bar.setStyleSheet("background-color: #e9ecef; border-radius: 3px;")
-        cap_bar_layout = QHBoxLayout(cap_bar)
-        cap_bar_layout.setContentsMargins(0, 0, 0, 0)
-        cap_bar_layout.setSpacing(0)
-
-        filled = QWidget()
-        filled.setStyleSheet("background-color: #0d6efd; border-radius: 3px;")
-        cap_bar_layout.addWidget(filled, int(usage_percent))
-        empty = QWidget()
-        empty.setStyleSheet("background: transparent;")
-        cap_bar_layout.addWidget(empty, int(100 - usage_percent))
-        card_layout.addWidget(cap_bar)
-
-        # Separator
-        sep3 = QFrame()
-        sep3.setFrameShape(QFrame.HLine)
-        sep3.setStyleSheet("background-color: #dee2e6;")
-        sep3.setFixedHeight(1)
-        card_layout.addWidget(sep3)
-
-        # Descendants
-        desc_label = QLabel("Descendants")
-        desc_label.setStyleSheet("color: #6c757d; font-size: 8pt; text-transform: uppercase; background: transparent;")
-        card_layout.addWidget(desc_label)
-
-        desc_count = QLabel(str(node.descendants_count))
-        desc_count.setStyleSheet("font-size: 18pt; font-weight: bold; color: #212529; background: transparent;")
-        card_layout.addWidget(desc_count)
+        # Descendants row
+        desc_row = QHBoxLayout()
+        desc_row.setSpacing(6)
+        desc_label = QLabel("Descendants:")
+        desc_label.setStyleSheet("color: #6c757d; font-size: 9pt; background: transparent;")
+        desc_row.addWidget(desc_label)
+        desc_value = QLabel(str(node.descendants_count))
+        desc_value.setStyleSheet("color: #212529; font-size: 9pt; background: transparent;")
+        desc_row.addWidget(desc_value)
+        desc_row.addStretch()
+        card_layout.addLayout(desc_row)
 
         self.sidebar_layout.addWidget(card)
 
