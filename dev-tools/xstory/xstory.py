@@ -430,7 +430,7 @@ class StoryNode:
                  updated_at: str = '', last_implemented: str = '',
                  stage: str = '', hold_reason: Optional[str] = None,
                  disposition: Optional[str] = None, descendants_count: int = 0,
-                 success_criteria: str = ''):
+                 success_criteria: str = '', story: str = ''):
         self.id = id
         self.title = title
         self.status = status  # Effective status: COALESCE(disposition, hold_reason, stage)
@@ -449,6 +449,7 @@ class StoryNode:
         self.disposition = disposition
         self.descendants_count = descendants_count
         self.success_criteria = success_criteria
+        self.story = story
         self.children: List['StoryNode'] = []
 
 
@@ -2198,7 +2199,7 @@ class XstoryExplorer(QMainWindow):
                 s.id, s.title,
                 COALESCE(s.disposition, s.hold_reason, s.stage) as status,
                 s.stage, s.hold_reason, s.disposition,
-                s.capacity, s.description, s.success_criteria,
+                s.capacity, s.description, s.success_criteria, s.story,
                 s.notes, s.project_path, s.created_at, s.updated_at, s.last_implemented,
                 COALESCE(
                     (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id AND ancestor_id != s.id),
@@ -2231,7 +2232,8 @@ class XstoryExplorer(QMainWindow):
                 hold_reason=row['hold_reason'],
                 disposition=row['disposition'],
                 descendants_count=row['descendants_count'] or 0,
-                success_criteria=row['success_criteria'] or ''
+                success_criteria=row['success_criteria'] or '',
+                story=row['story'] or ''
             )
             self.nodes[node.id] = node
 
