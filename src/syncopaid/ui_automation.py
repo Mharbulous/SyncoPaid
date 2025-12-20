@@ -99,11 +99,47 @@ class ExplorerExtractor(BaseExtractor):
     def extract(self, window_info: Dict) -> Optional[Dict[str, str]]:
         if not PYWINAUTO_AVAILABLE:
             return None
+
         if 'explorer' not in window_info.get('app', '').lower():
             return None
-        # Stub - actual implementation in sub-plan 032
-        logging.debug(f"Explorer extraction not yet implemented")
-        return None
+
+        pid = window_info.get('pid')
+        if not pid:
+            return None
+
+        try:
+            app = Application(backend='uia').connect(
+                process=pid, timeout=self.timeout_ms / 1000.0
+            )
+            main_window = app.window(pid=pid)
+
+            folder_path = None
+            try:
+                # AutomationId "41477" is standard for Explorer address bar
+                address_bar = main_window.child_window(
+                    auto_id="41477", control_type="Edit"
+                )
+                folder_path = address_bar.window_text()
+            except Exception:
+                try:
+                    address_bar = main_window.child_window(
+                        control_type="Edit", class_name="Edit", found_index=0
+                    )
+                    folder_path = address_bar.window_text()
+                except Exception:
+                    pass
+
+            if folder_path:
+                return {'folder_path': folder_path}
+
+            return None
+
+        except TimeoutError:
+            logging.debug(f"Explorer extraction timeout after {self.timeout_ms}ms")
+            return None
+        except Exception as e:
+            logging.debug(f"Explorer extraction failed: {e}")
+            return None
 
 
 class UIAutomationWorker:

@@ -56,3 +56,32 @@ def test_outlook_extractor_returns_subject_and_sender():
         assert result is not None
         assert result['email_subject'] == "Re: Smith Case"
         assert result['sender'] == "client@example.com"
+
+
+def test_explorer_extractor_returns_folder_path():
+    from syncopaid.ui_automation import ExplorerExtractor, PYWINAUTO_AVAILABLE
+    from unittest.mock import MagicMock, patch
+    import sys
+
+    extractor = ExplorerExtractor()
+
+    # Skip test on non-Windows platforms
+    if not PYWINAUTO_AVAILABLE:
+        pytest.skip("pywinauto not available on this platform")
+
+    with patch('syncopaid.ui_automation.Application') as mock_app:
+        mock_window = MagicMock()
+        mock_address_bar = MagicMock()
+        mock_address_bar.window_text.return_value = "C:\\Cases\\Smith_v_Jones"
+
+        mock_window.child_window.return_value = mock_address_bar
+        mock_app.return_value.connect.return_value.window.return_value = mock_window
+
+        result = extractor.extract({
+            'app': 'explorer.exe',
+            'title': 'Smith_v_Jones',
+            'pid': 5678
+        })
+
+        assert result is not None
+        assert result['folder_path'] == "C:\\Cases\\Smith_v_Jones"
