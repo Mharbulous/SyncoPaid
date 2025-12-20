@@ -1,5 +1,7 @@
 # 006A: Matter/Client Database - Schema Tables
 
+**Story ID:** 8.1
+
 ## Task
 Add `clients` and `matters` tables to the SQLite database schema.
 
