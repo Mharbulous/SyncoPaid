@@ -1,4 +1,4 @@
-# 034: Matter/Client Database - CRUD Methods
+# 006B: Matter/Client Database - CRUD Methods
 
 ## Task
 Add Database methods for creating, reading, updating, and deleting clients and matters.
@@ -157,7 +157,7 @@ python tests/test_matter_client.py
 ```
 
 ## Dependencies
-- Task 033 (schema tables)
+- Task 006A (schema tables)
 
 ## Next Task
-After this: `035_matter-client-client-dialog.md`
+After this: `006C_matter-client-client-dialog.md`

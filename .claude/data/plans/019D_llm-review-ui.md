@@ -1,4 +1,4 @@
-# 052: LLM & AI Integration - Review UI
+# 019D: LLM & AI Integration - Review UI
 
 ## Task
 Create a review UI for approving/editing AI-generated billing entries.
@@ -221,7 +221,7 @@ python -c "from syncopaid.review_ui import ReviewUI; print('OK')"
 ```
 
 ## Dependencies
-- Task 051 (narrative generation)
+- Task 019C (narrative generation)
 
 ## Next Task
-After this: `053_llm-config-defaults.md`
+After this: `019E_llm-config-defaults.md`

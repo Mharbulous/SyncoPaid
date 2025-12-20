@@ -1,4 +1,4 @@
-# 039: Command Line Tracking - Helper Functions
+# 012B: Command Line Tracking - Helper Functions
 
 ## Task
 Implement `get_process_cmdline()` and `redact_sensitive_paths()` functions.
@@ -135,7 +135,7 @@ pytest tests/test_cmdline_tracking.py -v
 ```
 
 ## Dependencies
-- Task 038 (ActivityEvent field)
+- Task 012A (ActivityEvent field)
 
 ## Next Task
-After this: `040_cmdline-active-window.md`
+After this: `012C_cmdline-active-window.md`

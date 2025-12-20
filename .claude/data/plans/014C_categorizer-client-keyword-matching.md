@@ -1,4 +1,4 @@
-# 045: Activity-to-Matter Matching - Client & Keyword Matching
+# 014C: Activity-to-Matter Matching - Client & Keyword Matching
 
 ## Task
 Implement client name matching (80% confidence) and description keyword matching (60% confidence).
@@ -117,7 +117,7 @@ pytest tests/test_categorizer.py -v
 ```
 
 ## Dependencies
-- Task 044 (matter number matching)
+- Task 014B (matter number matching)
 
 ## Next Task
-After this: `046_categorizer-database-schema.md`
+After this: `014D_categorizer-database-schema.md`

@@ -1,4 +1,4 @@
-# 049: LLM & AI Integration - API Client
+# 019A: LLM & AI Integration - API Client
 
 ## Task
 Create the LLM API client for activity classification using OpenAI/Anthropic APIs.
@@ -187,4 +187,4 @@ python -c "from syncopaid.llm import LLMClient; print('OK')"
 None - this is the first LLM sub-plan.
 
 ## Next Task
-After this: `050_llm-billing-rounding.md`
+After this: `019B_llm-billing-rounding.md`

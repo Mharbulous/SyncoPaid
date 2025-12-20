@@ -1,4 +1,4 @@
-# 048: Activity-to-Matter Matching - App Integration
+# 014F: Activity-to-Matter Matching - App Integration
 
 ## Task
 Add confidence_threshold to config and integrate ActivityMatcher into the main tracking loop.
@@ -101,7 +101,7 @@ python -m syncopaid.database
 ```
 
 ## Dependencies
-- Task 047 (flagged events methods)
+- Task 014E (flagged events methods)
 
 ## Notes
 This completes the Activity-to-Matter Matching feature (original story 8.4.1).

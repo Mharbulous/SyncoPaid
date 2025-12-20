@@ -1,4 +1,4 @@
-# 022: Import Clients & Matters - Database Schema
+# 022A: Import Clients & Matters - Database Schema
 
 ## Task
 Add `clients` and `matters` tables, plus migrate `events` table to have separate `client` and `matter` columns.
@@ -136,4 +136,4 @@ sqlite3 "%LOCALAPPDATA%\SyncoPaid\SyncoPaid.db" "PRAGMA table_info(events);"
 ```
 
 ## Next Task
-After this: `023_import-clients-matters-folder-parser.md`
+After this: `022B_import-clients-matters-folder-parser.md`

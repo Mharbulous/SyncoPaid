@@ -1,4 +1,4 @@
-# 043: Activity-to-Matter Matching - Categorizer Module
+# 014A: Activity-to-Matter Matching - Categorizer Module
 
 ## Task
 Create the `categorizer.py` module with ActivityMatcher class and basic interface.
@@ -127,4 +127,4 @@ pytest tests/test_categorizer.py -v
 - Story 8.1 (Matter/Client Database) should be implemented for full functionality
 
 ## Next Task
-After this: `044_categorizer-matter-number-matching.md`
+After this: `014B_categorizer-matter-number-matching.md`

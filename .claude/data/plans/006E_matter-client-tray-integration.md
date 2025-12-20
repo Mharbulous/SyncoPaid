@@ -1,4 +1,4 @@
-# 037: Matter/Client Database - System Tray Integration
+# 006E: Matter/Client Database - System Tray Integration
 
 ## Task
 Add "Manage Clients" and "Manage Matters" menu items to the system tray.
@@ -98,7 +98,7 @@ Manual testing:
 7. Toggle matter status between active/archived
 
 ## Dependencies
-- Task 036 (matter dialog with CSV)
+- Task 006D (matter dialog with CSV)
 
 ## Notes
 This completes the Matter/Client Database feature (original story 8.1).

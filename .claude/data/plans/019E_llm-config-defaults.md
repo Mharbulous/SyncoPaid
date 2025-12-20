@@ -1,4 +1,4 @@
-# 053: LLM & AI Integration - Config Defaults
+# 019E: LLM & AI Integration - Config Defaults
 
 ## Task
 Add LLM configuration settings to the config module.
@@ -79,7 +79,7 @@ python -m pytest tests/ -v  # All tests
 ```
 
 ## Dependencies
-- Task 052 (review UI)
+- Task 019D (review UI)
 
 ## Notes
 This completes the LLM & AI Integration feature (original story 8).

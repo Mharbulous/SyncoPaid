@@ -1,4 +1,4 @@
-# 028: UI Automation - Module Creation
+# 004B: UI Automation - Module Creation
 
 ## Task
 Create the ui_automation.py module with BaseExtractor class and stub extractors for Outlook and Explorer.
@@ -134,7 +134,7 @@ python -c "from syncopaid.ui_automation import UIAutomationWorker; print('OK')"
 ```
 
 ## Dependencies
-- Task 027 (pywinauto dependency)
+- Task 004A (pywinauto dependency)
 
 ## Next Task
-After this: `029_ui-automation-config.md`
+After this: `004C_ui-automation-config.md`
