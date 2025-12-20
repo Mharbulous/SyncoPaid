@@ -286,8 +286,9 @@ ls .claude/data/plans/*.md | tail -5
 ### Task 1: [Descriptive Name] (~N min)
 
 **Files:**
-- **Create:** `tests/test_x.py`
-- **Modify:** `src/syncopaid/x.py:45-60`
+- Create: `path/to/file.py`
+- Modify: `path/to/existing.py:123-145`
+- Test: `tests/path/to/test.py`
 
 **Context:** [Why this task exists and what it enables for subsequent tasks]
 
@@ -390,8 +391,9 @@ If issues arise:
 ### Task 1: [Descriptive Name] (~N min)
 
 **Files:**
-- **Create:** `tests/path/test_x.py`
-- **Modify:** `src/path/x.py:123-145`
+- Create: `tests/path/test_x.py`
+- Modify: `src/path/x.py:123-145`
+- Test: `tests/path/test_x.py`
 
 **Context:** [1-2 sentences: why this task exists, what it enables]
 
