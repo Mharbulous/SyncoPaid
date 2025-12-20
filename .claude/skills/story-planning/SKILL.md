@@ -244,6 +244,8 @@ ls .claude/data/plans/*.md | tail -5
 ```markdown
 # [Story Title] - Implementation Plan
 
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
 **Story ID:** [ID] | **Created:** [YYYY-MM-DD] | **Stage:** `planned`
 
 ---
@@ -353,6 +355,8 @@ If issues arise:
 
 ```markdown
 # [Story Title] - Implementation Plan
+
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Story ID:** [ID] | **Created:** [YYYY-MM-DD] | **Stage:** `planned`
 
@@ -473,6 +477,8 @@ Each sub-plan is a focused, independently verifiable unit. Use this template:
 
 ```markdown
 # NNN: [Story Title] - [Component Name]
+
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Story ID:** [ID] | **Created:** YYYY-MM-DD | **Stage:** `planned`
 
