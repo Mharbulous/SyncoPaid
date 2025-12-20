@@ -23,7 +23,7 @@ from syncopaid.tray import TrayIcon, sync_startup_registry
 from syncopaid.screenshot import ScreenshotWorker, get_screenshot_directory
 from syncopaid.action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
 from syncopaid.main_single_instance import acquire_single_instance, release_single_instance
-from syncopaid.main_ui_windows import show_export_dialog, show_view_time_window
+from syncopaid.main_ui_windows import show_export_dialog, show_main_window
 
 
 # Version info
@@ -102,7 +102,7 @@ class SyncoPaidApp:
         self.tray = TrayIcon(
             on_start=self.start_tracking,
             on_pause=self.pause_tracking,
-            on_view_time=self.show_view_time_window,
+            on_open=self.show_main_window,
             on_quit=self.quit_app,
             config_manager=self.config_manager
         )
@@ -176,9 +176,9 @@ class SyncoPaidApp:
         """Show dialog for exporting data."""
         show_export_dialog(self.exporter, self.database)
 
-    def show_view_time_window(self):
-        """Show window displaying activity from the past 24 hours."""
-        show_view_time_window(self.database, self.tray, self.quit_app)
+    def show_main_window(self):
+        """Show main application window displaying activity from the past 24 hours."""
+        show_main_window(self.database, self.tray, self.quit_app)
 
     def show_settings_dialog(self):
         """Show settings dialog."""
