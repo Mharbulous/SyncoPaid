@@ -129,19 +129,66 @@ jobs:
 
           echo "Found executed plan: $LATEST_PLAN" >> $GITHUB_STEP_SUMMARY
 
+          # Extract the base sequence number from filename (e.g., "006" from "006A_something.md")
+          PLAN_FILENAME=$(basename "$LATEST_PLAN")
+          BASE_SEQ=$(echo "$PLAN_FILENAME" | grep -oP '^\d+')
+          SUB_PLAN_ID=$(echo "$PLAN_FILENAME" | grep -oP '^\d+\K[A-Z]?' | head -1)
+
+          echo "Plan sequence: ${BASE_SEQ}${SUB_PLAN_ID}" >> $GITHUB_STEP_SUMMARY
+
           # Extract Story ID from the plan file (format: **Story ID:** X.Y | ...)
           STORY_ID=$(grep -oP '\*\*Story ID:\*\*\s*\K[0-9]+(\.[0-9]+)*' "$LATEST_PLAN" | head -1)
 
-          # Extract title from the first markdown header (# Title)
-          STORY_TITLE=$(grep -m1 '^# ' "$LATEST_PLAN" | sed 's/^# //' | sed 's/^[0-9A-Z]*: //')
+          # If no Story ID in current plan, search sibling plans with same base sequence
+          # This handles decomposed plans (006A, 006B, 006C) that share a parent story
+          if [ -z "$STORY_ID" ] && [ -n "$BASE_SEQ" ]; then
+            echo "No Story ID in current plan, searching sibling plans..." >> $GITHUB_STEP_SUMMARY
+
+            # Search in both executed and plans directories for any file with same base sequence
+            for SEARCH_DIR in ".claude/data/executed" ".claude/data/plans"; do
+              if [ -d "$SEARCH_DIR" ]; then
+                for SIBLING in "$SEARCH_DIR"/${BASE_SEQ}*.md "$SEARCH_DIR"/${BASE_SEQ}[A-Z]*.md; do
+                  if [ -f "$SIBLING" ]; then
+                    FOUND_ID=$(grep -oP '\*\*Story ID:\*\*\s*\K[0-9]+(\.[0-9]+)*' "$SIBLING" 2>/dev/null | head -1)
+                    if [ -n "$FOUND_ID" ]; then
+                      STORY_ID="$FOUND_ID"
+                      echo "Found Story ID $STORY_ID in sibling: $(basename "$SIBLING")" >> $GITHUB_STEP_SUMMARY
+                      break 2
+                    fi
+                  fi
+                done
+              fi
+            done
+          fi
 
           if [ -z "$STORY_ID" ]; then
-            echo "No Story ID found in plan, skipping issue update" >> $GITHUB_STEP_SUMMARY
+            echo "No Story ID found in plan or siblings, skipping issue update" >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
 
+          # Get story title from story-tree database using Story ID
+          STORY_TITLE=""
+          if command -v python3 &> /dev/null && [ -f ".claude/data/story-tree.db" ]; then
+            STORY_TITLE=$(python3 -c "
+import sqlite3
+try:
+    conn = sqlite3.connect('.claude/data/story-tree.db')
+    cursor = conn.execute('SELECT title FROM story_nodes WHERE id = ?', ('$STORY_ID',))
+    row = cursor.fetchone()
+    if row:
+        print(row[0])
+except:
+    pass
+" 2>/dev/null)
+          fi
+
+          # Fallback: extract title from plan markdown header
           if [ -z "$STORY_TITLE" ]; then
-            # Fallback: use plan filename as title
+            STORY_TITLE=$(grep -m1 '^# ' "$LATEST_PLAN" | sed 's/^# //' | sed 's/^[0-9A-Z]*: //')
+          fi
+
+          # Final fallback: use plan filename
+          if [ -z "$STORY_TITLE" ]; then
             STORY_TITLE=$(basename "$LATEST_PLAN" .md | sed 's/^[0-9A-Z]*_//' | tr '-' ' ')
           fi
 
