@@ -174,7 +174,7 @@ jobs:
               # Check if files changed
               if [ -n "$(git status --porcelain)" ]; then
                 git add -A
-                git commit -m "ci: plan story (cycle $((cycle + 1)))"
+                git commit -m "planning: create implementation plan for story $approved_id"
                 git push origin main
                 commit_time=$(date -u +"%Y-%m-%d %H:%M:%S")
                 plans_created=$((plans_created + 1))
