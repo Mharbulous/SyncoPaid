@@ -7,17 +7,11 @@ external LLM tools for matter categorization and billing narrative generation.
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
-from typing import Dict, Optional
+from typing import List, Dict, Optional
 
 from .database import Database
-from .exporter_formatting import (
-    format_events_for_export,
-    generate_llm_prompt_data,
-    format_file_size
-)
-from .exporter_analysis import calculate_app_breakdown, calculate_duration_stats
 
 
 class Exporter:
@@ -68,8 +62,19 @@ class Exporter:
             include_idle=include_idle
         )
 
-        # Calculate statistics
-        stats = calculate_duration_stats(events)
+        # Calculate statistics (handle None values for duration)
+        total_duration = sum(
+            e['duration_seconds'] for e in events
+            if e['duration_seconds'] is not None
+        )
+        active_duration = sum(
+            e['duration_seconds'] for e in events
+            if not e['is_idle'] and e['duration_seconds'] is not None
+        )
+        idle_duration = sum(
+            e['duration_seconds'] for e in events
+            if e['is_idle'] and e['duration_seconds'] is not None
+        )
 
         # Build export structure
         export_data = {
@@ -79,11 +84,11 @@ class Exporter:
                 "end": end_date or "all"
             },
             "total_events": len(events),
-            "total_duration_seconds": round(stats['total_duration'], 2),
-            "active_duration_seconds": round(stats['active_duration'], 2),
-            "idle_duration_seconds": round(stats['idle_duration'], 2),
+            "total_duration_seconds": round(total_duration, 2),
+            "active_duration_seconds": round(active_duration, 2),
+            "idle_duration_seconds": round(idle_duration, 2),
             "include_idle": include_idle,
-            "events": format_events_for_export(events)
+            "events": self._format_events_for_export(events)
         }
 
         # Write to file
@@ -109,8 +114,35 @@ class Exporter:
             "file_size_bytes": file_size,
             "events_exported": len(events),
             "date_range": export_data["date_range"],
-            "total_duration_hours": round(stats['total_duration'] / 3600, 2)
+            "total_duration_hours": round(total_duration / 3600, 2)
         }
+
+    def _format_events_for_export(self, events: List[Dict]) -> List[Dict]:
+        """
+        Format events for JSON export.
+
+        Removes internal database IDs and ensures consistent format.
+        """
+        formatted = []
+
+        for event in events:
+            # Derive state from is_idle if not present (backward compatibility)
+            state = event.get('state')
+            if not state:
+                state = 'Inactive' if event['is_idle'] else 'Active'
+
+            formatted.append({
+                "timestamp": event['timestamp'],
+                "duration_seconds": event['duration_seconds'],
+                "end_time": event.get('end_time'),
+                "app": event['app'],
+                "title": event['title'],
+                "url": event['url'],
+                "is_idle": event['is_idle'],
+                "state": state
+            })
+
+        return formatted
 
     def export_daily_summary(
         self,
@@ -138,7 +170,7 @@ class Exporter:
         )
 
         # Group events by application
-        app_breakdown = calculate_app_breakdown(events)
+        app_breakdown = self._calculate_app_breakdown(events)
 
         # Build summary structure
         summary_data = {
@@ -152,7 +184,7 @@ class Exporter:
                 "unique_applications": summary['unique_applications']
             },
             "application_breakdown": app_breakdown,
-            "events": format_events_for_export(events)
+            "events": self._format_events_for_export(events)
         }
 
         # Write to file
@@ -172,6 +204,47 @@ class Exporter:
             "date": target_date,
             "total_events": summary['total_events']
         }
+
+    def _calculate_app_breakdown(self, events: List[Dict]) -> List[Dict]:
+        """
+        Calculate time spent per application.
+
+        Args:
+            events: List of event dictionaries
+
+        Returns:
+            List of {app, duration_seconds, percentage} dictionaries
+        """
+        # Aggregate by app
+        app_totals = {}
+        total_duration = 0
+
+        for event in events:
+            if event['is_idle']:
+                continue
+
+            # Skip events without duration
+            if event['duration_seconds'] is None:
+                continue
+
+            app = event['app'] or 'unknown'
+            duration = event['duration_seconds']
+
+            app_totals[app] = app_totals.get(app, 0) + duration
+            total_duration += duration
+
+        # Convert to list and calculate percentages
+        breakdown = []
+        for app, duration in sorted(app_totals.items(), key=lambda x: x[1], reverse=True):
+            percentage = (duration / total_duration * 100) if total_duration > 0 else 0
+            breakdown.append({
+                "app": app,
+                "duration_seconds": round(duration, 2),
+                "duration_hours": round(duration / 3600, 2),
+                "percentage": round(percentage, 1)
+            })
+
+        return breakdown
 
     def generate_llm_prompt_data(
         self,
@@ -197,7 +270,44 @@ class Exporter:
             include_idle=False  # Exclude idle for LLM processing
         )
 
-        return generate_llm_prompt_data(events)
+        # Simplified format for LLM
+        llm_events = []
+        for event in events:
+            # Extract time only (not full timestamp)
+            time_str = event['timestamp'].split('T')[1][:8]  # HH:MM:SS
+
+            # Handle None duration
+            duration_min = None
+            if event['duration_seconds'] is not None:
+                duration_min = round(event['duration_seconds'] / 60, 1)
+
+            # Derive state from is_idle if not present (backward compatibility)
+            state = event.get('state')
+            if not state:
+                state = 'Active'  # Non-idle events default to Active
+
+            llm_events.append({
+                "time": time_str,
+                "duration_min": duration_min,
+                "app": event['app'],
+                "title": event['title'],
+                "state": state
+            })
+
+        return json.dumps(llm_events, indent=2)
+
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
+
+def format_file_size(bytes: int) -> str:
+    """Format file size in human-readable form."""
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if bytes < 1024.0:
+            return f"{bytes:.1f} {unit}"
+        bytes /= 1024.0
+    return f"{bytes:.1f} TB"
 
 
 # ============================================================================

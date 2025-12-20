@@ -14,7 +14,9 @@
     "src/syncopaid/database.py": { "lines": 422 },
     "src/syncopaid/database_screenshots.py": { "lines": 153 },
     "src/syncopaid/database_statistics.py": { "lines": 122 },
-    "src/syncopaid/exporter.py": { "lines": 412 },
+    "src/syncopaid/exporter.py": { "lines": 302 },
+    "src/syncopaid/exporter_analysis.py": { "lines": 82 },
+    "src/syncopaid/exporter_formatting.py": { "lines": 100 },
     "src/syncopaid/main_single_instance.py": { "lines": 46 },
     "src/syncopaid/main_ui_windows.py": { "lines": 288 },
     "src/syncopaid/screenshot.py": { "lines": 372 },
@@ -35,6 +37,7 @@
     "src/syncopaid/action_screenshot.py",
     "src/syncopaid/screenshot.py",
     "src/syncopaid/__main__.py",
-    "src/syncopaid/tracker.py"
+    "src/syncopaid/tracker.py",
+    "src/syncopaid/exporter.py"
   ]
 }
