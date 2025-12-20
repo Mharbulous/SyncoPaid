@@ -350,6 +350,25 @@ If issues arise:
 ## Implementation Notes
 
 [Edge cases, gotchas, future considerations]
+
+## Execution Handoff
+
+Plan complete and saved to `.claude/data/plans/[filename]`.
+
+**Two execution options:**
+
+**1. Subagent-Driven (this session)**
+- I dispatch fresh subagent per task
+- Code review between tasks
+- Fast iteration with quality gates
+- **REQUIRED SUB-SKILL:** superpowers:subagent-driven-development
+
+**2. Parallel Session (separate)**
+- Open new Claude Code session in this directory
+- Batch execution with checkpoints
+- **REQUIRED SUB-SKILL:** superpowers:executing-plans
+
+**Which approach?**
 ```
 
 #### CI Mode Template (Compact, Self-Contained)
