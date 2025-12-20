@@ -1,7 +1,7 @@
 """
 UI windows for SyncoPaid main application.
 
-Contains the View Time window and Export dialog implementations.
+Contains the Main window and Export dialog implementations.
 """
 
 import os
@@ -19,7 +19,7 @@ from syncopaid.tray import get_resource_path
 
 
 def set_window_icon(root: tk.Tk) -> None:
-    """Set the SyncoPaid icon on a tkinter window (View Time window)."""
+    """Set the SyncoPaid icon on a tkinter window (Main window)."""
     try:
         if sys.platform == 'win32':
             icon_path = get_resource_path("assets/SYNCOPaiD.ico")
@@ -96,9 +96,9 @@ def show_export_dialog(exporter, database):
     dialog_thread.start()
 
 
-def show_view_time_window(database, tray, quit_callback):
+def show_main_window(database, tray, quit_callback):
     """
-    Show window displaying activity from the past 24 hours.
+    Show main application window displaying activity from the past 24 hours.
 
     Args:
         database: Database instance for querying events
@@ -281,7 +281,7 @@ def show_view_time_window(database, tray, quit_callback):
             root.mainloop()
 
         except Exception as e:
-            logging.error(f"Error showing view time window: {e}", exc_info=True)
+            logging.error(f"Error showing main window: {e}", exc_info=True)
 
     # Run in thread to avoid blocking pystray
     window_thread = threading.Thread(target=run_window, daemon=True)
