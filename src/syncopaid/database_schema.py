@@ -84,6 +84,11 @@ class SchemaMixin:
             """)
             logging.info("Database migration: Backfilled state column from is_idle")
 
+        # Migration: Add metadata column if it doesn't exist
+        if 'metadata' not in columns:
+            cursor.execute("ALTER TABLE events ADD COLUMN metadata TEXT")
+            logging.info("Database migration: Added metadata column to events table")
+
     def _create_indices(self, cursor):
         """
         Create database indices for query performance.

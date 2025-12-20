@@ -7,6 +7,7 @@ Provides:
 - Delete events by date range or IDs
 """
 
+import json
 import logging
 from typing import List, Dict, Optional
 from datetime import datetime
@@ -37,10 +38,14 @@ class OperationsMixin:
             # Get optional fields (may be None for older code paths)
             end_time = getattr(event, 'end_time', None)
             state = getattr(event, 'state', 'Active')
+            metadata = getattr(event, 'metadata', None)
+
+            # Serialize metadata to JSON if present
+            metadata_json = json.dumps(metadata) if metadata else None
 
             cursor.execute("""
-                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle, state)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle, state, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 event.timestamp,
                 event.duration_seconds,
@@ -49,7 +54,8 @@ class OperationsMixin:
                 event.title,
                 event.url,
                 1 if event.is_idle else 0,
-                state
+                state,
+                metadata_json
             ))
 
             return cursor.lastrowid
@@ -71,11 +77,12 @@ class OperationsMixin:
             cursor = conn.cursor()
 
             cursor.executemany("""
-                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle, state)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle, state, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, [
                 (e.timestamp, e.duration_seconds, getattr(e, 'end_time', None),
-                 e.app, e.title, e.url, 1 if e.is_idle else 0, getattr(e, 'state', 'Active'))
+                 e.app, e.title, e.url, 1 if e.is_idle else 0, getattr(e, 'state', 'Active'),
+                 json.dumps(getattr(e, 'metadata', None)) if getattr(e, 'metadata', None) else None)
                 for e in events
             ])
 
@@ -218,6 +225,11 @@ class OperationsMixin:
             else:
                 state = 'Inactive' if row['is_idle'] else 'Active'
 
+            # Deserialize metadata JSON if present
+            metadata = None
+            if 'metadata' in row.keys() and row['metadata']:
+                metadata = json.loads(row['metadata'])
+
             events.append({
                 'id': row['id'],
                 'timestamp': row['timestamp'],
@@ -227,7 +239,8 @@ class OperationsMixin:
                 'title': row['title'],
                 'url': row['url'],
                 'is_idle': bool(row['is_idle']),
-                'state': state
+                'state': state,
+                'metadata': metadata
             })
 
         return events
