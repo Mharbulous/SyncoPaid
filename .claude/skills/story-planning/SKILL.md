@@ -107,7 +107,118 @@ score = min(depth, 5) * 0.30 \
 - How to test this feature (unit test location, fixtures needed)
 - Any edge cases mentioned in story notes
 
-### Step 5: Create TDD Plan
+### Step 4.5: Assess Complexity
+
+**Goal:** Determine if this story needs a single plan or multiple incremental sub-plans.
+
+**Complexity Indicators:**
+
+| Indicator | Weight |
+|-----------|--------|
+| New database tables/migrations | +2 each |
+| New module file | +1 each |
+| UI changes (new dialogs, menus) | +1 each |
+| Multiple files modified | +1 per 3 files |
+| External dependencies added | +1 each |
+
+**Calculate total score:**
+```python
+score = (
+    new_tables * 2 +
+    new_modules * 1 +
+    ui_changes * 1 +
+    (files_modified // 3) * 1 +
+    external_deps * 1
+)
+```
+
+**Thresholds:**
+- **0-2 = LOW** → Single plan file (proceed to Step 5)
+- **3-5 = MEDIUM** → 2-4 sub-plans (proceed to Step 4.6)
+- **6+ = HIGH** → 4+ sub-plans (proceed to Step 4.6)
+
+**Interactive Mode:** Report complexity assessment and ask for confirmation before proceeding.
+**CI Mode:** Auto-decompose based on score.
+
+### Step 4.6: Decompose into Sub-Plans (Medium/High Only)
+
+**Skip this step for LOW complexity stories.**
+
+**Goal:** Break the story into independently verifiable sub-plans, ordered for fail-fast bug discovery.
+
+#### Fail-Fast Ordering Principle
+
+Order sub-plans so each builds on a verified foundation. Errors surface immediately, not 3 steps later.
+
+**Standard layer order:**
+1. **Database/Schema** — Schema errors break everything downstream
+2. **Core logic modules** — Can be unit tested in isolation
+3. **Integration points** — Connect modules, test wiring
+4. **UI last** — Depends on all prior layers working
+
+**Example decomposition for "Import Clients & Matters":**
+```
+045: Database schema (foundation)
+046: Folder parser (core logic, testable in isolation)
+047: Dialog UI (depends on parser)
+048: Menu integration (thin wiring)
+049: Time assignment UI (extends feature)
+```
+
+#### Sub-Plan Sizing
+
+Each sub-plan should be:
+- **LOW complexity** when assessed individually (~15-30 min implementation)
+- **2-5 TDD tasks**
+- **Independently verifiable** with clear test/verification commands
+- **Single responsibility** — one layer or concern per sub-plan
+
+#### Determine Next Sequence Number
+
+Query existing handovers to find next available number:
+```bash
+ls ai_docs/Handovers/*.md | tail -5
+```
+
+Use the pattern: `NNN_[story-slug]-[component].md`
+
+**Example sequence:**
+- `045_import-clients-matters-db-schema.md`
+- `046_import-clients-matters-folder-parser.md`
+- `047_import-clients-matters-dialog-ui.md`
+- `048_import-clients-matters-menu-integration.md`
+
+#### Generate Sub-Plan Outline
+
+Before writing files, outline the decomposition:
+
+```markdown
+## Sub-Plan Decomposition
+
+**Story:** [Story Title]
+**Complexity Score:** [N] (MEDIUM/HIGH)
+**Sub-Plans:** [count]
+
+| # | File | Focus | Dependencies |
+|---|------|-------|--------------|
+| 045 | ...-db-schema.md | Database tables | None |
+| 046 | ...-folder-parser.md | Core logic | 045 |
+| 047 | ...-dialog-ui.md | UI component | 045, 046 |
+| ... | ... | ... | ... |
+```
+
+**Interactive Mode:** Present outline for approval before generating files.
+**CI Mode:** Generate all sub-plan files.
+
+### Step 5: Create Plan File(s)
+
+**For LOW complexity:** Single plan file → `.claude/data/plans/YYYY-MM-DD-[story-id]-[slug].md`
+
+**For MEDIUM/HIGH complexity:** Multiple handover files → `ai_docs/Handovers/NNN_[slug].md`
+
+---
+
+#### LOW Complexity: Single TDD Plan
 
 **Filename:** `.claude/data/plans/YYYY-MM-DD-[story-id]-[slug].md`
 - `[slug]` = title in lowercase-kebab-case (max 40 chars)
@@ -338,8 +449,78 @@ In CI mode, the plan must be executable without human guidance:
 - No "verify manually" - provide automated verification commands
 - No "ask if unclear" - the plan IS the clarity
 
+---
+
+#### MEDIUM/HIGH Complexity: Incremental Sub-Plans
+
+**Output path:** `ai_docs/Handovers/NNN_[story-slug]-[component].md`
+
+Each sub-plan is a focused, independently verifiable unit. Use this template:
+
+```markdown
+# NNN: [Story Title] - [Component Name]
+
+## Task
+[One sentence describing what this sub-plan accomplishes]
+
+## Context
+[2-3 sentences explaining why this component exists and how it fits the larger story]
+
+**Design principle**: [Key architectural decision or constraint]
+
+## Scope
+- [Bullet point 1]
+- [Bullet point 2]
+- [Bullet point 3]
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `path/to/file.py` | Brief description |
+| `path/to/other.py:45-60` | Line-specific modification |
+
+## Implementation Details
+
+[Technical specification with code snippets, data structures, function signatures]
+
+```python
+# Example code block showing exact implementation
+def function_name():
+    pass
+```
+
+## Verification
+
+```bash
+venv\Scripts\activate
+
+# Test command 1
+[command]
+# Expected: [output]
+
+# Test command 2
+[command]
+# Expected: [output]
+```
+
+## Dependencies
+- Task NNN-1 (component name) should be complete first
+
+## Next Task
+After this: `NNN+1_[story-slug]-[next-component].md`
+```
+
+**Sub-Plan Quality Requirements:**
+- Each sub-plan is **LOW complexity** when assessed individually
+- **Clear dependencies** — explicitly list which prior sub-plans must complete first
+- **Independent verification** — each sub-plan has its own test commands
+- **Fail-fast order** — database → core logic → integration → UI
+- **Link chain** — each sub-plan references the next in "Next Task" section
+
 ### Step 6: Update Stage
 
+**For LOW complexity (single plan):**
 ```python
 python -c "
 import sqlite3
@@ -356,9 +537,28 @@ conn.close()
 "
 ```
 
+**For MEDIUM/HIGH complexity (sub-plans):**
+```python
+python -c "
+import sqlite3
+conn = sqlite3.connect('.claude/data/story-tree.db')
+conn.execute('''
+    UPDATE story_nodes
+    SET stage = 'planned',
+        notes = COALESCE(notes || chr(10), '') || 'Sub-plans: ai_docs/Handovers/[START]-[END]_[slug]*.md',
+        updated_at = datetime('now')
+    WHERE id = '[STORY_ID]'
+''')
+conn.commit()
+conn.close()
+"
+```
+
 ### Step 7: Execution Handoff (Interactive Only)
 
 **Skip this step in CI mode.**
+
+**For LOW complexity (single plan):**
 
 Present two options:
 
@@ -366,14 +566,48 @@ Present two options:
 
 **Option 2: Fresh session** - Open new Claude Code session, say "Execute plan: .claude/data/plans/[filename]"
 
+**For MEDIUM/HIGH complexity (sub-plans):**
+
+Present sub-plan execution order:
+
+```
+## Execution Order
+
+Complete sub-plans sequentially. Verify each before proceeding to next.
+
+1. Execute: ai_docs/Handovers/045_[slug]-db-schema.md
+   Verify: [verification command]
+
+2. Execute: ai_docs/Handovers/046_[slug]-core-logic.md
+   Verify: [verification command]
+
+[... continue for all sub-plans ...]
+```
+
+**Option 1: Continue in this session** - Execute sub-plans sequentially with verification between each
+
+**Option 2: Fresh session per sub-plan** - Each sub-plan in a new session for clean context
+
 ## Output Format
 
-**CI Mode - Success:**
+**CI Mode - LOW complexity Success:**
 ```
 ✓ Planned story [STORY_ID]: [Title]
-  Score: [score]/1.0
+  Complexity: LOW (score [N])
   Plan: .claude/data/plans/[filename].md
   Tasks: [N] TDD cycles
+  Stage: approved -> planned
+```
+
+**CI Mode - MEDIUM/HIGH complexity Success:**
+```
+✓ Planned story [STORY_ID]: [Title]
+  Complexity: [MEDIUM|HIGH] (score [N])
+  Sub-plans: [count] files
+    - ai_docs/Handovers/[NNN]_[slug]-[component].md
+    - ai_docs/Handovers/[NNN+1]_[slug]-[component].md
+    - ...
+  Execution order: [NNN] → [NNN+1] → ... → [NNN+M]
   Stage: approved -> planned
 ```
 
