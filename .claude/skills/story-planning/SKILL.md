@@ -670,3 +670,25 @@ When generating plans, always:
 ```
 
 **Interactive Mode:** Conversational summary with handoff options.
+
+## Quality Checks
+
+Before completing the workflow, verify:
+- [ ] All approved stories were fetched and analyzed
+- [ ] Priority scoring was applied correctly
+- [ ] Each task has exactly 5 steps: test, verify fail, implement, verify pass, commit
+- [ ] All code examples are complete and copy-paste ready
+- [ ] All commands include expected output
+- [ ] No vague instructions like "add validation" or "handle errors"
+- [ ] Execution handoff options are presented at end (Interactive mode only)
+
+## Common Mistakes
+
+| Mistake | What To Do Instead |
+|---------|-------------------|
+| Using `sqlite3` CLI | Use Python's sqlite3 module |
+| Writing multi-step tasks | Break into single-action steps (test/verify/implement/verify/commit) |
+| Omitting expected output | Every command needs "Expected: [what success looks like]" |
+| Vague code examples | Write complete, copy-paste ready code |
+| Skipping execution handoff | Always offer subagent-driven vs parallel session choice (Interactive mode) |
+| Large commits at end | Commit after each task (RED-GREEN-REFACTOR cycle) |
