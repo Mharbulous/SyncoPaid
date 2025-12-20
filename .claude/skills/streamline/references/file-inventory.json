@@ -21,7 +21,9 @@
     "src/syncopaid/screenshot_capture.py": { "lines": 204 },
     "src/syncopaid/screenshot_comparison.py": { "lines": 139 },
     "src/syncopaid/screenshot_persistence.py": { "lines": 105 },
-    "src/syncopaid/tracker.py": { "lines": 594 },
+    "src/syncopaid/tracker.py": { "lines": 418 },
+    "src/syncopaid/tracker_state.py": { "lines": 114 },
+    "src/syncopaid/tracker_windows.py": { "lines": 129 },
     "src/syncopaid/tray.py": { "lines": 351 },
     "src/syncopaid/tray_icons.py": { "lines": 193 },
     "src/syncopaid/tray_startup.py": { "lines": 227 }
@@ -32,6 +34,7 @@
     "src/syncopaid/database.py",
     "src/syncopaid/action_screenshot.py",
     "src/syncopaid/screenshot.py",
-    "src/syncopaid/__main__.py"
+    "src/syncopaid/__main__.py",
+    "src/syncopaid/tracker.py"
   ]
 }

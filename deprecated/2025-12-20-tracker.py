@@ -9,48 +9,224 @@ This module provides the TrackerLoop class which continuously monitors:
 All data is captured locally at second-level precision.
 """
 
+import re
 import time
 import logging
 from datetime import datetime, timezone
 from typing import Dict, Optional, Generator
+from dataclasses import dataclass, asdict
 
-from syncopaid.tracker_state import (
-    ActivityEvent,
-    IdleResumptionEvent,
-    STATE_ACTIVE,
-    STATE_INACTIVE
-)
-from syncopaid.tracker_windows import (
-    get_active_window,
-    get_idle_seconds,
-    WINDOWS_APIS_AVAILABLE
-)
+from syncopaid.context_extraction import extract_context
 
-# Re-export for backwards compatibility
-from syncopaid.tracker_state import (
-    STATE_ACTIVE,
-    STATE_INACTIVE,
-    STATE_OFF,
-    STATE_BLOCKED,
-    STATE_PAUSED,
-    STATE_PERSONAL,
-    STATE_ON_BREAK,
-    CONVERTIBLE_STATES,
-    VALID_STATES,
-    CLIENT_MATTER_PATTERN,
-    is_valid_state,
-    is_client_matter,
-    can_convert_to_matter,
-    ActivityEvent,
-    IdleResumptionEvent
-)
+# Platform detection
+import sys
+WINDOWS = sys.platform == 'win32'
 
-# Re-export Windows APIs for backwards compatibility
-from syncopaid.tracker_windows import WINDOWS_APIS_AVAILABLE
+if WINDOWS:
+    try:
+        import win32gui
+        import win32process
+        import psutil
+        from ctypes import Structure, windll, c_uint, sizeof, byref
+        WINDOWS_APIS_AVAILABLE = True
+    except ImportError:
+        WINDOWS_APIS_AVAILABLE = False
+        logging.warning("Windows APIs not available. Install pywin32 and psutil.")
+else:
+    WINDOWS_APIS_AVAILABLE = False
 
-# For screenshot submission
+
+# ============================================================================
+# STATE CONSTANTS AND VALIDATION
+# ============================================================================
+
+# System states (assigned automatically based on tracking conditions)
+STATE_ACTIVE = "Active"       # Tracked activity, client matter TBD (default)
+STATE_INACTIVE = "Inactive"   # Idle detected (keyboard/mouse inactivity)
+STATE_OFF = "Off"             # SyncoPaid wasn't running (gaps)
+STATE_BLOCKED = "Blocked"     # Auto-blocked content (passwords, incognito)
+STATE_PAUSED = "Paused"       # User manually paused tracking
+
+# User-assigned states (non-billable)
+STATE_PERSONAL = "Personal"   # Personal time
+STATE_ON_BREAK = "On-break"   # Break time
+
+# States that can be converted to client matters
+CONVERTIBLE_STATES = {STATE_ACTIVE, STATE_INACTIVE, STATE_OFF}
+
+# All valid system/user states
+VALID_STATES = {
+    STATE_ACTIVE, STATE_INACTIVE, STATE_OFF, STATE_BLOCKED,
+    STATE_PAUSED, STATE_PERSONAL, STATE_ON_BREAK
+}
+
+# Client matter pattern: 4 digits, dot, optional letter, 3 digits
+# Examples: 1023.L213, 1214.001
+CLIENT_MATTER_PATTERN = re.compile(r'^\d{4}\.[A-Z]?\d{3}$')
+
+
+def is_valid_state(state: str) -> bool:
+    """Check if state is valid (system state or client matter number)."""
+    if state in VALID_STATES:
+        return True
+    return bool(CLIENT_MATTER_PATTERN.match(state))
+
+
+def is_client_matter(state: str) -> bool:
+    """Check if state is a client matter number (not a system state)."""
+    return bool(CLIENT_MATTER_PATTERN.match(state))
+
+
+def can_convert_to_matter(state: str) -> bool:
+    """Check if a state can be converted to a client matter number."""
+    return state in CONVERTIBLE_STATES
+
+
+# ============================================================================
+# DATA MODELS
+# ============================================================================
+
+@dataclass
+class ActivityEvent:
+    """
+    Represents a single captured activity event.
+
+    This is the core data structure that will be stored in the database
+    and exported for LLM processing.
+
+    Fields:
+        timestamp: Start time in ISO8601 format (e.g., "2025-12-09T10:30:45")
+        duration_seconds: Duration in seconds (may be None for legacy records)
+        end_time: End time in ISO8601 format (may be None for legacy records)
+        app: Application executable name
+        title: Window title
+        url: URL if applicable (future enhancement)
+        is_idle: Whether this was an idle period (deprecated - use state)
+        state: Activity state or client matter number (e.g., "Active", "1023.L213")
+    """
+    timestamp: str  # ISO8601 format: "2025-12-09T10:30:45" (start time)
+    duration_seconds: Optional[float]
+    app: Optional[str]
+    title: Optional[str]
+    end_time: Optional[str] = None  # ISO8601 format (end time)
+    url: Optional[str] = None
+    is_idle: bool = False
+    state: str = STATE_ACTIVE  # Default to Active (client matter TBD)
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON export or database storage."""
+        return asdict(self)
+
+
+@dataclass
+class IdleResumptionEvent:
+    """
+    Event emitted when user resumes work after significant idle period.
+
+    This event signals a natural transition point for prompting time categorization.
+    Only emitted when idle period exceeds minimum_idle_duration threshold (default 180s).
+
+    Fields:
+        resumption_timestamp: ISO8601 timestamp when user became active again
+        idle_duration: Duration of idle period in seconds
+    """
+    resumption_timestamp: str  # ISO8601 format: "2025-12-18T10:30:00+00:00"
+    idle_duration: float  # Seconds user was idle
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON export or event handling."""
+        return asdict(self)
+
+
+# ============================================================================
+# WINDOWS API FUNCTIONS
+# ============================================================================
+
 if WINDOWS_APIS_AVAILABLE:
-    import win32gui
+    class LASTINPUTINFO(Structure):
+        """Windows structure for GetLastInputInfo API."""
+        _fields_ = [('cbSize', c_uint), ('dwTime', c_uint)]
+
+
+def get_active_window() -> Dict[str, Optional[str]]:
+    """
+    Get information about the currently active foreground window.
+
+    Returns:
+        Dictionary with keys:
+        - 'app': Executable name (e.g., 'WINWORD.EXE', 'chrome.exe')
+        - 'title': Window title text
+        - 'pid': Process ID (for debugging)
+        - 'url': Extracted contextual information (URL, subject, or filepath)
+
+    Note: Returns mock data on non-Windows platforms for testing.
+    """
+    if not WINDOWS_APIS_AVAILABLE:
+        # Mock data for testing on non-Windows platforms
+        import random
+        mock_apps = [
+            ("WINWORD.EXE", "Smith-Contract-v2.docx - Word"),
+            ("chrome.exe", "CanLII - 2024 BCSC 1234 - Google Chrome"),
+            ("OUTLOOK.EXE", "Inbox - user@lawfirm.com - Outlook"),
+        ]
+        app, title = random.choice(mock_apps)
+        url = extract_context(app, title)
+        return {"app": app, "title": title, "pid": 0, "url": url}
+
+    try:
+        hwnd = win32gui.GetForegroundWindow()
+        title = win32gui.GetWindowText(hwnd)
+        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+
+        # Handle signed/unsigned integer overflow from Windows API
+        # Windows returns unsigned 32-bit PID, but Python may interpret as signed
+        if pid < 0:
+            pid = pid & 0xFFFFFFFF  # Convert to unsigned
+
+        try:
+            process = psutil.Process(pid).name()
+        except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError):
+            process = None
+
+        # Extract contextual information
+        url = extract_context(process, title)
+        if url:
+            logging.debug(f"Extracted context from {process}: {url[:50]}...")  # Log first 50 chars
+        elif process and title:
+            # Only log if we had a valid app and title but extraction returned None
+            logging.debug(f"No context extracted from {process}: {title[:50]}...")
+
+        return {"app": process, "title": title, "pid": pid, "url": url}
+
+    except Exception as e:
+        logging.error(f"Error getting active window: {e}")
+        return {"app": None, "title": None, "pid": None, "url": None}
+
+
+def get_idle_seconds() -> float:
+    """
+    Get the number of seconds since the last keyboard or mouse input.
+
+    Uses Windows GetLastInputInfo API to detect user inactivity.
+
+    Returns:
+        Float representing idle seconds. Returns 0.0 on non-Windows platforms.
+    """
+    if not WINDOWS_APIS_AVAILABLE:
+        # Mock: alternate between active (0s) and occasionally idle
+        import random
+        return random.choice([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 200.0])
+
+    try:
+        info = LASTINPUTINFO()
+        info.cbSize = sizeof(info)
+        windll.user32.GetLastInputInfo(byref(info))
+        millis = windll.kernel32.GetTickCount() - info.dwTime
+        return millis / 1000.0
+
+    except Exception as e:
+        logging.error(f"Error getting idle time: {e}")
+        return 0.0
 
 
 # ============================================================================
