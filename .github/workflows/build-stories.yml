@@ -1,4 +1,4 @@
-name: Daily Story Building
+name: Build Story
 
 # Run at 4:40 AM PST (12:40 UTC) every day - after approve-stories
 on:
