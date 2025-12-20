@@ -1,4 +1,4 @@
-name: Daily Story Execution
+name: Execute Planned Story
 
 # Run at 3:20 AM PST (11:20 UTC) every day - after review-stories
 on:
