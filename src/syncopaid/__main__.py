@@ -102,7 +102,7 @@ class SyncoPaidApp:
         self.tray = TrayIcon(
             on_start=self.start_tracking,
             on_pause=self.pause_tracking,
-            on_view_time=self.show_main_window,
+            on_open=self.show_main_window,
             on_quit=self.quit_app,
             config_manager=self.config_manager
         )

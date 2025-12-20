@@ -6,7 +6,7 @@ Provides a minimal system tray interface with:
   - stopwatch-pictogram-green = tracking active
   - stopwatch-pictogram-orange = user manually paused (with ❚❚ overlay)
   - stopwatch-pictogram-faded = no activity for 5min (with 💤 overlay)
-- Right-click menu with Start/Pause, View Time, Start with Windows, About
+- Right-click menu with Start/Pause, Open SyncoPaid, Start with Windows, About
 - Notifications for key events
 """
 
@@ -47,7 +47,7 @@ class TrayIcon:
 
     Menu options:
     - Start/Pause Tracking
-    - View Time...
+    - Open SyncoPaid
     - Start with Windows
     - About
     - Quit
@@ -57,7 +57,7 @@ class TrayIcon:
         self,
         on_start: Optional[Callable] = None,
         on_pause: Optional[Callable] = None,
-        on_view_time: Optional[Callable] = None,
+        on_open: Optional[Callable] = None,
         on_quit: Optional[Callable] = None,
         config_manager=None
     ):
@@ -67,13 +67,13 @@ class TrayIcon:
         Args:
             on_start: Callback for "Start Tracking" menu item
             on_pause: Callback for "Pause Tracking" menu item
-            on_view_time: Callback for "View Time" menu item
+            on_open: Callback for "Open SyncoPaid" menu item
             on_quit: Callback for "Quit" menu item
             config_manager: ConfigManager instance for persisting settings
         """
         self.on_start = on_start or (lambda: None)
         self.on_pause = on_pause or (lambda: None)
-        self.on_view_time = on_view_time or (lambda: None)
+        self.on_open = on_open or (lambda: None)
         self.on_quit = on_quit or (lambda: None)
         self.config_manager = config_manager
 
@@ -149,7 +149,7 @@ class TrayIcon:
                 self._toggle_tracking,
                 default=True
             ),
-            pystray.MenuItem("📊 View Time...", self._handle_view_time),
+            pystray.MenuItem("📊 Open SyncoPaid", self._handle_open),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(
                 "🚀 Start with Windows",
@@ -174,10 +174,10 @@ class TrayIcon:
 
         self._refresh_icon()
 
-    def _handle_view_time(self, icon, item):
-        """Handle View Time menu item."""
-        logging.info("User clicked View Time from tray menu")
-        self.on_view_time()
+    def _handle_open(self, icon, item):
+        """Handle Open SyncoPaid menu item."""
+        logging.info("User clicked Open SyncoPaid from tray menu")
+        self.on_open()
 
     def _toggle_startup(self, icon, item):
         """Handle Start with Windows toggle."""
@@ -262,7 +262,7 @@ class TrayIcon:
         print("\nCommands:")
         print("  start  - Start tracking")
         print("  pause  - Pause tracking")
-        print("  view   - View time (last 24h)")
+        print("  open   - Open main window")
         print("  quit   - Quit application")
         print("\n")
 
@@ -280,9 +280,9 @@ class TrayIcon:
                     self.is_tracking = False
                     self.on_pause()
 
-                elif cmd == "view":
-                    print("📊 View time...")
-                    self.on_view_time()
+                elif cmd == "open":
+                    print("📊 Opening SyncoPaid...")
+                    self.on_open()
 
                 elif cmd == "quit" or cmd == "exit":
                     print("❌ Quitting...")
@@ -325,9 +325,9 @@ if __name__ == "__main__":
     def on_pause():
         print("✓ Pause callback triggered")
 
-    def on_view_time():
-        print("✓ View Time callback triggered")
-        print("  (In real app: would open view time window)")
+    def on_open():
+        print("✓ Open callback triggered")
+        print("  (In real app: would open main window)")
 
     def on_quit():
         print("✓ Quit callback triggered")
@@ -337,7 +337,7 @@ if __name__ == "__main__":
     tray = TrayIcon(
         on_start=on_start,
         on_pause=on_pause,
-        on_view_time=on_view_time,
+        on_open=on_open,
         on_quit=on_quit
     )
 
