@@ -37,11 +37,60 @@ class OutlookExtractor(BaseExtractor):
     def extract(self, window_info: Dict) -> Optional[Dict[str, str]]:
         if not PYWINAUTO_AVAILABLE:
             return None
+
         if 'OUTLOOK' not in window_info.get('app', '').upper():
             return None
-        # Stub - actual implementation in sub-plan 031
-        logging.debug(f"Outlook extraction not yet implemented")
-        return None
+
+        pid = window_info.get('pid')
+        if not pid:
+            return None
+
+        try:
+            app = Application(backend='uia').connect(
+                process=pid, timeout=self.timeout_ms / 1000.0
+            )
+            main_window = app.window(pid=pid)
+
+            # Try to find subject field
+            subject_text = None
+            try:
+                subject_elem = main_window.child_window(
+                    auto_id="Subject", control_type="Edit"
+                )
+                subject_text = subject_elem.window_text()
+            except Exception:
+                try:
+                    subject_elem = main_window.child_window(
+                        class_name="_WwG", found_index=0
+                    )
+                    subject_text = subject_elem.window_text()
+                except Exception:
+                    pass
+
+            # Try to find sender field
+            sender_text = None
+            try:
+                sender_elem = main_window.child_window(
+                    auto_id="From", control_type="Edit"
+                )
+                sender_text = sender_elem.window_text()
+            except Exception:
+                pass
+
+            if subject_text:
+                result = {'email_subject': subject_text}
+                if sender_text:
+                    result['sender'] = sender_text
+                return result
+
+            return None
+
+        except TimeoutError:
+            logging.debug(f"Outlook extraction timeout after {self.timeout_ms}ms")
+            return None
+        except Exception as e:
+            logging.debug(f"Outlook extraction failed: {e}")
+            return None
 
 
 class ExplorerExtractor(BaseExtractor):
