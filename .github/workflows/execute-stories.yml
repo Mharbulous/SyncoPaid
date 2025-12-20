@@ -100,6 +100,133 @@ jobs:
             --model claude-sonnet-4-5-20250929
             --max-turns 100
 
+      - name: Post Results to Story Issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## Posting Results to Story Issue" >> $GITHUB_STEP_SUMMARY
+
+          # Find the most recently modified file in executed/ directory
+          EXECUTED_DIR=".claude/data/executed"
+          if [ ! -d "$EXECUTED_DIR" ]; then
+            echo "No executed directory found, skipping issue update" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          # Get the most recently modified plan file (by git, looking at the last commit)
+          LATEST_PLAN=$(git diff --name-only HEAD~1 HEAD -- "$EXECUTED_DIR" 2>/dev/null | head -1)
+
+          # If no file found via git diff, try finding most recent by modification time
+          if [ -z "$LATEST_PLAN" ] || [ ! -f "$LATEST_PLAN" ]; then
+            LATEST_PLAN=$(ls -t "$EXECUTED_DIR"/*.md 2>/dev/null | head -1)
+          fi
+
+          if [ -z "$LATEST_PLAN" ] || [ ! -f "$LATEST_PLAN" ]; then
+            echo "No executed plan file found, skipping issue update" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          echo "Found executed plan: $LATEST_PLAN" >> $GITHUB_STEP_SUMMARY
+
+          # Extract Story ID from the plan file (format: **Story ID:** X.Y | ...)
+          STORY_ID=$(grep -oP '\*\*Story ID:\*\*\s*\K[0-9]+(\.[0-9]+)*' "$LATEST_PLAN" | head -1)
+
+          # Extract title from the first markdown header (# Title)
+          STORY_TITLE=$(grep -m1 '^# ' "$LATEST_PLAN" | sed 's/^# //' | sed 's/^[0-9A-Z]*: //')
+
+          if [ -z "$STORY_ID" ]; then
+            echo "No Story ID found in plan, skipping issue update" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          if [ -z "$STORY_TITLE" ]; then
+            # Fallback: use plan filename as title
+            STORY_TITLE=$(basename "$LATEST_PLAN" .md | sed 's/^[0-9A-Z]*_//' | tr '-' ' ')
+          fi
+
+          ISSUE_TITLE="${STORY_ID} - ${STORY_TITLE}"
+          echo "Story Issue Title: $ISSUE_TITLE" >> $GITHUB_STEP_SUMMARY
+
+          # Check if issue already exists
+          ISSUE_NUMBER=$(gh issue list --state all --search "\"${ISSUE_TITLE}\" in:title" --json number,title --jq ".[] | select(.title == \"${ISSUE_TITLE}\") | .number" | head -1)
+
+          if [ -z "$ISSUE_NUMBER" ]; then
+            echo "Creating new issue: $ISSUE_TITLE" >> $GITHUB_STEP_SUMMARY
+            ISSUE_NUMBER=$(gh issue create \
+              --title "$ISSUE_TITLE" \
+              --body "Tracking issue for story node **${STORY_ID}**
+
+## Description
+${STORY_TITLE}
+
+---
+*This issue was automatically created by the execute-stories workflow to track CI execution results.*" \
+              --label "story-tracking" 2>/dev/null | grep -oP 'issues/\K[0-9]+' || echo "")
+
+            # If label doesn't exist, try without it
+            if [ -z "$ISSUE_NUMBER" ]; then
+              ISSUE_NUMBER=$(gh issue create \
+                --title "$ISSUE_TITLE" \
+                --body "Tracking issue for story node **${STORY_ID}**
+
+## Description
+${STORY_TITLE}
+
+---
+*This issue was automatically created by the execute-stories workflow to track CI execution results.*" \
+                | grep -oP 'issues/\K[0-9]+' || echo "")
+            fi
+
+            if [ -n "$ISSUE_NUMBER" ]; then
+              echo "Created issue #${ISSUE_NUMBER}" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "Failed to create issue" >> $GITHUB_STEP_SUMMARY
+              exit 0
+            fi
+          else
+            echo "Found existing issue #${ISSUE_NUMBER}" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Determine job result status
+          JOB_STATUS="${{ job.status }}"
+          if [ "$JOB_STATUS" = "success" ]; then
+            STATUS_EMOJI="✅"
+            STATUS_TEXT="Success"
+          elif [ "$JOB_STATUS" = "failure" ]; then
+            STATUS_EMOJI="❌"
+            STATUS_TEXT="Failed"
+          else
+            STATUS_EMOJI="⚠️"
+            STATUS_TEXT="$JOB_STATUS"
+          fi
+
+          # Build the result comment
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          PLAN_FILENAME=$(basename "$LATEST_PLAN")
+
+          COMMENT_BODY="## ${STATUS_EMOJI} Execution Result: ${STATUS_TEXT}
+
+**Plan Executed:** \`${PLAN_FILENAME}\`
+**Timestamp:** ${TIMESTAMP}
+**Workflow Run:** [View Details](${RUN_URL})
+
+### Summary
+Story execution completed with status: **${STATUS_TEXT}**
+
+---
+*Posted automatically by [execute-stories workflow](${RUN_URL})*"
+
+          # Post comment to the issue
+          echo "$COMMENT_BODY" | gh issue comment "$ISSUE_NUMBER" --body-file -
+
+          if [ $? -eq 0 ]; then
+            echo "Posted results to issue #${ISSUE_NUMBER}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Failed to post comment to issue #${ISSUE_NUMBER}" >> $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Report Token Usage
         if: always()
         run: |
