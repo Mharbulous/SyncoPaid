@@ -36,16 +36,13 @@ jobs:
           show_full_output: false
 
           prompt: |
-            Run /streamline yolo
+            Read and execute the streamline skill at .claude/skills/streamline/SKILL.md in YOLO mode.
 
-            This is an automated CI run. The streamline skill will:
-            1. Load file inventory from .claude/skills/streamline/references/
-            2. Update line counts if inventory is stale
-            3. Select the best candidate for decomposition (largest file >300 lines)
-            4. Execute decomposition autonomously
-            5. Commit and push to main
-
-            All workflow logic is in the skill - follow it exactly.
+            This is an automated CI run. Follow the skill's YOLO mode workflow exactly:
+            1. Load/update file inventory from references/file-inventory.json
+            2. Select the largest file over 300 lines (excluding exceptions and already decomposed)
+            3. Execute decomposition autonomously (no approval needed)
+            4. Commit and push to main
 
             If no files need decomposition, exit successfully without commits.
 
