@@ -1,0 +1,54 @@
+name: 2am PST Streamline
+
+on:
+  schedule:
+    # 2:00 AM Vancouver time
+    # GitHub cron uses UTC only - adjust twice yearly for DST:
+    # - PST (Nov-Mar): 2am = 10:00 UTC → '0 10 * * *'
+    # - PDT (Mar-Nov): 2am = 9:00 UTC  → '0 9 * * *'
+    - cron: '0 10 * * *'
+  workflow_dispatch:  # Manual trigger for testing
+
+concurrency:
+  group: 2amPST-streamline
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Full history for branching
+
+      - name: Run Claude Code Streamline
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: false
+
+          prompt: |
+            Run /streamline yolo
+
+            This is an automated CI run. The streamline skill will:
+            1. Load file inventory from .claude/skills/streamline/references/
+            2. Update line counts if inventory is stale
+            3. Select the best candidate for decomposition (largest file >300 lines)
+            4. Execute decomposition autonomously
+            5. Commit and push to main
+
+            All workflow logic is in the skill - follow it exactly.
+
+            If no files need decomposition, exit successfully without commits.
+
+          claude_args: |
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(gh:*),Skill(*)"
+            --model claude-sonnet-4-5-20250929

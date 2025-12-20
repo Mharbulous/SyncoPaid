@@ -1,0 +1,20 @@
+{
+  "lastScanned": "2025-12-19",
+  "sourceRoot": "src/syncopaid",
+  "fileExtensions": [".py"],
+  "files": {
+    "src/syncopaid/__init__.py": { "lines": 15 },
+    "src/syncopaid/__main__.py": { "lines": 596 },
+    "src/syncopaid/_version.py": { "lines": 5 },
+    "src/syncopaid/action_screenshot.py": { "lines": 640 },
+    "src/syncopaid/config.py": { "lines": 356 },
+    "src/syncopaid/context_extraction.py": { "lines": 167 },
+    "src/syncopaid/database.py": { "lines": 656 },
+    "src/syncopaid/exporter.py": { "lines": 412 },
+    "src/syncopaid/screenshot.py": { "lines": 638 },
+    "src/syncopaid/tracker.py": { "lines": 594 },
+    "src/syncopaid/tray.py": { "lines": 735 }
+  },
+  "exceptions": [],
+  "decomposed": []
+}
