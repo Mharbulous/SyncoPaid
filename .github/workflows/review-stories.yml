@@ -3,9 +3,8 @@ name: Daily Story Review
 # Run at 3:00 AM PST (11:00 UTC) every day - after verify-stories in DRAIN phase
 # Reviews stories in 'reviewing' stage and advances to 'verifying' if passed
 on:
-  schedule:
-    - cron: '0 11 * * *'
-  workflow_dispatch:  # Manual trigger for testing
+  # schedule disabled - manual trigger only
+  workflow_dispatch:
 
 concurrency:
   group: daily-story-review

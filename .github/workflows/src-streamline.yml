@@ -2,11 +2,19 @@ name: Streamline Source Files
 
 on:
   schedule:
-    # 2:00 AM Vancouver time
-    # GitHub cron uses UTC only - adjust twice yearly for DST:
-    # - PST (Nov-Mar): 2am = 10:00 UTC → '0 10 * * *'
-    # - PDT (Mar-Nov): 2am = 9:00 UTC  → '0 9 * * *'
-    - cron: '0 10 * * *'
+    # 10 runs between 1:30 AM and 7:00 AM PST, spaced 30 minutes apart
+    # Skip 5:00 AM PST (13:00 UTC) - synthesize-goals-non-goals runs then
+    # GitHub cron uses UTC only - PST is UTC-8
+    - cron: '30 9 * * *'   # 1:30 AM PST
+    - cron: '0 10 * * *'   # 2:00 AM PST
+    - cron: '30 10 * * *'  # 2:30 AM PST
+    - cron: '0 11 * * *'   # 3:00 AM PST
+    - cron: '30 11 * * *'  # 3:30 AM PST
+    - cron: '0 12 * * *'   # 4:00 AM PST
+    - cron: '30 12 * * *'  # 4:30 AM PST
+    - cron: '30 13 * * *'  # 5:30 AM PST
+    - cron: '0 14 * * *'   # 6:00 AM PST
+    - cron: '30 14 * * *'  # 6:30 AM PST
   workflow_dispatch:  # Manual trigger for testing
 
 concurrency:

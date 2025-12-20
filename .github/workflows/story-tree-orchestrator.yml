@@ -5,8 +5,7 @@ name: "Story Tree Orchestrator"
 # Loops until both NO_APPROVED and NO_CAPACITY, or max_cycles reached
 
 on:
-  schedule:
-    - cron: '0 10 * * *'  # Daily at 2:00 AM PST (10:00 UTC)
+  # schedule disabled - manual trigger only
   workflow_dispatch:
     inputs:
       max_cycles:
