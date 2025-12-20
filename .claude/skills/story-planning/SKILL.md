@@ -1,6 +1,6 @@
 ---
 name: story-planning
-description: Use when user says "plan story", "plan next feature", "create implementation plan", "what's ready to plan", or asks to plan an approved story - looks up approved story-nodes from story-tree database, prioritizes which to plan first, creates detailed TDD-focused implementation plan, and saves to ai_docs/Handovers/ folder.
+description: Use when user says "plan story", "plan next feature", "create implementation plan", "what's ready to plan", or asks to plan an approved story - looks up approved story-nodes from story-tree database, prioritizes which to plan first, creates detailed TDD-focused implementation plan, and saves to .claude/data/plans/ folder.
 disable-model-invocation: true
 ---
 
@@ -11,7 +11,7 @@ Generate test-driven implementation plans for approved stories.
 **Announce:** On activation, say: "I'm using the story-planning skill to create the implementation plan."
 
 **Database:** `.claude/data/story-tree.db`
-**Plans:** `ai_docs/Handovers/`
+**Plans:** `.claude/data/plans/`
 
 **Critical:** Use Python sqlite3 module, NOT sqlite3 CLI.
 
@@ -177,7 +177,7 @@ Each sub-plan should be:
 
 Query existing handovers to find next available number:
 ```bash
-ls ai_docs/Handovers/*.md | tail -5
+ls .claude/data/plans/*.md | tail -5
 ```
 
 Use the pattern: `NNN_[story-slug]-[component].md`
@@ -212,20 +212,20 @@ Before writing files, outline the decomposition:
 
 ### Step 5: Create Plan File(s)
 
-**For LOW complexity:** Single plan file → `ai_docs/Handovers/NNN_[story-slug].md`
+**For LOW complexity:** Single plan file → `.claude/data/plans/NNN_[story-slug].md`
 
-**For MEDIUM/HIGH complexity:** Multiple handover files → `ai_docs/Handovers/NNN_[story-slug]-[component].md`
+**For MEDIUM/HIGH complexity:** Multiple handover files → `.claude/data/plans/NNN_[story-slug]-[component].md`
 
 Query existing handovers to find next available number:
 ```bash
-ls ai_docs/Handovers/*.md | tail -5
+ls .claude/data/plans/*.md | tail -5
 ```
 
 ---
 
 #### LOW Complexity: Single TDD Plan
 
-**Filename:** `ai_docs/Handovers/NNN_[story-slug].md`
+**Filename:** `.claude/data/plans/NNN_[story-slug].md`
 - `NNN` = next available sequence number (e.g., 050, 051)
 - `[story-slug]` = title in lowercase-kebab-case (max 40 chars)
 
@@ -459,7 +459,7 @@ In CI mode, the plan must be executable without human guidance:
 
 #### MEDIUM/HIGH Complexity: Incremental Sub-Plans
 
-**Output path:** `ai_docs/Handovers/NNN_[story-slug]-[component].md`
+**Output path:** `.claude/data/plans/NNN_[story-slug]-[component].md`
 
 Each sub-plan is a focused, independently verifiable unit. Use this template:
 
@@ -536,7 +536,7 @@ conn = sqlite3.connect('.claude/data/story-tree.db')
 conn.execute('''
     UPDATE story_nodes
     SET stage = 'planned',
-        notes = COALESCE(notes || chr(10), '') || 'Plan: ai_docs/Handovers/[FILENAME]',
+        notes = COALESCE(notes || chr(10), '') || 'Plan: .claude/data/plans/[FILENAME]',
         updated_at = datetime('now')
     WHERE id = '[STORY_ID]'
 ''')
@@ -553,7 +553,7 @@ conn = sqlite3.connect('.claude/data/story-tree.db')
 conn.execute('''
     UPDATE story_nodes
     SET stage = 'planned',
-        notes = COALESCE(notes || chr(10), '') || 'Sub-plans: ai_docs/Handovers/[START]-[END]_[slug]*.md',
+        notes = COALESCE(notes || chr(10), '') || 'Sub-plans: .claude/data/plans/[START]-[END]_[slug]*.md',
         updated_at = datetime('now')
     WHERE id = '[STORY_ID]'
 ''')
@@ -572,7 +572,7 @@ Present two options:
 
 **Option 1: Continue in this session** - Implement with tight feedback loops, interactive course correction
 
-**Option 2: Fresh session** - Open new Claude Code session, say "Execute plan: ai_docs/Handovers/[filename]"
+**Option 2: Fresh session** - Open new Claude Code session, say "Execute plan: .claude/data/plans/[filename]"
 
 **For MEDIUM/HIGH complexity (sub-plans):**
 
@@ -583,10 +583,10 @@ Present sub-plan execution order:
 
 Complete sub-plans sequentially. Verify each before proceeding to next.
 
-1. Execute: ai_docs/Handovers/045_[slug]-db-schema.md
+1. Execute: .claude/data/plans/045_[slug]-db-schema.md
    Verify: [verification command]
 
-2. Execute: ai_docs/Handovers/046_[slug]-core-logic.md
+2. Execute: .claude/data/plans/046_[slug]-core-logic.md
    Verify: [verification command]
 
 [... continue for all sub-plans ...]
@@ -602,7 +602,7 @@ Complete sub-plans sequentially. Verify each before proceeding to next.
 ```
 ✓ Planned story [STORY_ID]: [Title]
   Complexity: LOW (score [N])
-  Plan: ai_docs/Handovers/[filename].md
+  Plan: .claude/data/plans/[filename].md
   Tasks: [N] TDD cycles
   Stage: approved -> planned
 ```
@@ -612,8 +612,8 @@ Complete sub-plans sequentially. Verify each before proceeding to next.
 ✓ Planned story [STORY_ID]: [Title]
   Complexity: [MEDIUM|HIGH] (score [N])
   Sub-plans: [count] files
-    - ai_docs/Handovers/[NNN]_[slug]-[component].md
-    - ai_docs/Handovers/[NNN+1]_[slug]-[component].md
+    - .claude/data/plans/[NNN]_[slug]-[component].md
+    - .claude/data/plans/[NNN+1]_[slug]-[component].md
     - ...
   Execution order: [NNN] → [NNN+1] → ... → [NNN+M]
   Stage: approved -> planned
