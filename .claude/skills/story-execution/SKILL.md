@@ -145,7 +145,7 @@ conn.close()
 "
 ```
 
-**If ready (or no Story ID):** Proceed to Step 2.
+**If ready (or no Story ID):** Proceed to Step 1.6.
 
 **If not ready:** Skip this plan file and archive it, then try the next:
 
@@ -158,6 +158,49 @@ shutil.move(plan_path, os.path.join(archive_dir, os.path.basename(plan_path)))
 ```
 
 Then re-run Step 1 to select the next earliest plan.
+
+### Step 1.6: Detect Already-Executed Plans
+
+Before executing, check if the story has already been executed but the plan file wasn't archived:
+
+```python
+python -c "
+import sqlite3, json
+
+story_id = '[STORY_ID]'  # Replace with extracted ID
+conn = sqlite3.connect('.claude/data/story-tree.db')
+
+# Check if story is at or beyond 'reviewing' stage (already executed)
+EXECUTED_STAGES = ('reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released')
+result = conn.execute('SELECT stage FROM story_nodes WHERE id = ?', (story_id,)).fetchone()
+
+already_executed = result and result[0] in EXECUTED_STAGES
+print(json.dumps({
+    'already_executed': already_executed,
+    'current_stage': result[0] if result else None
+}))
+conn.close()
+"
+```
+
+**If already executed:** The plan has been executed but the file wasn't properly archived. Archive it and proceed to next plan:
+
+```python
+python -c "
+import os, shutil
+
+plan_path = '.claude/data/plans/[FILENAME]'  # Replace with actual filename
+archive_dir = '.claude/data/executed'
+
+os.makedirs(archive_dir, exist_ok=True)
+shutil.move(plan_path, os.path.join(archive_dir, os.path.basename(plan_path)))
+print(f'Plan already executed. Archived: {plan_path} -> {archive_dir}/')
+"
+```
+
+Then re-run Step 1 to select the next plan.
+
+**If not already executed:** Proceed to Step 2.
 
 ### Step 2: Review Plan Critically
 
@@ -254,14 +297,14 @@ After all tasks complete:
 
 #### Archive Completed Plan
 
-Move the executed plan file to the completed archive:
+Move the executed plan file to the executed archive:
 
 ```python
 python -c "
 import os, shutil
 
 plan_path = '.claude/data/plans/[FILENAME]'  # Replace with actual filename
-archive_dir = '.claude/data/plans/completed'
+archive_dir = '.claude/data/executed'
 
 os.makedirs(archive_dir, exist_ok=True)
 shutil.move(plan_path, os.path.join(archive_dir, os.path.basename(plan_path)))
@@ -270,6 +313,82 @@ print(f'Archived: {plan_path} -> {archive_dir}/')
 ```
 
 This ensures the next execution run will pick up the next plan in sequence.
+
+#### Check if All Sub-Plans Complete
+
+After archiving, check if this was the last sub-plan for the story. If all sub-plans are executed, update the story stage to 'reviewing':
+
+```python
+python -c "
+import os, re, sqlite3, json
+
+# Extract sequence number and letter from the just-archived plan filename
+archived_filename = '[FILENAME]'  # Replace with actual filename (e.g., '003B_feature.md')
+story_id = '[STORY_ID]'  # Replace with extracted story ID
+
+# Parse the archived filename to get sequence number
+pattern = re.compile(r'^(\d{3})([A-Z])?_(.+)\.md$')
+match = pattern.match(archived_filename)
+
+if not match:
+    print(json.dumps({'is_sub_plan': False, 'all_complete': True}))
+    exit()
+
+seq_num = match.group(1)
+letter = match.group(2)
+
+# Check if this was a sub-plan (has letter suffix)
+is_sub_plan = letter is not None
+
+if not is_sub_plan:
+    # Single plan (no letter suffix), already complete
+    print(json.dumps({'is_sub_plan': False, 'all_complete': True}))
+    exit()
+
+# Check for remaining sub-plans with same sequence number in active plans folder
+plans_dir = '.claude/data/plans'
+remaining = []
+for f in os.listdir(plans_dir):
+    m = pattern.match(f)
+    if m and m.group(1) == seq_num:
+        remaining.append(f)
+
+all_complete = len(remaining) == 0
+
+print(json.dumps({
+    'is_sub_plan': True,
+    'sequence': seq_num,
+    'archived_letter': letter,
+    'remaining_sub_plans': remaining,
+    'all_complete': all_complete
+}))
+"
+```
+
+**If all sub-plans complete:** Update the story stage to 'reviewing':
+
+```python
+python -c "
+import sqlite3
+
+story_id = '[STORY_ID]'  # Replace with actual story ID
+conn = sqlite3.connect('.claude/data/story-tree.db')
+
+conn.execute('''
+    UPDATE story_nodes
+    SET stage = 'reviewing',
+        notes = COALESCE(notes || chr(10), '') || 'All sub-plans executed. Ready for review: ' || datetime('now'),
+        updated_at = datetime('now')
+    WHERE id = ?
+''', (story_id,))
+
+conn.commit()
+print(f'Story {story_id} stage updated to reviewing (all sub-plans complete)')
+conn.close()
+"
+```
+
+**If remaining sub-plans exist:** The next execution run will pick up the next sub-plan.
 
 #### Final Status Determination
 
@@ -475,7 +594,7 @@ Need: [what clarification or help is needed]
   - Only ONE plan file executed per run
 - **Plan folders:**
   - Active plans: `.claude/data/plans/`
-  - Completed plans: `.claude/data/plans/completed/`
+  - Executed plans: `.claude/data/executed/`
   - Blocked plans: `.claude/data/plans/blocked/`
 - Stage workflow: concept → approved → planned → active → reviewing → verifying → implemented
 - `planned` → `active`: After dependency check passes (Step 1.5 → Step 2)
