@@ -1,12 +1,9 @@
 """
-Core tracking module for capturing window activity and idle detection.
+Main tracking loop implementation.
 
-This module provides the TrackerLoop class which continuously monitors:
-- Active window title and application
-- User idle time (keyboard/mouse inactivity)
-- Event merging to combine consecutive identical activities
-
-All data is captured locally at second-level precision.
+Provides TrackerLoop class that continuously monitors window activity,
+detects idle periods, merges consecutive identical activities, and yields
+events for storage.
 """
 
 import time
@@ -25,37 +22,8 @@ from syncopaid.tracker_windows import (
     get_idle_seconds,
     WINDOWS_APIS_AVAILABLE
 )
+from syncopaid.tracker_screenshot import submit_screenshot
 
-# Re-export for backwards compatibility
-from syncopaid.tracker_state import (
-    STATE_ACTIVE,
-    STATE_INACTIVE,
-    STATE_OFF,
-    STATE_BLOCKED,
-    STATE_PAUSED,
-    STATE_PERSONAL,
-    STATE_ON_BREAK,
-    CONVERTIBLE_STATES,
-    VALID_STATES,
-    CLIENT_MATTER_PATTERN,
-    is_valid_state,
-    is_client_matter,
-    can_convert_to_matter,
-    ActivityEvent,
-    IdleResumptionEvent
-)
-
-# Re-export Windows APIs for backwards compatibility
-from syncopaid.tracker_windows import WINDOWS_APIS_AVAILABLE
-
-# For screenshot submission
-if WINDOWS_APIS_AVAILABLE:
-    import win32gui
-
-
-# ============================================================================
-# TRACKER LOOP
-# ============================================================================
 
 class TrackerLoop:
     """
@@ -200,7 +168,7 @@ class TrackerLoop:
 
                     if time_since_last >= self.screenshot_interval:
                         logging.debug(f"Triggering screenshot capture (elapsed: {time_since_last:.1f}s)")
-                        self._submit_screenshot(window, idle_seconds)
+                        submit_screenshot(self.screenshot_worker, window, idle_seconds)
                         self.last_screenshot_time = current_time
 
                 # Check if state changed
@@ -298,121 +266,3 @@ class TrackerLoop:
 
         self.total_events += 1
         return event
-
-    def _submit_screenshot(self, window: Dict, idle_seconds: float):
-        """
-        Submit a screenshot capture request to the worker.
-
-        Args:
-            window: Window information dict from get_active_window()
-            idle_seconds: Current idle time
-        """
-        if not WINDOWS_APIS_AVAILABLE:
-            # Log this once per session to inform user why screenshots aren't working
-            if not hasattr(self, '_screenshot_platform_warning_logged'):
-                logging.warning(
-                    "Cannot capture screenshots: Windows APIs not available. "
-                    "This is expected on non-Windows platforms or if pywin32/psutil are not installed."
-                )
-                self._screenshot_platform_warning_logged = True
-            return
-
-        try:
-            # Get window handle
-            hwnd = win32gui.GetForegroundWindow()
-            timestamp = datetime.now().astimezone().isoformat()
-
-            # Submit to worker (non-blocking)
-            logging.debug(f"Submitting screenshot for {window['app']}")
-            self.screenshot_worker.submit(
-                hwnd=hwnd,
-                timestamp=timestamp,
-                window_app=window['app'],
-                window_title=window['title'],
-                idle_seconds=idle_seconds
-            )
-
-        except Exception as e:
-            logging.error(f"Error submitting screenshot: {e}", exc_info=True)
-
-
-# ============================================================================
-# CONSOLE TEST MODE
-# ============================================================================
-
-def run_console_test(duration_seconds: int = 30):
-    """
-    Run tracker in console test mode for demonstration/debugging.
-
-    Args:
-        duration_seconds: How long to run the test (default 30s)
-    """
-    print("=" * 70)
-    print("SyncoPaid - Console Test Mode")
-    print("=" * 70)
-    print(f"Running for {duration_seconds} seconds...")
-    print("Switch between windows to see tracking in action.\n")
-
-    if not WINDOWS_APIS_AVAILABLE:
-        print("⚠ Warning: Running with MOCK DATA (not on Windows)\n")
-
-    tracker = TrackerLoop(
-        poll_interval=1.0,
-        idle_threshold=180.0,
-        merge_threshold=2.0
-    )
-
-    events = []
-    start_time = time.time()
-
-    print(f"{'Timestamp':<20} {'Duration':<10} {'App':<20} {'Title':<40}")
-    print("-" * 90)
-
-    try:
-        for event in tracker.start():
-            # Store event
-            events.append(event)
-
-            # Display event
-            ts = event.timestamp.split('T')[1][:8]  # Just show time
-            status = "💤 IDLE" if event.is_idle else "✓"
-            print(
-                f"{ts:<20} "
-                f"{event.duration_seconds:>6.1f}s   "
-                f"{(event.app or 'unknown')[:18]:<20} "
-                f"{(event.title or 'untitled')[:38]:<40}"
-            )
-
-            # Check if duration exceeded
-            if time.time() - start_time >= duration_seconds:
-                tracker.stop()
-                break
-
-    except KeyboardInterrupt:
-        print("\n\n⚠ Interrupted by user")
-        tracker.stop()
-
-    # Summary
-    print("\n" + "=" * 70)
-    print(f"Test complete: {len(events)} events captured")
-    print(f"Total active time: {sum(e.duration_seconds for e in events if not e.is_idle):.1f}s")
-    print(f"Total idle time: {sum(e.duration_seconds for e in events if e.is_idle):.1f}s")
-    print(f"Events merged: {tracker.merged_events}")
-    print("=" * 70)
-
-    return events
-
-
-# ============================================================================
-# MAIN - FOR STANDALONE TESTING
-# ============================================================================
-
-if __name__ == "__main__":
-    # Configure logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s'
-    )
-
-    # Run console test
-    run_console_test(duration_seconds=30)
