@@ -234,6 +234,13 @@ def load_stories(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
 
 def main():
     """Run candidate detection with cache filtering."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Detect candidate conflict pairs')
+    parser.add_argument('--story-id', type=str,
+                        help='Only find conflicts involving this specific story ID')
+    args = parser.parse_args()
+
     conn = sqlite3.connect(DB_PATH)
 
     # Ensure schema is migrated
@@ -246,6 +253,14 @@ def main():
 
     # Phase 1: Detect candidates (blocking)
     all_candidates = detect_candidates(stories)
+
+    # Filter to specific story if requested
+    if args.story_id:
+        all_candidates = [
+            c for c in all_candidates
+            if c['story_a']['id'] == args.story_id or c['story_b']['id'] == args.story_id
+        ]
+        print(f"Filtering to story {args.story_id}: {len(all_candidates)} candidates", file=sys.stderr)
 
     # Filter using cache
     result = filter_cached_candidates(conn, all_candidates)
@@ -265,10 +280,15 @@ def main():
         'candidates': result['candidates']
     }
 
+    if args.story_id:
+        output['filtered_story_id'] = args.story_id
+
     # Print summary to stderr
     print(f"\nCandidate Detection Complete", file=sys.stderr)
     print(f"=" * 40, file=sys.stderr)
     print(f"Total stories: {len(stories)}", file=sys.stderr)
+    if args.story_id:
+        print(f"Filtered to story: {args.story_id}", file=sys.stderr)
     print(f"Candidates found: {result['total_before_filter']}", file=sys.stderr)
     print(f"After cache filter: {result['total_after_filter']}", file=sys.stderr)
     print(f"\nCache stats:", file=sys.stderr)
