@@ -6,27 +6,43 @@ using dHash (difference hash) algorithm. Runs in a separate thread to avoid bloc
 the main tracking loop.
 """
 
-import os
 import sys
 import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+
+# Import decomposed modules
+from syncopaid.screenshot_capture import (
+    capture_window,
+    resize_if_needed,
+    quick_pixel_check,
+    WINDOWS_APIS_AVAILABLE,
+    SKIP_APPS,
+    PIL_AVAILABLE
+)
+from syncopaid.screenshot_comparison import (
+    ScreenshotMetadata,
+    ComparisonResult,
+    compute_dhash,
+    compare_screenshots
+)
+from syncopaid.screenshot_persistence import (
+    get_screenshot_directory,
+    get_screenshot_path,
+    save_screenshot
+)
 
 # Platform detection
 WINDOWS = sys.platform == 'win32'
 
-# Import PIL and imagehash regardless of platform (needed for type hints)
+# Import PIL and imagehash for type hints
 try:
     from PIL import Image
     import imagehash
-    PIL_AVAILABLE = True
-except ImportError as e:
-    PIL_AVAILABLE = False
-    logging.warning(f"PIL/imagehash import failed: {e}. Screenshots will be disabled.")
+except ImportError:
     # Create dummy types for non-PIL environments
     class Image:
         class Image:
@@ -34,35 +50,6 @@ except ImportError as e:
     class imagehash:
         class ImageHash:
             pass
-
-if WINDOWS:
-    try:
-        import win32gui
-        import mss
-        WINDOWS_APIS_AVAILABLE = PIL_AVAILABLE and True
-    except ImportError:
-        WINDOWS_APIS_AVAILABLE = False
-        logging.warning("Screenshot APIs not available. Install pywin32, Pillow, imagehash, and mss.")
-else:
-    WINDOWS_APIS_AVAILABLE = False
-
-
-# Apps to skip screenshot capture
-SKIP_APPS = {
-    'LockApp.exe',
-    'ScreenSaver.scr',
-    'LogonUI.exe'
-}
-
-
-@dataclass
-class ScreenshotMetadata:
-    """Metadata about a captured screenshot."""
-    file_path: str
-    dhash: str
-    captured_at: str
-    window_app: Optional[str]
-    window_title: Optional[str]
 
 
 class ScreenshotWorker:
@@ -192,7 +179,7 @@ class ScreenshotWorker:
                 return
 
             # Capture the screenshot
-            img = self._capture_window(hwnd)
+            img = capture_window(hwnd)
             if img is None:
                 logging.info(f"Screenshot capture failed for {window_app} (window issue)")
                 self.total_skipped += 1
@@ -202,265 +189,38 @@ class ScreenshotWorker:
             logging.info(f"Screenshot captured #{self.total_captured} ({img.size[0]}x{img.size[1]})")
 
             # Resize if needed
-            img = self._resize_if_needed(img)
+            img = resize_if_needed(img, self.max_dimension)
 
             # Fast-path check: sample pixels before hashing
-            if self.last_metadata and self._quick_pixel_check(img, self.last_metadata.file_path):
+            if self.last_metadata and quick_pixel_check(img, self.last_metadata.file_path):
                 # Very similar, overwrite directly
                 self._overwrite_screenshot(img, timestamp)
                 return
 
             # Compute perceptual hash
-            current_hash = imagehash.dhash(img, hash_size=12)
+            current_hash = compute_dhash(img, hash_size=12)
 
             # Compare with previous screenshot
-            if self.last_metadata:
-                previous_hash = imagehash.hex_to_hash(self.last_metadata.dhash)
-                hash_diff = current_hash - previous_hash
-                similarity = 1 - (hash_diff / 144.0)  # 12x12 = 144 bits
+            time_since_save = time.time() - self.last_save_time
+            result = compare_screenshots(
+                current_hash=current_hash,
+                previous_metadata=self.last_metadata,
+                current_window_app=window_app,
+                current_window_title=window_title,
+                time_since_save=time_since_save,
+                threshold_identical_same_window=self.threshold_identical_same_window,
+                threshold_identical_different_window=self.threshold_identical_different_window,
+                threshold_significant=self.threshold_significant
+            )
 
-                # Detect if active window has changed (either app or title)
-                window_changed = (
-                    window_app != self.last_metadata.window_app or
-                    window_title != self.last_metadata.window_title
-                )
-
-                # Select appropriate threshold based on window context
-                if window_changed:
-                    # Window changed: use stricter threshold (99%)
-                    # Only overwrite if nearly identical, handling edge cases where:
-                    # - User returns to same window (duplicate screenshot)
-                    # - User switches between identical content (same page in different tabs)
-                    threshold = self.threshold_identical_different_window
-
-                    # Log the change details
-                    if window_app != self.last_metadata.window_app:
-                        logging.info(
-                            f"App changed: {self.last_metadata.window_app} -> {window_app}. "
-                            f"Using strict threshold: {threshold}"
-                        )
-                    else:
-                        logging.info(
-                            f"Window title changed (same app: {window_app}). "
-                            f"Using strict threshold: {threshold}"
-                        )
-                else:
-                    # Same window: use more permissive threshold (90%)
-                    # Allow natural visual changes within same window
-                    threshold = self.threshold_identical_same_window
-
-                # Determine action based on similarity and threshold
-                if similarity >= threshold:
-                    # Meets threshold, overwrite
-                    self._overwrite_screenshot(img, timestamp, current_hash)
-                    return
-
-                elif similarity >= self.threshold_significant:
-                    # Moderate similarity - check time since last save
-                    time_since_save = time.time() - self.last_save_time
-                    if time_since_save < 60:
-                        # Less than 60s since last save, overwrite
-                        self._overwrite_screenshot(img, timestamp, current_hash)
-                        return
-
-            # Save as new screenshot (either significantly different or 60s elapsed)
-            self._save_new_screenshot(img, timestamp, window_app, window_title, current_hash)
+            # Execute the appropriate action
+            if result.action == ComparisonResult.OVERWRITE:
+                self._overwrite_screenshot(img, timestamp, current_hash)
+            else:
+                self._save_new_screenshot(img, timestamp, window_app, window_title, current_hash)
 
         except Exception as e:
             logging.error(f"Error in screenshot capture: {e}")
-
-    def _capture_window(self, hwnd: int) -> Optional[Image.Image]:
-        """
-        Capture screenshot of the specified window.
-
-        Args:
-            hwnd: Windows window handle
-
-        Returns:
-            PIL Image or None if capture failed
-        """
-        if not WINDOWS_APIS_AVAILABLE:
-            # Mock screenshot for testing on non-Windows
-            logging.debug("Mock screenshot (non-Windows platform)")
-            return None
-
-        try:
-            # Validate window
-            if not win32gui.IsWindow(hwnd):
-                logging.debug("Invalid window handle")
-                return None
-
-            if not win32gui.IsWindowVisible(hwnd):
-                logging.debug("Window not visible")
-                return None
-
-            if win32gui.IsIconic(hwnd):
-                logging.debug("Window is minimized")
-                return None
-
-            # Get window rectangle
-            rect = win32gui.GetWindowRect(hwnd)
-            x1, y1, x2, y2 = rect
-            width = x2 - x1
-            height = y2 - y1
-
-            # Validate dimensions
-            if width <= 0 or height <= 0:
-                logging.debug(f"Invalid window dimensions: {width}x{height}")
-                return None
-
-            if width > 10000 or height > 10000:
-                logging.warning(f"Window too large: {width}x{height}")
-                return None
-
-            # Check if completely off-screen
-            if x2 < 0 or y2 < 0:
-                logging.debug("Window completely off-screen")
-                return None
-
-            # Capture screenshot using MSS library (fixes secondary monitor black screenshots)
-            # MSS handles multi-monitor coordinate systems correctly, unlike PIL's ImageGrab
-            # which has known bugs with secondary monitors (Pillow #1547, #7898)
-            with mss.mss() as sct:
-                # Define the capture region using MSS's monitor dict format
-                monitor = {
-                    "left": x1,
-                    "top": y1,
-                    "width": width,
-                    "height": height
-                }
-
-                # Capture the screenshot
-                screenshot = sct.grab(monitor)
-
-                # Convert MSS screenshot to PIL Image
-                # MSS returns BGRA format, convert to RGB for PIL
-                img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
-
-            return img
-
-        except Exception as e:
-            logging.error(f"Error capturing window: {e}")
-            return None
-
-    def _resize_if_needed(self, img: Image.Image) -> Image.Image:
-        """
-        Resize image if either dimension exceeds max_dimension.
-
-        Args:
-            img: PIL Image
-
-        Returns:
-            Resized PIL Image (or original if no resize needed)
-        """
-        width, height = img.size
-        max_dim = max(width, height)
-
-        if max_dim <= self.max_dimension:
-            return img
-
-        # Calculate new dimensions maintaining aspect ratio
-        scale = self.max_dimension / max_dim
-        new_width = int(width * scale)
-        new_height = int(height * scale)
-
-        return img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-
-    def _quick_pixel_check(self, img: Image.Image, previous_path: str) -> bool:
-        """
-        Fast-path optimization: sample 5 pixels (corners + center).
-
-        If all pixels are within tolerance, skip expensive hash computation.
-
-        Args:
-            img: Current image
-            previous_path: Path to previous screenshot
-
-        Returns:
-            True if images appear identical via pixel sampling
-        """
-        try:
-            if not os.path.exists(previous_path):
-                return False
-
-            prev_img = Image.open(previous_path)
-
-            # Must be same size
-            if img.size != prev_img.size:
-                return False
-
-            width, height = img.size
-
-            # Sample 5 points: 4 corners + center
-            sample_points = [
-                (0, 0),
-                (width - 1, 0),
-                (0, height - 1),
-                (width - 1, height - 1),
-                (width // 2, height // 2)
-            ]
-
-            tolerance = 10  # RGB difference tolerance
-
-            for x, y in sample_points:
-                pixel1 = img.getpixel((x, y))
-                pixel2 = prev_img.getpixel((x, y))
-
-                # Convert to tuples if needed
-                if isinstance(pixel1, int):
-                    pixel1 = (pixel1, pixel1, pixel1)
-                if isinstance(pixel2, int):
-                    pixel2 = (pixel2, pixel2, pixel2)
-
-                # Check RGB differences
-                for i in range(min(3, len(pixel1))):
-                    if abs(pixel1[i] - pixel2[i]) > tolerance:
-                        return False
-
-            # All sampled pixels are within tolerance
-            return True
-
-        except Exception as e:
-            logging.debug(f"Quick pixel check failed: {e}")
-            return False
-
-    def _get_screenshot_path(self, timestamp: str, window_app: Optional[str]) -> Path:
-        """
-        Generate file path for screenshot.
-
-        Format: {screenshot_dir}/YYYY-MM-DD/YYYY-MM-DD_HH-MM-SS_TZ_appname.jpg
-        Examples:
-            - 2025-12-09/2025-12-09_23-25-05_PST_WindowsTerminal.jpg
-            - 2025-12-10/2025-12-10_00-23-21_UTC-08-00_chrome.jpg
-
-        Args:
-            timestamp: ISO timestamp with timezone information
-            window_app: Application name
-
-        Returns:
-            Path object for screenshot file
-        """
-        dt = datetime.fromisoformat(timestamp)
-
-        # Create date-based subdirectory (local date)
-        date_dir = self.screenshot_dir / dt.strftime('%Y-%m-%d')
-        date_dir.mkdir(parents=True, exist_ok=True)
-
-        # Generate filename with date, time, and timezone abbreviation
-        date_str = dt.strftime('%Y-%m-%d')
-        time_str = dt.strftime('%H-%M-%S')
-        tz_abbr = dt.strftime('%Z')  # Gets "PST", "PDT", "EST", or "UTC-08:00", etc.
-
-        # Sanitize timezone for Windows filenames (remove colons)
-        # "UTC-08:00" -> "UTC-08-00", "PST" -> "PST"
-        tz_abbr = tz_abbr.replace(':', '-')
-
-        app_name = window_app if window_app else 'unknown'
-        # Sanitize app name for filename
-        app_name = app_name.replace('.exe', '').replace('.', '_')[:20]
-
-        filename = f"{date_str}_{time_str}_{tz_abbr}_{app_name}.jpg"
-        return date_dir / filename
 
     def _save_new_screenshot(
         self,
@@ -480,10 +240,10 @@ class ScreenshotWorker:
             window_title: Window title
             dhash: Perceptual hash
         """
-        file_path = self._get_screenshot_path(timestamp, window_app)
+        file_path = get_screenshot_path(self.screenshot_dir, timestamp, window_app)
 
         # Save image as JPEG
-        img.save(str(file_path), 'JPEG', quality=self.quality, optimize=True)
+        save_screenshot(img, file_path, self.quality)
 
         # Store metadata
         self.last_metadata = ScreenshotMetadata(
@@ -526,8 +286,8 @@ class ScreenshotWorker:
             return
 
         # Overwrite existing file
-        file_path = self.last_metadata.file_path
-        img.save(file_path, 'JPEG', quality=self.quality, optimize=True)
+        file_path = Path(self.last_metadata.file_path)
+        save_screenshot(img, file_path, self.quality)
 
         # Update metadata if hash provided
         if dhash:
@@ -535,7 +295,7 @@ class ScreenshotWorker:
         self.last_metadata.captured_at = timestamp
 
         self.total_overwritten += 1
-        logging.info(f"Overwritten screenshot: {Path(file_path).name}")
+        logging.info(f"Overwritten screenshot: {file_path.name}")
 
     def shutdown(self, wait: bool = True, timeout: float = 5.0):
         """
@@ -567,34 +327,6 @@ class ScreenshotWorker:
 
 
 # ============================================================================
-# UTILITY FUNCTIONS
-# ============================================================================
-
-def get_screenshot_directory() -> Path:
-    """
-    Get the default screenshot storage directory.
-
-    Returns:
-        Path to screenshot directory
-    """
-    import sys
-    import os
-
-    if sys.platform == 'win32':
-        appdata = os.environ.get('LOCALAPPDATA')
-        if not appdata:
-            appdata = Path.home() / 'AppData' / 'Local'
-        else:
-            appdata = Path(appdata)
-        screenshot_dir = appdata / 'SyncoPaid' / 'screenshots' / 'periodic'
-    else:
-        screenshot_dir = Path.home() / '.local' / 'share' / 'SyncoPaid' / 'screenshots' / 'periodic'
-
-    screenshot_dir.mkdir(parents=True, exist_ok=True)
-    return screenshot_dir
-
-
-# ============================================================================
 # MAIN - FOR STANDALONE TESTING
 # ============================================================================
 
@@ -609,6 +341,8 @@ if __name__ == "__main__":
     print(f"Default screenshot directory: {get_screenshot_directory()}")
 
     if WINDOWS_APIS_AVAILABLE:
+        import win32gui
+
         print("\nAttempting to capture current window...")
 
         # Get current foreground window

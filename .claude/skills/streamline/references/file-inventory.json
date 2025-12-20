@@ -6,19 +6,29 @@
     "src/syncopaid/__init__.py": { "lines": 15 },
     "src/syncopaid/__main__.py": { "lines": 596 },
     "src/syncopaid/_version.py": { "lines": 5 },
-    "src/syncopaid/action_screenshot.py": { "lines": 640 },
+    "src/syncopaid/action_screenshot.py": { "lines": 299 },
+    "src/syncopaid/action_screenshot_capture.py": { "lines": 197 },
+    "src/syncopaid/action_screenshot_events.py": { "lines": 244 },
     "src/syncopaid/config.py": { "lines": 356 },
     "src/syncopaid/context_extraction.py": { "lines": 167 },
     "src/syncopaid/database.py": { "lines": 422 },
     "src/syncopaid/database_screenshots.py": { "lines": 153 },
     "src/syncopaid/database_statistics.py": { "lines": 122 },
     "src/syncopaid/exporter.py": { "lines": 412 },
-    "src/syncopaid/screenshot.py": { "lines": 638 },
+    "src/syncopaid/screenshot.py": { "lines": 372 },
+    "src/syncopaid/screenshot_capture.py": { "lines": 204 },
+    "src/syncopaid/screenshot_comparison.py": { "lines": 139 },
+    "src/syncopaid/screenshot_persistence.py": { "lines": 105 },
     "src/syncopaid/tracker.py": { "lines": 594 },
     "src/syncopaid/tray.py": { "lines": 351 },
     "src/syncopaid/tray_icons.py": { "lines": 193 },
     "src/syncopaid/tray_startup.py": { "lines": 227 }
   },
   "exceptions": [],
-  "decomposed": ["src/syncopaid/tray.py", "src/syncopaid/database.py"]
+  "decomposed": [
+    "src/syncopaid/tray.py",
+    "src/syncopaid/database.py",
+    "src/syncopaid/action_screenshot.py",
+    "src/syncopaid/screenshot.py"
+  ]
 }
