@@ -2,9 +2,8 @@ name: 1. Build Story
 
 # Run at 4:40 AM PST (12:40 UTC) every day - after approve-stories
 on:
-  schedule:
-    - cron: '40 12 * * *'
-  workflow_dispatch:  # Manual trigger for testing
+  # schedule disabled - manual trigger only
+  workflow_dispatch:
 
 concurrency:
   group: daily-story-building

@@ -3,9 +3,8 @@ name: Daily Ready Check
 # Run at 2:20 AM PST (10:20 UTC) every day - FIRST in DRAIN phase
 # Checks implemented stories for integration readiness and advances to 'ready' stage
 on:
-  schedule:
-    - cron: '20 10 * * *'
-  workflow_dispatch:  # Manual trigger for testing
+  # schedule disabled - manual trigger only
+  workflow_dispatch:
 
 concurrency:
   group: daily-ready-check

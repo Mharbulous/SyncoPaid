@@ -2,9 +2,8 @@ name: 2. Plan Story
 
 # Run at 4:00 AM PST (12:00 UTC) every day - after activate-stories
 on:
-  schedule:
-    - cron: '0 12 * * *'
-  workflow_dispatch:  # Manual trigger for testing
+  # schedule disabled - manual trigger only
+  workflow_dispatch:
 
 concurrency:
   group: daily-story-planning
