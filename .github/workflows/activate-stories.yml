@@ -1,4 +1,4 @@
-name: Daily Story Activation
+name: 3. Activate Story
 
 # Run at 3:40 AM PST (11:40 UTC) every day - after execute-stories
 # Two-step flow: UNBLOCK (check recorded blockers) → ACTIVATE (full dep check)
