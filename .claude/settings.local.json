@@ -40,7 +40,8 @@
       "Skill(prioritize-story-notes)",
       "Skill(superpowers:requesting-code-review)",
       "Skill(superpowers:systematic-debugging)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(findstr:*)"
     ]
   }
 }
