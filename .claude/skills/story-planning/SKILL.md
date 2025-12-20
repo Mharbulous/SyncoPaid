@@ -234,15 +234,13 @@ ls .claude/data/plans/*.md | tail -5
 ```markdown
 # [Story Title] - Implementation Plan
 
-**Goal:** [One-sentence summary of what this achieves]
-**Approach:** [2-3 sentences on technical approach]
-**Tech Stack:** [Key modules/libraries involved]
+**Story ID:** [ID] | **Created:** [YYYY-MM-DD] | **Stage:** `planned`
 
 ---
 
-**Story ID:** [ID]
-**Created:** [YYYY-MM-DD]
-**Stage:** `planned`
+**Goal:** [One-sentence summary of what this achieves]
+**Approach:** [2-3 sentences on technical approach]
+**Tech Stack:** [Key modules/libraries involved]
 
 ---
 
@@ -346,16 +344,16 @@ If issues arise:
 ```markdown
 # [Story Title] - Implementation Plan
 
+**Story ID:** [ID] | **Created:** [YYYY-MM-DD] | **Stage:** `planned`
+
 > **TDD Required:** Each task (~2-5 min): Write test → verify RED → Write code → verify GREEN → Commit
 > **Zero Context:** This plan assumes the implementer knows nothing about the codebase.
+
+---
 
 **Goal:** [One sentence - what user-visible outcome does this achieve?]
 **Approach:** [2-3 sentences on technical approach]
 **Tech Stack:** [Modules/libraries involved]
-
----
-
-**Story ID:** [ID] | **Created:** [YYYY-MM-DD] | **Stage:** `planned`
 
 ---
 
@@ -466,7 +464,7 @@ Each sub-plan is a focused, independently verifiable unit. Use this template:
 ```markdown
 # NNN: [Story Title] - [Component Name]
 
-**Created:** YYYY-MM-DD | **Story ID:** [ID]
+**Story ID:** [ID] | **Created:** YYYY-MM-DD | **Stage:** `planned`
 
 ## Task
 [One sentence describing what this sub-plan accomplishes]
