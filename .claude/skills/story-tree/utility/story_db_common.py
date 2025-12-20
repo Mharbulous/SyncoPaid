@@ -265,9 +265,9 @@ def defer_concept(
     concept_id: str,
     conflicting_id: str
 ) -> None:
-    """Set concept hold_reason to pending for later human review.
+    """Set concept hold_reason to refine due to scope overlap.
 
-    This defers a concept with scope overlap for human review (CI mode).
+    This marks a concept for refinement when scope overlap is detected.
     The stage is preserved and hold_reason provides the effective status.
     Sets human_review flag for attention.
 
@@ -281,8 +281,8 @@ def defer_concept(
     """
     conn.execute('''
         UPDATE story_nodes
-        SET hold_reason = 'pending', human_review = 1,
-            notes = COALESCE(notes || char(10), '') || 'Scope overlap with ' || ? || ' - needs human review'
+        SET hold_reason = 'refine', human_review = 1,
+            notes = COALESCE(notes || char(10), '') || 'Scope overlap detected with story-node IDs: ' || ?
         WHERE id = ?
     ''', (conflicting_id, concept_id))
 
