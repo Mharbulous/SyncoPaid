@@ -69,6 +69,7 @@ Effective status is computed as `COALESCE(disposition, hold_reason, stage)`.
 - `stage = 'concept'`
 - `hold_reason = 'wishlist'`
 - `hold_reason = 'polish'`
+- `hold_reason = 'refine'`
 
 **Block against:**
 - `disposition IN ('rejected', 'infeasible', 'duplicative')`
@@ -98,10 +99,12 @@ This means:
 
 When running in CI (non-interactive environment), HUMAN_REVIEW cases cannot prompt for input. Instead:
 
-- **HUMAN_REVIEW → DEFER_PENDING**: Set concept `hold_reason = 'pending'` with note explaining the conflict
+- **HUMAN_REVIEW → DEFER_PENDING**: Set concept `hold_reason = 'refine'` with note listing conflicting story-node IDs (e.g., "Scope overlap detected with story-node IDs: 3.2.1, 4.1.1.3")
 - All other automated actions work the same
 
 **Detection**: CI mode is active when running in GitHub Actions or when explicitly specified.
+
+**Purpose of refine status**: Stories set to `refine` should be reworked to eliminate scope overlaps before proceeding to approval.
 
 ---
 
@@ -123,6 +126,18 @@ The vetting system uses a persistent cache to avoid re-classifying the same stor
 - **First run (cold cache)**: All 238 candidates processed by LLM, decisions stored
 - **Subsequent runs (warm cache)**: ~150-180 false_positives skipped, only stale/new pairs classified
 - **After story edit**: Pairs involving edited story re-enter Phase 2
+
+### Reporting Cache Operations
+
+When reporting cache activity, use specific language:
+
+| Avoid | Use Instead |
+|-------|-------------|
+| "Stored 3 decisions" | "Cached 3 new conflict classifications (will skip on future runs)" |
+| "Cache: stored..." | "Decision cache: recorded 3 pair classifications to avoid re-analysis" |
+| "Cached for future runs" | "Cached to skip LLM re-classification on next run" |
+
+**Why clear language matters**: "Stored" is ambiguous - it could mean written to database, saved to file, or something else. Explicit language helps users understand that cached decisions let future vetting runs skip pairs that have already been classified.
 
 ### CLI Commands
 
@@ -191,8 +206,8 @@ Use this lookup based on classification and effective statuses (computed from th
 
 ```python
 # Effective status = COALESCE(disposition, hold_reason, stage)
-# Note: concept=stage, wishlist/polish=hold_reason
-MERGEABLE_STATUSES = {'concept', 'wishlist', 'polish'}
+# Note: concept=stage, wishlist/polish/refine=hold_reason
+MERGEABLE_STATUSES = {'concept', 'wishlist', 'polish', 'refine'}
 BLOCK_STATUSES = {'rejected', 'infeasible', 'duplicative', 'broken', 'queued', 'pending', 'blocked', 'conflict'}
 
 def get_action(conflict_type, eff_status_a, eff_status_b, ci_mode=False):
@@ -304,9 +319,9 @@ Actions taken:
   - Duplicative: 3 competing concepts
   - Blocked: 2 concepts
   - Skipped: 15 false positives
-  - Deferred to pending: 5 scope overlaps
+  - Needs refinement: 5 scope overlaps
 
-5 concepts set to hold_reason='pending' for later human review.
+5 concepts set to hold_reason='refine' for scope overlap resolution.
 ```
 
 ---

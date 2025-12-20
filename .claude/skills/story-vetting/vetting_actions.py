@@ -60,12 +60,12 @@ def block_concept(concept_id, conflicting_id):
 
 
 def defer_concept(concept_id, conflicting_id):
-    """Set a concept to pending hold_reason for later human review (CI mode). Stage preserved."""
+    """Set a concept to refine hold_reason due to scope overlap. Stage preserved."""
     conn = sqlite3.connect(DB_PATH)
     _defer_concept(conn, concept_id, conflicting_id)
     conn.commit()
     conn.close()
-    return f"Deferred concept {concept_id} to pending (scope overlap with {conflicting_id})"
+    return f"Set concept {concept_id} to refine (scope overlap with {conflicting_id})"
 
 
 def true_merge(keep_id, delete_id, merged_title, merged_description):

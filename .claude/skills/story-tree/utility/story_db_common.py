@@ -29,8 +29,8 @@ DB_PATH = '.claude/data/story-tree.db'
 # These represent computed status values from COALESCE(disposition, hold_reason, stage)
 
 # Statuses that allow merging (early-stage concepts)
-# Note: concept=stage, wishlist=hold_reason, polish=hold_reason
-MERGEABLE_STATUSES = {'concept', 'wishlist', 'polish'}
+# Note: concept=stage, wishlist/polish/refine=hold_reason
+MERGEABLE_STATUSES = {'concept', 'wishlist', 'polish', 'refine'}
 
 # Statuses that indicate blocking conditions (story not actively progressing)
 BLOCK_STATUSES = {'rejected', 'infeasible', 'duplicative', 'broken', 'queued', 'pending', 'blocked', 'conflict'}

@@ -235,7 +235,7 @@ python .claude/skills/story-vetting/candidate_detector.py --story-id NEW_ID
 | `duplicate` | concept | TRUE_MERGE (success) |
 | `duplicate` | non-concept | DELETE new, add to avoided, retry |
 | `scope_overlap` | concept | TRUE_MERGE (success) |
-| `scope_overlap` | non-concept | DEFER_PENDING (success, needs human review later) |
+| `scope_overlap` | non-concept | DEFER_PENDING (success, set to refine for overlap resolution) |
 | `competing` | concept | TRUE_MERGE (success) |
 | `competing` | non-concept | DELETE new, add to avoided, retry |
 | `incompatible` | concept | PICK_BETTER, delete loser (success) |
@@ -250,7 +250,7 @@ python .claude/skills/story-vetting/candidate_detector.py --story-id NEW_ID
 ### Success Cases
 - Story generated with no conflicts
 - Story merged with existing concept (TRUE_MERGE)
-- Scope overlap deferred for human review (DEFER_PENDING)
+- Scope overlap set to refine for overlap resolution (DEFER_PENDING)
 - False positive (no action needed)
 
 ### Failure Case
