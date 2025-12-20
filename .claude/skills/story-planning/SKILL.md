@@ -631,6 +631,16 @@ Complete sub-plans sequentially. Verify each before proceeding to next.
 
 **Option 2: Fresh session per sub-plan** - Each sub-plan in a new session for clean context
 
+## Remember
+
+When generating plans, always:
+- **Exact file paths** - never "somewhere in src/"
+- **Complete code** - not "add validation" but the actual validation code
+- **Exact commands with expected output** - not just "run tests"
+- **DRY, YAGNI, TDD** - test first, minimal code, frequent commits
+- **One action per step** - each step takes 2-5 minutes max
+- **Reference relevant skills** - use @ syntax for skill references
+
 ## Output Format
 
 **CI Mode - LOW complexity Success:**
