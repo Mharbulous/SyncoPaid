@@ -4,7 +4,7 @@
   "fileExtensions": [".py"],
   "files": {
     "src/syncopaid/__init__.py": { "lines": 15 },
-    "src/syncopaid/__main__.py": { "lines": 596 },
+    "src/syncopaid/__main__.py": { "lines": 305 },
     "src/syncopaid/_version.py": { "lines": 5 },
     "src/syncopaid/action_screenshot.py": { "lines": 299 },
     "src/syncopaid/action_screenshot_capture.py": { "lines": 197 },
@@ -15,6 +15,8 @@
     "src/syncopaid/database_screenshots.py": { "lines": 153 },
     "src/syncopaid/database_statistics.py": { "lines": 122 },
     "src/syncopaid/exporter.py": { "lines": 412 },
+    "src/syncopaid/main_single_instance.py": { "lines": 46 },
+    "src/syncopaid/main_ui_windows.py": { "lines": 288 },
     "src/syncopaid/screenshot.py": { "lines": 372 },
     "src/syncopaid/screenshot_capture.py": { "lines": 204 },
     "src/syncopaid/screenshot_comparison.py": { "lines": 139 },
@@ -29,6 +31,7 @@
     "src/syncopaid/tray.py",
     "src/syncopaid/database.py",
     "src/syncopaid/action_screenshot.py",
-    "src/syncopaid/screenshot.py"
+    "src/syncopaid/screenshot.py",
+    "src/syncopaid/__main__.py"
   ]
 }
