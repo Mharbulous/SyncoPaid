@@ -51,7 +51,8 @@ class TrackerLoop:
         merge_threshold: float = 2.0,
         screenshot_worker=None,
         screenshot_interval: float = 10.0,
-        minimum_idle_duration: float = 180.0
+        minimum_idle_duration: float = 180.0,
+        ui_automation_worker=None
     ):
         self.poll_interval = poll_interval
         self.idle_threshold = idle_threshold
@@ -59,6 +60,7 @@ class TrackerLoop:
         self.screenshot_worker = screenshot_worker
         self.screenshot_interval = screenshot_interval
         self.minimum_idle_duration = minimum_idle_duration
+        self.ui_automation_worker = ui_automation_worker
 
         # State tracking for event merging
         self.current_event: Optional[Dict] = None
@@ -148,7 +150,8 @@ class TrackerLoop:
                     'app': window['app'],
                     'title': window['title'],
                     'url': window.get('url'),  # Extracted context (URL, subject, or filepath)
-                    'is_idle': is_idle
+                    'is_idle': is_idle,
+                    'window_info': window  # For UI automation extraction
                 }
 
                 # Submit screenshot if enabled and interval elapsed
@@ -252,6 +255,11 @@ class TrackerLoop:
         # Derive state from is_idle flag
         event_state = STATE_INACTIVE if self.current_event['is_idle'] else STATE_ACTIVE
 
+        # Extract metadata if UI automation worker is configured
+        metadata = None
+        if self.ui_automation_worker and 'window_info' in self.current_event:
+            metadata = self.ui_automation_worker.extract(self.current_event['window_info'])
+
         # Create event with start time, duration, end time, and state
         event = ActivityEvent(
             timestamp=self.event_start_time.isoformat(),
@@ -261,7 +269,8 @@ class TrackerLoop:
             end_time=end_time.isoformat(),
             url=None,  # URL extraction is future enhancement
             is_idle=self.current_event['is_idle'],
-            state=event_state
+            state=event_state,
+            metadata=metadata
         )
 
         self.total_events += 1
