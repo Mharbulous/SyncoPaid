@@ -223,6 +223,16 @@ ls .claude/data/plans/*.md | tail -5
 
 ---
 
+> **CRITICAL: Story ID in Header**
+>
+> Every plan file MUST include the Story ID in the header. Replace `[ID]` with the actual story ID from the database (e.g., `1.2.3`).
+>
+> The story-execution skill detects "orphan plans" (plans without valid Story IDs) and archives them. Plans missing the Story ID will be skipped during execution.
+>
+> Format: `**Story ID:** X.Y.Z` (where X.Y.Z is the story's `id` field from `story_nodes` table)
+
+---
+
 #### LOW Complexity: Single TDD Plan
 
 **Filename:** `.claude/data/plans/NNN_[story-slug].md`
