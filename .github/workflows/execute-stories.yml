@@ -72,7 +72,7 @@ jobs:
             - Execute only ONE plan file per run (even if 003A, 003B exist, only execute 003A)
             - Review plan critically (CI mode: classify issues as blocking or deferrable)
             - Execute tasks in batches of 3 with TDD cycles (RED-GREEN-COMMIT)
-            - Archive completed plan to .claude/data/plans/completed/
+            - Archive completed plan to .claude/data/executed/
             - Update story status if Story ID found in plan:
               - If blocking issues: set hold_reason='paused', do not implement
               - If deferrable issues: execute, set stage='reviewing'
