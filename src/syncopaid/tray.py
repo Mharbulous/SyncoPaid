@@ -20,7 +20,7 @@ from syncopaid.tray_startup import (
     disable_startup,
     sync_startup_registry
 )
-from syncopaid.tray_icons import create_icon_image
+from syncopaid.tray_icons import create_icon_image, get_resource_path
 
 # Version info
 try:
