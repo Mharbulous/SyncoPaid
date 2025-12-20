@@ -101,7 +101,69 @@ print(json.dumps({'story_id': story_id, 'plan_path': plan_path}))
 "
 ```
 
-**If Story ID found:** Verify dependencies are met:
+### Step 1.5a: Detect Orphan Plans
+
+Plans without a Story ID or whose Story ID doesn't exist in the database are likely orphaned—they may belong to the XStory GUI system rather than SyncoPaid.
+
+**Check for orphan plan:**
+
+```python
+python -c "
+import sqlite3, json
+
+story_id = '[STORY_ID]'  # Replace with extracted ID (or None if not found)
+plan_path = '.claude/data/plans/[FILENAME]'
+
+# Flag 1: No Story ID in plan file
+if not story_id or story_id == 'None':
+    print(json.dumps({
+        'is_orphan': True,
+        'reason': 'No Story ID found in plan file',
+        'action': 'archive_and_skip'
+    }))
+    exit()
+
+# Flag 2: Story ID not in database
+conn = sqlite3.connect('.claude/data/story-tree.db')
+result = conn.execute('SELECT id, stage FROM story_nodes WHERE id = ?', (story_id,)).fetchone()
+conn.close()
+
+if not result:
+    print(json.dumps({
+        'is_orphan': True,
+        'reason': f'Story ID {story_id} not found in database',
+        'action': 'archive_and_skip'
+    }))
+else:
+    print(json.dumps({
+        'is_orphan': False,
+        'story_id': story_id,
+        'stage': result[1]
+    }))
+"
+```
+
+**If orphan detected:** Archive to orphan folder and try next plan:
+
+```python
+python -c "
+import os, shutil
+
+plan_path = '.claude/data/plans/[FILENAME]'  # Replace with actual filename
+orphan_dir = '.claude/data/plans/orphan'
+
+os.makedirs(orphan_dir, exist_ok=True)
+shutil.move(plan_path, os.path.join(orphan_dir, os.path.basename(plan_path)))
+print(f'Orphan plan archived: {plan_path} -> {orphan_dir}/')
+print('Reason: Plan lacks associated story node - may be XStory GUI related')
+"
+```
+
+Then re-run Step 1 to select the next earliest plan.
+
+**If not orphan:** Proceed to dependency check below.
+
+**If Story ID found and exists in database:** Verify dependencies are met:
 
 ```python
 python -c "
@@ -145,7 +207,7 @@ conn.close()
 "
 ```
 
-**If ready (or no Story ID):** Proceed to Step 1.6.
+**If ready:** Proceed to Step 1.6.
 
 **If not ready:** Skip this plan file and archive it, then try the next:
 
@@ -596,6 +658,7 @@ Need: [what clarification or help is needed]
   - Active plans: `.claude/data/plans/`
   - Executed plans: `.claude/data/executed/`
   - Blocked plans: `.claude/data/plans/blocked/`
+  - Orphan plans: `.claude/data/plans/orphan/` (no Story ID or not in database - may be XStory GUI)
 - Stage workflow: concept → approved → planned → active → reviewing → verifying → implemented
 - `planned` → `active`: After dependency check passes (Step 1.5 → Step 2)
 - Dependencies not met: `hold_reason = 'blocked'`
