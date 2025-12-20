@@ -45,20 +45,20 @@ jobs:
 
             ## Step 1: Early Exit Check
 
-            First, check if there are active stories without holds:
+            First, check if there are plan files available to execute:
             ```python
             python -c "
-            import sqlite3
-            conn = sqlite3.connect('.claude/data/story-tree.db')
-            count = conn.execute('SELECT COUNT(*) FROM story_nodes WHERE stage=\"active\" AND hold_reason IS NULL AND disposition IS NULL').fetchone()[0]
-            print(f'Active stories: {count}')
-            conn.close()
+            import os, re
+            plans_dir = '.claude/data/plans'
+            pattern = re.compile(r'^(\d{3})([A-Z])?_.+\.md$')
+            count = sum(1 for f in os.listdir(plans_dir) if pattern.match(f))
+            print(f'Plan files available: {count}')
             "
             ```
 
-            If count is 0, output "No active stories available for execution" and exit successfully.
+            If count is 0, output "No plan files available for execution" and exit successfully.
 
-            ## Step 2: Execute Story (if active stories exist)
+            ## Step 2: Execute Plan (if plan files exist)
 
             Use the story-execution skill (CI mode auto-detected):
             ```
@@ -66,28 +66,31 @@ jobs:
             ```
 
             Follow the skill workflow to:
-            - Select and load the oldest active story's plan from .claude/data/plans/
+            - Select the earliest sequence-numbered plan file from .claude/data/plans/
+            - Plan files use pattern: NNN[A-Z]?_slug.md (e.g., 001_feature.md, 003A_subplan.md)
+            - Execute only ONE plan file per run (even if 003A, 003B exist, only execute 003A)
             - Review plan critically (CI mode: classify issues as blocking or deferrable)
             - Execute tasks in batches of 3 with TDD cycles (RED-GREEN-COMMIT)
-            - Update story status:
+            - Archive completed plan to .claude/data/plans/completed/
+            - Update story status if Story ID found in plan:
               - If blocking issues: set hold_reason='paused', do not implement
               - If deferrable issues: execute, set stage='reviewing'
               - If no issues: execute, set stage='verifying'
 
             ## Step 3: Git Operations
 
-            After executing the story:
+            After executing the plan:
             ```bash
             git checkout main && git pull origin main
             git add -A
-            git diff --cached --quiet || git commit -m "ci: execute story $(date -u +'%Y-%m-%d')"
+            git diff --cached --quiet || git commit -m "ci: execute plan $(date -u +'%Y-%m-%d')"
             git push origin main
             ```
 
             **CRITICAL**: Push changes before exiting.
 
             ## Constraints
-            - Execute only 1 story per run
+            - Execute only 1 plan file per run
             - 60-minute timeout (execution takes longer than planning)
 
           # Tool permissions for file operations, database access, git, and testing

@@ -95,8 +95,8 @@ jobs:
 
           # Setup progress file
           TODAY=$(date -u +"%Y-%m-%d")
-          PROGRESS_FILE=".claude/data/progress/${TODAY}-GitHub-Actions-Results.md"
-          mkdir -p .claude/data/progress
+          PROGRESS_FILE=".claude/data/github_action_results/${TODAY}-GitHub-Actions-Results.md"
+          mkdir -p .claude/data/github_action_results
 
           # Initialize progress file with header (using echo to avoid heredoc YAML issues)
           echo "# Story Tree Orchestrator Progress" > "$PROGRESS_FILE"
