@@ -1,4 +1,4 @@
-# 051: LLM & AI Integration - Narrative Generation
+# 019C: LLM & AI Integration - Narrative Generation
 
 ## Task
 Implement billing narrative generation from activity sequences using LLM.
@@ -171,8 +171,8 @@ pytest tests/test_billing.py -v
 ```
 
 ## Dependencies
-- Task 050 (billing rounding)
-- Task 049 (LLM client) for AI-powered generation
+- Task 019B (billing rounding)
+- Task 019A (LLM client) for AI-powered generation
 
 ## Next Task
-After this: `052_llm-review-ui.md`
+After this: `019D_llm-review-ui.md`

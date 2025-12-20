@@ -1,4 +1,4 @@
-# 042: Command Line Tracking - Database Schema
+# 012E: Command Line Tracking - Database Schema
 
 ## Task
 Add `cmdline` column to events table with migration support, update insert and query methods.
@@ -151,7 +151,7 @@ python -m syncopaid.database
 ```
 
 ## Dependencies
-- Task 041 (TrackerLoop integration)
+- Task 012D (TrackerLoop integration)
 
 ## Notes
 This completes the Process Command Line Tracking feature (original story 1.1.2).

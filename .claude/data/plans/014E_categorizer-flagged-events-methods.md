@@ -1,4 +1,4 @@
-# 047: Activity-to-Matter Matching - Flagged Events Methods
+# 014E: Activity-to-Matter Matching - Flagged Events Methods
 
 ## Task
 Add database methods for retrieving and updating flagged events.
@@ -138,7 +138,7 @@ pytest tests/test_categorizer.py -v
 ```
 
 ## Dependencies
-- Task 046 (database schema)
+- Task 014D (database schema)
 
 ## Next Task
-After this: `048_categorizer-app-integration.md`
+After this: `014F_categorizer-app-integration.md`

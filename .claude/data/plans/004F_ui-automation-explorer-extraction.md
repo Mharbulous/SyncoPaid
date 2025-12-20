@@ -1,4 +1,4 @@
-# 032: UI Automation - Explorer Folder Path Extraction
+# 004F: UI Automation - Explorer Folder Path Extraction
 
 ## Task
 Implement actual Windows Explorer folder path extraction using pywinauto.
@@ -108,7 +108,7 @@ python -m pytest tests/test_ui_automation.py::test_explorer_extractor_returns_fo
 
 ## Final Verification
 
-After completing all sub-plans (027-032):
+After completing all sub-plans (004A-004F):
 
 ```bash
 python -m pytest -v  # All tests pass
@@ -116,7 +116,7 @@ python -m syncopaid  # Run app, test with Outlook and Explorer
 ```
 
 ## Dependencies
-- Task 031 (Outlook extraction)
+- Task 004E (Outlook extraction)
 
 ## Notes
 This completes the UI Automation Integration feature (original story 8.3).

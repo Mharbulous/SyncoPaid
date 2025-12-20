@@ -1,4 +1,4 @@
-# 050: LLM & AI Integration - Billing Increment Rounding
+# 019B: LLM & AI Integration - Billing Increment Rounding
 
 ## Task
 Implement 6-minute billing increment rounding logic.
@@ -132,7 +132,7 @@ python -c "from syncopaid.billing import round_to_increment; print(round_to_incr
 ```
 
 ## Dependencies
-- Task 049 (LLM API client)
+- Task 019A (LLM API client)
 
 ## Next Task
-After this: `051_llm-narrative-generation.md`
+After this: `019C_llm-narrative-generation.md`

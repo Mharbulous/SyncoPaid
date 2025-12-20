@@ -1,4 +1,4 @@
-# 040: Command Line Tracking - get_active_window Update
+# 012C: Command Line Tracking - get_active_window Update
 
 ## Task
 Update `get_active_window()` to capture and return redacted command line arguments.
@@ -86,7 +86,7 @@ python -m syncopaid.tracker  # 30s manual test
 ```
 
 ## Dependencies
-- Task 039 (helper functions)
+- Task 012B (helper functions)
 
 ## Next Task
-After this: `041_cmdline-tracker-loop.md`
+After this: `012D_cmdline-tracker-loop.md`

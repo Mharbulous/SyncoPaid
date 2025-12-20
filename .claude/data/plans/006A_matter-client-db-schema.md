@@ -1,4 +1,4 @@
-# 033: Matter/Client Database - Schema Tables
+# 006A: Matter/Client Database - Schema Tables
 
 ## Task
 Add `clients` and `matters` tables to the SQLite database schema.
@@ -113,4 +113,4 @@ python -m syncopaid.database  # Verify module runs
 None - this is the first sub-plan.
 
 ## Next Task
-After this: `034_matter-client-crud-methods.md`
+After this: `006B_matter-client-crud-methods.md`

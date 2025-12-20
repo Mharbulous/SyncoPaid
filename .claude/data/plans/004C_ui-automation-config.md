@@ -1,4 +1,4 @@
-# 029: UI Automation - Configuration Settings
+# 004C: UI Automation - Configuration Settings
 
 ## Task
 Add configuration flags to enable/disable UI automation per application.
@@ -66,7 +66,7 @@ python -m syncopaid.config  # Verify module runs
 ```
 
 ## Dependencies
-- Task 028 (module creation)
+- Task 004B (module creation)
 
 ## Next Task
-After this: `030_ui-automation-tracker-integration.md`
+After this: `004D_ui-automation-tracker-integration.md`

@@ -1,4 +1,4 @@
-# 044: Activity-to-Matter Matching - Exact Matter Number
+# 014B: Activity-to-Matter Matching - Exact Matter Number
 
 ## Task
 Implement exact matter number matching in window title with 100% confidence.
@@ -82,7 +82,7 @@ pytest tests/test_categorizer.py::test_exact_matter_number_match_in_title -v
 ```
 
 ## Dependencies
-- Task 043 (categorizer module)
+- Task 014A (categorizer module)
 
 ## Next Task
-After this: `045_categorizer-client-name-matching.md`
+After this: `014C_categorizer-client-keyword-matching.md`

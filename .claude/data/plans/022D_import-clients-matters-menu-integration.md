@@ -1,10 +1,10 @@
-# 025: Import Clients & Matters - Menu Integration
+# 022D: Import Clients & Matters - Menu Integration
 
 ## Task
 Wire up the "Import Clients & Matters" menu item to the main window File menu.
 
 ## Context
-This task connects the import dialog (024) to the main window menu. After this, users can import client/matter data from their folder structure.
+This task connects the import dialog (022C) to the main window menu. After this, users can import client/matter data from their folder structure.
 
 ## Scope
 - Add menu item to File menu in main window
@@ -77,9 +77,9 @@ python -m syncopaid
 | Re-import same folder | Duplicates ignored (INSERT OR IGNORE) |
 
 ## Dependencies
-- Task 022 (database schema)
-- Task 023 (folder parser)
-- Task 024 (dialog UI)
+- Task 022A (database schema)
+- Task 022B (folder parser)
+- Task 022C (dialog UI)
 
 ## Next Task
-After this: `026_import-clients-matters-time-assignment-ui.md` (optional—adds dropdowns for assigning time)
+After this: `022E_import-clients-matters-time-assignment-ui.md` (optional—adds dropdowns for assigning time)

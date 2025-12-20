@@ -1,4 +1,4 @@
-# 036: Matter/Client Database - Matter Dialog with CSV
+# 006D: Matter/Client Database - Matter Dialog with CSV
 
 ## Task
 Create tkinter dialog for managing matters, including CSV import/export functionality.
@@ -251,7 +251,7 @@ python tests/test_matter_client.py
 ```
 
 ## Dependencies
-- Task 035 (client dialog)
+- Task 006C (client dialog)
 
 ## Next Task
-After this: `037_matter-client-tray-integration.md`
+After this: `006E_matter-client-tray-integration.md`

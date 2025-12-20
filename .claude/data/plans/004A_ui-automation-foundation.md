@@ -1,4 +1,4 @@
-# 027: UI Automation - Foundation (Dependencies & DB Schema)
+# 004A: UI Automation - Foundation (Dependencies & DB Schema)
 
 ## Task
 Add pywinauto dependency and extend events table with metadata column.
@@ -94,4 +94,4 @@ python -m syncopaid.database  # Verify migration runs
 None - this is the first sub-plan.
 
 ## Next Task
-After this: `028_ui-automation-module.md`
+After this: `004B_ui-automation-module.md`
