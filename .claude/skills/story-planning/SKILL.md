@@ -1,6 +1,7 @@
 ---
 name: story-planning
 description: Use when user says "plan story", "plan next feature", "create implementation plan", "what's ready to plan", or asks to plan an approved story - looks up approved story-nodes from story-tree database, prioritizes which to plan first, creates detailed TDD-focused implementation plan, and saves to .claude/data/plans/ folder.
+disable-model-invocation: true
 ---
 
 # Story Planning - TDD Implementation Plan Generator

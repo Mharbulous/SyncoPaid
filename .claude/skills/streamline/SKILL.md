@@ -1,6 +1,7 @@
 ---
 name: streamline
 description: Identifies files over 300 lines and decomposes them into smaller modules while preserving functionality exactly. Use when user says "streamline", "decompose files", "refactor large files", or wants to break down oversized source files.
+disable-model-invocation: true
 ---
 
 # Streamline Skill

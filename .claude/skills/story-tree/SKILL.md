@@ -1,6 +1,7 @@
 ---
 name: story-tree
 description: Use when user says "update story tree", "show story tree", "show me a map", "story map", "tree diagram", "show stories", "view stories", "list stories", or asks for story visualization or tree status - autonomously maintains hierarchical story backlog by analyzing git commits, identifying under-capacity nodes, and coordinating story generation to fill gaps. Works with SQLite database using closure table pattern, prioritizes shallower nodes first, and tracks implementation status through commit analysis.
+disable-model-invocation: true
 ---
 
 # Story Tree - Autonomous Hierarchical Backlog Manager

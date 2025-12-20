@@ -1,6 +1,7 @@
 ---
 name: story-vetting
 description: Use when orchestrator generates new stories or user says "vet stories", "check conflicts", "find duplicates", "scan for overlaps" - scans story-tree database to detect duplicate, overlapping, or competing stories. Returns conflict pairs with types and confidence scores for human review.
+disable-model-invocation: true
 ---
 
 # Story Vetting - Automated Concept Conflict Resolution

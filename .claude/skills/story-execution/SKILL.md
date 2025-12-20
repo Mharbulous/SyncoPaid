@@ -1,6 +1,7 @@
 ---
 name: story-execution
 description: Use when user says "execute plan", "implement story", "run plan for [ID]", "start implementation", or asks to execute a planned story - loads TDD implementation plan from .claude/data/plans/, executes RED-GREEN-COMMIT cycles for each task, updates story status through active→reviewing→implemented, verifies acceptance criteria, and outputs implementation report. (project) (project) (project)
+disable-model-invocation: true
 ---
 
 # Story Execution

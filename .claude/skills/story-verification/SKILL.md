@@ -1,6 +1,7 @@
 ---
 name: story-verification
 description: Use when user says "verify story", "check acceptance criteria", "validate implementation", "is story ready", or asks to verify that an implemented story meets its acceptance criteria - parses acceptance criteria from story description, verifies each with test/code evidence, generates pass/fail report, and updates story status based on results.
+disable-model-invocation: true
 ---
 
 # Story Verification - Acceptance Criteria Validator

@@ -1,6 +1,7 @@
 ---
 name: goal-synthesis
 description: Use when user says "synthesize goals", "show goals", "what are my goals", "update goals", "show non-goals", "what am I building", "project direction", or asks about the overall direction or intent of the project - generates two markdown files summarizing the user's goals based on approved story nodes (what the goals ARE) and rejected story nodes with notes (what the non-goals ARE).
+disable-model-invocation: true
 ---
 
 # Goal Synthesis Skill

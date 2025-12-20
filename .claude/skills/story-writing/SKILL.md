@@ -1,6 +1,7 @@
 ---
 name: story-writing
 description: Use when user says "brainstorm stories", "generate story ideas", "brainstorm features", "create stories for [node]", or asks for new story ideas - FIRST polishes any existing stories with hold_reason='polish' before generating new stories. Then generates evidence-based user stories for nodes with capacity based on git commit analysis, existing children, and gap analysis. Works with story-tree database to create concept stories with proper user story format and acceptance criteria.
+disable-model-invocation: true
 ---
 
 # Story Writing - Evidence-Based Story Generator
