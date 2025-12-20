@@ -118,15 +118,14 @@ python .claude/scripts/story_workflow.py --ci
 
 ## Step 2: Gather Context
 
-### 2a: Check Goals Files
+### 2a: Read Goals Files
 
 ```python
 python -c "
 import os, json
 result = {}
 for key, path in [('goals', '.claude/data/goals/goals.md'), ('non_goals', '.claude/data/goals/non-goals.md')]:
-    result[f'has_{key}'] = os.path.exists(path)
-    if result[f'has_{key}']:
+    if os.path.exists(path):
         with open(path) as f: result[key] = f.read()
 print(json.dumps(result, indent=2))
 "
