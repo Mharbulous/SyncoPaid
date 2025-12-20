@@ -1,6 +1,6 @@
 ---
 name: story-planning
-description: Use when user says "plan story", "plan next feature", "create implementation plan", "what's ready to plan", or asks to plan an approved story - looks up approved story-nodes from story-tree database, prioritizes which to plan first, creates detailed TDD-focused implementation plan, and saves to .claude/data/plans/ folder.
+description: Use when user says "plan story", "plan next feature", "create implementation plan", "what's ready to plan", or asks to plan an approved story - looks up approved story-nodes from story-tree database, prioritizes which to plan first, creates detailed TDD-focused implementation plan, and saves to ai_docs/Handovers/ folder.
 disable-model-invocation: true
 ---
 
@@ -11,7 +11,7 @@ Generate test-driven implementation plans for approved stories.
 **Announce:** On activation, say: "I'm using the story-planning skill to create the implementation plan."
 
 **Database:** `.claude/data/story-tree.db`
-**Plans:** `.claude/data/plans/`
+**Plans:** `ai_docs/Handovers/`
 
 **Critical:** Use Python sqlite3 module, NOT sqlite3 CLI.
 
@@ -212,16 +212,22 @@ Before writing files, outline the decomposition:
 
 ### Step 5: Create Plan File(s)
 
-**For LOW complexity:** Single plan file → `.claude/data/plans/YYYY-MM-DD-[story-id]-[slug].md`
+**For LOW complexity:** Single plan file → `ai_docs/Handovers/NNN_[story-slug].md`
 
-**For MEDIUM/HIGH complexity:** Multiple handover files → `ai_docs/Handovers/NNN_[slug].md`
+**For MEDIUM/HIGH complexity:** Multiple handover files → `ai_docs/Handovers/NNN_[story-slug]-[component].md`
+
+Query existing handovers to find next available number:
+```bash
+ls ai_docs/Handovers/*.md | tail -5
+```
 
 ---
 
 #### LOW Complexity: Single TDD Plan
 
-**Filename:** `.claude/data/plans/YYYY-MM-DD-[story-id]-[slug].md`
-- `[slug]` = title in lowercase-kebab-case (max 40 chars)
+**Filename:** `ai_docs/Handovers/NNN_[story-slug].md`
+- `NNN` = next available sequence number (e.g., 050, 051)
+- `[story-slug]` = title in lowercase-kebab-case (max 40 chars)
 
 #### Interactive Mode Template
 
@@ -460,6 +466,8 @@ Each sub-plan is a focused, independently verifiable unit. Use this template:
 ```markdown
 # NNN: [Story Title] - [Component Name]
 
+**Created:** YYYY-MM-DD | **Story ID:** [ID]
+
 ## Task
 [One sentence describing what this sub-plan accomplishes]
 
@@ -528,7 +536,7 @@ conn = sqlite3.connect('.claude/data/story-tree.db')
 conn.execute('''
     UPDATE story_nodes
     SET stage = 'planned',
-        notes = COALESCE(notes || chr(10), '') || 'Plan: .claude/data/plans/[FILENAME]',
+        notes = COALESCE(notes || chr(10), '') || 'Plan: ai_docs/Handovers/[FILENAME]',
         updated_at = datetime('now')
     WHERE id = '[STORY_ID]'
 ''')
@@ -564,7 +572,7 @@ Present two options:
 
 **Option 1: Continue in this session** - Implement with tight feedback loops, interactive course correction
 
-**Option 2: Fresh session** - Open new Claude Code session, say "Execute plan: .claude/data/plans/[filename]"
+**Option 2: Fresh session** - Open new Claude Code session, say "Execute plan: ai_docs/Handovers/[filename]"
 
 **For MEDIUM/HIGH complexity (sub-plans):**
 
@@ -594,7 +602,7 @@ Complete sub-plans sequentially. Verify each before proceeding to next.
 ```
 ✓ Planned story [STORY_ID]: [Title]
   Complexity: LOW (score [N])
-  Plan: .claude/data/plans/[filename].md
+  Plan: ai_docs/Handovers/[filename].md
   Tasks: [N] TDD cycles
   Stage: approved -> planned
 ```
