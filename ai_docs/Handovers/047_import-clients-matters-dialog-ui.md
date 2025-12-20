@@ -4,12 +4,13 @@
 Create a single import dialog for selecting a folder and previewing/confirming the import.
 
 ## Context
-User wants a simple, single-dialog experience (not a wizard). User selects folder → sees preview of extracted clients/matters → confirms import.
+User selects folder → sees preview of extracted clients/matters → confirms import. Single dialog, no wizard.
 
 ## Scope
 - Add `show_import_dialog()` function to `main_ui_windows.py`
 - Single dialog with folder selection + preview table + import button
 - Thread-safe (run in daemon thread like other dialogs)
+- Save imported data to database
 
 ## Key Files
 
@@ -26,10 +27,11 @@ Follow `show_export_dialog()` at lines 36-96:
 def show_import_dialog(database):
     def run_dialog():
         root = tk.Tk()
-        root.withdraw()
+        root.title("Import Clients & Matters")
+        root.geometry("600x400")
         root.attributes('-topmost', True)
         # ... dialog logic ...
-        root.destroy()
+        root.mainloop()
 
     dialog_thread = threading.Thread(target=run_dialog, daemon=True)
     dialog_thread.start()
@@ -38,21 +40,22 @@ def show_import_dialog(database):
 ## UI Layout
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ Import Clients & Matters                            │
-├─────────────────────────────────────────────────────┤
-│ Folder: [________________________] [Browse...]      │
-├─────────────────────────────────────────────────────┤
-│ Preview (X clients, Y matters found)                │
-│ ┌─────────────────────────────────────────────────┐ │
-│ │ Client Name    │ Client # │ Matter Name │ Mat # │ │
-│ │────────────────┼──────────┼─────────────┼───────│ │
-│ │ Smith, John    │ C001     │ Real Estate │ M001  │ │
-│ │ Smith, John    │ C001     │ Divorce     │ M002  │ │
-│ └─────────────────────────────────────────────────┘ │
-├─────────────────────────────────────────────────────┤
-│                              [Cancel]  [Import]     │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│ Import Clients & Matters                             │
+├──────────────────────────────────────────────────────┤
+│ Folder: [____________________________] [Browse...]   │
+├──────────────────────────────────────────────────────┤
+│ Preview (X clients, Y matters)                       │
+│ ┌──────────────────────────────────────────────────┐ │
+│ │ Client              │ Matter                     │ │
+│ │─────────────────────┼────────────────────────────│ │
+│ │ Smith, John         │ Real Estate Purchase       │ │
+│ │ Smith, John         │ Divorce Proceedings        │ │
+│ │ Johnson Corp        │ Contract Dispute           │ │
+│ └──────────────────────────────────────────────────┘ │
+├──────────────────────────────────────────────────────┤
+│                               [Cancel]   [Import]    │
+└──────────────────────────────────────────────────────┘
 ```
 
 ## Implementation
@@ -66,7 +69,7 @@ def show_import_dialog(database):
 
         root = tk.Tk()
         root.title("Import Clients & Matters")
-        root.geometry("700x450")
+        root.geometry("600x400")
         root.attributes('-topmost', True)
         set_window_icon(root)
 
@@ -79,15 +82,14 @@ def show_import_dialog(database):
 
         tk.Label(folder_frame, text="Folder:").pack(side=tk.LEFT)
         folder_var = tk.StringVar()
-        folder_entry = tk.Entry(folder_frame, textvariable=folder_var, width=50)
-        folder_entry.pack(side=tk.LEFT, padx=5)
+        folder_entry = tk.Entry(folder_frame, textvariable=folder_var, width=40)
+        folder_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
 
         def browse_folder():
             nonlocal import_result
             path = filedialog.askdirectory(parent=root, title="Select Client Folder")
             if path:
                 folder_var.set(path)
-                # Parse and preview
                 import_result = import_from_folder(path)
                 update_preview()
 
@@ -97,53 +99,56 @@ def show_import_dialog(database):
         preview_label = tk.Label(root, text="Select a folder to preview", pady=5)
         preview_label.pack()
 
-        # Treeview for preview
-        columns = ('client_name', 'client_no', 'matter_name', 'matter_no')
-        tree = ttk.Treeview(root, columns=columns, show='headings', height=12)
-        tree.heading('client_name', text='Client Name')
-        tree.heading('client_no', text='Client #')
-        tree.heading('matter_name', text='Matter Name')
-        tree.heading('matter_no', text='Matter #')
+        # Preview frame with treeview
+        preview_frame = tk.Frame(root)
+        preview_frame.pack(fill=tk.BOTH, expand=True, padx=10)
 
-        tree.column('client_name', width=180)
-        tree.column('client_no', width=80)
-        tree.column('matter_name', width=200)
-        tree.column('matter_no', width=80)
+        columns = ('client', 'matter')
+        tree = ttk.Treeview(preview_frame, columns=columns, show='headings', height=10)
+        tree.heading('client', text='Client')
+        tree.heading('matter', text='Matter')
+        tree.column('client', width=200)
+        tree.column('matter', width=300)
 
-        scrollbar = ttk.Scrollbar(root, orient=tk.VERTICAL, command=tree.yview)
+        scrollbar = ttk.Scrollbar(preview_frame, orient=tk.VERTICAL, command=tree.yview)
         tree.configure(yscrollcommand=scrollbar.set)
-        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10)
-        scrollbar.pack(side=tk.LEFT, fill=tk.Y)
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         def update_preview():
-            # Clear tree
             for item in tree.get_children():
                 tree.delete(item)
 
             if import_result:
                 preview_label.config(
-                    text=f"Found {len(import_result.clients)} clients, "
-                         f"{len(import_result.matters)} matters"
+                    text=f"Found {import_result.stats['clients']} clients, "
+                         f"{import_result.stats['matters']} matters"
                 )
                 for m in import_result.matters:
                     tree.insert('', tk.END, values=(
-                        m.client_name, m.client_no or '',
-                        m.matter_name, m.matter_no or ''
+                        m.client_display_name,
+                        m.display_name
                     ))
 
         # Button frame
-        btn_frame = tk.Frame(root, pady=10)
+        btn_frame = tk.Frame(root, pady=10, padx=10)
         btn_frame.pack(fill=tk.X, side=tk.BOTTOM)
 
         def do_import():
-            if not import_result or not import_result.matters:
-                messagebox.showwarning("No Data", "No matters to import.", parent=root)
+            if not import_result or not import_result.clients:
+                messagebox.showwarning("No Data",
+                    "No clients found in selected folder.", parent=root)
                 return
 
-            # TODO: Save to database (task 048 will wire this up)
-            count = len(import_result.matters)
-            messagebox.showinfo("Import Complete", f"Imported {count} matters.", parent=root)
-            root.destroy()
+            try:
+                save_import_to_database(database, import_result)
+                messagebox.showinfo("Import Complete",
+                    f"Imported {import_result.stats['clients']} clients and "
+                    f"{import_result.stats['matters']} matters.", parent=root)
+                root.destroy()
+            except Exception as e:
+                logging.error(f"Import failed: {e}", exc_info=True)
+                messagebox.showerror("Import Failed", str(e), parent=root)
 
         tk.Button(btn_frame, text="Cancel", command=root.destroy, width=10).pack(side=tk.RIGHT, padx=5)
         tk.Button(btn_frame, text="Import", command=do_import, width=10).pack(side=tk.RIGHT, padx=5)
@@ -154,40 +159,39 @@ def show_import_dialog(database):
     dialog_thread.start()
 ```
 
-## Database Save Logic
+## Database Save Function
 
-After preview confirmation, save to database:
 ```python
 def save_import_to_database(database, import_result):
     """Save imported clients and matters to database."""
     with database._get_connection() as conn:
         cursor = conn.cursor()
 
-        # Insert clients
+        # Build client ID map
         client_ids = {}
         for client in import_result.clients:
             cursor.execute("""
-                INSERT OR IGNORE INTO clients (client_no, client_name, folder_path, confidence)
-                VALUES (?, ?, ?, ?)
-            """, (client.client_no, client.client_name, client.folder_path, client.confidence))
+                INSERT OR IGNORE INTO clients (display_name, folder_path)
+                VALUES (?, ?)
+            """, (client.display_name, client.folder_path))
 
-            # Get ID (existing or new)
             cursor.execute(
-                "SELECT id FROM clients WHERE client_name = ? AND (client_no = ? OR client_no IS NULL)",
-                (client.client_name, client.client_no)
+                "SELECT id FROM clients WHERE display_name = ?",
+                (client.display_name,)
             )
-            client_ids[client.client_name] = cursor.fetchone()[0]
+            row = cursor.fetchone()
+            if row:
+                client_ids[client.display_name] = row[0]
 
         # Insert matters
         for matter in import_result.matters:
-            client_id = client_ids.get(matter.client_name)
+            client_id = client_ids.get(matter.client_display_name)
             if client_id:
                 cursor.execute("""
                     INSERT OR IGNORE INTO matters
-                    (client_id, matter_no, matter_name, folder_path, confidence)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (client_id, matter.matter_no, matter.matter_name,
-                      matter.folder_path, matter.confidence))
+                    (client_id, display_name, folder_path)
+                    VALUES (?, ?, ?)
+                """, (client_id, matter.display_name, matter.folder_path))
 
         conn.commit()
 ```
@@ -196,7 +200,13 @@ def save_import_to_database(database, import_result):
 
 ```bash
 venv\Scripts\activate
-python -c "from syncopaid.main_ui_windows import show_import_dialog; show_import_dialog(None)"
+
+# Test dialog opens (pass None for quick visual test)
+python -c "from syncopaid.main_ui_windows import show_import_dialog; show_import_dialog(None); import time; time.sleep(30)"
+
+# Full test with database
+python -m syncopaid
+# Open main window → File → Import Clients & Matters
 ```
 
 ## Dependencies
