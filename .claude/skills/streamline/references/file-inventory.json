@@ -1,5 +1,5 @@
 {
-  "lastScanned": "2025-12-19",
+  "lastScanned": "2025-12-20",
   "sourceRoot": "src/syncopaid",
   "fileExtensions": [".py"],
   "files": {
@@ -13,8 +13,10 @@
     "src/syncopaid/exporter.py": { "lines": 412 },
     "src/syncopaid/screenshot.py": { "lines": 638 },
     "src/syncopaid/tracker.py": { "lines": 594 },
-    "src/syncopaid/tray.py": { "lines": 735 }
+    "src/syncopaid/tray.py": { "lines": 351 },
+    "src/syncopaid/tray_icons.py": { "lines": 193 },
+    "src/syncopaid/tray_startup.py": { "lines": 227 }
   },
   "exceptions": [],
-  "decomposed": []
+  "decomposed": ["src/syncopaid/tray.py"]
 }
