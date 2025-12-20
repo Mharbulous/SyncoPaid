@@ -9,19 +9,23 @@ All operations are local-only (no network access) to preserve
 attorney-client privilege.
 """
 
-import sqlite3
 import logging
-from typing import List, Dict, Optional, Tuple
-from datetime import datetime, date
 from pathlib import Path
-from contextlib import contextmanager
 
-from .tracker import ActivityEvent
+from .database_connection import ConnectionMixin
+from .database_schema import SchemaMixin
+from .database_operations import OperationsMixin
 from .database_screenshots import ScreenshotDatabaseMixin
 from .database_statistics import StatisticsDatabaseMixin, format_duration
 
 
-class Database(ScreenshotDatabaseMixin, StatisticsDatabaseMixin):
+class Database(
+    ConnectionMixin,
+    SchemaMixin,
+    OperationsMixin,
+    ScreenshotDatabaseMixin,
+    StatisticsDatabaseMixin
+):
     """
     SQLite database manager for activity events.
 
@@ -45,303 +49,12 @@ class Database(ScreenshotDatabaseMixin, StatisticsDatabaseMixin):
         self.db_path = Path(db_path)
 
         # Ensure parent directory exists
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._ensure_db_directory()
 
         # Initialize schema
         self._init_schema()
 
         logging.info(f"Database initialized: {self.db_path}")
-
-    @contextmanager
-    def _get_connection(self):
-        """Context manager for database connections."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row  # Enable column access by name
-        try:
-            yield conn
-            conn.commit()
-        except Exception as e:
-            conn.rollback()
-            logging.error(f"Database error: {e}")
-            raise
-        finally:
-            conn.close()
-
-    def _init_schema(self):
-        """
-        Create database schema if it doesn't exist.
-
-        Schema includes:
-        - events table with all activity fields
-        - screenshots table with captured screenshots metadata
-        - Indices on timestamp and app for query performance
-        """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-
-            # Create events table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS events (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TEXT NOT NULL,
-                    duration_seconds REAL,
-                    end_time TEXT,
-                    app TEXT,
-                    title TEXT,
-                    url TEXT,
-                    is_idle INTEGER DEFAULT 0
-                )
-            """)
-
-            # Migration: Add end_time column if it doesn't exist (for existing databases)
-            cursor.execute("PRAGMA table_info(events)")
-            columns = [row[1] for row in cursor.fetchall()]
-            if 'end_time' not in columns:
-                cursor.execute("ALTER TABLE events ADD COLUMN end_time TEXT")
-                logging.info("Database migration: Added end_time column to events table")
-
-            # Migration: Add state column if it doesn't exist
-            if 'state' not in columns:
-                cursor.execute("ALTER TABLE events ADD COLUMN state TEXT DEFAULT 'Active'")
-                logging.info("Database migration: Added state column to events table")
-
-                # Backfill existing data: set state based on is_idle
-                cursor.execute("""
-                    UPDATE events
-                    SET state = CASE WHEN is_idle = 1 THEN 'Inactive' ELSE 'Active' END
-                    WHERE state IS NULL
-                """)
-                logging.info("Database migration: Backfilled state column from is_idle")
-
-            # Create indices for query performance
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_timestamp
-                ON events(timestamp)
-            """)
-
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_app
-                ON events(app)
-            """)
-
-            # Create screenshots table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS screenshots (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    captured_at TEXT NOT NULL,
-                    file_path TEXT NOT NULL,
-                    window_app TEXT,
-                    window_title TEXT,
-                    dhash TEXT
-                )
-            """)
-
-            # Create index for screenshots timestamp queries
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_screenshots_time
-                ON screenshots(captured_at)
-            """)
-
-            logging.info("Database schema initialized")
-
-    def insert_event(self, event: ActivityEvent) -> int:
-        """
-        Insert a single activity event into the database.
-
-        Args:
-            event: ActivityEvent object to store
-
-        Returns:
-            The ID of the inserted event
-        """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-
-            # Get optional fields (may be None for older code paths)
-            end_time = getattr(event, 'end_time', None)
-            state = getattr(event, 'state', 'Active')
-
-            cursor.execute("""
-                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle, state)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                event.timestamp,
-                event.duration_seconds,
-                end_time,
-                event.app,
-                event.title,
-                event.url,
-                1 if event.is_idle else 0,
-                state
-            ))
-
-            return cursor.lastrowid
-
-    def insert_events_batch(self, events: List[ActivityEvent]) -> int:
-        """
-        Insert multiple events in a single transaction (more efficient).
-
-        Args:
-            events: List of ActivityEvent objects
-
-        Returns:
-            Number of events inserted
-        """
-        if not events:
-            return 0
-
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-
-            cursor.executemany("""
-                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle, state)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, [
-                (e.timestamp, e.duration_seconds, getattr(e, 'end_time', None),
-                 e.app, e.title, e.url, 1 if e.is_idle else 0, getattr(e, 'state', 'Active'))
-                for e in events
-            ])
-
-            return len(events)
-
-    def get_events(
-        self,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
-        include_idle: bool = True,
-        limit: Optional[int] = None
-    ) -> List[Dict]:
-        """
-        Query events with optional filtering.
-
-        Args:
-            start_date: ISO date string (YYYY-MM-DD) for range start (inclusive)
-            end_date: ISO date string (YYYY-MM-DD) for range end (inclusive)
-            include_idle: Whether to include idle events (default True)
-            limit: Maximum number of events to return
-
-        Returns:
-            List of event dictionaries
-        """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-
-            # Build query with filters
-            query = "SELECT * FROM events WHERE 1=1"
-            params = []
-
-            if start_date:
-                query += " AND timestamp >= ?"
-                params.append(f"{start_date}T00:00:00")
-
-            if end_date:
-                query += " AND timestamp < ?"
-                # Add one day to make end_date inclusive
-                end_datetime = datetime.fromisoformat(end_date)
-                next_day = end_datetime.replace(hour=23, minute=59, second=59)
-                params.append(next_day.isoformat())
-
-            if not include_idle:
-                query += " AND is_idle = 0"
-
-            query += " ORDER BY timestamp ASC"
-
-            if limit:
-                query += f" LIMIT {limit}"
-
-            cursor.execute(query, params)
-
-            # Convert rows to dictionaries
-            events = []
-            for row in cursor.fetchall():
-                # Derive state from is_idle if column doesn't exist (backward compatibility)
-                if 'state' in row.keys() and row['state']:
-                    state = row['state']
-                else:
-                    state = 'Inactive' if row['is_idle'] else 'Active'
-
-                events.append({
-                    'id': row['id'],
-                    'timestamp': row['timestamp'],
-                    'duration_seconds': row['duration_seconds'],
-                    'end_time': row['end_time'] if 'end_time' in row.keys() else None,
-                    'app': row['app'],
-                    'title': row['title'],
-                    'url': row['url'],
-                    'is_idle': bool(row['is_idle']),
-                    'state': state
-                })
-
-            return events
-
-    def delete_events(
-        self,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None
-    ) -> int:
-        """
-        Delete events within a date range.
-
-        CAUTION: This permanently removes data. Use carefully.
-
-        Args:
-            start_date: ISO date string (YYYY-MM-DD) for range start (inclusive)
-            end_date: ISO date string (YYYY-MM-DD) for range end (inclusive)
-
-        Returns:
-            Number of events deleted
-        """
-        if not start_date and not end_date:
-            raise ValueError("Must specify at least start_date or end_date")
-
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-
-            # Build delete query
-            query = "DELETE FROM events WHERE 1=1"
-            params = []
-
-            if start_date:
-                query += " AND timestamp >= ?"
-                params.append(f"{start_date}T00:00:00")
-
-            if end_date:
-                query += " AND timestamp < ?"
-                end_datetime = datetime.fromisoformat(end_date)
-                next_day = end_datetime.replace(hour=23, minute=59, second=59)
-                params.append(next_day.isoformat())
-
-            cursor.execute(query, params)
-            deleted_count = cursor.rowcount
-
-            logging.warning(f"Deleted {deleted_count} events from database")
-            return deleted_count
-
-    def delete_events_by_ids(self, event_ids: List[int]) -> int:
-        """
-        Delete specific events by their IDs.
-
-        Args:
-            event_ids: List of event IDs to delete
-
-        Returns:
-            Number of events deleted
-        """
-        if not event_ids:
-            return 0
-
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-
-            # Use parameterized query with placeholders
-            placeholders = ','.join('?' * len(event_ids))
-            query = f"DELETE FROM events WHERE id IN ({placeholders})"
-
-            cursor.execute(query, event_ids)
-            deleted_count = cursor.rowcount
-
-            logging.warning(f"Deleted {deleted_count} events by ID from database")
-            return deleted_count
 
 
 # ============================================================================
