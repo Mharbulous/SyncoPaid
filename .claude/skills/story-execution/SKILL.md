@@ -31,59 +31,90 @@ Load plan from story-tree database, review critically, execute tasks in batches,
 
 ### Step 1: Select and Load Plan
 
-**If user provides story ID or filename:**
+**If user provides a specific filename:**
 - Load the specified plan from `.claude/data/plans/`
 
 **If no plan specified (auto-select):**
-Query the story-tree database for planned stories (oldest first):
+Scan the plans folder for the earliest sequence-numbered plan file:
 
 ```python
 python -c "
-import sqlite3, json
-conn = sqlite3.connect('.claude/data/story-tree.db')
-conn.row_factory = sqlite3.Row
+import os, re, json
 
-planned = conn.execute('''
-    SELECT id, title, notes FROM story_nodes
-    WHERE stage = 'planned'
-      AND hold_reason IS NULL AND disposition IS NULL
-    ORDER BY updated_at ASC
-''').fetchall()
+plans_dir = '.claude/data/plans'
+pattern = re.compile(r'^(\d{3})([A-Z])?_(.+)\.md$')
 
-for story in planned:
-    notes = story['notes'] or ''
-    plan_line = [l for l in notes.split('\n') if 'Plan:' in l]
-    plan_path = plan_line[0].split('Plan:')[1].strip() if plan_line else None
+# Find all plan files matching the sequence pattern
+plans = []
+for f in os.listdir(plans_dir):
+    m = pattern.match(f)
+    if m:
+        num = int(m.group(1))
+        letter = m.group(2) or ''  # '' sorts before 'A'
+        plans.append({
+            'filename': f,
+            'path': os.path.join(plans_dir, f),
+            'sequence': num,
+            'letter': letter,
+            'sort_key': (num, letter)
+        })
+
+# Sort by sequence number, then letter suffix
+plans.sort(key=lambda x: x['sort_key'])
+
+if plans:
+    earliest = plans[0]
     print(json.dumps({
-        'id': story['id'],
-        'title': story['title'],
-        'plan_path': plan_path
+        'selected': earliest['filename'],
+        'path': earliest['path'],
+        'sequence': earliest['sequence'],
+        'letter': earliest['letter'],
+        'total_plans': len(plans)
     }))
-conn.close()
+else:
+    print(json.dumps({'selected': None, 'total_plans': 0}))
 "
 ```
 
-Select the first available plan and read the plan file.
+**Important:** Execute only ONE plan file at a time. Even if multiple files share the same sequence number with different letter suffixes (e.g., 003A, 003B, 003C), only execute the first one (003A). The next run will execute the next file (003B).
 
-### Step 1.5: Dependency Check
+Select the earliest plan and read the plan file.
 
-Before proceeding, verify the story's dependencies are met:
+### Step 1.5: Extract Story ID and Check Dependencies
 
-1. **Check dependency stories** - Extract story IDs mentioned in description/notes (patterns like "1.2", "depends on X")
-2. **Verify dependencies are implemented** - Referenced stories must be in stage >= `implemented`
-3. **Check all children are planned** - All child stories must be in stage >= `planned`
+After loading the plan file, extract the Story ID from the plan content:
+
+```python
+python -c "
+import re, json
+
+# Read plan file content (replace with actual path)
+plan_path = '.claude/data/plans/[FILENAME]'
+with open(plan_path, 'r') as f:
+    content = f.read()
+
+# Extract Story ID from plan (patterns: 'Story ID: X.Y.Z' or '**Story ID:** X.Y.Z')
+story_id_match = re.search(r'\*?\*?Story ID\*?\*?:?\s*(\d+(?:\.\d+)*)', content)
+story_id = story_id_match.group(1) if story_id_match else None
+
+print(json.dumps({'story_id': story_id, 'plan_path': plan_path}))
+"
+```
+
+**If Story ID found:** Verify dependencies are met:
 
 ```python
 python -c "
 import sqlite3, re, json
 conn = sqlite3.connect('.claude/data/story-tree.db')
 
-story_id = '[STORY_ID]'  # Replace with actual ID
+story_id = '[STORY_ID]'  # Replace with extracted ID
 
 # Get story details
 story = conn.execute('SELECT description, notes FROM story_nodes WHERE id = ?', (story_id,)).fetchone()
 if not story:
-    print(json.dumps({'ready': False, 'reason': 'Story not found'}))
+    # Story not in database - proceed without dependency check
+    print(json.dumps({'ready': True, 'reason': 'Story not tracked in database'}))
     exit()
 
 text = (story[0] or '') + ' ' + (story[1] or '')
@@ -104,46 +135,29 @@ for dep_id in deps:
     if dep and dep[0] not in IMPLEMENTED_STAGES:
         unmet_deps.append({'id': dep_id, 'stage': dep[0]})
 
-# Check all children are at least planned
-PLANNED_OR_LATER = ('planned', 'active', 'reviewing', 'verifying', 'implemented', 'ready', 'polish', 'released')
-unplanned_children = []
-children = conn.execute('''
-    SELECT s.id, s.title, s.stage FROM story_nodes s
-    JOIN story_paths p ON s.id = p.descendant_id
-    WHERE p.ancestor_id = ? AND p.depth = 1
-      AND s.disposition IS NULL
-''', (story_id,)).fetchall()
-
-for child in children:
-    if child[2] not in PLANNED_OR_LATER:
-        unplanned_children.append({'id': child[0], 'title': child[1], 'stage': child[2]})
-
-ready = len(unmet_deps) == 0 and len(unplanned_children) == 0
+ready = len(unmet_deps) == 0
 print(json.dumps({
     'ready': ready,
     'dependencies_found': list(deps),
-    'unmet_dependencies': unmet_deps,
-    'unplanned_children': unplanned_children
+    'unmet_dependencies': unmet_deps
 }))
 conn.close()
 "
 ```
 
-**If ready:** Proceed to Step 2 (which transitions to `active`).
+**If ready (or no Story ID):** Proceed to Step 2.
 
-**If not ready:** Block the story and try the next candidate:
+**If not ready:** Skip this plan file and archive it, then try the next:
 
 ```python
-# Block story with dependency issues
-conn.execute('''
-    UPDATE story_nodes
-    SET hold_reason = 'blocked', human_review = 1,
-        notes = COALESCE(notes || chr(10), '') || 'BLOCKED - Dependencies not met: ' || datetime('now') || chr(10) || ?,
-        updated_at = datetime('now')
-    WHERE id = ?
-''', (blocking_reason, story_id))
-conn.commit()
+import os, shutil
+# Move plan file to archive folder
+archive_dir = '.claude/data/plans/blocked'
+os.makedirs(archive_dir, exist_ok=True)
+shutil.move(plan_path, os.path.join(archive_dir, os.path.basename(plan_path)))
 ```
+
+Then re-run Step 1 to select the next earliest plan.
 
 ### Step 2: Review Plan Critically
 
@@ -236,6 +250,26 @@ After all tasks complete:
 2. Verify each acceptance criterion from the story
 3. Link commits to story in database
 4. Update final status based on mode and review outcome
+5. **Archive the completed plan file**
+
+#### Archive Completed Plan
+
+Move the executed plan file to the completed archive:
+
+```python
+python -c "
+import os, shutil
+
+plan_path = '.claude/data/plans/[FILENAME]'  # Replace with actual filename
+archive_dir = '.claude/data/plans/completed'
+
+os.makedirs(archive_dir, exist_ok=True)
+shutil.move(plan_path, os.path.join(archive_dir, os.path.basename(plan_path)))
+print(f'Archived: {plan_path} -> {archive_dir}/')
+"
+```
+
+This ensures the next execution run will pick up the next plan in sequence.
 
 #### Final Status Determination
 
@@ -434,7 +468,15 @@ Need: [what clarification or help is needed]
 
 ## References
 
-- Plan format: `.claude/data/plans/*.md`
+- **Plan file naming:** `NNN[A-Z]?_[slug].md` where:
+  - `NNN` = three-digit sequence number (001, 002, 003...)
+  - Optional letter suffix for decomposed plans (003A, 003B, 003C...)
+  - Execution order: 001 → 002 → 003A → 003B → 003C → 004 → ...
+  - Only ONE plan file executed per run
+- **Plan folders:**
+  - Active plans: `.claude/data/plans/`
+  - Completed plans: `.claude/data/plans/completed/`
+  - Blocked plans: `.claude/data/plans/blocked/`
 - Stage workflow: concept → approved → planned → active → reviewing → verifying → implemented
 - `planned` → `active`: After dependency check passes (Step 1.5 → Step 2)
 - Dependencies not met: `hold_reason = 'blocked'`
