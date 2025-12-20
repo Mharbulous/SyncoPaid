@@ -181,7 +181,7 @@ if not story_id or story_id == 'None':
     candidates = inference['candidates']
 
     if len(candidates) == 1 and candidates[0]['count'] >= 2:
-        # Single high-confidence match
+        # Single high-confidence match - auto-assign
         match = candidates[0]
         print(json.dumps({
             'is_orphan': False,
@@ -191,17 +191,17 @@ if not story_id or story_id == 'None':
             'match_reason': f\"title keyword match: {', '.join(set(match['keywords']))}\",
             'stage': match['stage'],
             'title': match['title'],
-            'action': 'confirm_inference' if not ci_mode else 'auto_assign'
+            'action': 'auto_assign'
         }))
-    elif len(candidates) > 1:
-        # Multiple candidates - need human decision
+    elif len(candidates) >= 1:
+        # One or more candidates - requires Opus 4.5 analysis
         print(json.dumps({
-            'is_orphan': True,
+            'is_orphan': False,
             'inferred': False,
-            'reason': 'Multiple story candidates found - human decision required',
+            'reason': 'Candidates found - Opus 4.5 analysis required',
             'candidates': candidates[:5],  # Show top 5
             'keywords_used': inference['keywords'],
-            'action': 'list_candidates'
+            'action': 'opus_analysis'
         }))
     else:
         # No candidates - true orphan
@@ -236,12 +236,42 @@ else:
 
 **Handling inference results:**
 
-- **Single high-confidence match (Interactive Mode):** Ask user to confirm: "Inferred Story ID [X] from plan. Confirm? (y/n)"
-- **Single high-confidence match (CI Mode):** Auto-assign and log: "Auto-assigned Story ID [X] based on keyword match"
-- **Multiple candidates:** List top candidates and pause for human decision
-- **No candidates:** Proceed with orphan archival
+- **Single high-confidence match (`action: 'auto_assign'`):** Auto-assign the Story ID and log: "Auto-assigned Story ID [X] based on keyword match"
+- **Candidates require analysis (`action: 'opus_analysis'`):** Spawn Opus 4.5 subagent to select best match (see below)
+- **No candidates (`action: 'archive_and_skip'`):** Proceed with orphan archival
 
-**If inference confirmed or auto-assigned:** Update the plan file header with Story ID and proceed to dependency check.
+**Opus 4.5 Story ID Selection (when `action: 'opus_analysis'`):**
+
+Use the Task tool with `model: "opus"` to analyze candidates and select the best match:
+
+```
+Task tool parameters:
+- subagent_type: "general-purpose"
+- model: "opus"
+- prompt: |
+    Analyze this plan and select the correct Story ID from the candidates.
+
+    Plan filename: [FILENAME]
+    Plan title: [FIRST_H1_FROM_PLAN]
+    Plan summary: [FIRST_200_CHARS_OF_PLAN]
+
+    Candidates:
+    [LIST_CANDIDATES_WITH_ID_TITLE_KEYWORDS]
+
+    Instructions:
+    1. Read the plan content to understand its purpose
+    2. Compare against each candidate story's title and matched keywords
+    3. Select the BEST match, or indicate NONE if no candidate fits
+
+    Respond with JSON only:
+    {"selected_id": "X.Y" or null, "confidence": "high|medium|low", "reason": "brief explanation"}
+```
+
+**If Opus selects a Story ID:** Update the plan file header with Story ID and proceed to dependency check.
+
+**If Opus selects null or low confidence:** Archive as orphan.
+
+**If auto-assigned:** Update the plan file header with Story ID and proceed to dependency check.
 
 **If orphan detected (no inference possible):** Archive to orphan folder and try next plan:
 
