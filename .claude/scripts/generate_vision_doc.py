@@ -10,7 +10,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).parent.parent.parent
 DB_PATH = REPO_ROOT / ".claude/data/story-tree.db"
 TREE_SCRIPT = REPO_ROOT / ".claude/skills/story-tree/scripts/tree-view.py"
-OUTPUT_DIR = REPO_ROOT / ".claude/data/progress"
+OUTPUT_DIR = REPO_ROOT / ".claude/data/github_action_results"
 
 def main():
     # Get tree visualization
