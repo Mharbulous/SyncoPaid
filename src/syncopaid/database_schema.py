@@ -53,6 +53,9 @@ class SchemaMixin:
             # Create screenshots table
             self._create_screenshots_table(cursor)
 
+            # Create transitions table
+            self._create_transitions_table(cursor)
+
             logging.info("Database schema initialized")
 
     def _migrate_events_table(self, cursor):
@@ -128,4 +131,28 @@ class SchemaMixin:
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_screenshots_time
             ON screenshots(captured_at)
+        """)
+
+    def _create_transitions_table(self, cursor):
+        """
+        Create transitions table for tracking timing patterns.
+
+        Args:
+            cursor: Database cursor for creating table
+        """
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS transitions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                transition_type TEXT NOT NULL,
+                context TEXT,
+                user_response TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Create index for transitions timestamp queries
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_transitions_timestamp
+            ON transitions(timestamp)
         """)
