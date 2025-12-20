@@ -101,26 +101,117 @@ print(json.dumps({'story_id': story_id, 'plan_path': plan_path}))
 "
 ```
 
-### Step 1.5a: Detect Orphan Plans
+### Step 1.5a: Detect Orphan Plans (with Story ID Inference)
 
-Plans without a Story ID or whose Story ID doesn't exist in the database are likely orphaned—they may belong to the XStory GUI system rather than SyncoPaid.
+Plans without a Story ID or whose Story ID doesn't exist in the database may be orphaned. Before archiving as orphan, attempt to infer the Story ID from the plan's filename and content.
 
-**Check for orphan plan:**
+**Check for orphan plan with inference:**
 
 ```python
 python -c "
-import sqlite3, json
+import sqlite3, re, json, os
 
 story_id = '[STORY_ID]'  # Replace with extracted ID (or None if not found)
 plan_path = '.claude/data/plans/[FILENAME]'
+plan_filename = os.path.basename(plan_path)
+ci_mode = False  # Replace with actual CI mode detection
 
-# Flag 1: No Story ID in plan file
+# Read plan content for inference
+with open(plan_path, 'r') as f:
+    plan_content = f.read()
+
+def infer_story_id(filename, content):
+    '''Attempt to match plan to a story in the database.'''
+    conn = sqlite3.connect('.claude/data/story-tree.db')
+
+    # Extract keywords from filename (e.g., '004A_ui-automation-foundation.md' -> ['ui', 'automation', 'foundation'])
+    slug_match = re.match(r'^\d{3}[A-Z]?_(.+)\.md$', filename)
+    slug_keywords = []
+    if slug_match:
+        slug = slug_match.group(1)
+        slug_keywords = [kw.lower() for kw in re.split(r'[-_]', slug) if len(kw) > 2]
+
+    # Extract title from plan content (first H1)
+    title_match = re.search(r'^#\s+(.+)$', content, re.MULTILINE)
+    title_keywords = []
+    if title_match:
+        title = title_match.group(1)
+        title_keywords = [kw.lower() for kw in re.split(r'\W+', title) if len(kw) > 2]
+
+    all_keywords = list(set(slug_keywords + title_keywords))
+
+    if not all_keywords:
+        conn.close()
+        return {'candidates': [], 'keywords': []}
+
+    # Build LIKE query for keyword matching
+    candidates = []
+    for kw in all_keywords[:5]:  # Limit to 5 keywords
+        results = conn.execute('''
+            SELECT id, title, stage FROM story_nodes
+            WHERE disposition IS NULL
+              AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ?)
+        ''', (f'%{kw}%', f'%{kw}%')).fetchall()
+        for r in results:
+            candidates.append({'id': r[0], 'title': r[1], 'stage': r[2], 'matched_keyword': kw})
+
+    conn.close()
+
+    # Count matches per story ID
+    id_counts = {}
+    for c in candidates:
+        sid = c['id']
+        if sid not in id_counts:
+            id_counts[sid] = {'count': 0, 'title': c['title'], 'stage': c['stage'], 'keywords': []}
+        id_counts[sid]['count'] += 1
+        id_counts[sid]['keywords'].append(c['matched_keyword'])
+
+    # Sort by match count (highest first)
+    sorted_candidates = sorted(
+        [{'id': k, **v} for k, v in id_counts.items()],
+        key=lambda x: x['count'],
+        reverse=True
+    )
+
+    return {'candidates': sorted_candidates, 'keywords': all_keywords}
+
+# Flag 1: No Story ID in plan file - attempt inference
 if not story_id or story_id == 'None':
-    print(json.dumps({
-        'is_orphan': True,
-        'reason': 'No Story ID found in plan file',
-        'action': 'archive_and_skip'
-    }))
+    inference = infer_story_id(plan_filename, plan_content)
+    candidates = inference['candidates']
+
+    if len(candidates) == 1 and candidates[0]['count'] >= 2:
+        # Single high-confidence match
+        match = candidates[0]
+        print(json.dumps({
+            'is_orphan': False,
+            'inferred': True,
+            'story_id': match['id'],
+            'confidence': 'high',
+            'match_reason': f\"title keyword match: {', '.join(set(match['keywords']))}\",
+            'stage': match['stage'],
+            'title': match['title'],
+            'action': 'confirm_inference' if not ci_mode else 'auto_assign'
+        }))
+    elif len(candidates) > 1:
+        # Multiple candidates - need human decision
+        print(json.dumps({
+            'is_orphan': True,
+            'inferred': False,
+            'reason': 'Multiple story candidates found - human decision required',
+            'candidates': candidates[:5],  # Show top 5
+            'keywords_used': inference['keywords'],
+            'action': 'list_candidates'
+        }))
+    else:
+        # No candidates - true orphan
+        print(json.dumps({
+            'is_orphan': True,
+            'inferred': False,
+            'reason': 'No Story ID found and no matching stories in database',
+            'keywords_searched': inference['keywords'],
+            'action': 'archive_and_skip'
+        }))
     exit()
 
 # Flag 2: Story ID not in database
@@ -143,7 +234,16 @@ else:
 "
 ```
 
-**If orphan detected:** Archive to orphan folder and try next plan:
+**Handling inference results:**
+
+- **Single high-confidence match (Interactive Mode):** Ask user to confirm: "Inferred Story ID [X] from plan. Confirm? (y/n)"
+- **Single high-confidence match (CI Mode):** Auto-assign and log: "Auto-assigned Story ID [X] based on keyword match"
+- **Multiple candidates:** List top candidates and pause for human decision
+- **No candidates:** Proceed with orphan archival
+
+**If inference confirmed or auto-assigned:** Update the plan file header with Story ID and proceed to dependency check.
+
+**If orphan detected (no inference possible):** Archive to orphan folder and try next plan:
 
 ```python
 python -c "
