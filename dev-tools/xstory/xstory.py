@@ -104,7 +104,7 @@ HOLD_ICONS = {
 DISPOSITION_ICONS = {
     'rejected': '❌',      # Rejected - explicitly declined
     'infeasible': '🚫',    # Infeasible - cannot be done
-    'duplicative': '🔄',   # Duplicative - duplicate of another
+    'duplicative': '👯‍♀️',   # Duplicative - duplicate of another
     'legacy': '🛑',        # Legacy - old/outdated
     'deprecated': '⚠️',    # Deprecated - no longer recommended
     'archived': '📦',      # Archived - stored away
