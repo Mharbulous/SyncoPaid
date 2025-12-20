@@ -1,4 +1,4 @@
-# 030: UI Automation - TrackerLoop Integration
+# 004D: UI Automation - TrackerLoop Integration
 
 ## Task
 Integrate UIAutomationWorker into TrackerLoop to extract metadata during event finalization.
@@ -92,8 +92,8 @@ python -m syncopaid.tracker  # Should run without errors
 ```
 
 ## Dependencies
-- Task 028 (module creation)
-- Task 029 (configuration)
+- Task 004B (module creation)
+- Task 004C (configuration)
 
 ## Next Task
-After this: `031_ui-automation-outlook-extraction.md`
+After this: `004E_ui-automation-outlook-extraction.md`

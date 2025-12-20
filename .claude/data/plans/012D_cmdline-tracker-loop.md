@@ -1,4 +1,4 @@
-# 041: Command Line Tracking - TrackerLoop Integration
+# 012D: Command Line Tracking - TrackerLoop Integration
 
 ## Task
 Update TrackerLoop to propagate cmdline from get_active_window() through to ActivityEvent.
@@ -95,7 +95,7 @@ pytest tests/test_cmdline_tracking.py::test_tracker_loop_includes_cmdline_in_eve
 ```
 
 ## Dependencies
-- Task 040 (get_active_window update)
+- Task 012C (get_active_window update)
 
 ## Next Task
-After this: `042_cmdline-database-schema.md`
+After this: `012E_cmdline-database-schema.md`

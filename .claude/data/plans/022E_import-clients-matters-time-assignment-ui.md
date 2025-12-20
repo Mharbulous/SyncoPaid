@@ -1,12 +1,12 @@
-# 026: Import Clients & Matters - Time Assignment UI
+# 022E: Import Clients & Matters - Time Assignment UI
 
 ## Task
 Add client/matter dropdowns to the main window so users can assign tracked time to imported clients and matters.
 
 ## Context
-After importing client/matter data (tasks 022-025), users need a way to assign their tracked time entries to specific clients and matters. This task adds that capability to the main window.
+After importing client/matter data (tasks 022A-022D), users need a way to assign their tracked time entries to specific clients and matters. This task adds that capability to the main window.
 
-The `events` table now has `client` and `matter` columns (added in task 022). This task populates those columns via UI interaction.
+The `events` table now has `client` and `matter` columns (added in task 022A). This task populates those columns via UI interaction.
 
 ## Scope
 - Add Client and Matter columns to main window treeview
@@ -212,7 +212,7 @@ python -m syncopaid
    ```
 
 ## Dependencies
-- Tasks 022-025 must be complete (import functionality)
+- Tasks 022A-022D must be complete (import functionality)
 
 ## Considerations
 

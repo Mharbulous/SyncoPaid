@@ -1,4 +1,4 @@
-# 023: Import Clients & Matters - Folder Parser Module
+# 022B: Import Clients & Matters - Folder Parser Module
 
 ## Task
 Create `client_matter_importer.py` module to extract client/matter data from folder structures.
@@ -174,7 +174,7 @@ python -m syncopaid.client_matter_importer /tmp/test_import
 ```
 
 ## Dependencies
-- Task 022 (database schema) should be complete first
+- Task 022A (database schema) should be complete first
 
 ## Next Task
-After this: `024_import-clients-matters-dialog-ui.md`
+After this: `022C_import-clients-matters-dialog-ui.md`

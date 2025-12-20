@@ -1,4 +1,4 @@
-# 035: Matter/Client Database - Client Dialog
+# 006C: Matter/Client Database - Client Dialog
 
 ## Task
 Create tkinter dialog for managing clients (add/edit/delete).
@@ -168,7 +168,7 @@ python -c "from syncopaid.matter_client_dialog import ClientDialog; print('OK')"
 ```
 
 ## Dependencies
-- Task 034 (CRUD methods)
+- Task 006B (CRUD methods)
 
 ## Next Task
-After this: `036_matter-client-matter-dialog.md`
+After this: `006D_matter-client-matter-dialog.md`

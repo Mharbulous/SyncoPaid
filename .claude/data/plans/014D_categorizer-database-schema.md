@@ -1,4 +1,4 @@
-# 046: Activity-to-Matter Matching - Database Schema
+# 014D: Activity-to-Matter Matching - Database Schema
 
 ## Task
 Add categorization columns to events table and update insert/query methods.
@@ -119,7 +119,7 @@ python -m syncopaid.database
 ```
 
 ## Dependencies
-- Task 045 (matching strategies)
+- Task 014C (matching strategies)
 
 ## Next Task
-After this: `047_categorizer-flagged-events-methods.md`
+After this: `014E_categorizer-flagged-events-methods.md`

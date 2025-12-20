@@ -1,4 +1,4 @@
-# 031: UI Automation - Outlook Email Extraction
+# 004E: UI Automation - Outlook Email Extraction
 
 ## Task
 Implement actual Outlook email subject and sender extraction using pywinauto.
@@ -123,7 +123,7 @@ python -m pytest tests/test_ui_automation.py::test_outlook_extractor_returns_sub
 ```
 
 ## Dependencies
-- Task 030 (tracker integration)
+- Task 004D (tracker integration)
 
 ## Next Task
-After this: `032_ui-automation-explorer-extraction.md`
+After this: `004F_ui-automation-explorer-extraction.md`

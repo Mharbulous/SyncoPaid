@@ -1,4 +1,4 @@
-# 024: Import Clients & Matters - Dialog UI
+# 022C: Import Clients & Matters - Dialog UI
 
 ## Task
 Create a single import dialog for selecting a folder and previewing/confirming the import.
@@ -17,7 +17,7 @@ User selects folder → sees preview of extracted clients/matters → confirms i
 | File | Purpose |
 |------|---------|
 | `src/syncopaid/main_ui_windows.py` | Add dialog here (lines 36-96 show export pattern) |
-| `src/syncopaid/client_matter_importer.py` | Import logic (from task 023) |
+| `src/syncopaid/client_matter_importer.py` | Import logic (from task 022B) |
 | `src/syncopaid/database.py` | Database for saving imported data |
 
 ## Dialog Pattern
@@ -210,8 +210,8 @@ python -m syncopaid
 ```
 
 ## Dependencies
-- Task 022 (database schema)
-- Task 023 (folder parser)
+- Task 022A (database schema)
+- Task 022B (folder parser)
 
 ## Next Task
-After this: `025_import-clients-matters-menu-integration.md`
+After this: `022D_import-clients-matters-menu-integration.md`
