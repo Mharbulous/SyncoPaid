@@ -51,15 +51,15 @@ STATUS_COLORS = {
     'implemented': '#0000CC',  # Pure Blue
     'ready': '#3300CC',        # Electric Indigo
     'released': '#6600CC',     # Violet
-    # Hold reasons (gradient: reddish-orange to yellow, HSL S=100% L=40%→50% dimmed)
-    'broken': '#CC4400',       # Hue 20°, L=40% - bold reddish orange (most urgent)
-    'conflict': '#D25B00',     # Hue 26°, L=41% - dark orange
-    'blocked': '#DB7100',      # Hue 31°, L=43% - orange
-    'pending': '#E28B00',      # Hue 37°, L=44% - golden orange
-    'paused': '#E8A600',       # Hue 43°, L=45% - gold
-    'polish': '#EFC300',       # Hue 49°, L=47% - dark gold
-    'queued': "#CCAA00",       # Hue 54°, L=48% - dark yellow
-    'wishlist': '#F8DF00',     # Hue 60°, L=50% - yellow (least urgent)
+    # Hold reasons (gradient: reddish-orange to yellow for readability on gray)
+    'broken': '#CC4400',       # RGB(204, 68, 0) - reddish orange (most urgent)
+    'conflict': '#D25B00',     # RGB(210, 91, 0) - dark orange
+    'blocked': '#DB7100',      # RGB(219, 113, 0) - orange
+    'pending': '#E28B00',      # RGB(226, 139, 0) - golden orange
+    'paused': '#E4A000',       # RGB(228, 160, 0) - gold
+    'polish': '#E6B200',       # RGB(230, 178, 0) - dark gold
+    'queued': '#E8C200',       # RGB(232, 194, 0) - dark yellow
+    'wishlist': '#EAD000',     # RGB(234, 208, 0) - yellow (least urgent)
     'no hold': '#888888',      # Grey (no hold reason)
     # Live status (for items without disposition)
     'live': '#00FF00',         # Bright Green (active/live)
