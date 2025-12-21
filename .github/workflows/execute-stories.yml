@@ -265,13 +265,14 @@ jobs:
           git add -A
           git commit -m "ci: move blocked plan $FILENAME (deps: $UNMET)"
 
-          # Retry push with exponential backoff
+          # Retry push with exponential backoff and pull before retry
           for attempt in 1 2 3 4; do
             if git push origin main; then
               echo "✓ Push successful"
               exit 0
             else
-              echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+              echo "Push failed (attempt $attempt), pulling and retrying..."
+              git pull --rebase origin main || true
               sleep $((2 ** attempt))
             fi
           done
@@ -506,7 +507,8 @@ jobs:
                 echo "✓ Pushed plan update with Story ID"
                 exit 0
               else
-                echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+                echo "Push failed (attempt $attempt), pulling and retrying..."
+                git pull --rebase origin main || true
                 sleep $((2 ** attempt))
               fi
             done
@@ -540,7 +542,8 @@ jobs:
               echo "✓ Push successful"
               exit 0
             else
-              echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+              echo "Push failed (attempt $attempt), pulling and retrying..."
+              git pull --rebase origin main || true
               sleep $((2 ** attempt))
             fi
           done
@@ -722,7 +725,8 @@ jobs:
               echo "✓ Push successful"
               exit 0
             else
-              echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+              echo "Push failed (attempt $attempt), pulling and retrying..."
+              git pull --rebase origin main || true
               sleep $((2 ** attempt))
             fi
           done
@@ -772,7 +776,8 @@ jobs:
                 echo "✓ Push successful"
                 exit 0
               else
-                echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+                echo "Push failed (attempt $attempt), pulling and retrying..."
+                git pull --rebase origin main || true
                 sleep $((2 ** attempt))
               fi
             done
@@ -841,61 +846,50 @@ jobs:
             ## YOUR TASK
 
             1. Read the plan file completely
-            2. Check if the plan describes work that is ALREADY IMPLEMENTED in the codebase
-            3. If not already implemented, review critically for blocking/deferrable issues
-            4. Determine the appropriate outcome
+            2. Quick check: Does the plan's KEY deliverable already exist? (1-2 targeted searches max)
+            3. Make a decision and WRITE THE OUTPUT FILE IMMEDIATELY
+            4. Only do deeper analysis if initial check is inconclusive
+
+            ## EFFICIENCY RULES (CRITICAL)
+
+            - Use Glob/Grep in PARALLEL for speed
+            - Stop searching once you have enough evidence (2-3 files is usually enough)
+            - WRITE THE OUTPUT FILE AS SOON AS you have a decision
+            - Don't exhaustively verify every detail - focus on KEY deliverables
 
             ## OUTCOME CLASSIFICATION
 
-            ### Already Implemented (set outcome to "verified")
-            - All or most deliverables described in the plan already exist in the codebase
-            - The plan describes work that was previously completed
-            - Executing the plan would result in no meaningful changes
-            - USE THIS when you find the code/tests/configs already match the plan's end state
+            ### Already Implemented → outcome: "verified"
+            - Core files/functions from the plan already exist
+            - Test files already exist with passing tests
 
-            ### Blocking Issues (set outcome to "pause")
-            - Architectural choices with significant trade-offs
-            - Security implications (auth, data exposure, permissions)
-            - Breaking changes to existing functionality
-            - Missing critical information
-            - Conflicting requirements
+            ### Blocking Issues → outcome: "pause"
+            - Security implications, breaking changes, missing critical info
             - Dependencies not implemented
 
-            ### Deferrable Issues (set outcome to "proceed_with_review")
-            - Code style preferences
-            - Minor optimizations
-            - Naming conventions
-            - Documentation gaps
-            - Non-critical edge cases
+            ### Minor Issues → outcome: "proceed_with_review"
+            - Style issues, minor gaps (document and proceed)
 
-            ### No Issues (set outcome to "proceed")
-            - Plan is clear and actionable
-            - Prerequisites are met
-            - TDD steps are well-defined
-            - Work has NOT been done yet
+            ### Ready to Execute → outcome: "proceed"
+            - Plan is clear, work has NOT been done yet
 
-            ## OUTPUT REQUIRED
+            ## OUTPUT (WRITE THIS EARLY!)
 
-            Write a JSON file to `.claude/skills/story-execution/ci-review-result.json`:
+            Write to `.claude/skills/story-execution/ci-review-result.json`:
 
             ```json
             {
               "outcome": "proceed|pause|proceed_with_review|verified",
               "blocking_issues": [],
               "deferrable_issues": [],
-              "notes": "Brief summary of review findings"
+              "notes": "Brief summary"
             }
             ```
-
-            IMPORTANT:
-            - If the plan is ALREADY IMPLEMENTED, use outcome "verified" (not "pause")
-            - "verified" means the work is done and the plan should be archived
-            - Do NOT extract tasks from the plan. The execute stage will read the plan directly.
 
           claude_args: |
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(python:*),Bash(python3:*),Bash(mkdir:*)"
             --model claude-sonnet-4-5-20250929
-            --max-turns 15
+            --max-turns 25
 
       - name: "1.2 Read review output"
         id: review-output
@@ -1069,6 +1063,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Pull latest before staging to avoid conflicts
+          git fetch origin main
+          git rebase origin/main || git rebase --abort
+
           git add -A
 
           if ! git diff --cached --quiet; then
@@ -1079,13 +1078,14 @@ jobs:
             Complexity: ${{ steps.decompose-output.outputs.complexity }}
             Sub-plans: ${{ steps.decompose-output.outputs.sub_plans_created }}"
 
-            # Retry push with exponential backoff
+            # Retry push with exponential backoff and pull before retry
             for attempt in 1 2 3 4; do
               if git push origin main; then
                 echo "✓ Committed and pushed sub-plans"
                 exit 0
               else
-                echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+                echo "Push failed (attempt $attempt), pulling and retrying..."
+                git pull --rebase origin main || true
                 sleep $((2 ** attempt))
               fi
             done
@@ -1221,7 +1221,8 @@ jobs:
                 echo "✓ Pushed $COMMITS_AHEAD implementation commits"
                 exit 0
               else
-                echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+                echo "Push failed (attempt $attempt), pulling and retrying..."
+                git pull --rebase origin main || true
                 sleep $((2 ** attempt))
               fi
             done
@@ -1501,7 +1502,8 @@ jobs:
               echo "✓ Push successful"
               exit 0
             else
-              echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+              echo "Push failed (attempt $attempt), pulling and retrying..."
+              git pull --rebase origin main || true
               sleep $((2 ** attempt))
             fi
           done

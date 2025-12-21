@@ -9,6 +9,7 @@ from typing import Dict, Optional
 
 from syncopaid.tracker_state import (
     ActivityEvent,
+    InteractionLevel,
     STATE_ACTIVE,
     STATE_INACTIVE,
     STATE_OFF
@@ -72,7 +73,7 @@ class EventFinalizer:
         if self.ui_automation_worker and 'window_info' in current_event:
             metadata = self.ui_automation_worker.extract(current_event['window_info'])
 
-        # Create event with start time, duration, end time, and state
+        # Create event with start time, duration, end time, state, and interaction level
         event = ActivityEvent(
             timestamp=event_start_time.isoformat(),
             duration_seconds=round(duration, 2),
@@ -83,6 +84,7 @@ class EventFinalizer:
             cmdline=current_event.get('cmdline'),  # Process command line arguments
             is_idle=current_event['is_idle'],
             state=event_state,
+            interaction_level=current_event.get('interaction_level', InteractionLevel.PASSIVE.value),
             metadata=metadata
         )
 

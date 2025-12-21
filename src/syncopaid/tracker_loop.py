@@ -60,10 +60,12 @@ class TrackerLoop:
         ui_automation_worker=None,
         transition_detector=None,
         transition_callback=None,
-        prompt_enabled: bool = True
+        prompt_enabled: bool = True,
+        interaction_threshold: float = 5.0
     ):
         self.poll_interval = poll_interval
         self.idle_threshold = idle_threshold
+        self.interaction_threshold = interaction_threshold
         self.running = False
 
         # Delegate to specialized components
@@ -71,6 +73,10 @@ class TrackerLoop:
         self.screenshot_scheduler = ScreenshotScheduler(screenshot_worker, screenshot_interval) if screenshot_worker else None
         self.state_detector = StateChangeDetector(merge_threshold)
         self.event_finalizer = EventFinalizer(ui_automation_worker)
+
+        # Interaction level tracking
+        self.last_typing_time = None
+        self.last_click_time = None
 
         # Transition detection
         self.transition_detector = transition_detector
@@ -87,6 +93,59 @@ class TrackerLoop:
             f"screenshot_enabled={screenshot_worker is not None}, "
             f"transition_detection={transition_detector is not None}"
         )
+
+    def get_interaction_level(self, idle_seconds: float):
+        """
+        Determine current interaction level based on activity state.
+
+        Updates internal tracking timestamps when activity is detected.
+
+        Priority order:
+        1. IDLE if globally idle (idle_seconds >= idle_threshold)
+        2. TYPING if keyboard activity detected or recent
+        3. CLICKING if mouse activity detected or recent
+        4. PASSIVE if none of the above
+
+        Args:
+            idle_seconds: Current global idle time from GetLastInputInfo
+
+        Returns:
+            InteractionLevel enum value
+        """
+        from datetime import datetime, timezone
+        from syncopaid.tracker_state import InteractionLevel
+        from syncopaid.tracker_windows import get_keyboard_activity, get_mouse_activity
+
+        now = datetime.now(timezone.utc)
+
+        # Check if globally idle first
+        if idle_seconds >= self.idle_threshold:
+            return InteractionLevel.IDLE
+
+        # Check for current keyboard activity
+        if get_keyboard_activity():
+            self.last_typing_time = now
+            return InteractionLevel.TYPING
+
+        # Check for current mouse activity
+        if get_mouse_activity():
+            self.last_click_time = now
+            return InteractionLevel.CLICKING
+
+        # Check if recent typing (within threshold)
+        if self.last_typing_time:
+            typing_age = (now - self.last_typing_time).total_seconds()
+            if typing_age < self.interaction_threshold:
+                return InteractionLevel.TYPING
+
+        # Check if recent clicking (within threshold)
+        if self.last_click_time:
+            click_age = (now - self.last_click_time).total_seconds()
+            if click_age < self.interaction_threshold:
+                return InteractionLevel.CLICKING
+
+        # No recent activity - passive reading/reference
+        return InteractionLevel.PASSIVE
 
     def start(self) -> Generator[ActivityEvent, None, None]:
         """
@@ -117,6 +176,9 @@ class TrackerLoop:
                 is_locked_or_screensaver = is_workstation_locked() or is_screensaver_active()
                 self.state_detector.log_lock_transitions(is_locked_or_screensaver)
 
+                # Get interaction level
+                interaction_level = self.get_interaction_level(idle_seconds)
+
                 # Create state dict for comparison
                 state = {
                     'app': window['app'],
@@ -125,6 +187,7 @@ class TrackerLoop:
                     'cmdline': window.get('cmdline'),  # Process command line arguments
                     'is_idle': is_idle,
                     'is_locked_or_screensaver': is_locked_or_screensaver,
+                    'interaction_level': interaction_level.value,
                     'window_info': window  # For UI automation extraction
                 }
 

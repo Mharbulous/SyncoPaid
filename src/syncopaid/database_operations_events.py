@@ -39,13 +39,17 @@ class EventOperationsMixin:
             end_time = getattr(event, 'end_time', None)
             state = getattr(event, 'state', 'Active')
             metadata = getattr(event, 'metadata', None)
+            cmdline = getattr(event, 'cmdline', None)
 
             # Serialize metadata to JSON if present
             metadata_json = json.dumps(metadata) if metadata else None
 
+            # Serialize cmdline to JSON
+            cmdline_json = json.dumps(cmdline) if cmdline else None
+
             cursor.execute("""
-                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle, state, metadata)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, cmdline, is_idle, state, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 event.timestamp,
                 event.duration_seconds,
@@ -53,6 +57,7 @@ class EventOperationsMixin:
                 event.app,
                 event.title,
                 event.url,
+                cmdline_json,
                 1 if event.is_idle else 0,
                 state,
                 metadata_json
@@ -77,11 +82,13 @@ class EventOperationsMixin:
             cursor = conn.cursor()
 
             cursor.executemany("""
-                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle, state, metadata)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, cmdline, is_idle, state, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, [
                 (e.timestamp, e.duration_seconds, getattr(e, 'end_time', None),
-                 e.app, e.title, e.url, 1 if e.is_idle else 0, getattr(e, 'state', 'Active'),
+                 e.app, e.title, e.url,
+                 json.dumps(getattr(e, 'cmdline', None)) if getattr(e, 'cmdline', None) else None,
+                 1 if e.is_idle else 0, getattr(e, 'state', 'Active'),
                  json.dumps(getattr(e, 'metadata', None)) if getattr(e, 'metadata', None) else None)
                 for e in events
             ])
@@ -230,6 +237,9 @@ class EventOperationsMixin:
             if 'metadata' in row.keys() and row['metadata']:
                 metadata = json.loads(row['metadata'])
 
+            # Get cmdline field if it exists (backward compatibility)
+            cmdline = row['cmdline'] if 'cmdline' in row.keys() else None
+
             events.append({
                 'id': row['id'],
                 'timestamp': row['timestamp'],
@@ -238,6 +248,7 @@ class EventOperationsMixin:
                 'app': row['app'],
                 'title': row['title'],
                 'url': row['url'],
+                'cmdline': cmdline,
                 'is_idle': bool(row['is_idle']),
                 'state': state,
                 'metadata': metadata

@@ -10,6 +10,7 @@ This module defines:
 import re
 from typing import Optional, Dict, List
 from dataclasses import dataclass, asdict
+from enum import Enum
 
 
 # ============================================================================
@@ -58,6 +59,22 @@ def can_convert_to_matter(state: str) -> bool:
     return state in CONVERTIBLE_STATES
 
 
+class InteractionLevel(Enum):
+    """
+    Represents the level of user interaction with a window.
+
+    Values:
+        TYPING: User is actively typing (keyboard input within threshold)
+        CLICKING: User is clicking (mouse input within threshold, no recent typing)
+        PASSIVE: Window is active but no recent input (reading/reference)
+        IDLE: Global idle detected (away from computer)
+    """
+    TYPING = "typing"
+    CLICKING = "clicking"
+    PASSIVE = "passive"
+    IDLE = "idle"
+
+
 # ============================================================================
 # DATA MODELS
 # ============================================================================
@@ -91,6 +108,7 @@ class ActivityEvent:
     cmdline: Optional[List[str]] = None  # Process command line arguments
     is_idle: bool = False
     state: str = STATE_ACTIVE  # Default to Active (client matter TBD)
+    interaction_level: str = InteractionLevel.PASSIVE.value  # Default to passive
     metadata: Optional[Dict[str, str]] = None  # UI automation context (JSON)
 
     def to_dict(self) -> dict:
