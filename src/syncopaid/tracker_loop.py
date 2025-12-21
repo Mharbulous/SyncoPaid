@@ -296,7 +296,7 @@ class TrackerLoop:
             app=self.current_event['app'],
             title=self.current_event['title'],
             end_time=end_time.isoformat(),
-            url=None,  # URL extraction is future enhancement
+            url=self.current_event.get('url'),  # Extracted context (URL, subject, or filepath)
             is_idle=self.current_event['is_idle'],
             state=event_state,
             metadata=metadata
