@@ -577,6 +577,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: "V.1.1 Clean up Claude installation locks"
+        run: |
+          rm -rf /tmp/claude-* 2>/dev/null || true
+          rm -rf ~/.claude-install* 2>/dev/null || true
+          rm -rf ~/.npm/_locks/* 2>/dev/null || true
+          pkill -f "claude" 2>/dev/null || true
+          echo "✓ Cleaned up potential installation locks"
+
       - name: "V.2 Verify implementation exists"
         id: verify
         uses: anthropics/claude-code-action@v1
@@ -793,6 +801,16 @@ jobs:
         run: |
           git pull origin main --rebase || true
 
+      - name: "1.0.2 Clean up Claude installation locks"
+        run: |
+          # Remove any stale installation lock files that may cause conflicts
+          rm -rf /tmp/claude-* 2>/dev/null || true
+          rm -rf ~/.claude-install* 2>/dev/null || true
+          rm -rf ~/.npm/_locks/* 2>/dev/null || true
+          # Kill any orphaned Claude processes
+          pkill -f "claude" 2>/dev/null || true
+          echo "✓ Cleaned up potential installation locks"
+
       - name: "1.1 Review plan critically"
         id: review
         uses: anthropics/claude-code-action@v1
@@ -917,6 +935,14 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
+      - name: "2.0.1 Clean up Claude installation locks"
+        run: |
+          rm -rf /tmp/claude-* 2>/dev/null || true
+          rm -rf ~/.claude-install* 2>/dev/null || true
+          rm -rf ~/.npm/_locks/* 2>/dev/null || true
+          pkill -f "claude" 2>/dev/null || true
+          echo "✓ Cleaned up potential installation locks"
 
       - name: "2.1 Assess plan complexity"
         id: decompose
@@ -1087,6 +1113,14 @@ jobs:
       - name: "3.1 Pull latest changes"
         run: |
           git pull origin main --rebase || true
+
+      - name: "3.1.1 Clean up Claude installation locks"
+        run: |
+          rm -rf /tmp/claude-* 2>/dev/null || true
+          rm -rf ~/.claude-install* 2>/dev/null || true
+          rm -rf ~/.npm/_locks/* 2>/dev/null || true
+          pkill -f "claude" 2>/dev/null || true
+          echo "✓ Cleaned up potential installation locks"
 
       - name: "3.2 Execute plan"
         id: execute
@@ -1591,8 +1625,9 @@ jobs:
       - name: "4.9 Post results to story issue"
         if: |
           always() &&
-          (needs.setup-and-plan.outputs.story_id != 'none' ||
-           (needs.validate-plan.outputs.story_id != 'none' && needs.validate-plan.outputs.story_id != ''))
+          needs.setup-and-plan.outputs.plan_selected == 'true' &&
+          (needs.setup-and-plan.outputs.story_id != 'none' && needs.setup-and-plan.outputs.story_id != '' ||
+           needs.validate-plan.outputs.story_id != 'none' && needs.validate-plan.outputs.story_id != '')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -1606,8 +1641,19 @@ jobs:
             echo "No Story ID available, skipping issue posting"
             exit 0
           fi
+          # Use decompose output if available, otherwise fall back to setup-and-plan
           EXECUTE_PLAN="${{ needs.decompose.outputs.execute_plan }}"
-          PLAN_FILENAME=$(basename "$EXECUTE_PLAN" 2>/dev/null || echo "${{ needs.setup-and-plan.outputs.plan_filename }}")
+          if [ -z "$EXECUTE_PLAN" ]; then
+            EXECUTE_PLAN="${{ needs.setup-and-plan.outputs.plan_path }}"
+          fi
+          PLAN_FILENAME="${{ needs.setup-and-plan.outputs.plan_filename }}"
+          if [ -z "$PLAN_FILENAME" ]; then
+            PLAN_FILENAME=$(basename "$EXECUTE_PLAN" 2>/dev/null || echo "unknown")
+          fi
+          COMPLEXITY="${{ needs.decompose.outputs.complexity }}"
+          if [ -z "$COMPLEXITY" ]; then
+            COMPLEXITY="(verified - skipped)"
+          fi
           DB_PATH=".claude/data/story-tree.db"
 
           TITLE=""
@@ -1680,7 +1726,7 @@ jobs:
           BODY="## $STATUS
 
           **Plan:** \`$PLAN_FILENAME\`
-          **Complexity:** ${{ needs.decompose.outputs.complexity }}
+          **Complexity:** $COMPLEXITY
           **Time:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')
           **Run:** [View Details]($RUN_URL)
 
