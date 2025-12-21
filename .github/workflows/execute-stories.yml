@@ -15,23 +15,43 @@ permissions:
   pull-requests: write
   id-token: write
 
+# ══════════════════════════════════════════════════════════════════════════════
+# PIPELINE VISUALIZATION
+# ══════════════════════════════════════════════════════════════════════════════
+# This workflow uses multiple jobs connected via 'needs:' to display as a
+# visual pipeline in GitHub Actions:
+#
+#   setup-and-plan → review-plan → batch-1 → batch-2 → batch-3 → batch-4 → finalize
+#
+# State is passed between jobs via:
+# - Job outputs: simple strings (outcome, status, paths)
+# - Artifacts: temp-CI-notes.json for complex state
+# ══════════════════════════════════════════════════════════════════════════════
+
 jobs:
-  execute-stories:
+  # ════════════════════════════════════════════════════════════════════════════
+  # SETUP-AND-PLAN: Phases 1-4
+  # ════════════════════════════════════════════════════════════════════════════
+  setup-and-plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 10
+    outputs:
+      plan_selected: ${{ steps.select-plan.outputs.selected }}
+      plan_path: ${{ steps.select-plan.outputs.path }}
+      plan_filename: ${{ steps.select-plan.outputs.filename }}
+      plan_sequence: ${{ steps.select-plan.outputs.sequence }}
+      story_id: ${{ steps.extract-story.outputs.story_id }}
+      should_execute: ${{ steps.determine.outputs.should_execute }}
+      skip_reason: ${{ steps.determine.outputs.skip_reason }}
 
     steps:
-      # ══════════════════════════════════════════════════════════════
-      # PHASE 1: SETUP
-      # ══════════════════════════════════════════════════════════════
+      # ── PHASE 1: SETUP ──
       - name: "1.1 Checkout repository"
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      # ══════════════════════════════════════════════════════════════
-      # PHASE 2: PLAN SELECTION
-      # ══════════════════════════════════════════════════════════════
+      # ── PHASE 2: PLAN SELECTION ──
       - name: "2.1 Find available plans"
         id: find-plans
         run: |
@@ -44,12 +64,10 @@ jobs:
             exit 0
           fi
 
-          # Count plan files (excluding subdirectories)
           PLAN_COUNT=$(find "$PLANS_DIR" -maxdepth 1 -name "*.md" -type f | wc -l)
           echo "plans_found=$PLAN_COUNT" >> $GITHUB_OUTPUT
           echo "Found **$PLAN_COUNT** plan files in $PLANS_DIR" >> $GITHUB_STEP_SUMMARY
 
-          # List them for visibility
           if [ "$PLAN_COUNT" -gt 0 ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "| Plan File | Sequence |" >> $GITHUB_STEP_SUMMARY
@@ -106,7 +124,6 @@ jobs:
         run: |
           PLAN_PATH="${{ steps.select-plan.outputs.path }}"
 
-          # Extract Story ID using multiple patterns
           STORY_ID=$(grep -oP 'Story ID[:\s]*\K\d+(\.\d+)*' "$PLAN_PATH" | head -1)
 
           if [ -z "$STORY_ID" ]; then
@@ -116,9 +133,7 @@ jobs:
           echo "story_id=${STORY_ID:-none}" >> $GITHUB_OUTPUT
           echo "Story ID: ${STORY_ID:-'(not found)'}"
 
-      # ══════════════════════════════════════════════════════════════
-      # PHASE 3: VALIDATION
-      # ══════════════════════════════════════════════════════════════
+      # ── PHASE 3: VALIDATION ──
       - name: "3.1 Check if story already executed"
         id: check-executed
         if: steps.select-plan.outputs.selected == 'true' && steps.extract-story.outputs.story_id != 'none'
@@ -178,7 +193,6 @@ jobs:
 
           conn = sqlite3.connect(db_path)
 
-          # Get story description and notes
           result = conn.execute('SELECT description, notes FROM story_nodes WHERE id = ?', (story_id,)).fetchone()
           if not result:
               with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
@@ -188,11 +202,9 @@ jobs:
 
           text = (result[0] or '') + ' ' + (result[1] or '')
 
-          # Also check plan file for dependency mentions
           with open(plan_path, 'r') as f:
               text += ' ' + f.read()
 
-          # Find dependency patterns
           dep_pattern = r'(?:depends on|requires|after|blocked by)\s+(\d+(?:\.\d+)*)'
           deps = set(re.findall(dep_pattern, text, re.IGNORECASE))
           deps.discard(story_id)
@@ -203,7 +215,6 @@ jobs:
               print("No dependencies found")
               exit(0)
 
-          # Check each dependency
           IMPLEMENTED = ('implemented', 'ready', 'polish', 'released')
           unmet = []
           for dep_id in deps:
@@ -224,9 +235,7 @@ jobs:
               print("✓ All dependencies met")
           PYEOF
 
-      # ══════════════════════════════════════════════════════════════
-      # PHASE 4: HANDLE SKIP CONDITIONS
-      # ══════════════════════════════════════════════════════════════
+      # ── PHASE 4: HANDLE SKIP CONDITIONS ──
       - name: "4.1 Archive already-executed plan"
         if: steps.check-executed.outputs.already_executed == 'true'
         run: |
@@ -263,19 +272,35 @@ jobs:
           git commit -m "ci: move blocked plan $FILENAME (deps: $UNMET)"
           git push origin main
 
-      # ══════════════════════════════════════════════════════════════
-      # PHASE 5: EXECUTE PLAN (Multi-Call Claude AI)
-      # ══════════════════════════════════════════════════════════════
+      # ── DETERMINE IF EXECUTION SHOULD PROCEED ──
+      - name: "4.3 Determine execution eligibility"
+        id: determine
+        run: |
+          SELECTED="${{ steps.select-plan.outputs.selected }}"
+          ALREADY_EXECUTED="${{ steps.check-executed.outputs.already_executed }}"
+          DEPS_MET="${{ steps.check-deps.outputs.deps_met }}"
 
-      # --- 5.0: Initialize shared state ---
-      - name: "5.0 Initialize temp-CI-notes.json"
+          if [ "$SELECTED" != "true" ]; then
+            echo "should_execute=false" >> $GITHUB_OUTPUT
+            echo "skip_reason=no_plans" >> $GITHUB_OUTPUT
+          elif [ "$ALREADY_EXECUTED" = "true" ]; then
+            echo "should_execute=false" >> $GITHUB_OUTPUT
+            echo "skip_reason=already_executed" >> $GITHUB_OUTPUT
+          elif [ "$DEPS_MET" = "false" ]; then
+            echo "should_execute=false" >> $GITHUB_OUTPUT
+            echo "skip_reason=deps_unmet" >> $GITHUB_OUTPUT
+          else
+            echo "should_execute=true" >> $GITHUB_OUTPUT
+            echo "skip_reason=" >> $GITHUB_OUTPUT
+          fi
+
+      # ── INITIALIZE STATE FILE ──
+      - name: "4.4 Initialize temp-CI-notes.json"
         id: init-state
-        if: |
-          steps.select-plan.outputs.selected == 'true' &&
-          steps.check-executed.outputs.already_executed != 'true' &&
-          steps.check-deps.outputs.deps_met != 'false'
+        if: steps.determine.outputs.should_execute == 'true'
         run: |
           STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
+          mkdir -p "$(dirname "$STATE_FILE")"
           cat > "$STATE_FILE" << EOF
           {
             "version": 1,
@@ -290,13 +315,44 @@ jobs:
             "final_status": "not_started"
           }
           EOF
-          echo "initialized=true" >> $GITHUB_OUTPUT
           echo "Initialized state file: $STATE_FILE"
 
-      # --- 5.1: Critical Review ---
-      - name: "5.1 Review plan critically"
+      # ── UPLOAD STATE ARTIFACT ──
+      - name: "4.5 Upload state artifact"
+        if: steps.determine.outputs.should_execute == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-state
+          path: .claude/skills/story-execution/temp-CI-notes.json
+          retention-days: 1
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # REVIEW-PLAN: Phase 5.1 - Claude reviews plan critically
+  # ════════════════════════════════════════════════════════════════════════════
+  review-plan:
+    needs: setup-and-plan
+    if: needs.setup-and-plan.outputs.should_execute == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      outcome: ${{ steps.review-output.outputs.outcome }}
+      total_tasks: ${{ steps.review-output.outputs.total_tasks }}
+      review_completed: ${{ steps.review-output.outputs.review_completed }}
+
+    steps:
+      - name: "5.1.0 Checkout repository"
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: "5.1.1 Download state artifact"
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-state
+          path: .claude/skills/story-execution/
+
+      - name: "5.1.2 Review plan critically"
         id: review
-        if: steps.init-state.outputs.initialized == 'true'
         uses: anthropics/claude-code-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -305,8 +361,8 @@ jobs:
           prompt: |
             Use story-execution skill in CI mode.
             Phase: REVIEW
-            Plan: ${{ steps.select-plan.outputs.path }}
-            Story ID: ${{ steps.extract-story.outputs.story_id }}
+            Plan: ${{ needs.setup-and-plan.outputs.plan_path }}
+            Story ID: ${{ needs.setup-and-plan.outputs.story_id }}
 
             Read/write state: .claude/skills/story-execution/temp-CI-notes.json
 
@@ -333,14 +389,13 @@ jobs:
             --model claude-sonnet-4-5-20250929
             --max-turns 20
 
-      - name: "5.1a Read review output"
+      - name: "5.1.3 Read review output"
         id: review-output
-        if: always() && steps.init-state.outputs.initialized == 'true'
+        if: always()
         run: |
           STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
           if [ -f "$STATE_FILE" ]; then
             OUTCOME=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('review',{}).get('outcome','unknown'))")
-            # Check if review was actually completed (has a valid outcome)
             if [ "$OUTCOME" = "proceed" ] || [ "$OUTCOME" = "proceed_with_review" ] || [ "$OUTCOME" = "pause" ]; then
               TASKS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('total_tasks',0))")
               echo "outcome=$OUTCOME" >> $GITHUB_OUTPUT
@@ -360,13 +415,45 @@ jobs:
             echo "State file not found"
           fi
 
-      # --- 5.2: Execute Batch 1 (tasks 1-3) ---
-      - name: "5.2 Execute batch 1"
-        id: batch1
-        if: |
-          steps.review-output.outputs.review_completed == 'true' &&
-          (steps.review-output.outputs.outcome == 'proceed' || steps.review-output.outputs.outcome == 'proceed_with_review') &&
-          steps.review-output.outputs.total_tasks != '0'
+      - name: "5.1.4 Upload updated state"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-state
+          path: .claude/skills/story-execution/temp-CI-notes.json
+          overwrite: true
+          retention-days: 1
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # EXECUTE-BATCH-1: Phase 5.2 - Execute tasks 1-3
+  # ════════════════════════════════════════════════════════════════════════════
+  execute-batch-1:
+    needs: [setup-and-plan, review-plan]
+    if: |
+      needs.review-plan.outputs.review_completed == 'true' &&
+      (needs.review-plan.outputs.outcome == 'proceed' || needs.review-plan.outputs.outcome == 'proceed_with_review') &&
+      needs.review-plan.outputs.total_tasks != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      status: ${{ steps.batch-output.outputs.status }}
+      tasks_remaining: ${{ steps.batch-output.outputs.tasks_remaining }}
+      batch_ran: ${{ steps.batch-output.outputs.batch_ran }}
+
+    steps:
+      - name: "5.2.0 Checkout repository"
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: "5.2.1 Download state artifact"
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-state
+          path: .claude/skills/story-execution/
+
+      - name: "5.2.2 Execute batch 1"
+        id: batch
         uses: anthropics/claude-code-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -377,8 +464,8 @@ jobs:
             Phase: EXECUTE_BATCH
             Batch: 1
             Task Range: 1-3
-            Plan: ${{ steps.select-plan.outputs.path }}
-            Story ID: ${{ steps.extract-story.outputs.story_id }}
+            Plan: ${{ needs.setup-and-plan.outputs.plan_path }}
+            Story ID: ${{ needs.setup-and-plan.outputs.story_id }}
 
             Read/write state: .claude/skills/story-execution/temp-CI-notes.json
 
@@ -386,7 +473,7 @@ jobs:
             1. Read temp-CI-notes.json for task list
             2. Execute tasks 1-3 (or fewer if less than 3 tasks total)
             3. For each task: RED (failing test) -> GREEN (implementation) -> COMMIT
-            4. Commit format: "feat: [task] Story: ${{ steps.extract-story.outputs.story_id }}"
+            4. Commit format: "feat: [task] Story: ${{ needs.setup-and-plan.outputs.story_id }}"
             5. Update task status to "completed" or "failed" in temp-CI-notes.json
             6. Update batches[0] with status and commit hashes
             7. Update current_batch to 1 and tasks_remaining
@@ -400,13 +487,12 @@ jobs:
             --model claude-sonnet-4-5-20250929
             --max-turns 30
 
-      - name: "5.2a Read batch 1 output"
-        id: batch1-output
-        if: always() && steps.review-output.outputs.review_completed == 'true'
+      - name: "5.2.3 Read batch 1 output"
+        id: batch-output
+        if: always()
         run: |
           STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
           if [ -f "$STATE_FILE" ]; then
-            # Check if batch 1 exists in state
             BATCH_EXISTS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print('true' if len(b) >= 1 else 'false')")
             if [ "$BATCH_EXISTS" = "true" ]; then
               STATUS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print(b[0].get('status','unknown'))")
@@ -427,13 +513,45 @@ jobs:
             echo "batch_ran=false" >> $GITHUB_OUTPUT
           fi
 
-      # --- 5.3: Execute Batch 2 (tasks 4-6) ---
-      - name: "5.3 Execute batch 2"
-        id: batch2
-        if: |
-          steps.batch1-output.outputs.batch_ran == 'true' &&
-          steps.batch1-output.outputs.status == 'completed' &&
-          steps.batch1-output.outputs.tasks_remaining != '0'
+      - name: "5.2.4 Upload updated state"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-state
+          path: .claude/skills/story-execution/temp-CI-notes.json
+          overwrite: true
+          retention-days: 1
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # EXECUTE-BATCH-2: Phase 5.3 - Execute tasks 4-6
+  # ════════════════════════════════════════════════════════════════════════════
+  execute-batch-2:
+    needs: [setup-and-plan, execute-batch-1]
+    if: |
+      needs.execute-batch-1.outputs.batch_ran == 'true' &&
+      needs.execute-batch-1.outputs.status == 'completed' &&
+      needs.execute-batch-1.outputs.tasks_remaining != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      status: ${{ steps.batch-output.outputs.status }}
+      tasks_remaining: ${{ steps.batch-output.outputs.tasks_remaining }}
+      batch_ran: ${{ steps.batch-output.outputs.batch_ran }}
+
+    steps:
+      - name: "5.3.0 Checkout repository"
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: "5.3.1 Download state artifact"
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-state
+          path: .claude/skills/story-execution/
+
+      - name: "5.3.2 Execute batch 2"
+        id: batch
         uses: anthropics/claude-code-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -444,8 +562,8 @@ jobs:
             Phase: EXECUTE_BATCH
             Batch: 2
             Task Range: 4-6
-            Plan: ${{ steps.select-plan.outputs.path }}
-            Story ID: ${{ steps.extract-story.outputs.story_id }}
+            Plan: ${{ needs.setup-and-plan.outputs.plan_path }}
+            Story ID: ${{ needs.setup-and-plan.outputs.story_id }}
 
             Read/write state: .claude/skills/story-execution/temp-CI-notes.json
 
@@ -464,9 +582,9 @@ jobs:
             --model claude-sonnet-4-5-20250929
             --max-turns 30
 
-      - name: "5.3a Read batch 2 output"
-        id: batch2-output
-        if: always() && steps.batch1-output.outputs.batch_ran == 'true'
+      - name: "5.3.3 Read batch 2 output"
+        id: batch-output
+        if: always()
         run: |
           STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
           if [ -f "$STATE_FILE" ]; then
@@ -490,13 +608,45 @@ jobs:
             echo "batch_ran=false" >> $GITHUB_OUTPUT
           fi
 
-      # --- 5.4: Execute Batch 3 (tasks 7-9) ---
-      - name: "5.4 Execute batch 3"
-        id: batch3
-        if: |
-          steps.batch2-output.outputs.batch_ran == 'true' &&
-          steps.batch2-output.outputs.status == 'completed' &&
-          steps.batch2-output.outputs.tasks_remaining != '0'
+      - name: "5.3.4 Upload updated state"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-state
+          path: .claude/skills/story-execution/temp-CI-notes.json
+          overwrite: true
+          retention-days: 1
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # EXECUTE-BATCH-3: Phase 5.4 - Execute tasks 7-9
+  # ════════════════════════════════════════════════════════════════════════════
+  execute-batch-3:
+    needs: [setup-and-plan, execute-batch-2]
+    if: |
+      needs.execute-batch-2.outputs.batch_ran == 'true' &&
+      needs.execute-batch-2.outputs.status == 'completed' &&
+      needs.execute-batch-2.outputs.tasks_remaining != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      status: ${{ steps.batch-output.outputs.status }}
+      tasks_remaining: ${{ steps.batch-output.outputs.tasks_remaining }}
+      batch_ran: ${{ steps.batch-output.outputs.batch_ran }}
+
+    steps:
+      - name: "5.4.0 Checkout repository"
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: "5.4.1 Download state artifact"
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-state
+          path: .claude/skills/story-execution/
+
+      - name: "5.4.2 Execute batch 3"
+        id: batch
         uses: anthropics/claude-code-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -507,8 +657,8 @@ jobs:
             Phase: EXECUTE_BATCH
             Batch: 3
             Task Range: 7-9
-            Plan: ${{ steps.select-plan.outputs.path }}
-            Story ID: ${{ steps.extract-story.outputs.story_id }}
+            Plan: ${{ needs.setup-and-plan.outputs.plan_path }}
+            Story ID: ${{ needs.setup-and-plan.outputs.story_id }}
 
             Read/write state: .claude/skills/story-execution/temp-CI-notes.json
 
@@ -520,9 +670,9 @@ jobs:
             --model claude-sonnet-4-5-20250929
             --max-turns 30
 
-      - name: "5.4a Read batch 3 output"
-        id: batch3-output
-        if: always() && steps.batch2-output.outputs.batch_ran == 'true'
+      - name: "5.4.3 Read batch 3 output"
+        id: batch-output
+        if: always()
         run: |
           STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
           if [ -f "$STATE_FILE" ]; then
@@ -544,13 +694,45 @@ jobs:
             echo "batch_ran=false" >> $GITHUB_OUTPUT
           fi
 
-      # --- 5.5: Execute Batch 4 (tasks 10-12) ---
-      - name: "5.5 Execute batch 4"
-        id: batch4
-        if: |
-          steps.batch3-output.outputs.batch_ran == 'true' &&
-          steps.batch3-output.outputs.status == 'completed' &&
-          steps.batch3-output.outputs.tasks_remaining != '0'
+      - name: "5.4.4 Upload updated state"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-state
+          path: .claude/skills/story-execution/temp-CI-notes.json
+          overwrite: true
+          retention-days: 1
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # EXECUTE-BATCH-4: Phase 5.5 - Execute tasks 10-12
+  # ════════════════════════════════════════════════════════════════════════════
+  execute-batch-4:
+    needs: [setup-and-plan, execute-batch-3]
+    if: |
+      needs.execute-batch-3.outputs.batch_ran == 'true' &&
+      needs.execute-batch-3.outputs.status == 'completed' &&
+      needs.execute-batch-3.outputs.tasks_remaining != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      status: ${{ steps.batch-output.outputs.status }}
+      tasks_remaining: ${{ steps.batch-output.outputs.tasks_remaining }}
+      batch_ran: ${{ steps.batch-output.outputs.batch_ran }}
+
+    steps:
+      - name: "5.5.0 Checkout repository"
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: "5.5.1 Download state artifact"
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-state
+          path: .claude/skills/story-execution/
+
+      - name: "5.5.2 Execute batch 4"
+        id: batch
         uses: anthropics/claude-code-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -561,8 +743,8 @@ jobs:
             Phase: EXECUTE_BATCH
             Batch: 4
             Task Range: 10-12
-            Plan: ${{ steps.select-plan.outputs.path }}
-            Story ID: ${{ steps.extract-story.outputs.story_id }}
+            Plan: ${{ needs.setup-and-plan.outputs.plan_path }}
+            Story ID: ${{ needs.setup-and-plan.outputs.story_id }}
 
             Read/write state: .claude/skills/story-execution/temp-CI-notes.json
 
@@ -574,9 +756,9 @@ jobs:
             --model claude-sonnet-4-5-20250929
             --max-turns 30
 
-      - name: "5.5a Read batch 4 output"
-        id: batch4-output
-        if: always() && steps.batch3-output.outputs.batch_ran == 'true'
+      - name: "5.5.3 Read batch 4 output"
+        id: batch-output
+        if: always()
         run: |
           STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
           if [ -f "$STATE_FILE" ]; then
@@ -598,29 +780,68 @@ jobs:
             echo "batch_ran=false" >> $GITHUB_OUTPUT
           fi
 
-      # --- 5.6: Determine final execution status ---
+      - name: "5.5.4 Upload updated state"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-state
+          path: .claude/skills/story-execution/temp-CI-notes.json
+          overwrite: true
+          retention-days: 1
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # FINALIZE: Phases 6-7 - Archive, update DB, commit, push, report
+  # ════════════════════════════════════════════════════════════════════════════
+  finalize:
+    needs: [setup-and-plan, review-plan, execute-batch-1, execute-batch-2, execute-batch-3, execute-batch-4]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: "6.0 Checkout repository"
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: "6.0.1 Download state artifact"
+        if: needs.setup-and-plan.outputs.should_execute == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-state
+          path: .claude/skills/story-execution/
+        continue-on-error: true
+
+      # ── PHASE 5.6: Determine final execution status ──
       - name: "5.6 Determine execution outcome"
         id: claude
-        if: always() && steps.init-state.outputs.initialized == 'true'
         run: |
           STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
+          SHOULD_EXECUTE="${{ needs.setup-and-plan.outputs.should_execute }}"
+          SKIP_REASON="${{ needs.setup-and-plan.outputs.skip_reason }}"
 
-          # Determine overall outcome based on state file, not step outcomes
-          REVIEW_COMPLETED="${{ steps.review-output.outputs.review_completed }}"
+          # If setup determined we shouldn't execute, report that
+          if [ "$SHOULD_EXECUTE" != "true" ]; then
+            echo "outcome=skipped" >> $GITHUB_OUTPUT
+            echo "reason=$SKIP_REASON" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          REVIEW_COMPLETED="${{ needs.review-plan.outputs.review_completed }}"
           if [ "$REVIEW_COMPLETED" != "true" ]; then
             echo "outcome=failure" >> $GITHUB_OUTPUT
             echo "reason=review_failed" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          REVIEW_OUTCOME="${{ steps.review-output.outputs.outcome }}"
+          REVIEW_OUTCOME="${{ needs.review-plan.outputs.outcome }}"
           if [ "$REVIEW_OUTCOME" = "pause" ]; then
             echo "outcome=paused" >> $GITHUB_OUTPUT
             echo "reason=blocking_issues" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # Check final state
+          # Check final state from artifact
           if [ -f "$STATE_FILE" ]; then
             REMAINING=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('tasks_remaining',0))")
             FINAL=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('final_status','unknown'))")
@@ -634,7 +855,6 @@ jobs:
                 echo "needs_review=false" >> $GITHUB_OUTPUT
               fi
             else
-              # Check if any batch failed
               FAILED=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print('yes' if any(b.get('status')=='failed' for b in d.get('batches',[])) else 'no')")
               if [ "$FAILED" = "yes" ]; then
                 echo "outcome=failure" >> $GITHUB_OUTPUT
@@ -649,14 +869,12 @@ jobs:
             echo "reason=no_state_file" >> $GITHUB_OUTPUT
           fi
 
-      # ══════════════════════════════════════════════════════════════
-      # PHASE 6: FINALIZE
-      # ══════════════════════════════════════════════════════════════
+      # ── PHASE 6: FINALIZE ──
       - name: "6.1 Archive executed plan"
         if: steps.claude.outputs.outcome == 'success'
         run: |
-          PLAN_PATH="${{ steps.select-plan.outputs.path }}"
-          FILENAME="${{ steps.select-plan.outputs.filename }}"
+          PLAN_PATH="${{ needs.setup-and-plan.outputs.plan_path }}"
+          FILENAME="${{ needs.setup-and-plan.outputs.plan_filename }}"
           ARCHIVE_DIR=".claude/data/executed"
 
           if [ -f "$PLAN_PATH" ]; then
@@ -668,9 +886,9 @@ jobs:
           fi
 
       - name: "6.2 Update story status in database"
-        if: steps.claude.outputs.outcome == 'success' && steps.extract-story.outputs.story_id != 'none'
+        if: steps.claude.outputs.outcome == 'success' && needs.setup-and-plan.outputs.story_id != 'none'
         run: |
-          STORY_ID="${{ steps.extract-story.outputs.story_id }}"
+          STORY_ID="${{ needs.setup-and-plan.outputs.story_id }}"
           DB_PATH=".claude/data/story-tree.db"
           NEEDS_REVIEW="${{ steps.claude.outputs.needs_review }}"
 
@@ -679,13 +897,14 @@ jobs:
             exit 0
           fi
 
-          # Set stage based on whether review is needed
           if [ "$NEEDS_REVIEW" = "true" ]; then
             STAGE="reviewing"
             NOTE="CI execution complete (review required)"
+            REVIEW_FLAG=1
           else
             STAGE="verifying"
             NOTE="CI execution complete"
+            REVIEW_FLAG=0
           fi
 
           python3 << PYEOF
@@ -694,7 +913,7 @@ jobs:
           conn.execute('''
               UPDATE story_nodes
               SET stage = '$STAGE',
-                  human_review = $( [ "$NEEDS_REVIEW" = "true" ] && echo 1 || echo 0 ),
+                  human_review = $REVIEW_FLAG,
                   notes = COALESCE(notes || char(10), '') || '$NOTE: ' || datetime('now'),
                   updated_at = datetime('now')
               WHERE id = ?
@@ -706,6 +925,7 @@ jobs:
 
       - name: "6.3 Stage all changes"
         if: steps.claude.outputs.outcome == 'success'
+        id: stage
         run: |
           git add -A
           if git diff --cached --quiet; then
@@ -716,7 +936,6 @@ jobs:
             echo "Changes staged for commit:"
             git diff --cached --stat
           fi
-        id: stage
 
       - name: "6.4 Commit changes"
         if: steps.stage.outputs.has_changes == 'true'
@@ -724,8 +943,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          FILENAME="${{ steps.select-plan.outputs.filename }}"
-          STORY_ID="${{ steps.extract-story.outputs.story_id }}"
+          FILENAME="${{ needs.setup-and-plan.outputs.plan_filename }}"
+          STORY_ID="${{ needs.setup-and-plan.outputs.story_id }}"
 
           git commit -m "ci: execute plan $FILENAME
 
@@ -748,92 +967,113 @@ jobs:
           echo "❌ Push failed after 4 attempts"
           exit 1
 
-      # ══════════════════════════════════════════════════════════════
-      # PHASE 7: REPORTING
-      # ══════════════════════════════════════════════════════════════
+      # ── PHASE 7: REPORTING ──
       - name: "7.1 Generate execution summary"
         if: always()
         run: |
           echo "## Execution Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Plan info
-          if [ "${{ steps.select-plan.outputs.selected }}" = "true" ]; then
+          PLAN_SELECTED="${{ needs.setup-and-plan.outputs.plan_selected }}"
+          if [ "$PLAN_SELECTED" = "true" ]; then
             echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
             echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Plan | \`${{ steps.select-plan.outputs.filename }}\` |" >> $GITHUB_STEP_SUMMARY
-            echo "| Sequence | ${{ steps.select-plan.outputs.sequence }} |" >> $GITHUB_STEP_SUMMARY
-            echo "| Story ID | ${{ steps.extract-story.outputs.story_id }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Plan | \`${{ needs.setup-and-plan.outputs.plan_filename }}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Sequence | ${{ needs.setup-and-plan.outputs.plan_sequence }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Story ID | ${{ needs.setup-and-plan.outputs.story_id }} |" >> $GITHUB_STEP_SUMMARY
 
-            # Outcome
-            if [ "${{ steps.check-executed.outputs.already_executed }}" = "true" ]; then
-              echo "| Outcome | ⏭️ Skipped (already executed) |" >> $GITHUB_STEP_SUMMARY
-            elif [ "${{ steps.check-deps.outputs.deps_met }}" = "false" ]; then
-              echo "| Outcome | 🚧 Blocked (unmet deps) |" >> $GITHUB_STEP_SUMMARY
-              echo "| Unmet Deps | ${{ steps.check-deps.outputs.unmet_deps }} |" >> $GITHUB_STEP_SUMMARY
-            elif [ "${{ steps.claude.outputs.outcome }}" = "success" ]; then
-              if [ "${{ steps.claude.outputs.needs_review }}" = "true" ]; then
-                echo "| Outcome | ✅ Success (review required) |" >> $GITHUB_STEP_SUMMARY
-              else
-                echo "| Outcome | ✅ Success |" >> $GITHUB_STEP_SUMMARY
-              fi
-            elif [ "${{ steps.claude.outputs.outcome }}" = "paused" ]; then
-              echo "| Outcome | ⏸️ Paused (blocking issues) |" >> $GITHUB_STEP_SUMMARY
-            elif [ "${{ steps.claude.outputs.outcome }}" = "failure" ]; then
-              echo "| Outcome | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
-              echo "| Reason | ${{ steps.claude.outputs.reason }} |" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "| Outcome | ⚠️ Unknown |" >> $GITHUB_STEP_SUMMARY
-            fi
+            OUTCOME="${{ steps.claude.outputs.outcome }}"
+            case "$OUTCOME" in
+              success)
+                if [ "${{ steps.claude.outputs.needs_review }}" = "true" ]; then
+                  echo "| Outcome | ✅ Success (review required) |" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "| Outcome | ✅ Success |" >> $GITHUB_STEP_SUMMARY
+                fi
+                ;;
+              paused)
+                echo "| Outcome | ⏸️ Paused (blocking issues) |" >> $GITHUB_STEP_SUMMARY
+                ;;
+              failure)
+                echo "| Outcome | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+                echo "| Reason | ${{ steps.claude.outputs.reason }} |" >> $GITHUB_STEP_SUMMARY
+                ;;
+              skipped)
+                SKIP_REASON="${{ needs.setup-and-plan.outputs.skip_reason }}"
+                case "$SKIP_REASON" in
+                  already_executed)
+                    echo "| Outcome | ⏭️ Skipped (already executed) |" >> $GITHUB_STEP_SUMMARY
+                    ;;
+                  deps_unmet)
+                    echo "| Outcome | 🚧 Blocked (unmet deps) |" >> $GITHUB_STEP_SUMMARY
+                    ;;
+                  *)
+                    echo "| Outcome | ⏭️ Skipped ($SKIP_REASON) |" >> $GITHUB_STEP_SUMMARY
+                    ;;
+                esac
+                ;;
+              *)
+                echo "| Outcome | ⚠️ Unknown |" >> $GITHUB_STEP_SUMMARY
+                ;;
+            esac
           else
             echo "No plan files available for execution." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: "7.2 Report token usage"
-        if: always() && steps.init-state.outputs.initialized == 'true'
+        if: always() && needs.setup-and-plan.outputs.should_execute == 'true'
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Token Usage (Multi-Call)" >> $GITHUB_STEP_SUMMARY
+          echo "### Pipeline Jobs" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| setup-and-plan | ✅ |" >> $GITHUB_STEP_SUMMARY
 
-          # Aggregate tokens from all Claude calls
-          TOTAL_INPUT=0
-          TOTAL_OUTPUT=0
+          REVIEW="${{ needs.review-plan.outputs.outcome }}"
+          if [ -n "$REVIEW" ]; then
+            echo "| review-plan | $REVIEW |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| review-plan | ⏭️ skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
 
-          for STEP in review batch1 batch2 batch3 batch4; do
-            EXEC_FILE=""
-            case "$STEP" in
-              review) EXEC_FILE="${{ steps.review.outputs.execution_file }}" ;;
-              batch1) EXEC_FILE="${{ steps.batch1.outputs.execution_file }}" ;;
-              batch2) EXEC_FILE="${{ steps.batch2.outputs.execution_file }}" ;;
-              batch3) EXEC_FILE="${{ steps.batch3.outputs.execution_file }}" ;;
-              batch4) EXEC_FILE="${{ steps.batch4.outputs.execution_file }}" ;;
-            esac
+          BATCH1="${{ needs.execute-batch-1.outputs.status }}"
+          if [ -n "$BATCH1" ]; then
+            echo "| execute-batch-1 | $BATCH1 |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| execute-batch-1 | ⏭️ skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
 
-            if [ -f "$EXEC_FILE" ]; then
-              INPUT=$(grep -o '"input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
-              OUTPUT=$(grep -o '"output_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
-              TOTAL_INPUT=$((TOTAL_INPUT + INPUT))
-              TOTAL_OUTPUT=$((TOTAL_OUTPUT + OUTPUT))
-            fi
-          done
+          BATCH2="${{ needs.execute-batch-2.outputs.status }}"
+          if [ -n "$BATCH2" ]; then
+            echo "| execute-batch-2 | $BATCH2 |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| execute-batch-2 | ⏭️ skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
 
-          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Input Tokens | $TOTAL_INPUT |" >> $GITHUB_STEP_SUMMARY
-          echo "| Output Tokens | $TOTAL_OUTPUT |" >> $GITHUB_STEP_SUMMARY
-          echo "| Total Tokens | $((TOTAL_INPUT + TOTAL_OUTPUT)) |" >> $GITHUB_STEP_SUMMARY
+          BATCH3="${{ needs.execute-batch-3.outputs.status }}"
+          if [ -n "$BATCH3" ]; then
+            echo "| execute-batch-3 | $BATCH3 |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| execute-batch-3 | ⏭️ skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          BATCH4="${{ needs.execute-batch-4.outputs.status }}"
+          if [ -n "$BATCH4" ]; then
+            echo "| execute-batch-4 | $BATCH4 |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| execute-batch-4 | ⏭️ skipped |" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: "7.3 Post results to story issue"
-        if: always() && steps.extract-story.outputs.story_id != 'none' && steps.extract-story.outputs.story_id != ''
+        if: always() && needs.setup-and-plan.outputs.story_id != 'none' && needs.setup-and-plan.outputs.story_id != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          STORY_ID="${{ steps.extract-story.outputs.story_id }}"
-          FILENAME="${{ steps.select-plan.outputs.filename }}"
+          STORY_ID="${{ needs.setup-and-plan.outputs.story_id }}"
+          FILENAME="${{ needs.setup-and-plan.outputs.plan_filename }}"
           DB_PATH=".claude/data/story-tree.db"
 
-          # Get story title
           TITLE=""
           if [ -f "$DB_PATH" ]; then
             TITLE=$(python3 -c "import sqlite3; c=sqlite3.connect('$DB_PATH'); r=c.execute('SELECT title FROM story_nodes WHERE id=?',('$STORY_ID',)).fetchone(); print(r[0] if r else '')" 2>/dev/null)
@@ -842,7 +1082,6 @@ jobs:
 
           ISSUE_TITLE="$STORY_ID - $TITLE"
 
-          # Find or create issue
           ISSUE_NUM=$(gh issue list --state all --search "\"$ISSUE_TITLE\" in:title" --json number,title --jq ".[] | select(.title == \"$ISSUE_TITLE\") | .number" | head -1)
 
           if [ -z "$ISSUE_NUM" ]; then
@@ -855,25 +1094,33 @@ jobs:
             exit 0
           fi
 
-          # Determine status emoji
-          CLAUDE="${{ steps.claude.outputs.outcome }}"
-          if [ "${{ steps.check-executed.outputs.already_executed }}" = "true" ]; then
-            STATUS="⏭️ Skipped (already executed)"
-          elif [ "${{ steps.check-deps.outputs.deps_met }}" = "false" ]; then
-            STATUS="🚧 Blocked (unmet dependencies)"
-          elif [ "$CLAUDE" = "success" ]; then
-            if [ "${{ steps.claude.outputs.needs_review }}" = "true" ]; then
-              STATUS="✅ Success (review required)"
-            else
-              STATUS="✅ Success"
-            fi
-          elif [ "$CLAUDE" = "paused" ]; then
-            STATUS="⏸️ Paused (blocking issues)"
-          elif [ "$CLAUDE" = "failure" ]; then
-            STATUS="❌ Failed"
-          else
-            STATUS="⚠️ $CLAUDE"
-          fi
+          OUTCOME="${{ steps.claude.outputs.outcome }}"
+          case "$OUTCOME" in
+            success)
+              if [ "${{ steps.claude.outputs.needs_review }}" = "true" ]; then
+                STATUS="✅ Success (review required)"
+              else
+                STATUS="✅ Success"
+              fi
+              ;;
+            paused)
+              STATUS="⏸️ Paused (blocking issues)"
+              ;;
+            failure)
+              STATUS="❌ Failed"
+              ;;
+            skipped)
+              SKIP_REASON="${{ needs.setup-and-plan.outputs.skip_reason }}"
+              case "$SKIP_REASON" in
+                already_executed) STATUS="⏭️ Skipped (already executed)" ;;
+                deps_unmet) STATUS="🚧 Blocked (unmet dependencies)" ;;
+                *) STATUS="⏭️ Skipped ($SKIP_REASON)" ;;
+              esac
+              ;;
+            *)
+              STATUS="⚠️ $OUTCOME"
+              ;;
+          esac
 
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
