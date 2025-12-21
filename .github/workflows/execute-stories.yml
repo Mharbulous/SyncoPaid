@@ -19,12 +19,13 @@ permissions:
 # ══════════════════════════════════════════════════════════════════════════════
 # PIPELINE VISUALIZATION
 # ══════════════════════════════════════════════════════════════════════════════
-# This workflow uses 5 semantically meaningful stages:
+# This workflow uses 6 semantically meaningful stages:
 #
-#   setup-and-plan → review-plan → decompose → execute → finalize
+#   setup-and-plan → verify-implementation → review-plan → decompose → execute → finalize
 #
 # Each stage has a clear purpose:
 # - setup-and-plan: Find plan, validate deps, initialize state
+# - verify-implementation: Check if plan already implemented (for reviewing/verifying stages)
 # - review-plan: Critical review, decide proceed/pause
 # - decompose: Assess complexity, split if needed (Opus)
 # - execute: Follow plan's TDD steps directly (Sonnet)
@@ -50,6 +51,8 @@ jobs:
       story_id: ${{ steps.extract-story.outputs.story_id }}
       should_execute: ${{ steps.determine.outputs.should_execute }}
       skip_reason: ${{ steps.determine.outputs.skip_reason }}
+      needs_verification: ${{ steps.determine.outputs.needs_verification }}
+      current_stage: ${{ steps.check-executed.outputs.current_stage }}
 
     steps:
       # ── PHASE 1: SETUP ──
@@ -243,36 +246,7 @@ jobs:
           PYEOF
 
       # ── PHASE 4: HANDLE SKIP CONDITIONS ──
-      - name: "4.1 Archive already-executed plan"
-        if: steps.check-executed.outputs.already_executed == 'true'
-        run: |
-          PLAN_PATH="${{ steps.select-plan.outputs.path }}"
-          FILENAME="${{ steps.select-plan.outputs.filename }}"
-          ARCHIVE_DIR=".claude/data/executed"
-
-          mkdir -p "$ARCHIVE_DIR"
-          mv "$PLAN_PATH" "$ARCHIVE_DIR/"
-          echo "Archived already-executed plan: $FILENAME → $ARCHIVE_DIR/"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "ci: archive already-executed plan $FILENAME"
-
-          # Retry push with exponential backoff
-          for attempt in 1 2 3 4; do
-            if git push origin main; then
-              echo "✓ Push successful"
-              exit 0
-            else
-              echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
-              sleep $((2 ** attempt))
-            fi
-          done
-          echo "❌ Push failed after 4 attempts"
-          exit 1
-
-      - name: "4.2 Move blocked plan to blocked folder"
+      - name: "4.1 Move blocked plan to blocked folder"
         if: steps.check-deps.outputs.deps_met == 'false'
         run: |
           PLAN_PATH="${{ steps.select-plan.outputs.path }}"
@@ -304,33 +278,252 @@ jobs:
           exit 1
 
       # ── DETERMINE IF EXECUTION SHOULD PROCEED ──
-      - name: "4.3 Determine execution eligibility"
+      - name: "4.2 Determine execution eligibility"
         id: determine
         run: |
           SELECTED="${{ steps.select-plan.outputs.selected }}"
           ALREADY_EXECUTED="${{ steps.check-executed.outputs.already_executed }}"
+          CURRENT_STAGE="${{ steps.check-executed.outputs.current_stage }}"
           DEPS_MET="${{ steps.check-deps.outputs.deps_met }}"
 
           if [ "$SELECTED" != "true" ]; then
             echo "should_execute=false" >> $GITHUB_OUTPUT
             echo "skip_reason=no_plans" >> $GITHUB_OUTPUT
+            echo "needs_verification=false" >> $GITHUB_OUTPUT
           elif [ "$ALREADY_EXECUTED" = "true" ]; then
+            # Story is in reviewing/verifying/implemented stage but plan file still exists
+            # This needs verification to check if implementation actually exists
             echo "should_execute=false" >> $GITHUB_OUTPUT
-            echo "skip_reason=already_executed" >> $GITHUB_OUTPUT
+            echo "skip_reason=needs_verification" >> $GITHUB_OUTPUT
+            echo "needs_verification=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Plan exists but story at stage '$CURRENT_STAGE' - needs verification"
           elif [ "$DEPS_MET" = "false" ]; then
             echo "should_execute=false" >> $GITHUB_OUTPUT
             echo "skip_reason=deps_unmet" >> $GITHUB_OUTPUT
+            echo "needs_verification=false" >> $GITHUB_OUTPUT
           else
             echo "should_execute=true" >> $GITHUB_OUTPUT
             echo "skip_reason=" >> $GITHUB_OUTPUT
+            echo "needs_verification=false" >> $GITHUB_OUTPUT
           fi
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # VERIFY-IMPLEMENTATION: Check if plan was actually implemented in codebase
+  # ════════════════════════════════════════════════════════════════════════════
+  verify-implementation:
+    needs: setup-and-plan
+    if: needs.setup-and-plan.outputs.needs_verification == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      verification_passed: ${{ steps.verify-output.outputs.verification_passed }}
+      should_proceed_to_execute: ${{ steps.verify-output.outputs.should_proceed_to_execute }}
+
+    steps:
+      - name: "V.1 Checkout repository"
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: "V.2 Verify implementation exists"
+        id: verify
+        uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: |
+            You are verifying whether a plan has actually been implemented in the codebase.
+
+            Plan: ${{ needs.setup-and-plan.outputs.plan_path }}
+            Story ID: ${{ needs.setup-and-plan.outputs.story_id }}
+            Current Stage: ${{ needs.setup-and-plan.outputs.current_stage }}
+
+            ## CONTEXT
+
+            The database indicates this story is at stage "${{ needs.setup-and-plan.outputs.current_stage }}"
+            (reviewing/verifying/implemented), but the plan document still exists in the plans folder.
+            This could mean:
+            1. The implementation was completed but the plan wasn't archived (verification should PASS)
+            2. The database was updated prematurely and implementation doesn't exist (verification should FAIL)
+
+            ## YOUR TASK
+
+            1. Read the plan document completely
+            2. Identify the key deliverables/changes the plan describes:
+               - New files that should have been created
+               - Existing files that should have been modified
+               - New functions/classes/tests that should exist
+               - Configuration changes
+            3. Search the codebase to verify these deliverables actually exist
+            4. Determine if the implementation is complete, partial, or missing
+
+            ## VERIFICATION CRITERIA
+
+            - **PASS**: All or most key deliverables exist in the codebase
+            - **PARTIAL**: Some deliverables exist but significant parts are missing
+            - **FAIL**: Key deliverables are missing - implementation was not done
+
+            ## OUTPUT REQUIRED
+
+            Write a JSON file to `.claude/skills/story-execution/ci-verify-result.json`:
+
+            ```json
+            {
+              "verification_passed": true|false,
+              "status": "pass|partial|fail",
+              "deliverables_checked": [
+                {"item": "description", "found": true|false, "location": "path or null"}
+              ],
+              "summary": "Brief explanation of findings",
+              "recommendation": "archive|execute|manual_review"
+            }
+            ```
+
+            Where recommendation is:
+            - "archive": Implementation exists, safe to archive the plan
+            - "execute": Implementation missing, plan should be executed
+            - "manual_review": Partial implementation, needs human review
+
+          claude_args: |
+            --allowedTools "Read,Glob,Grep,Bash(python:*),Bash(python3:*),Write"
+            --model claude-sonnet-4-5-20250929
+            --max-turns 20
+
+      - name: "V.3 Read verification output"
+        id: verify-output
+        if: always()
+        run: |
+          RESULT_FILE=".claude/skills/story-execution/ci-verify-result.json"
+
+          if [ -f "$RESULT_FILE" ]; then
+            PASSED=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(str(d.get('verification_passed', False)).lower())")
+            STATUS=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('status', 'unknown'))")
+            RECOMMENDATION=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('recommendation', 'manual_review'))")
+
+            echo "verification_passed=$PASSED" >> $GITHUB_OUTPUT
+
+            # Determine if we should proceed to execute
+            if [ "$RECOMMENDATION" = "execute" ]; then
+              echo "should_proceed_to_execute=true" >> $GITHUB_OUTPUT
+            else
+              echo "should_proceed_to_execute=false" >> $GITHUB_OUTPUT
+            fi
+
+            echo "## Implementation Verification" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Status | $STATUS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Passed | $PASSED |" >> $GITHUB_STEP_SUMMARY
+            echo "| Recommendation | $RECOMMENDATION |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "verification_passed=false" >> $GITHUB_OUTPUT
+            echo "should_proceed_to_execute=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Verification result file not found, defaulting to execute"
+          fi
+
+      - name: "V.4 Archive plan if verification passed"
+        if: steps.verify-output.outputs.verification_passed == 'true'
+        run: |
+          PLAN_PATH="${{ needs.setup-and-plan.outputs.plan_path }}"
+          FILENAME="${{ needs.setup-and-plan.outputs.plan_filename }}"
+          ARCHIVE_DIR=".claude/data/executed"
+
+          mkdir -p "$ARCHIVE_DIR"
+          mv "$PLAN_PATH" "$ARCHIVE_DIR/"
+          echo "✓ Verified implementation exists - archived plan: $FILENAME → $ARCHIVE_DIR/"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "ci: archive verified plan $FILENAME
+
+          Story: ${{ needs.setup-and-plan.outputs.story_id }}
+          Verification: Implementation confirmed in codebase"
+
+          # Retry push with exponential backoff
+          for attempt in 1 2 3 4; do
+            if git push origin main; then
+              echo "✓ Push successful"
+              exit 0
+            else
+              echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+              sleep $((2 ** attempt))
+            fi
+          done
+          echo "❌ Push failed after 4 attempts"
+          exit 1
+
+      - name: "V.5 Reset story stage if verification failed"
+        if: steps.verify-output.outputs.should_proceed_to_execute == 'true'
+        run: |
+          STORY_ID="${{ needs.setup-and-plan.outputs.story_id }}"
+          DB_PATH=".claude/data/story-tree.db"
+
+          if [ ! -f "$DB_PATH" ] || [ "$STORY_ID" = "none" ]; then
+            echo "No database or story ID, skipping stage reset"
+            exit 0
+          fi
+
+          echo "⚠️ Implementation not found - resetting story stage for re-execution"
+
+          python3 << PYEOF
+          import sqlite3
+          conn = sqlite3.connect("$DB_PATH")
+          conn.execute('''
+              UPDATE story_nodes
+              SET stage = 'planned',
+                  notes = COALESCE(notes || char(10), '') || 'CI verification failed - implementation not found, reset for re-execution: ' || datetime('now'),
+                  updated_at = datetime('now')
+              WHERE id = ?
+          ''', ("$STORY_ID",))
+          conn.commit()
+          print(f"✓ Reset story $STORY_ID to 'planned' stage")
+          conn.close()
+          PYEOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+
+          if ! git diff --cached --quiet; then
+            git commit -m "ci: reset story $STORY_ID for re-execution
+
+          Verification found implementation missing despite stage being '${{ needs.setup-and-plan.outputs.current_stage }}'"
+
+            # Retry push with exponential backoff
+            for attempt in 1 2 3 4; do
+              if git push origin main; then
+                echo "✓ Push successful"
+                exit 0
+              else
+                echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+                sleep $((2 ** attempt))
+              fi
+            done
+            echo "❌ Push failed after 4 attempts"
+            exit 1
+          fi
+
+      - name: "V.6 Upload verification result"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-result
+          path: .claude/skills/story-execution/ci-verify-result.json
+          retention-days: 1
+          if-no-files-found: ignore
 
   # ════════════════════════════════════════════════════════════════════════════
   # REVIEW-PLAN: Critical review - validate plan is actionable
   # ════════════════════════════════════════════════════════════════════════════
   review-plan:
-    needs: setup-and-plan
-    if: needs.setup-and-plan.outputs.should_execute == 'true'
+    needs: [setup-and-plan, verify-implementation]
+    if: |
+      always() &&
+      (needs.setup-and-plan.outputs.should_execute == 'true' ||
+       needs.verify-implementation.outputs.should_proceed_to_execute == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -439,8 +632,9 @@ jobs:
   # DECOMPOSE: Assess complexity, split into sub-plans if needed (Opus)
   # ════════════════════════════════════════════════════════════════════════════
   decompose:
-    needs: [setup-and-plan, review-plan]
+    needs: [setup-and-plan, verify-implementation, review-plan]
     if: |
+      always() &&
       needs.review-plan.outputs.review_completed == 'true' &&
       (needs.review-plan.outputs.outcome == 'proceed' || needs.review-plan.outputs.outcome == 'proceed_with_review')
     runs-on: ubuntu-latest
@@ -606,8 +800,9 @@ jobs:
   # EXECUTE: Follow plan's TDD steps directly (Sonnet)
   # ════════════════════════════════════════════════════════════════════════════
   execute:
-    needs: [setup-and-plan, review-plan, decompose]
+    needs: [setup-and-plan, verify-implementation, review-plan, decompose]
     if: |
+      always() &&
       needs.decompose.outputs.execute_plan != ''
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -767,7 +962,7 @@ jobs:
   # FINALIZE: Archive, commit, push, report
   # ════════════════════════════════════════════════════════════════════════════
   finalize:
-    needs: [setup-and-plan, review-plan, decompose, execute]
+    needs: [setup-and-plan, verify-implementation, review-plan, decompose, execute]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -787,9 +982,28 @@ jobs:
         run: |
           SHOULD_EXECUTE="${{ needs.setup-and-plan.outputs.should_execute }}"
           SKIP_REASON="${{ needs.setup-and-plan.outputs.skip_reason }}"
+          NEEDS_VERIFICATION="${{ needs.setup-and-plan.outputs.needs_verification }}"
+          VERIFICATION_PASSED="${{ needs.verify-implementation.outputs.verification_passed }}"
+          SHOULD_PROCEED_TO_EXECUTE="${{ needs.verify-implementation.outputs.should_proceed_to_execute }}"
 
-          # If setup determined we shouldn't execute, report that
-          if [ "$SHOULD_EXECUTE" != "true" ]; then
+          # Handle verification flow
+          if [ "$NEEDS_VERIFICATION" = "true" ]; then
+            if [ "$VERIFICATION_PASSED" = "true" ]; then
+              # Implementation was verified, plan was archived by verify-implementation job
+              echo "outcome=verified" >> $GITHUB_OUTPUT
+              echo "reason=implementation_confirmed" >> $GITHUB_OUTPUT
+              exit 0
+            elif [ "$SHOULD_PROCEED_TO_EXECUTE" != "true" ]; then
+              # Verification completed but needs manual review (partial implementation)
+              echo "outcome=needs_manual_review" >> $GITHUB_OUTPUT
+              echo "reason=partial_implementation" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            # If should_proceed_to_execute=true, continue to check execution results
+          fi
+
+          # If setup determined we shouldn't execute (and not verification flow)
+          if [ "$SHOULD_EXECUTE" != "true" ] && [ "$SHOULD_PROCEED_TO_EXECUTE" != "true" ]; then
             echo "outcome=skipped" >> $GITHUB_OUTPUT
             echo "reason=$SKIP_REASON" >> $GITHUB_OUTPUT
             exit 0
@@ -957,6 +1171,12 @@ jobs:
                   echo "| Outcome | ✅ Success |" >> $GITHUB_STEP_SUMMARY
                 fi
                 ;;
+              verified)
+                echo "| Outcome | ✅ Verified (implementation confirmed) |" >> $GITHUB_STEP_SUMMARY
+                ;;
+              needs_manual_review)
+                echo "| Outcome | 🔍 Needs Manual Review (partial implementation) |" >> $GITHUB_STEP_SUMMARY
+                ;;
               partial)
                 echo "| Outcome | ⚠️ Partial (review required) |" >> $GITHUB_STEP_SUMMARY
                 ;;
@@ -990,7 +1210,7 @@ jobs:
           fi
 
       - name: "4.8 Report pipeline status"
-        if: always() && needs.setup-and-plan.outputs.should_execute == 'true'
+        if: always() && (needs.setup-and-plan.outputs.should_execute == 'true' || needs.setup-and-plan.outputs.needs_verification == 'true')
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Pipeline Stages" >> $GITHUB_STEP_SUMMARY
@@ -998,6 +1218,22 @@ jobs:
           echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| setup-and-plan | ✅ |" >> $GITHUB_STEP_SUMMARY
+
+          # Report verification stage if it ran
+          NEEDS_VERIFICATION="${{ needs.setup-and-plan.outputs.needs_verification }}"
+          if [ "$NEEDS_VERIFICATION" = "true" ]; then
+            VERIFICATION_PASSED="${{ needs.verify-implementation.outputs.verification_passed }}"
+            if [ "$VERIFICATION_PASSED" = "true" ]; then
+              echo "| verify-implementation | ✅ passed |" >> $GITHUB_STEP_SUMMARY
+            else
+              SHOULD_EXECUTE="${{ needs.verify-implementation.outputs.should_proceed_to_execute }}"
+              if [ "$SHOULD_EXECUTE" = "true" ]; then
+                echo "| verify-implementation | ⚠️ failed → re-execute |" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "| verify-implementation | 🔍 partial → manual review |" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+          fi
 
           REVIEW="${{ needs.review-plan.outputs.outcome }}"
           if [ -n "$REVIEW" ]; then
@@ -1060,6 +1296,12 @@ jobs:
               else
                 STATUS="✅ Success"
               fi
+              ;;
+            verified)
+              STATUS="✅ Verified (implementation confirmed in codebase)"
+              ;;
+            needs_manual_review)
+              STATUS="🔍 Needs Manual Review (partial implementation detected)"
               ;;
             partial)
               STATUS="⚠️ Partial (review required)"
