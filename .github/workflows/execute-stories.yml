@@ -327,6 +327,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: "VP.1.1 Clean up Claude installation locks"
+        run: |
+          rm -rf /tmp/claude-* 2>/dev/null || true
+          rm -rf ~/.claude-install* 2>/dev/null || true
+          rm -rf ~/.npm/_locks/* 2>/dev/null || true
+          pkill -f "claude" 2>/dev/null || true
+          echo "✓ Cleaned up potential installation locks"
+
       - name: "VP.2 Match plan to story in database"
         id: validate
         uses: anthropics/claude-code-action@v1
@@ -533,6 +541,14 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
+      - name: "V.1.1 Clean up Claude installation locks"
+        run: |
+          rm -rf /tmp/claude-* 2>/dev/null || true
+          rm -rf ~/.claude-install* 2>/dev/null || true
+          rm -rf ~/.npm/_locks/* 2>/dev/null || true
+          pkill -f "claude" 2>/dev/null || true
+          echo "✓ Cleaned up potential installation locks"
 
       - name: "V.2 Verify implementation exists"
         id: verify
@@ -750,6 +766,16 @@ jobs:
         run: |
           git pull origin main --rebase || true
 
+      - name: "1.0.2 Clean up Claude installation locks"
+        run: |
+          # Remove any stale installation lock files that may cause conflicts
+          rm -rf /tmp/claude-* 2>/dev/null || true
+          rm -rf ~/.claude-install* 2>/dev/null || true
+          rm -rf ~/.npm/_locks/* 2>/dev/null || true
+          # Kill any orphaned Claude processes
+          pkill -f "claude" 2>/dev/null || true
+          echo "✓ Cleaned up potential installation locks"
+
       - name: "1.1 Review plan critically"
         id: review
         uses: anthropics/claude-code-action@v1
@@ -874,6 +900,14 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+
+      - name: "2.0.1 Clean up Claude installation locks"
+        run: |
+          rm -rf /tmp/claude-* 2>/dev/null || true
+          rm -rf ~/.claude-install* 2>/dev/null || true
+          rm -rf ~/.npm/_locks/* 2>/dev/null || true
+          pkill -f "claude" 2>/dev/null || true
+          echo "✓ Cleaned up potential installation locks"
 
       - name: "2.1 Assess plan complexity"
         id: decompose
@@ -1044,6 +1078,14 @@ jobs:
       - name: "3.1 Pull latest changes"
         run: |
           git pull origin main --rebase || true
+
+      - name: "3.1.1 Clean up Claude installation locks"
+        run: |
+          rm -rf /tmp/claude-* 2>/dev/null || true
+          rm -rf ~/.claude-install* 2>/dev/null || true
+          rm -rf ~/.npm/_locks/* 2>/dev/null || true
+          pkill -f "claude" 2>/dev/null || true
+          echo "✓ Cleaned up potential installation locks"
 
       - name: "3.2 Execute plan"
         id: execute
