@@ -1,5 +1,7 @@
 # 004F: UI Automation - Explorer Folder Path Extraction
 
+**Story ID:** 8.3
+
 ## Task
 Implement actual Windows Explorer folder path extraction using pywinauto.
 
