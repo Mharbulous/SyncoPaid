@@ -719,7 +719,7 @@ jobs:
             if [ "${{ steps.check-executed.outputs.already_executed }}" = "true" ]; then
               echo "| Outcome | ⏭️ Skipped (already executed) |" >> $GITHUB_STEP_SUMMARY
             elif [ "${{ steps.check-deps.outputs.deps_met }}" = "false" ]; then
-              echo "| Outcome | 🚫 Blocked (unmet deps) |" >> $GITHUB_STEP_SUMMARY
+              echo "| Outcome | 🚧 Blocked (unmet deps) |" >> $GITHUB_STEP_SUMMARY
               echo "| Unmet Deps | ${{ steps.check-deps.outputs.unmet_deps }} |" >> $GITHUB_STEP_SUMMARY
             elif [ "${{ steps.claude.outputs.outcome }}" = "success" ]; then
               if [ "${{ steps.claude.outputs.needs_review }}" = "true" ]; then
@@ -810,7 +810,7 @@ jobs:
           if [ "${{ steps.check-executed.outputs.already_executed }}" = "true" ]; then
             STATUS="⏭️ Skipped (already executed)"
           elif [ "${{ steps.check-deps.outputs.deps_met }}" = "false" ]; then
-            STATUS="🚫 Blocked (unmet dependencies)"
+            STATUS="🚧 Blocked (unmet dependencies)"
           elif [ "$CLAUDE" = "success" ]; then
             if [ "${{ steps.claude.outputs.needs_review }}" = "true" ]; then
               STATUS="✅ Success (review required)"
