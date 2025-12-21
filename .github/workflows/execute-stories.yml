@@ -1548,8 +1548,9 @@ jobs:
       - name: "4.9 Post results to story issue"
         if: |
           always() &&
-          (needs.setup-and-plan.outputs.story_id != 'none' ||
-           (needs.validate-plan.outputs.story_id != 'none' && needs.validate-plan.outputs.story_id != ''))
+          needs.setup-and-plan.outputs.plan_selected == 'true' &&
+          (needs.setup-and-plan.outputs.story_id != 'none' && needs.setup-and-plan.outputs.story_id != '' ||
+           needs.validate-plan.outputs.story_id != 'none' && needs.validate-plan.outputs.story_id != '')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -1563,8 +1564,19 @@ jobs:
             echo "No Story ID available, skipping issue posting"
             exit 0
           fi
+          # Use decompose output if available, otherwise fall back to setup-and-plan
           EXECUTE_PLAN="${{ needs.decompose.outputs.execute_plan }}"
-          PLAN_FILENAME=$(basename "$EXECUTE_PLAN" 2>/dev/null || echo "${{ needs.setup-and-plan.outputs.plan_filename }}")
+          if [ -z "$EXECUTE_PLAN" ]; then
+            EXECUTE_PLAN="${{ needs.setup-and-plan.outputs.plan_path }}"
+          fi
+          PLAN_FILENAME="${{ needs.setup-and-plan.outputs.plan_filename }}"
+          if [ -z "$PLAN_FILENAME" ]; then
+            PLAN_FILENAME=$(basename "$EXECUTE_PLAN" 2>/dev/null || echo "unknown")
+          fi
+          COMPLEXITY="${{ needs.decompose.outputs.complexity }}"
+          if [ -z "$COMPLEXITY" ]; then
+            COMPLEXITY="(verified - skipped)"
+          fi
           DB_PATH=".claude/data/story-tree.db"
 
           TITLE=""
@@ -1637,7 +1649,7 @@ jobs:
           BODY="## $STATUS
 
           **Plan:** \`$PLAN_FILENAME\`
-          **Complexity:** ${{ needs.decompose.outputs.complexity }}
+          **Complexity:** $COMPLEXITY
           **Time:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')
           **Run:** [View Details]($RUN_URL)
 
