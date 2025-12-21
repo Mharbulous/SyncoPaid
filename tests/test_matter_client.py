@@ -2,6 +2,8 @@
 import sqlite3
 import tempfile
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 from syncopaid.database import Database
 
 def test_clients_table_exists():
@@ -80,10 +82,16 @@ def test_client_dialog_module_exists():
     from syncopaid.matter_client_dialog import ClientDialog
     assert callable(ClientDialog)
 
+def test_matter_dialog_module_exists():
+    from syncopaid.matter_client_dialog import MatterDialog, export_matters_csv, import_matters_csv
+    assert callable(MatterDialog)
+    assert callable(export_matters_csv)
+
 if __name__ == "__main__":
     test_clients_table_exists()
     test_matters_table_exists()
     test_client_crud_operations()
     test_matter_crud_operations()
     test_client_dialog_module_exists()
+    test_matter_dialog_module_exists()
     print("All tests passed!")
