@@ -46,3 +46,40 @@ def test_exact_matter_number_match_in_title():
         assert result.matter_number == "2024-001"
         assert result.confidence == 100
         assert result.flagged_for_review is False
+
+
+def test_client_name_match_in_title():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = Database(str(Path(tmpdir) / "test.db"))
+        client_id = db.insert_client(name="Acme Corporation")
+        matter_id = db.insert_matter(
+            matter_number="2024-002", client_id=client_id
+        )
+
+        matcher = ActivityMatcher(db)
+        result = matcher.categorize_activity(
+            app="chrome.exe",
+            title="Acme Corporation - Patent Search - Chrome"
+        )
+
+        assert result.matter_id == matter_id
+        assert result.confidence == 80
+
+
+def test_description_keyword_match():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = Database(str(Path(tmpdir) / "test.db"))
+        matter_id = db.insert_matter(
+            matter_number="2024-003",
+            description="Employment Agreement Negotiation"
+        )
+
+        matcher = ActivityMatcher(db)
+        result = matcher.categorize_activity(
+            app="WINWORD.EXE",
+            title="Employment Contract Template.docx"
+        )
+
+        assert result.matter_id == matter_id
+        assert result.confidence == 60
+        assert result.flagged_for_review is True  # 60 < 70 threshold
