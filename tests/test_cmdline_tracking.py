@@ -141,6 +141,48 @@ def test_tracker_loop_includes_cmdline_in_event():
     assert activity_events[0].cmdline == ['chrome.exe', '--profile-directory=Work'], f"Expected cmdline ['chrome.exe', '--profile-directory=Work'], got {activity_events[0].cmdline}"
 
 
+def test_database_cmdline_column_exists():
+    from syncopaid.database import Database
+    import sqlite3
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = os.path.join(tmpdir, "test.db")
+        db = Database(db_path)
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(events)")
+        columns = [row[1] for row in cursor.fetchall()]
+        conn.close()
+
+        assert 'cmdline' in columns
+
+
+def test_database_insert_event_with_cmdline():
+    from syncopaid.database import Database
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = os.path.join(tmpdir, "test.db")
+        db = Database(db_path)
+
+        event = ActivityEvent(
+            timestamp="2025-12-19T10:00:00+00:00",
+            duration_seconds=60.0,
+            app="chrome.exe",
+            title="Test",
+            cmdline=["chrome.exe", "--profile-directory=Work"]
+        )
+
+        db.insert_event(event)
+        events = db.get_events()
+
+        assert len(events) == 1
+        assert 'cmdline' in events[0]
+        assert '"--profile-directory=Work"' in events[0]['cmdline']
+
+
 if __name__ == "__main__":
     test_activity_event_has_cmdline_field()
     test_activity_event_cmdline_defaults_to_none()
@@ -151,4 +193,6 @@ if __name__ == "__main__":
     test_redact_sensitive_paths_redacts_file_paths()
     test_get_active_window_includes_cmdline()
     test_tracker_loop_includes_cmdline_in_event()
+    test_database_cmdline_column_exists()
+    test_database_insert_event_with_cmdline()
     print("All tests passed!")

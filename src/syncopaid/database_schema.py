@@ -95,6 +95,11 @@ class SchemaMixin:
             cursor.execute("ALTER TABLE events ADD COLUMN metadata TEXT")
             logging.info("Database migration: Added metadata column to events table")
 
+        # Migration: Add cmdline column if it doesn't exist
+        if 'cmdline' not in columns:
+            cursor.execute("ALTER TABLE events ADD COLUMN cmdline TEXT")
+            logging.info("Database migration: Added cmdline column to events table")
+
     def _create_indices(self, cursor):
         """
         Create database indices for query performance.
