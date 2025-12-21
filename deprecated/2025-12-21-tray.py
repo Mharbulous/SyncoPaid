@@ -14,10 +14,13 @@ import logging
 from typing import Callable, Optional
 
 # Import helper modules
-from syncopaid.tray_startup import is_startup_enabled
-from syncopaid.tray_icons import create_icon_image
-from syncopaid.tray_menu_handlers import TrayMenuHandlers
-from syncopaid.tray_console_fallback import TrayConsoleFallback
+from syncopaid.tray_startup import (
+    is_startup_enabled,
+    enable_startup,
+    disable_startup,
+    sync_startup_registry
+)
+from syncopaid.tray_icons import create_icon_image, get_resource_path
 
 # Version info
 try:
@@ -33,7 +36,7 @@ except ImportError:
     logging.warning("pystray not available. Install with: pip install pystray Pillow")
 
 
-class TrayIcon(TrayMenuHandlers, TrayConsoleFallback):
+class TrayIcon:
     """
     System tray icon manager.
 
@@ -157,6 +160,72 @@ class TrayIcon(TrayMenuHandlers, TrayConsoleFallback):
             # Quit option removed - use command field with "quit" command
         )
 
+    def _toggle_tracking(self, icon, item):
+        """Handle Start/Pause tracking menu item."""
+        if self.is_tracking:
+            logging.info("User paused tracking from tray menu")
+            self.on_pause()
+            self.is_tracking = False
+        else:
+            logging.info("User started tracking from tray menu")
+            self.on_start()
+            self.is_tracking = True
+            self.is_inactive = False  # Clear inactive when user resumes
+
+        self._refresh_icon()
+
+    def _handle_open(self, icon, item):
+        """Handle Open SyncoPaid menu item."""
+        logging.info("User clicked Open SyncoPaid from tray menu")
+        self.on_open()
+
+    def _toggle_startup(self, icon, item):
+        """Handle Start with Windows toggle."""
+        current_state = is_startup_enabled()
+        new_state = not current_state
+
+        if new_state:
+            # Enable startup
+            success = enable_startup()
+            if success:
+                logging.info("User enabled startup from tray menu")
+            else:
+                logging.error("Failed to enable startup")
+        else:
+            # Disable startup
+            success = disable_startup()
+            if success:
+                logging.info("User disabled startup from tray menu")
+            else:
+                logging.error("Failed to disable startup")
+
+        # Save the setting to config so it persists
+        if success and self.config_manager:
+            self.config_manager.update(start_on_boot=new_state)
+            logging.info(f"Saved start_on_boot={new_state} to config")
+
+        # Force menu update to reflect new state
+        if self.icon:
+            self.icon.update_menu()
+
+    def _handle_about(self, icon, item):
+        """Handle About menu item."""
+        logging.info("User clicked About from tray menu")
+        # TODO: Show about dialog
+        print("\n" + "="*50)
+        print(f"SyncoPaid v{__product_version__}")
+        print("Windows 11 automatic time tracking for lawyers")
+        print("="*50 + "\n")
+
+    def _handle_quit(self, icon, item):
+        """Handle Quit menu item."""
+        logging.info("User quit from tray menu")
+        # Stop the tray icon first to release the event loop
+        if self.icon:
+            self.icon.stop()
+        # Then run cleanup callback (which may call sys.exit)
+        self.on_quit()
+
     def run(self):
         """
         Start the system tray icon.
@@ -179,6 +248,54 @@ class TrayIcon(TrayMenuHandlers, TrayConsoleFallback):
 
         logging.info("System tray icon starting...")
         self.icon.run()
+
+    def _run_console_fallback(self):
+        """
+        Fallback console interface when system tray is unavailable.
+
+        Provides basic commands: start, pause, export, quit.
+        """
+        print("\n" + "="*60)
+        print("SyncoPaid Tracker - Console Mode")
+        print("(System tray not available)")
+        print("="*60)
+        print("\nCommands:")
+        print("  start  - Start tracking")
+        print("  pause  - Pause tracking")
+        print("  open   - Open main window")
+        print("  quit   - Quit application")
+        print("\n")
+
+        while True:
+            try:
+                cmd = input("SyncoPaid> ").strip().lower()
+
+                if cmd == "start":
+                    print("▶ Starting tracking...")
+                    self.is_tracking = True
+                    self.on_start()
+
+                elif cmd == "pause":
+                    print("⏸ Pausing tracking...")
+                    self.is_tracking = False
+                    self.on_pause()
+
+                elif cmd == "open":
+                    print("📊 Opening SyncoPaid...")
+                    self.on_open()
+
+                elif cmd == "quit" or cmd == "exit":
+                    print("❌ Quitting...")
+                    self.on_quit()
+                    break
+
+                else:
+                    print(f"Unknown command: {cmd}")
+
+            except (KeyboardInterrupt, EOFError):
+                print("\n❌ Quitting...")
+                self.on_quit()
+                break
 
     def stop(self):
         """Stop the system tray icon."""
