@@ -570,6 +570,7 @@ jobs:
     outputs:
       verification_passed: ${{ steps.verify-output.outputs.verification_passed }}
       should_proceed_to_execute: ${{ steps.verify-output.outputs.should_proceed_to_execute }}
+      verification_incomplete: ${{ steps.verify-output.outputs.verification_incomplete }}
 
     steps:
       - name: "V.1 Checkout repository"
@@ -610,23 +611,29 @@ jobs:
             ## YOUR TASK
 
             1. Read the plan document completely
-            2. Identify the key deliverables/changes the plan describes:
-               - New files that should have been created
-               - Existing files that should have been modified
-               - New functions/classes/tests that should exist
-               - Configuration changes
-            3. Search the codebase to verify these deliverables actually exist
-            4. Determine if the implementation is complete, partial, or missing
+            2. Identify the TOP 3-5 KEY deliverables (focus on new files and critical functions)
+            3. Use parallel Glob/Grep calls to quickly verify if they exist
+            4. Check only the MOST IMPORTANT deliverables - don't exhaustively check everything
+            5. Write the result file IMMEDIATELY once you have enough evidence
+
+            ## EFFICIENCY GUIDELINES
+
+            - Use Glob to check for file existence in parallel (multiple calls at once)
+            - Use Grep to quickly verify key functions/classes exist
+            - Stop searching once you have clear evidence (3-5 checks is usually enough)
+            - Prioritize: new files > new functions > config changes > minor modifications
+            - If core files exist with key functions, that's sufficient for PASS
 
             ## VERIFICATION CRITERIA
 
-            - **PASS**: All or most key deliverables exist in the codebase
-            - **PARTIAL**: Some deliverables exist but significant parts are missing
-            - **FAIL**: Key deliverables are missing - implementation was not done
+            - **PASS**: Core deliverables exist (main files + key functions)
+            - **PARTIAL**: Some core files exist but key parts are missing
+            - **FAIL**: Core deliverables are completely missing
 
-            ## OUTPUT REQUIRED
+            ## CRITICAL: WRITE OUTPUT EARLY
 
-            Write a JSON file to `.claude/skills/story-execution/ci-verify-result.json`:
+            Write the JSON file to `.claude/skills/story-execution/ci-verify-result.json` AS SOON AS you have enough evidence.
+            Don't wait until you've checked everything - prioritize writing the result:
 
             ```json
             {
@@ -648,7 +655,7 @@ jobs:
           claude_args: |
             --allowedTools "Read,Glob,Grep,Bash(python:*),Bash(python3:*),Write"
             --model claude-sonnet-4-5-20250929
-            --max-turns 20
+            --max-turns 30
 
       - name: "V.3 Read verification output"
         id: verify-output
@@ -678,9 +685,16 @@ jobs:
             echo "| Passed | $PASSED |" >> $GITHUB_STEP_SUMMARY
             echo "| Recommendation | $RECOMMENDATION |" >> $GITHUB_STEP_SUMMARY
           else
+            # Result file not found - likely hit max-turns limit
+            # Default to manual_review to avoid re-executing already-implemented plans
             echo "verification_passed=false" >> $GITHUB_OUTPUT
-            echo "should_proceed_to_execute=true" >> $GITHUB_OUTPUT
-            echo "⚠️ Verification result file not found, defaulting to execute"
+            echo "should_proceed_to_execute=false" >> $GITHUB_OUTPUT
+            echo "verification_incomplete=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Verification result file not found (likely max-turns exceeded)"
+            echo "## ⚠️ Verification Incomplete" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The verification agent did not complete within the turn limit." >> $GITHUB_STEP_SUMMARY
+            echo "Manual review required to determine if implementation exists." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: "V.4 Archive plan if verification passed"
@@ -1303,6 +1317,14 @@ jobs:
               echo "outcome=verified" >> $GITHUB_OUTPUT
               echo "reason=implementation_confirmed" >> $GITHUB_OUTPUT
               exit 0
+            fi
+
+            VERIFICATION_INCOMPLETE="${{ needs.verify-implementation.outputs.verification_incomplete }}"
+            if [ "$VERIFICATION_INCOMPLETE" = "true" ]; then
+              # Verification hit max-turns limit, needs manual review
+              echo "outcome=needs_manual_review" >> $GITHUB_OUTPUT
+              echo "reason=verification_incomplete" >> $GITHUB_OUTPUT
+              exit 0
             elif [ "$SHOULD_PROCEED_TO_EXECUTE" != "true" ]; then
               # Verification completed but needs manual review (partial implementation)
               echo "outcome=needs_manual_review" >> $GITHUB_OUTPUT
@@ -1523,7 +1545,12 @@ jobs:
                 echo "| Outcome | 🚫 Blocked (no Story ID found) |" >> $GITHUB_STEP_SUMMARY
                 ;;
               needs_manual_review)
-                echo "| Outcome | 🔍 Needs Manual Review (partial implementation) |" >> $GITHUB_STEP_SUMMARY
+                REASON="${{ steps.outcome.outputs.reason }}"
+                if [ "$REASON" = "verification_incomplete" ]; then
+                  echo "| Outcome | 🔍 Needs Manual Review (verification timed out) |" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "| Outcome | 🔍 Needs Manual Review (partial implementation) |" >> $GITHUB_STEP_SUMMARY
+                fi
                 ;;
               partial)
                 echo "| Outcome | ⚠️ Partial (review required) |" >> $GITHUB_STEP_SUMMARY
@@ -1587,8 +1614,11 @@ jobs:
           NEEDS_VERIFICATION="${{ needs.setup-and-plan.outputs.needs_verification }}"
           if [ "$NEEDS_VERIFICATION" = "true" ]; then
             VERIFICATION_PASSED="${{ needs.verify-implementation.outputs.verification_passed }}"
+            VERIFICATION_INCOMPLETE="${{ needs.verify-implementation.outputs.verification_incomplete }}"
             if [ "$VERIFICATION_PASSED" = "true" ]; then
               echo "| verify-implementation | ✅ passed |" >> $GITHUB_STEP_SUMMARY
+            elif [ "$VERIFICATION_INCOMPLETE" = "true" ]; then
+              echo "| verify-implementation | ⏱️ timed out → manual review |" >> $GITHUB_STEP_SUMMARY
             else
               SHOULD_EXECUTE="${{ needs.verify-implementation.outputs.should_proceed_to_execute }}"
               if [ "$SHOULD_EXECUTE" = "true" ]; then
@@ -1697,7 +1727,11 @@ jobs:
               STATUS="🚫 Blocked (no matching Story ID found)"
               ;;
             needs_manual_review)
-              STATUS="🔍 Needs Manual Review (partial implementation detected)"
+              if [ "$REASON" = "verification_incomplete" ]; then
+                STATUS="🔍 Needs Manual Review (verification timed out - please check if implementation exists)"
+              else
+                STATUS="🔍 Needs Manual Review (partial implementation detected)"
+              fi
               ;;
             partial)
               STATUS="⚠️ Partial (review required)"
