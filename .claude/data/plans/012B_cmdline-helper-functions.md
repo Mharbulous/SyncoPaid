@@ -1,5 +1,7 @@
 # 012B: Command Line Tracking - Helper Functions
 
+**Story ID:** 1.1.2
+
 ## Task
 Implement `get_process_cmdline()` and `redact_sensitive_paths()` functions.
 

@@ -1,5 +1,7 @@
 # 012E: Command Line Tracking - Database Schema
 
+**Story ID:** 1.1.2
+
 ## Task
 Add `cmdline` column to events table with migration support, update insert and query methods.
 

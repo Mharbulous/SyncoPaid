@@ -1,5 +1,7 @@
 # 019D: LLM & AI Integration - Review UI
 
+**Story ID:** 8.5
+
 ## Task
 Create a review UI for approving/editing AI-generated billing entries.
 

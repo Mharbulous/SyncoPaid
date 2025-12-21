@@ -1,5 +1,7 @@
 # 019A: LLM & AI Integration - API Client
 
+**Story ID:** 8.5
+
 ## Task
 Create the LLM API client for activity classification using OpenAI/Anthropic APIs.
 
