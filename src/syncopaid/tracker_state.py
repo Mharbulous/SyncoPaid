@@ -8,7 +8,7 @@ This module defines:
 """
 
 import re
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from dataclasses import dataclass, asdict
 
 
@@ -77,6 +77,7 @@ class ActivityEvent:
         app: Application executable name
         title: Window title
         url: URL if applicable (future enhancement)
+        cmdline: Process command line arguments (list of strings)
         is_idle: Whether this was an idle period (deprecated - use state)
         state: Activity state or client matter number (e.g., "Active", "1023.L213")
         metadata: Optional JSON-serializable dict for UI automation context
@@ -87,6 +88,7 @@ class ActivityEvent:
     title: Optional[str]
     end_time: Optional[str] = None  # ISO8601 format (end time)
     url: Optional[str] = None
+    cmdline: Optional[List[str]] = None  # Process command line arguments
     is_idle: bool = False
     state: str = STATE_ACTIVE  # Default to Active (client matter TBD)
     metadata: Optional[Dict[str, str]] = None  # UI automation context (JSON)
