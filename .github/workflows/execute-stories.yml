@@ -653,14 +653,40 @@ jobs:
             - Read the plan document directly - it contains all instructions
             - The plan has explicit test code and implementation code to follow
             - Do NOT skip the verification steps (run pytest after each RED and GREEN)
-            - Push is handled by the finalize stage, just commit locally
+            - Commit your changes after each task
 
           claude_args: |
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(pytest:*),Bash(pip:*),Bash(mkdir:*),BashOutput,TodoWrite"
             --model claude-sonnet-4-5-20250929
             --max-turns 50
 
-      - name: "3.3 Read execute output"
+      - name: "3.3 Push implementation commits"
+        if: always()
+        run: |
+          # Check if there are commits to push
+          git fetch origin main
+          COMMITS_AHEAD=$(git rev-list origin/main..HEAD --count 2>/dev/null || echo "0")
+
+          if [ "$COMMITS_AHEAD" -gt 0 ]; then
+            echo "Found $COMMITS_AHEAD commits to push"
+
+            # Retry push with exponential backoff
+            for attempt in 1 2 3 4; do
+              if git push origin main; then
+                echo "✓ Pushed $COMMITS_AHEAD implementation commits"
+                exit 0
+              else
+                echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+                sleep $((2 ** attempt))
+              fi
+            done
+            echo "❌ Push failed after 4 attempts"
+            exit 1
+          else
+            echo "No commits to push"
+          fi
+
+      - name: "3.5 Read execute output"
         id: execute-output
         if: always()
         run: |
@@ -694,7 +720,7 @@ jobs:
             fi
           fi
 
-      - name: "3.4 Upload execute result"
+      - name: "3.6 Upload execute result"
         if: always()
         uses: actions/upload-artifact@v4
         with:
