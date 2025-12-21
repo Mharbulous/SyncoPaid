@@ -213,7 +213,7 @@ jobs:
           # If no Story ID in current plan, search sibling plans with same base sequence
           if [ -z "$STORY_ID" ] && [ -n "$BASE_SEQ" ]; then
             echo "No Story ID in current plan, searching sibling plans..." >> $GITHUB_STEP_SUMMARY
-            for SEARCH_DIR in ".claude/data/executed" ".claude/data/plans"; do
+            for SEARCH_DIR in ".claude/data/executed" ".claude/data/plans" ".claude/data/plans/blocked"; do
               if [ -d "$SEARCH_DIR" ]; then
                 for SIBLING in "$SEARCH_DIR"/${BASE_SEQ}*.md "$SEARCH_DIR"/${BASE_SEQ}[A-Z]*.md; do
                   if [ -f "$SIBLING" ]; then
