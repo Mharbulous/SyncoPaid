@@ -40,6 +40,7 @@ class EventOperationsMixin:
             state = getattr(event, 'state', 'Active')
             metadata = getattr(event, 'metadata', None)
             cmdline = getattr(event, 'cmdline', None)
+            interaction_level = getattr(event, 'interaction_level', 'passive')
 
             # Serialize metadata to JSON if present
             metadata_json = json.dumps(metadata) if metadata else None
@@ -48,8 +49,8 @@ class EventOperationsMixin:
             cmdline_json = json.dumps(cmdline) if cmdline else None
 
             cursor.execute("""
-                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, cmdline, is_idle, state, metadata)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, cmdline, is_idle, state, metadata, interaction_level)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 event.timestamp,
                 event.duration_seconds,
@@ -60,7 +61,8 @@ class EventOperationsMixin:
                 cmdline_json,
                 1 if event.is_idle else 0,
                 state,
-                metadata_json
+                metadata_json,
+                interaction_level
             ))
 
             return cursor.lastrowid
@@ -82,14 +84,15 @@ class EventOperationsMixin:
             cursor = conn.cursor()
 
             cursor.executemany("""
-                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, cmdline, is_idle, state, metadata)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, cmdline, is_idle, state, metadata, interaction_level)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, [
                 (e.timestamp, e.duration_seconds, getattr(e, 'end_time', None),
                  e.app, e.title, e.url,
                  json.dumps(getattr(e, 'cmdline', None)) if getattr(e, 'cmdline', None) else None,
                  1 if e.is_idle else 0, getattr(e, 'state', 'Active'),
-                 json.dumps(getattr(e, 'metadata', None)) if getattr(e, 'metadata', None) else None)
+                 json.dumps(getattr(e, 'metadata', None)) if getattr(e, 'metadata', None) else None,
+                 getattr(e, 'interaction_level', 'passive'))
                 for e in events
             ])
 
@@ -240,6 +243,12 @@ class EventOperationsMixin:
             # Get cmdline field if it exists (backward compatibility)
             cmdline = row['cmdline'] if 'cmdline' in row.keys() else None
 
+            # Get interaction_level with fallback for older records
+            if 'interaction_level' in row.keys() and row['interaction_level']:
+                interaction_level = row['interaction_level']
+            else:
+                interaction_level = 'passive'
+
             events.append({
                 'id': row['id'],
                 'timestamp': row['timestamp'],
@@ -251,7 +260,8 @@ class EventOperationsMixin:
                 'cmdline': cmdline,
                 'is_idle': bool(row['is_idle']),
                 'state': state,
-                'metadata': metadata
+                'metadata': metadata,
+                'interaction_level': interaction_level
             })
 
         return events

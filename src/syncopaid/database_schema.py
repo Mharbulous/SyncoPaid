@@ -100,6 +100,11 @@ class SchemaMixin:
             cursor.execute("ALTER TABLE events ADD COLUMN cmdline TEXT")
             logging.info("Database migration: Added cmdline column to events table")
 
+        # Migration: Add interaction_level column if it doesn't exist
+        if 'interaction_level' not in columns:
+            cursor.execute("ALTER TABLE events ADD COLUMN interaction_level TEXT DEFAULT 'passive'")
+            logging.info("Database migration: Added interaction_level column to events table")
+
     def _create_indices(self, cursor):
         """
         Create database indices for query performance.
