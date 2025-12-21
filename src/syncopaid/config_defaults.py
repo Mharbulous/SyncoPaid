@@ -36,5 +36,7 @@ DEFAULT_CONFIG = {
     # Transition detection & smart prompts
     "transition_prompt_enabled": True,
     "transition_sensitivity": "moderate",  # aggressive, moderate, minimal
-    "transition_never_prompt_apps": ["WINWORD.EXE", "EXCEL.EXE", "Teams.exe", "Zoom.exe"]
+    "transition_never_prompt_apps": ["WINWORD.EXE", "EXCEL.EXE", "Teams.exe", "Zoom.exe"],
+    # Interaction level detection
+    "interaction_threshold_seconds": 5.0
 }

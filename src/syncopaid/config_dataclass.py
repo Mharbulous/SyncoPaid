@@ -40,6 +40,7 @@ class Config:
         transition_prompt_enabled: Enable transition detection prompts (default: True)
         transition_sensitivity: Prompt aggressiveness level (default: moderate)
         transition_never_prompt_apps: Apps where prompts are never shown (default: common editing apps)
+        interaction_threshold_seconds: Seconds of recent typing/clicking to mark as active (default: 5.0)
     """
     poll_interval_seconds: float = 1.0
     idle_threshold_seconds: float = 180.0
@@ -71,6 +72,8 @@ class Config:
     transition_prompt_enabled: bool = True
     transition_sensitivity: str = "moderate"
     transition_never_prompt_apps: List[str] = field(default_factory=lambda: ["WINWORD.EXE", "EXCEL.EXE", "Teams.exe", "Zoom.exe"])
+    # Interaction level detection
+    interaction_threshold_seconds: float = 5.0
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary."""

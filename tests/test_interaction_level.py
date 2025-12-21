@@ -1,6 +1,9 @@
 """Tests for window interaction level detection."""
 
 import pytest
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 from syncopaid.tracker import InteractionLevel, ActivityEvent
 
 
@@ -161,3 +164,15 @@ def test_finalized_event_includes_interaction_level():
     # At least one event should have typing interaction level
     assert len(events) > 0
     assert any(e.interaction_level == InteractionLevel.TYPING.value for e in events)
+
+
+def test_config_has_interaction_threshold():
+    """Verify config includes interaction_threshold_seconds setting."""
+    from syncopaid.config import DEFAULT_CONFIG, Config
+
+    assert 'interaction_threshold_seconds' in DEFAULT_CONFIG
+    assert DEFAULT_CONFIG['interaction_threshold_seconds'] == 5.0
+
+    # Verify Config dataclass accepts it
+    config = Config(interaction_threshold_seconds=10.0)
+    assert config.interaction_threshold_seconds == 10.0
