@@ -40,7 +40,22 @@ class ActivityMatcher:
                 match_reason="No matters defined in database"
             )
 
-        # Matching logic added in subsequent tasks
+        # Combine all text for matching
+        search_text = " ".join(filter(None, [title, url, path])).lower()
+
+        # Strategy 1: Exact matter number match (highest confidence)
+        for matter in matters:
+            matter_num = matter['matter_number']
+            if matter_num.lower() in search_text:
+                return CategorizationResult(
+                    matter_id=matter['id'],
+                    matter_number=matter_num,
+                    confidence=100,
+                    flagged_for_review=False,
+                    match_reason=f"Exact matter number '{matter_num}' found in window title"
+                )
+
+        # No match found
         return CategorizationResult(
             matter_id=None,
             matter_number=None,

@@ -26,3 +26,23 @@ def test_categorize_activity_returns_unknown_when_no_matters():
         assert result.matter_id is None
         assert result.confidence == 0
         assert result.flagged_for_review is True
+
+
+def test_exact_matter_number_match_in_title():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = Database(str(Path(tmpdir) / "test.db"))
+        matter_id = db.insert_matter(
+            matter_number="2024-001",
+            description="Smith Contract Review"
+        )
+
+        matcher = ActivityMatcher(db)
+        result = matcher.categorize_activity(
+            app="WINWORD.EXE",
+            title="2024-001 Smith Agreement v3.docx - Microsoft Word"
+        )
+
+        assert result.matter_id == matter_id
+        assert result.matter_number == "2024-001"
+        assert result.confidence == 100
+        assert result.flagged_for_review is False
