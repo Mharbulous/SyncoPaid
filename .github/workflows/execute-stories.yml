@@ -265,13 +265,14 @@ jobs:
           git add -A
           git commit -m "ci: move blocked plan $FILENAME (deps: $UNMET)"
 
-          # Retry push with exponential backoff
+          # Retry push with exponential backoff and pull before retry
           for attempt in 1 2 3 4; do
             if git push origin main; then
               echo "✓ Push successful"
               exit 0
             else
-              echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+              echo "Push failed (attempt $attempt), pulling and retrying..."
+              git pull --rebase origin main || true
               sleep $((2 ** attempt))
             fi
           done
@@ -506,7 +507,8 @@ jobs:
                 echo "✓ Pushed plan update with Story ID"
                 exit 0
               else
-                echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+                echo "Push failed (attempt $attempt), pulling and retrying..."
+                git pull --rebase origin main || true
                 sleep $((2 ** attempt))
               fi
             done
@@ -540,7 +542,8 @@ jobs:
               echo "✓ Push successful"
               exit 0
             else
-              echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+              echo "Push failed (attempt $attempt), pulling and retrying..."
+              git pull --rebase origin main || true
               sleep $((2 ** attempt))
             fi
           done
@@ -722,7 +725,8 @@ jobs:
               echo "✓ Push successful"
               exit 0
             else
-              echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+              echo "Push failed (attempt $attempt), pulling and retrying..."
+              git pull --rebase origin main || true
               sleep $((2 ** attempt))
             fi
           done
@@ -772,7 +776,8 @@ jobs:
                 echo "✓ Push successful"
                 exit 0
               else
-                echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+                echo "Push failed (attempt $attempt), pulling and retrying..."
+                git pull --rebase origin main || true
                 sleep $((2 ** attempt))
               fi
             done
@@ -1058,6 +1063,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Pull latest before staging to avoid conflicts
+          git fetch origin main
+          git rebase origin/main || git rebase --abort
+
           git add -A
 
           if ! git diff --cached --quiet; then
@@ -1068,13 +1078,14 @@ jobs:
             Complexity: ${{ steps.decompose-output.outputs.complexity }}
             Sub-plans: ${{ steps.decompose-output.outputs.sub_plans_created }}"
 
-            # Retry push with exponential backoff
+            # Retry push with exponential backoff and pull before retry
             for attempt in 1 2 3 4; do
               if git push origin main; then
                 echo "✓ Committed and pushed sub-plans"
                 exit 0
               else
-                echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+                echo "Push failed (attempt $attempt), pulling and retrying..."
+                git pull --rebase origin main || true
                 sleep $((2 ** attempt))
               fi
             done
@@ -1210,7 +1221,8 @@ jobs:
                 echo "✓ Pushed $COMMITS_AHEAD implementation commits"
                 exit 0
               else
-                echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+                echo "Push failed (attempt $attempt), pulling and retrying..."
+                git pull --rebase origin main || true
                 sleep $((2 ** attempt))
               fi
             done
@@ -1490,7 +1502,8 @@ jobs:
               echo "✓ Push successful"
               exit 0
             else
-              echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+              echo "Push failed (attempt $attempt), pulling and retrying..."
+              git pull --rebase origin main || true
               sleep $((2 ** attempt))
             fi
           done
