@@ -1,42 +1,15 @@
 # TDD Execution
 
-Execute tasks in batches of 3, following strict RED-GREEN-COMMIT cycle.
+Execute all tasks in the plan following strict RED-GREEN-COMMIT cycle.
 
-## Batch Execution
+## Reading the Plan
 
-### Before Starting Batch
+The plan document is the source of truth. It contains:
+- Task list with numbered tasks
+- For each task: RED (test code), GREEN (implementation code), COMMIT (message)
+- Verification commands to run
 
-```python
-python -c "
-import json
-
-state_file = '.claude/skills/story-execution/temp-CI-notes.json'
-with open(state_file) as f:
-    state = json.load(f)
-
-batch_num = state.get('current_batch', 0) + 1
-start_idx = (batch_num - 1) * 3
-end_idx = min(start_idx + 3, state['total_tasks'])
-
-# Mark batch as in progress
-if len(state.get('batches', [])) < batch_num:
-    state['batches'].append({
-        'batch': batch_num,
-        'task_range': [start_idx + 1, end_idx],
-        'status': 'in_progress',
-        'commits': []
-    })
-else:
-    state['batches'][batch_num - 1]['status'] = 'in_progress'
-
-state['current_batch'] = batch_num
-
-with open(state_file, 'w') as f:
-    json.dump(state, f, indent=2)
-
-print(f'Starting batch {batch_num}: tasks {start_idx + 1}-{end_idx}')
-"
-```
+Read the entire plan first, then execute each task sequentially.
 
 ## TDD Cycle per Task
 
@@ -78,75 +51,49 @@ Story: [STORY_ID]
 Task: [TASK_NUMBER] of [TOTAL_TASKS]"
 ```
 
-### Update Task Status
+## Tracking Progress
 
-```python
-python -c "
-import json, subprocess
+After each task, note:
+- Task number completed
+- Commit hash
+- Any issues encountered
 
-state_file = '.claude/skills/story-execution/temp-CI-notes.json'
-with open(state_file) as f:
-    state = json.load(f)
+At the end, write the result to `.claude/skills/story-execution/ci-execute-result.json`:
 
-task_idx = 0  # Replace with actual task index
-commit_hash = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True, text=True).stdout.strip()[:7]
-
-# Update task
-state['tasks'][task_idx]['status'] = 'completed'
-state['tasks'][task_idx]['notes'] = f'Commit: {commit_hash}'
-
-# Add commit to batch
-batch_idx = state['current_batch'] - 1
-state['batches'][batch_idx]['commits'].append(commit_hash)
-
-with open(state_file, 'w') as f:
-    json.dump(state, f, indent=2)
-
-print(f'Task {task_idx + 1} completed: {commit_hash}')
-"
+```json
+{
+  "status": "completed",
+  "tasks_completed": 5,
+  "tasks_total": 5,
+  "commits": ["abc1234", "def5678", "ghi9012", "jkl3456", "mno7890"],
+  "notes": "All tasks completed successfully"
+}
 ```
 
-## Batch Completion
+## Status Values
 
-After completing all tasks in batch:
-
-```python
-python -c "
-import json
-
-state_file = '.claude/skills/story-execution/temp-CI-notes.json'
-with open(state_file) as f:
-    state = json.load(f)
-
-batch_idx = state['current_batch'] - 1
-
-# Check all tasks in range completed
-start = state['batches'][batch_idx]['task_range'][0] - 1
-end = state['batches'][batch_idx]['task_range'][1]
-all_completed = all(state['tasks'][i]['status'] == 'completed' for i in range(start, end))
-
-state['batches'][batch_idx]['status'] = 'completed' if all_completed else 'failed'
-
-# Check if more tasks remain
-tasks_remaining = sum(1 for t in state['tasks'] if t['status'] == 'pending')
-state['tasks_remaining'] = tasks_remaining
-
-with open(state_file, 'w') as f:
-    json.dump(state, f, indent=2)
-
-print(json.dumps({
-    'batch': state['current_batch'],
-    'status': state['batches'][batch_idx]['status'],
-    'tasks_remaining': tasks_remaining
-}, indent=2))
-"
-```
+- `completed`: All tasks finished successfully
+- `partial`: Some tasks completed, but stopped early
+- `failed`: Unable to complete due to errors
 
 ## When to Stop
 
-Stop and set batch status to 'failed' when:
+Stop and set status to 'failed' when:
 - Test should fail but passes (feature already exists)
 - Test fails for wrong reason (wrong implementation path)
 - Cannot find file/function mentioned in plan
 - Repeated failures after 3 attempts
 - Regression detected (existing tests fail)
+
+## Example Execution
+
+Given a plan with 3 tasks:
+
+1. Read task 1 from plan
+2. Write test code exactly as specified
+3. Run pytest, verify test fails
+4. Write implementation code as specified
+5. Run pytest, verify test passes
+6. Commit: "feat: add validation for idle threshold - Task 1/3"
+7. Repeat for tasks 2 and 3
+8. Write result JSON with all commit hashes
