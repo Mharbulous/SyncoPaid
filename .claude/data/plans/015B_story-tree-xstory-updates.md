@@ -1,86 +1,73 @@
-# Sub-Plan B: xstory.py Updates for Three-Field Display
+# Sub-Plan B: xstory.py UI Updates
 
 ## Overview
 
-Update the xstory.py TUI to read and display the new `story` and `success_criteria` fields in the DetailView.
+Update xstory.py to read from and display the new `story` and `success_criteria` fields in the DetailView.
 
-**Parent Plan**: 015_story-tree-three-field-migration.md
-**Depends On**: 015A (schema columns must exist)
+Parent plan: `015_story-tree-three-field-migration.md`
+Depends on: `015A_story-tree-migration-script.md` (columns must exist in database)
 
 ---
 
 ## TDD Tasks
 
-### Task 1: Update StoryNode dataclass with new fields
+### Task 1: Update StoryNode class
 
 **File**: `dev-tools/xstory/xstory.py`
 
-Update the StoryNode class to include:
+**Test**:
 ```python
-story: str = ''
-success_criteria: str = ''
+# StoryNode should accept and store new fields
+node = StoryNode(
+    id="test", title="Test", status="open", capacity=1,
+    story="As a user...", success_criteria="- [ ] Done"
+)
+assert node.story == "As a user..."
+assert node.success_criteria == "- [ ] Done"
 ```
 
-**Location**: Around line 428 in StoryNode `__init__`
-
-**Verify**: `python -c "from xstory import StoryNode; s = StoryNode('1','t','s',1, story='test'); print(s.story)"`
+**Implementation**:
+- Add `story: str = ''` parameter to `__init__`
+- Add `success_criteria: str = ''` parameter to `__init__`
+- Store as instance attributes
 
 ---
 
 ### Task 2: Update SQL query in _load_nodes()
 
-**File**: `dev-tools/xstory/xstory.py`
-
-Update the SELECT query to include:
+**Test**:
 ```sql
-s.story, s.success_criteria
+-- Query should return new columns
+SELECT s.story, s.success_criteria FROM story_nodes s LIMIT 1;
 ```
 
-And update the row unpacking to map these fields to StoryNode.
-
-**Location**: Around line 1527
-
-**Verify**: Load xstory and verify no SQL errors when opening the application
-
----
-
-### Task 3: Update DetailView._update_detail() for three-field display
-
-**File**: `dev-tools/xstory/xstory.py`
-
-Replace the current description display with three sections:
-1. **Story** - User story format (if present)
-2. **Success Criteria** - Acceptance checklist (if present)
-3. **Description** - Additional context (if present)
-
-Use `_add_section_header()` for each section.
-
-**Location**: Around line 825
-
-**Verify**:
-```bash
-cd dev-tools/xstory
-python xstory.py
-# Select a node and verify the DetailView shows separate sections
-```
+**Implementation**:
+- Add `s.story, s.success_criteria` to SELECT clause
+- Update row unpacking to include new fields
+- Pass new fields to StoryNode constructor
 
 ---
 
-### Task 4: Fallback display for unmigrated nodes
+### Task 3: Update DetailView._update_detail() display
 
-Ensure DetailView gracefully handles nodes where:
-- `story` is empty but `description` has content (pre-migration)
-- All new fields are empty
-- Only some fields have content
+**Test (manual)**:
+- Open xstory GUI
+- Select a story with migrated content
+- Verify three separate sections: Story, Success Criteria, Description
 
-**Verify**: Create a test node with only description content, verify it displays correctly
+**Implementation**:
+- Add "Story" section header when `node.story` is non-empty
+- Add "Success Criteria" section header when `node.success_criteria` is non-empty
+- Keep "Description" section for remaining content
+- Preserve existing Notes section unchanged
 
 ---
 
-## Verification Checklist
+## Completion Criteria
 
-- [ ] StoryNode class has story and success_criteria attributes
-- [ ] SQL query includes new columns without errors
-- [ ] DetailView shows three sections for migrated nodes
-- [ ] DetailView handles pre-migration nodes gracefully
-- [ ] xstory.py starts without errors
+- [ ] StoryNode class accepts new fields
+- [ ] SQL query fetches new columns
+- [ ] DetailView displays Story section
+- [ ] DetailView displays Success Criteria section
+- [ ] DetailView displays Description section (remaining content)
+- [ ] Notes section unchanged
