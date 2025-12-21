@@ -255,6 +255,10 @@ jobs:
           BLOCKED_DIR=".claude/data/plans/blocked"
           UNMET="${{ steps.check-deps.outputs.unmet_deps }}"
 
+          # Pull latest changes before making any modifications
+          git fetch origin main
+          git rebase origin/main || git rebase --abort
+
           mkdir -p "$BLOCKED_DIR"
           mv "$PLAN_PATH" "$BLOCKED_DIR/"
           echo "Moved blocked plan: $FILENAME → $BLOCKED_DIR/"
@@ -489,6 +493,10 @@ jobs:
       - name: "VP.4 Commit plan update if Story ID was added"
         if: steps.validate-output.outputs.validation_passed == 'true'
         run: |
+          # Pull latest changes before making any modifications
+          git fetch origin main
+          git rebase origin/main || git rebase --abort
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
@@ -524,6 +532,10 @@ jobs:
           PLAN_PATH="${{ needs.setup-and-plan.outputs.plan_path }}"
           FILENAME="${{ needs.setup-and-plan.outputs.plan_filename }}"
           BLOCKED_DIR=".claude/data/plans/blocked"
+
+          # Pull latest changes before making any modifications
+          git fetch origin main
+          git rebase origin/main || git rebase --abort
 
           mkdir -p "$BLOCKED_DIR"
           mv "$PLAN_PATH" "$BLOCKED_DIR/"
@@ -707,6 +719,10 @@ jobs:
           FILENAME="${{ needs.setup-and-plan.outputs.plan_filename }}"
           ARCHIVE_DIR=".claude/data/executed"
 
+          # Pull latest changes before making any modifications
+          git fetch origin main
+          git rebase origin/main || git rebase --abort
+
           mkdir -p "$ARCHIVE_DIR"
           mv "$PLAN_PATH" "$ARCHIVE_DIR/"
           echo "✓ Verified implementation exists - archived plan: $FILENAME → $ARCHIVE_DIR/"
@@ -743,6 +759,10 @@ jobs:
             echo "No database or story ID, skipping stage reset"
             exit 0
           fi
+
+          # Pull latest changes before making any modifications
+          git fetch origin main
+          git rebase origin/main || git rebase --abort
 
           echo "⚠️ Implementation not found - resetting story stage for re-execution"
 
