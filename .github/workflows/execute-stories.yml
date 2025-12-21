@@ -343,6 +343,79 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: "1.0.5 Check if story already past active stage"
+        id: check-stage
+        run: |
+          STORY_ID="${{ needs.setup-and-plan.outputs.story_id }}"
+          DB_PATH=".claude/data/story-tree.db"
+
+          if [ "$STORY_ID" = "none" ] || [ ! -f "$DB_PATH" ]; then
+            echo "already_executed=false" >> $GITHUB_OUTPUT
+            echo "No Story ID or database, skipping stage check"
+            exit 0
+          fi
+
+          STAGE=$(python3 -c "
+          import sqlite3
+          conn = sqlite3.connect('$DB_PATH')
+          r = conn.execute('SELECT stage FROM story_nodes WHERE id = ?', ('$STORY_ID',)).fetchone()
+          print(r[0] if r else 'unknown')
+          conn.close()
+          ")
+
+          echo "Current stage: $STAGE"
+
+          # Stages past 'active' indicate the plan was already executed
+          case "$STAGE" in
+            reviewing|verifying|implemented|ready|polish|released)
+              echo "already_executed=true" >> $GITHUB_OUTPUT
+              echo "current_stage=$STAGE" >> $GITHUB_OUTPUT
+              echo "⚠️ Story $STORY_ID already at stage: $STAGE (past active)"
+
+              # Set hold_reason to 'pending' to flag for human review
+              python3 << PYEOF
+          import sqlite3
+          conn = sqlite3.connect("$DB_PATH")
+          conn.execute('''
+              UPDATE story_nodes
+              SET hold_reason = 'pending',
+                  human_review = 1,
+                  notes = COALESCE(notes || char(10), '') || 'CI: Plan already executed (stage=$STAGE), held for review: ' || datetime('now'),
+                  updated_at = datetime('now')
+              WHERE id = ? AND hold_reason IS NULL
+          ''', ("$STORY_ID",))
+          conn.commit()
+          affected = conn.total_changes
+          print(f"✓ Set hold_reason='pending' for story $STORY_ID (rows affected: {affected})")
+          conn.close()
+          PYEOF
+
+              # Commit the database change
+              git config user.name "github-actions[bot]"
+              git config user.email "github-actions[bot]@users.noreply.github.com"
+              git add -A
+              if ! git diff --cached --quiet; then
+                git commit -m "ci: hold story $STORY_ID as pending (already at $STAGE stage)"
+
+                # Retry push with exponential backoff
+                for attempt in 1 2 3 4; do
+                  if git push origin main; then
+                    echo "✓ Push successful"
+                    break
+                  else
+                    echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+                    sleep $((2 ** attempt))
+                  fi
+                done
+              fi
+              ;;
+            *)
+              echo "already_executed=false" >> $GITHUB_OUTPUT
+              echo "current_stage=$STAGE" >> $GITHUB_OUTPUT
+              echo "✓ Story $STORY_ID at stage: $STAGE (not yet executed)"
+              ;;
+          esac
+
       - name: "1.1 Review plan critically"
         id: review
         uses: anthropics/claude-code-action@v1
