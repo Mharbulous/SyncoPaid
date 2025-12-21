@@ -1,4 +1,4 @@
-name: Execute Planned Story
+name: 4. Execute Story
 
 # Run every 20 minutes for intensive story execution
 on:
