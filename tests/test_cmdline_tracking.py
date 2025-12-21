@@ -105,6 +105,42 @@ def test_get_active_window_includes_cmdline():
     assert 'cmdline' in result
 
 
+def test_tracker_loop_includes_cmdline_in_event():
+    from syncopaid.tracker import TrackerLoop, ActivityEvent
+
+    tracker = TrackerLoop(poll_interval=0.01, idle_threshold=180.0)
+
+    windows = [
+        {'app': 'chrome.exe', 'title': 'Tab1', 'pid': 1234, 'cmdline': ['chrome.exe', '--profile-directory=Work']},
+        {'app': 'notepad.exe', 'title': 'Document', 'pid': 5678, 'cmdline': ['notepad.exe']},
+    ]
+    call_count = [0]
+
+    def mock_window():
+        idx = min(call_count[0], len(windows) - 1)
+        call_count[0] += 1
+        return windows[idx]
+
+    with patch('syncopaid.tracker_loop.get_active_window', side_effect=mock_window):
+        with patch('syncopaid.tracker_loop.get_idle_seconds', return_value=0.0):
+            with patch('syncopaid.tracker_loop.is_workstation_locked', return_value=False):
+                with patch('syncopaid.tracker_loop.is_screensaver_active', return_value=False):
+                    with patch('syncopaid.tracker_loop.submit_screenshot'):
+                        with patch('time.sleep'):
+                            gen = tracker.start()
+                            events = []
+                            for i, event in enumerate(gen):
+                                if isinstance(event, ActivityEvent):
+                                    events.append(event)
+                                if i >= 10:
+                                    tracker.stop()
+                                    break
+
+    activity_events = [e for e in events if isinstance(e, ActivityEvent)]
+    assert len(activity_events) > 0, f"No activity events found. Events: {events}"
+    assert activity_events[0].cmdline == ['chrome.exe', '--profile-directory=Work'], f"Expected cmdline ['chrome.exe', '--profile-directory=Work'], got {activity_events[0].cmdline}"
+
+
 if __name__ == "__main__":
     test_activity_event_has_cmdline_field()
     test_activity_event_cmdline_defaults_to_none()
@@ -114,4 +150,5 @@ if __name__ == "__main__":
     test_redact_sensitive_paths_preserves_profile()
     test_redact_sensitive_paths_redacts_file_paths()
     test_get_active_window_includes_cmdline()
+    test_tracker_loop_includes_cmdline_in_event()
     print("All tests passed!")

@@ -172,6 +172,7 @@ class TrackerLoop:
                     'app': window['app'],
                     'title': window['title'],
                     'url': window.get('url'),  # Extracted context (URL, subject, or filepath)
+                    'cmdline': window.get('cmdline'),  # Process command line arguments
                     'is_idle': is_idle,
                     'is_locked_or_screensaver': is_locked_or_screensaver,
                     'window_info': window  # For UI automation extraction
@@ -297,6 +298,7 @@ class TrackerLoop:
             title=self.current_event['title'],
             end_time=end_time.isoformat(),
             url=self.current_event.get('url'),  # Extracted context (URL, subject, or filepath)
+            cmdline=self.current_event.get('cmdline'),  # Process command line arguments
             is_idle=self.current_event['is_idle'],
             state=event_state,
             metadata=metadata
