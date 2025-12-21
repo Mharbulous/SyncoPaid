@@ -176,6 +176,9 @@ class TrackerLoop:
                 is_locked_or_screensaver = is_workstation_locked() or is_screensaver_active()
                 self.state_detector.log_lock_transitions(is_locked_or_screensaver)
 
+                # Get interaction level
+                interaction_level = self.get_interaction_level(idle_seconds)
+
                 # Create state dict for comparison
                 state = {
                     'app': window['app'],
@@ -184,6 +187,7 @@ class TrackerLoop:
                     'cmdline': window.get('cmdline'),  # Process command line arguments
                     'is_idle': is_idle,
                     'is_locked_or_screensaver': is_locked_or_screensaver,
+                    'interaction_level': interaction_level.value,
                     'window_info': window  # For UI automation extraction
                 }
 
