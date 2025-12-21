@@ -12,12 +12,12 @@ Epic 8 (LLM & AI Integration) and several child stories were marked `blocked` by
 
 ### Actions Taken
 
-1. **Unblocked Epic 8** - Local LLM stories resolve privacy concern
+1. **Unblocked Epic 8** - Now has dual LLM paths (local + cloud)
 2. **Unblocked 8.1** - Pure infrastructure, no LLM dependency
 3. **Unblocked 8.3** - Dependency 8.2 is now `active`
 4. **Unblocked 8.4.1** - Dependency 8.1.1 is now `approved`
-5. **Deprecated cloud LLM plans** - Moved 019A-019E to deprecated/ (they use OpenAI/Anthropic APIs)
-6. **Flagged 8.5 for review** - Current plans reference cloud APIs, needs updating for local LLM
+5. **Kept 8.5 as valid path** - Cloud LLM option for users who prefer it or have older hardware
+6. **Dual LLM strategy** - Local (8.6-8.10) for privacy, Cloud (8.5) for convenience/older hardware
 
 ### 8.4 Remains Blocked
 
@@ -40,7 +40,7 @@ Epic 8: LLM & AI Integration (stage=planned) ✓ UNBLOCKED
 ├── 8.4: AI Disambiguation with Screenshot Context (blocked) ← deps progressing
 │   ├── 8.4.1: Activity-to-Matter Matching (planned) ✓ UNBLOCKED
 │   └── 8.4.2: Transition Detection & Smart Prompts (reviewing)
-├── 8.5: LLM API Integration & Batch Categorization (approved) ⚠️ needs plan update
+├── 8.5: LLM API Integration & Batch Categorization (approved) ← cloud option
 ├── 8.6: Local LLM Engine Architecture (concept)
 ├── 8.7: Hardware Detection & Model Selection (concept)
 ├── 8.8: Moondream 2 Integration (CPU-Friendly) (concept)
@@ -56,7 +56,7 @@ Epic 8: LLM & AI Integration (stage=planned) ✓ UNBLOCKED
 | Blocked plan for 8.4 | `.claude/data/plans/blocked/007_ai-disambiguation-foundation.md` |
 | Blocked plan for 8.1 | `.claude/data/plans/blocked/006A_matter-client-db-schema.md` |
 | Moondream 2 checklist | `ai_docs/MoonDream/moondream2-integration-checklist.md` |
-| Deprecated cloud LLM plan | `deprecated/019_llm-ai-integration.md` (used OpenAI/Anthropic - obsolete) |
+| Cloud LLM plans | `.claude/data/plans/019A-019E_*.md` (OpenAI/Anthropic - valid option) |
 
 ## Why Stories Are Blocked
 
@@ -82,10 +82,19 @@ Notes in database show `BLOCKED by CI: 2025-12-18 05:21:06` - an automated workf
 
 ## Files Changed
 
-- `.claude/data/story-tree.db` - Updated hold_reason and notes for 8, 8.1, 8.3, 8.4, 8.4.1, 8.5
-- `.claude/data/plans/deprecated/019A-019E_*.md` - Moved 5 cloud LLM plans to deprecated
+- `.claude/data/story-tree.db` - Updated hold_reason and notes for 8, 8.1, 8.3, 8.4, 8.4.1, 8.5, 8.6
+- `.claude/data/plans/019A-019E_*.md` - Cloud LLM plans (kept active as valid option)
+
+## LLM Strategy: Dual Path
+
+| Path | Stories | Use Case |
+|------|---------|----------|
+| **Local LLM** | 8.6-8.10 (Moondream 2/3) | Privacy-focused users, capable hardware |
+| **Cloud LLM** | 8.5 (OpenAI/Anthropic) | Older hardware, user preference |
+
+Both paths are valid. User chooses based on their priorities (privacy vs convenience).
 
 ## Follow-up Work
 
-1. **8.5 plan update** - Replace cloud API approach with local LLM integration (8.6-8.10)
-2. **8.4 unblock** - Will auto-resolve when dependency stories complete
+1. **8.4 unblock** - Will auto-resolve when dependency stories complete
+2. **Settings UI** - Let users choose local vs cloud LLM preference
