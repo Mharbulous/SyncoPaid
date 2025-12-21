@@ -653,7 +653,7 @@ jobs:
             - Read the plan document directly - it contains all instructions
             - The plan has explicit test code and implementation code to follow
             - Do NOT skip the verification steps (run pytest after each RED and GREEN)
-            - Push is handled by the finalize stage, just commit locally
+            - After completing all tasks, push your commits to origin/main
 
           claude_args: |
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(pytest:*),Bash(pip:*),Bash(mkdir:*),BashOutput,TodoWrite"
@@ -694,7 +694,44 @@ jobs:
             fi
           fi
 
-      - name: "3.4 Upload execute result"
+      - name: "3.4 Push execution commits"
+        if: always()
+        run: |
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Check for uncommitted changes and commit them
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Found uncommitted changes, staging and committing..."
+            git add -A
+            git commit -m "ci: execution artifacts
+
+            Story: ${{ needs.setup-and-plan.outputs.story_id }}"
+          fi
+
+          # Check for unpushed commits
+          NEW_COMMITS=$(git log origin/main..HEAD --oneline 2>/dev/null | wc -l)
+          if [ "$NEW_COMMITS" -gt 0 ]; then
+            echo "Found $NEW_COMMITS unpushed commits, pushing to main..."
+            for attempt in 1 2 3 4; do
+              # Pull with rebase to handle any concurrent changes
+              git pull origin main --rebase || true
+              if git push origin main; then
+                echo "✓ Push successful"
+                exit 0
+              else
+                echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+                sleep $((2 ** attempt))
+              fi
+            done
+            echo "❌ Push failed after 4 attempts"
+            exit 1
+          else
+            echo "No unpushed commits to push"
+          fi
+
+      - name: "3.5 Upload execute result"
         if: always()
         uses: actions/upload-artifact@v4
         with:
