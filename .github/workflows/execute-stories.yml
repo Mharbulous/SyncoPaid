@@ -327,6 +327,26 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: "VP.1.5 Extract database schema"
+        id: schema
+        run: |
+          DB_PATH=".claude/data/story-tree.db"
+          if [ -f "$DB_PATH" ]; then
+            # Extract schema and sample data for Claude
+            SCHEMA=$(sqlite3 "$DB_PATH" ".schema story_nodes" 2>/dev/null | head -40)
+            SAMPLE=$(sqlite3 "$DB_PATH" "SELECT id, title, substr(description, 1, 100) FROM story_nodes WHERE disposition IS NULL LIMIT 3" 2>/dev/null)
+
+            # Write to temp file for Claude to read
+            echo "$SCHEMA" > /tmp/db_schema.txt
+            echo "" >> /tmp/db_schema.txt
+            echo "Sample rows (id|title|description_excerpt):" >> /tmp/db_schema.txt
+            echo "$SAMPLE" >> /tmp/db_schema.txt
+
+            echo "schema_available=true" >> $GITHUB_OUTPUT
+          else
+            echo "schema_available=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: "VP.2 Match plan to story in database"
         id: validate
         uses: anthropics/claude-code-action@v1
@@ -354,21 +374,44 @@ jobs:
                - Any mentioned story references
             3. Query the database at `.claude/data/story-tree.db` to find matching stories:
                - Compare plan content to story descriptions
-               - Compare to user_story field
-               - Compare to acceptance_criteria field (if available)
+               - Compare to story field (user story text)
+               - Compare to success_criteria field
                - Look for similar keywords and concepts
             4. If a confident match is found (>80% confidence), update the plan
             5. If no match found, the plan should be blocked
 
             ## DATABASE SCHEMA
 
-            The story_nodes table has these relevant columns:
-            - id: The story ID (e.g., "7.6", "8.1.2")
-            - title: Short title
-            - description: Longer description
-            - user_story: User story text (As a... I want... So that...)
-            - acceptance_criteria: Acceptance criteria text
-            - stage: Current stage (planned, implementing, etc.)
+            The story_nodes table has these columns:
+            - id: TEXT PRIMARY KEY (e.g., "7.6", "8.1.2")
+            - title: TEXT NOT NULL
+            - description: TEXT NOT NULL
+            - story: TEXT (user story text: "As a... I want... So that...")
+            - success_criteria: TEXT (acceptance criteria)
+            - stage: TEXT (concept, approved, planned, active, reviewing, verifying, implemented, ready, polish, released)
+            - hold_reason: TEXT (NULL if not held)
+            - disposition: TEXT (NULL if active in pipeline)
+
+            ## SQL QUERY EXAMPLES
+
+            Use Python sqlite3 module (preferred) or sqlite3 CLI with proper quoting:
+
+            ```python
+            # Find stories by keyword (Python - PREFERRED)
+            import sqlite3
+            conn = sqlite3.connect('.claude/data/story-tree.db')
+            results = conn.execute('''
+                SELECT id, title, description, story, success_criteria
+                FROM story_nodes
+                WHERE disposition IS NULL
+                  AND (title LIKE ? OR description LIKE ? OR story LIKE ?)
+            ''', ('%keyword%', '%keyword%', '%keyword%')).fetchall()
+            ```
+
+            ```bash
+            # If using sqlite3 CLI, use <> instead of != and quote carefully
+            sqlite3 .claude/data/story-tree.db "SELECT id, title FROM story_nodes WHERE stage <> 'concept' AND disposition IS NULL"
+            ```
 
             ## HOW TO UPDATE THE PLAN
 
