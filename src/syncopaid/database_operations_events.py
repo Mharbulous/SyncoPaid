@@ -275,7 +275,10 @@ class EventOperationsMixin:
                 'is_idle': bool(row['is_idle']),
                 'state': state,
                 'metadata': metadata,
-                'interaction_level': interaction_level
+                'interaction_level': interaction_level,
+                'matter_id': row['matter_id'] if 'matter_id' in row.keys() else None,
+                'confidence': row['confidence'] if 'confidence' in row.keys() else 0,
+                'flagged_for_review': bool(row['flagged_for_review']) if 'flagged_for_review' in row.keys() else False
             })
 
         return events
