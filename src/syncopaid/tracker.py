@@ -30,8 +30,12 @@ from syncopaid.tracker_state import (
     IdleResumptionEvent
 )
 
-# Re-export Windows APIs availability flag
-from syncopaid.tracker_windows import WINDOWS_APIS_AVAILABLE
+# Re-export Windows APIs availability flag and lock/screensaver detection
+from syncopaid.tracker_windows import (
+    WINDOWS_APIS_AVAILABLE,
+    is_screensaver_active,
+    is_workstation_locked
+)
 
 # Import core TrackerLoop class
 from syncopaid.tracker_loop import TrackerLoop
