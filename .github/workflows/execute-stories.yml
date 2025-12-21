@@ -335,18 +335,28 @@ jobs:
 
       - name: "5.1a Read review output"
         id: review-output
-        if: steps.review.outcome == 'success'
+        if: always() && steps.init-state.outputs.initialized == 'true'
         run: |
           STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
           if [ -f "$STATE_FILE" ]; then
             OUTCOME=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('review',{}).get('outcome','unknown'))")
-            TASKS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('total_tasks',0))")
-            echo "outcome=$OUTCOME" >> $GITHUB_OUTPUT
-            echo "total_tasks=$TASKS" >> $GITHUB_OUTPUT
-            echo "Review outcome: $OUTCOME, Total tasks: $TASKS"
+            # Check if review was actually completed (has a valid outcome)
+            if [ "$OUTCOME" = "proceed" ] || [ "$OUTCOME" = "proceed_with_review" ] || [ "$OUTCOME" = "pause" ]; then
+              TASKS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('total_tasks',0))")
+              echo "outcome=$OUTCOME" >> $GITHUB_OUTPUT
+              echo "total_tasks=$TASKS" >> $GITHUB_OUTPUT
+              echo "review_completed=true" >> $GITHUB_OUTPUT
+              echo "Review outcome: $OUTCOME, Total tasks: $TASKS"
+            else
+              echo "outcome=failed" >> $GITHUB_OUTPUT
+              echo "total_tasks=0" >> $GITHUB_OUTPUT
+              echo "review_completed=false" >> $GITHUB_OUTPUT
+              echo "Review not completed - outcome in state: $OUTCOME"
+            fi
           else
             echo "outcome=failed" >> $GITHUB_OUTPUT
             echo "total_tasks=0" >> $GITHUB_OUTPUT
+            echo "review_completed=false" >> $GITHUB_OUTPUT
             echo "State file not found"
           fi
 
@@ -354,7 +364,7 @@ jobs:
       - name: "5.2 Execute batch 1"
         id: batch1
         if: |
-          steps.review.outcome == 'success' &&
+          steps.review-output.outputs.review_completed == 'true' &&
           (steps.review-output.outputs.outcome == 'proceed' || steps.review-output.outputs.outcome == 'proceed_with_review') &&
           steps.review-output.outputs.total_tasks != '0'
         uses: anthropics/claude-code-action@v1
@@ -392,25 +402,36 @@ jobs:
 
       - name: "5.2a Read batch 1 output"
         id: batch1-output
-        if: steps.batch1.outcome == 'success'
+        if: always() && steps.review-output.outputs.review_completed == 'true'
         run: |
           STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
           if [ -f "$STATE_FILE" ]; then
-            STATUS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print(b[0].get('status','unknown') if b else 'unknown')")
-            REMAINING=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('tasks_remaining',0))")
-            echo "status=$STATUS" >> $GITHUB_OUTPUT
-            echo "tasks_remaining=$REMAINING" >> $GITHUB_OUTPUT
-            echo "Batch 1 status: $STATUS, Remaining: $REMAINING"
+            # Check if batch 1 exists in state
+            BATCH_EXISTS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print('true' if len(b) >= 1 else 'false')")
+            if [ "$BATCH_EXISTS" = "true" ]; then
+              STATUS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print(b[0].get('status','unknown'))")
+              REMAINING=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('tasks_remaining',0))")
+              echo "status=$STATUS" >> $GITHUB_OUTPUT
+              echo "tasks_remaining=$REMAINING" >> $GITHUB_OUTPUT
+              echo "batch_ran=true" >> $GITHUB_OUTPUT
+              echo "Batch 1 status: $STATUS, Remaining: $REMAINING"
+            else
+              echo "status=skipped" >> $GITHUB_OUTPUT
+              echo "tasks_remaining=0" >> $GITHUB_OUTPUT
+              echo "batch_ran=false" >> $GITHUB_OUTPUT
+              echo "Batch 1 did not run"
+            fi
           else
             echo "status=failed" >> $GITHUB_OUTPUT
             echo "tasks_remaining=0" >> $GITHUB_OUTPUT
+            echo "batch_ran=false" >> $GITHUB_OUTPUT
           fi
 
       # --- 5.3: Execute Batch 2 (tasks 4-6) ---
       - name: "5.3 Execute batch 2"
         id: batch2
         if: |
-          steps.batch1.outcome == 'success' &&
+          steps.batch1-output.outputs.batch_ran == 'true' &&
           steps.batch1-output.outputs.status == 'completed' &&
           steps.batch1-output.outputs.tasks_remaining != '0'
         uses: anthropics/claude-code-action@v1
@@ -445,25 +466,35 @@ jobs:
 
       - name: "5.3a Read batch 2 output"
         id: batch2-output
-        if: steps.batch2.outcome == 'success'
+        if: always() && steps.batch1-output.outputs.batch_ran == 'true'
         run: |
           STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
           if [ -f "$STATE_FILE" ]; then
-            STATUS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print(b[1].get('status','unknown') if len(b)>1 else 'unknown')")
-            REMAINING=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('tasks_remaining',0))")
-            echo "status=$STATUS" >> $GITHUB_OUTPUT
-            echo "tasks_remaining=$REMAINING" >> $GITHUB_OUTPUT
-            echo "Batch 2 status: $STATUS, Remaining: $REMAINING"
+            BATCH_EXISTS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print('true' if len(b) >= 2 else 'false')")
+            if [ "$BATCH_EXISTS" = "true" ]; then
+              STATUS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print(b[1].get('status','unknown'))")
+              REMAINING=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('tasks_remaining',0))")
+              echo "status=$STATUS" >> $GITHUB_OUTPUT
+              echo "tasks_remaining=$REMAINING" >> $GITHUB_OUTPUT
+              echo "batch_ran=true" >> $GITHUB_OUTPUT
+              echo "Batch 2 status: $STATUS, Remaining: $REMAINING"
+            else
+              echo "status=skipped" >> $GITHUB_OUTPUT
+              echo "tasks_remaining=0" >> $GITHUB_OUTPUT
+              echo "batch_ran=false" >> $GITHUB_OUTPUT
+              echo "Batch 2 did not run"
+            fi
           else
             echo "status=failed" >> $GITHUB_OUTPUT
             echo "tasks_remaining=0" >> $GITHUB_OUTPUT
+            echo "batch_ran=false" >> $GITHUB_OUTPUT
           fi
 
       # --- 5.4: Execute Batch 3 (tasks 7-9) ---
       - name: "5.4 Execute batch 3"
         id: batch3
         if: |
-          steps.batch2.outcome == 'success' &&
+          steps.batch2-output.outputs.batch_ran == 'true' &&
           steps.batch2-output.outputs.status == 'completed' &&
           steps.batch2-output.outputs.tasks_remaining != '0'
         uses: anthropics/claude-code-action@v1
@@ -491,24 +522,33 @@ jobs:
 
       - name: "5.4a Read batch 3 output"
         id: batch3-output
-        if: steps.batch3.outcome == 'success'
+        if: always() && steps.batch2-output.outputs.batch_ran == 'true'
         run: |
           STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
           if [ -f "$STATE_FILE" ]; then
-            STATUS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print(b[2].get('status','unknown') if len(b)>2 else 'unknown')")
-            REMAINING=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('tasks_remaining',0))")
-            echo "status=$STATUS" >> $GITHUB_OUTPUT
-            echo "tasks_remaining=$REMAINING" >> $GITHUB_OUTPUT
+            BATCH_EXISTS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print('true' if len(b) >= 3 else 'false')")
+            if [ "$BATCH_EXISTS" = "true" ]; then
+              STATUS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print(b[2].get('status','unknown'))")
+              REMAINING=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('tasks_remaining',0))")
+              echo "status=$STATUS" >> $GITHUB_OUTPUT
+              echo "tasks_remaining=$REMAINING" >> $GITHUB_OUTPUT
+              echo "batch_ran=true" >> $GITHUB_OUTPUT
+            else
+              echo "status=skipped" >> $GITHUB_OUTPUT
+              echo "tasks_remaining=0" >> $GITHUB_OUTPUT
+              echo "batch_ran=false" >> $GITHUB_OUTPUT
+            fi
           else
             echo "status=failed" >> $GITHUB_OUTPUT
             echo "tasks_remaining=0" >> $GITHUB_OUTPUT
+            echo "batch_ran=false" >> $GITHUB_OUTPUT
           fi
 
       # --- 5.5: Execute Batch 4 (tasks 10-12) ---
       - name: "5.5 Execute batch 4"
         id: batch4
         if: |
-          steps.batch3.outcome == 'success' &&
+          steps.batch3-output.outputs.batch_ran == 'true' &&
           steps.batch3-output.outputs.status == 'completed' &&
           steps.batch3-output.outputs.tasks_remaining != '0'
         uses: anthropics/claude-code-action@v1
@@ -536,28 +576,38 @@ jobs:
 
       - name: "5.5a Read batch 4 output"
         id: batch4-output
-        if: steps.batch4.outcome == 'success'
+        if: always() && steps.batch3-output.outputs.batch_ran == 'true'
         run: |
           STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
           if [ -f "$STATE_FILE" ]; then
-            STATUS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print(b[3].get('status','unknown') if len(b)>3 else 'unknown')")
-            REMAINING=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('tasks_remaining',0))")
-            echo "status=$STATUS" >> $GITHUB_OUTPUT
-            echo "tasks_remaining=$REMAINING" >> $GITHUB_OUTPUT
+            BATCH_EXISTS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print('true' if len(b) >= 4 else 'false')")
+            if [ "$BATCH_EXISTS" = "true" ]; then
+              STATUS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print(b[3].get('status','unknown'))")
+              REMAINING=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('tasks_remaining',0))")
+              echo "status=$STATUS" >> $GITHUB_OUTPUT
+              echo "tasks_remaining=$REMAINING" >> $GITHUB_OUTPUT
+              echo "batch_ran=true" >> $GITHUB_OUTPUT
+            else
+              echo "status=skipped" >> $GITHUB_OUTPUT
+              echo "tasks_remaining=0" >> $GITHUB_OUTPUT
+              echo "batch_ran=false" >> $GITHUB_OUTPUT
+            fi
           else
             echo "status=failed" >> $GITHUB_OUTPUT
             echo "tasks_remaining=0" >> $GITHUB_OUTPUT
+            echo "batch_ran=false" >> $GITHUB_OUTPUT
           fi
 
       # --- 5.6: Determine final execution status ---
       - name: "5.6 Determine execution outcome"
         id: claude
-        if: steps.init-state.outputs.initialized == 'true'
+        if: always() && steps.init-state.outputs.initialized == 'true'
         run: |
           STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
 
-          # Determine overall outcome
-          if [ "${{ steps.review.outcome }}" != "success" ]; then
+          # Determine overall outcome based on state file, not step outcomes
+          REVIEW_COMPLETED="${{ steps.review-output.outputs.review_completed }}"
+          if [ "$REVIEW_COMPLETED" != "true" ]; then
             echo "outcome=failure" >> $GITHUB_OUTPUT
             echo "reason=review_failed" >> $GITHUB_OUTPUT
             exit 0
