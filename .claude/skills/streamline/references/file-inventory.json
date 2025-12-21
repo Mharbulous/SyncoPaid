@@ -4,8 +4,10 @@
   "fileExtensions": [".py"],
   "files": {
     "src/syncopaid/__init__.py": { "lines": 15 },
-    "src/syncopaid/__main__.py": { "lines": 306 },
+    "src/syncopaid/__main__.py": { "lines": 10 },
     "src/syncopaid/action_screenshot.py": { "lines": 299 },
+    "src/syncopaid/main_app_class.py": { "lines": 262 },
+    "src/syncopaid/main_entry_point.py": { "lines": 48 },
     "src/syncopaid/action_screenshot_capture.py": { "lines": 197 },
     "src/syncopaid/action_screenshot_events.py": { "lines": 244 },
     "src/syncopaid/config.py": { "lines": 209 },
@@ -69,6 +71,7 @@
     "src/syncopaid/main_ui_windows.py",
     "src/syncopaid/database_operations.py",
     "src/syncopaid/matter_client_dialog.py",
-    "src/syncopaid/tracker_loop.py"
+    "src/syncopaid/tracker_loop.py",
+    "src/syncopaid/__main__.py"
   ]
 }
