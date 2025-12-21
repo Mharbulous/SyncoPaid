@@ -96,6 +96,15 @@ def test_redact_sensitive_paths_redacts_file_paths():
     assert "secret.docx" in str(result)
 
 
+def test_get_active_window_includes_cmdline():
+    from syncopaid.tracker_windows import get_active_window
+
+    with patch('syncopaid.tracker_windows.WINDOWS_APIS_AVAILABLE', False):
+        result = get_active_window()
+
+    assert 'cmdline' in result
+
+
 if __name__ == "__main__":
     test_activity_event_has_cmdline_field()
     test_activity_event_cmdline_defaults_to_none()
@@ -104,4 +113,5 @@ if __name__ == "__main__":
     test_get_process_cmdline_handles_access_denied()
     test_redact_sensitive_paths_preserves_profile()
     test_redact_sensitive_paths_redacts_file_paths()
+    test_get_active_window_includes_cmdline()
     print("All tests passed!")

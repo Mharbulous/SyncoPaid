@@ -47,6 +47,7 @@ if WINDOWS_APIS_AVAILABLE:
 def get_active_window() -> Dict[str, Optional[str]]:
     """
     Get information about the currently active foreground window.
+    Now includes redacted cmdline for instance differentiation.
 
     Returns:
         Dictionary with keys:
@@ -54,6 +55,7 @@ def get_active_window() -> Dict[str, Optional[str]]:
         - 'title': Window title text
         - 'pid': Process ID (for debugging)
         - 'url': Extracted contextual information (URL, subject, or filepath)
+        - 'cmdline': Redacted command line arguments (list of strings)
 
     Note: Returns mock data on non-Windows platforms for testing.
     """
@@ -61,13 +63,13 @@ def get_active_window() -> Dict[str, Optional[str]]:
         # Mock data for testing on non-Windows platforms
         import random
         mock_apps = [
-            ("WINWORD.EXE", "Smith-Contract-v2.docx - Word"),
-            ("chrome.exe", "CanLII - 2024 BCSC 1234 - Google Chrome"),
-            ("OUTLOOK.EXE", "Inbox - user@lawfirm.com - Outlook"),
+            ("WINWORD.EXE", "Smith-Contract-v2.docx - Word", ["WINWORD.EXE", "[PATH]\\Smith-Contract-v2.docx"]),
+            ("chrome.exe", "CanLII - 2024 BCSC 1234 - Google Chrome", ["chrome.exe", "--profile-directory=Default"]),
+            ("OUTLOOK.EXE", "Inbox - user@lawfirm.com - Outlook", ["OUTLOOK.EXE"]),
         ]
-        app, title = random.choice(mock_apps)
+        app, title, cmdline = random.choice(mock_apps)
         url = extract_context(app, title)
-        return {"app": app, "title": title, "pid": 0, "url": url}
+        return {"app": app, "title": title, "pid": 0, "url": url, "cmdline": cmdline}
 
     try:
         hwnd = win32gui.GetForegroundWindow()
@@ -79,24 +81,31 @@ def get_active_window() -> Dict[str, Optional[str]]:
         if pid < 0:
             pid = pid & 0xFFFFFFFF  # Convert to unsigned
 
+        process_name = None
+        cmdline = None
+
         try:
-            process = psutil.Process(pid).name()
+            process = psutil.Process(pid)
+            process_name = process.name()
+            raw_cmdline = process.cmdline()
+            if raw_cmdline:
+                cmdline = redact_sensitive_paths(raw_cmdline)
         except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError):
-            process = None
+            pass
 
         # Extract contextual information
-        url = extract_context(process, title)
+        url = extract_context(process_name, title)
         if url:
-            logging.debug(f"Extracted context from {process}: {url[:50]}...")  # Log first 50 chars
-        elif process and title:
+            logging.debug(f"Extracted context from {process_name}: {url[:50]}...")  # Log first 50 chars
+        elif process_name and title:
             # Only log if we had a valid app and title but extraction returned None
-            logging.debug(f"No context extracted from {process}: {title[:50]}...")
+            logging.debug(f"No context extracted from {process_name}: {title[:50]}...")
 
-        return {"app": process, "title": title, "pid": pid, "url": url}
+        return {"app": process_name, "title": title, "pid": pid, "url": url, "cmdline": cmdline}
 
     except Exception as e:
         logging.error(f"Error getting active window: {e}")
-        return {"app": None, "title": None, "pid": None, "url": None}
+        return {"app": None, "title": None, "pid": None, "url": None, "cmdline": None}
 
 
 # ============================================================================
