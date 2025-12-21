@@ -5,9 +5,16 @@ Before executing any code, review the plan critically to identify issues.
 ## Process
 
 1. Read the entire plan
-2. Check prerequisites (dependencies implemented, baseline tests pass)
-3. Identify any questions, concerns, or ambiguities
-4. Classify concerns as blocking or deferrable
+2. Quick check: Does the plan's KEY deliverable already exist? (1-2 targeted searches)
+3. Make a decision and WRITE THE OUTPUT FILE IMMEDIATELY
+4. Only do deeper analysis if initial check is inconclusive
+
+## Efficiency Guidelines (CI Mode)
+
+- Use Glob/Grep in PARALLEL for speed
+- Stop searching once you have enough evidence (2-3 files is usually enough)
+- WRITE THE OUTPUT FILE AS SOON AS you have a decision
+- Don't exhaustively verify every detail - focus on KEY deliverables
 
 ## Issue Classification
 
@@ -84,6 +91,18 @@ Write to `.claude/skills/story-execution/ci-review-result.json`:
 
 | Outcome | Meaning | Next Step |
 |---------|---------|-----------|
+| `verified` | Already implemented | Archive plan, skip execution |
 | `proceed` | No issues found | Continue to decompose stage |
 | `pause` | Blocking issues | Stop, report issues |
 | `proceed_with_review` | Deferrable issues documented | Continue, flag for review |
+
+### Example: Already Implemented
+
+```json
+{
+  "outcome": "verified",
+  "blocking_issues": [],
+  "deferrable_issues": [],
+  "notes": "Core implementation already exists: database.py has cmdline column, tests passing"
+}
+```
