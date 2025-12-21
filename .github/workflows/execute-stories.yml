@@ -653,7 +653,7 @@ jobs:
             - Read the plan document directly - it contains all instructions
             - The plan has explicit test code and implementation code to follow
             - Do NOT skip the verification steps (run pytest after each RED and GREEN)
-            - Commit your changes after each task
+            - Commit your changes after each task (push is handled automatically by the workflow)
 
           claude_args: |
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(pytest:*),Bash(pip:*),Bash(mkdir:*),BashOutput,TodoWrite"
@@ -686,7 +686,7 @@ jobs:
             echo "No commits to push"
           fi
 
-      - name: "3.5 Read execute output"
+      - name: "3.4 Read execute output"
         id: execute-output
         if: always()
         run: |
@@ -720,7 +720,7 @@ jobs:
             fi
           fi
 
-      - name: "3.6 Upload execute result"
+      - name: "3.5 Upload execute result"
         if: always()
         uses: actions/upload-artifact@v4
         with:
