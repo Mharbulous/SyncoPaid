@@ -1,5 +1,7 @@
 # 019C: LLM & AI Integration - Narrative Generation
 
+**Story ID:** 8.5
+
 ## Task
 Implement billing narrative generation from activity sequences using LLM.
 

@@ -1,5 +1,7 @@
 # Configurable Idle Threshold - Implementation Plan
 
+**Story ID:** 1.2.3
+
 > **TDD Required:** Each task (~2-5 min): Write test → verify RED → Write code → verify GREEN → Commit
 > **Zero Context:** This plan assumes the implementer knows nothing about the codebase.
 

@@ -1,5 +1,7 @@
 # 019E: LLM & AI Integration - Config Defaults
 
+**Story ID:** 8.5
+
 ## Task
 Add LLM configuration settings to the config module.
 
