@@ -42,9 +42,9 @@ STATUS_COLORS = {
     'legacy': '#CC0000',       # Red (outdated/superseded)
     'archived': '#CC0000',     # Red (mildest - final cold storage)
     # Stages (greens/blues - workflow progression)
-    'concept': '#CC9900',      # Goldenrod
+    'concept': '#77CC11',      # Chartreuse (yellowish-green)
     'approved': '#00CC33',     # Spring Green
-    'planned': '#00CC66',      # Emerald
+    'planned': '#00CC99',      # Teal (turquoise-green)
     'active': '#0099CC',       # Cerulean
     'reviewing': '#0066CC',    # Azure
     'verifying': '#0033CC',    # Royal Blue
