@@ -264,51 +264,346 @@ jobs:
           git push origin main
 
       # ══════════════════════════════════════════════════════════════
-      # PHASE 5: EXECUTE PLAN (Claude AI)
+      # PHASE 5: EXECUTE PLAN (Multi-Call Claude AI)
       # ══════════════════════════════════════════════════════════════
-      - name: "5.1 Execute plan with Claude"
-        id: claude
+
+      # --- 5.0: Initialize shared state ---
+      - name: "5.0 Initialize temp-CI-notes.json"
+        id: init-state
         if: |
           steps.select-plan.outputs.selected == 'true' &&
           steps.check-executed.outputs.already_executed != 'true' &&
           steps.check-deps.outputs.deps_met != 'false'
+        run: |
+          STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
+          cat > "$STATE_FILE" << EOF
+          {
+            "version": 1,
+            "plan_file": "${{ steps.select-plan.outputs.filename }}",
+            "story_id": "${{ steps.extract-story.outputs.story_id }}",
+            "review": {"outcome": null, "blocking_issues": [], "deferrable_issues": [], "notes": null},
+            "tasks": [],
+            "batches": [],
+            "current_batch": 0,
+            "total_tasks": 0,
+            "tasks_remaining": 0,
+            "final_status": "not_started"
+          }
+          EOF
+          echo "initialized=true" >> $GITHUB_OUTPUT
+          echo "Initialized state file: $STATE_FILE"
+
+      # --- 5.1: Critical Review ---
+      - name: "5.1 Review plan critically"
+        id: review
+        if: steps.init-state.outputs.initialized == 'true'
         uses: anthropics/claude-code-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           show_full_output: true
-
           prompt: |
-            Execute the implementation plan: ${{ steps.select-plan.outputs.path }}
+            Use story-execution skill in CI mode.
+            Phase: REVIEW
+            Plan: ${{ steps.select-plan.outputs.path }}
             Story ID: ${{ steps.extract-story.outputs.story_id }}
 
+            Read/write state: .claude/skills/story-execution/temp-CI-notes.json
+
             INSTRUCTIONS:
-            1. Read the plan file
-            2. For each task:
-               - Write failing test (RED)
-               - Write minimal code to pass (GREEN)
-               - Commit with message including Story ID
-            3. Run verification commands from the plan
-            4. If all tests pass, execution is complete
+            1. Read the plan file completely
+            2. Review critically - identify any blocking or deferrable issues
+            3. Extract task list from the plan
+            4. Update temp-CI-notes.json with:
+               - review.outcome: "proceed", "pause", or "proceed_with_review"
+               - review.blocking_issues: [] if none
+               - review.deferrable_issues: [] if none
+               - tasks: [{id, name, status: "pending"}] extracted from plan
+               - total_tasks: count of tasks
+               - tasks_remaining: same as total_tasks initially
+            5. If blocking issues exist, set outcome to "pause"
+            6. If deferrable issues exist, set outcome to "proceed_with_review"
+            7. If no issues, set outcome to "proceed"
 
-            CONSTRAINTS:
-            - Follow plan steps exactly
-            - Do NOT modify unrelated files
-            - Do NOT run commands in background
-            - If a test fails unexpectedly, stop and report
+            Load references:
+            - references/critical-review.md
 
-            TOOL NOTE: Use BashOutput (not TaskOutput) for background commands.
+          claude_args: |
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(python:*),Bash(python3:*),TodoWrite"
+            --model claude-sonnet-4-5-20250929
+            --max-turns 20
+
+      - name: "5.1a Read review output"
+        id: review-output
+        if: steps.review.outcome == 'success'
+        run: |
+          STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
+          if [ -f "$STATE_FILE" ]; then
+            OUTCOME=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('review',{}).get('outcome','unknown'))")
+            TASKS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('total_tasks',0))")
+            echo "outcome=$OUTCOME" >> $GITHUB_OUTPUT
+            echo "total_tasks=$TASKS" >> $GITHUB_OUTPUT
+            echo "Review outcome: $OUTCOME, Total tasks: $TASKS"
+          else
+            echo "outcome=failed" >> $GITHUB_OUTPUT
+            echo "total_tasks=0" >> $GITHUB_OUTPUT
+            echo "State file not found"
+          fi
+
+      # --- 5.2: Execute Batch 1 (tasks 1-3) ---
+      - name: "5.2 Execute batch 1"
+        id: batch1
+        if: |
+          steps.review.outcome == 'success' &&
+          (steps.review-output.outputs.outcome == 'proceed' || steps.review-output.outputs.outcome == 'proceed_with_review') &&
+          steps.review-output.outputs.total_tasks != '0'
+        uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: |
+            Use story-execution skill in CI mode.
+            Phase: EXECUTE_BATCH
+            Batch: 1
+            Task Range: 1-3
+            Plan: ${{ steps.select-plan.outputs.path }}
+            Story ID: ${{ steps.extract-story.outputs.story_id }}
+
+            Read/write state: .claude/skills/story-execution/temp-CI-notes.json
+
+            INSTRUCTIONS:
+            1. Read temp-CI-notes.json for task list
+            2. Execute tasks 1-3 (or fewer if less than 3 tasks total)
+            3. For each task: RED (failing test) -> GREEN (implementation) -> COMMIT
+            4. Commit format: "feat: [task] Story: ${{ steps.extract-story.outputs.story_id }}"
+            5. Update task status to "completed" or "failed" in temp-CI-notes.json
+            6. Update batches[0] with status and commit hashes
+            7. Update current_batch to 1 and tasks_remaining
+
+            Load references:
+            - references/tdd-execution.md
+            - references/database-updates.md
 
           claude_args: |
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(pytest:*),Bash(pip:*),BashOutput,TodoWrite"
             --model claude-sonnet-4-5-20250929
-            --max-turns 50
+            --max-turns 30
+
+      - name: "5.2a Read batch 1 output"
+        id: batch1-output
+        if: steps.batch1.outcome == 'success'
+        run: |
+          STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
+          if [ -f "$STATE_FILE" ]; then
+            STATUS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print(b[0].get('status','unknown') if b else 'unknown')")
+            REMAINING=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('tasks_remaining',0))")
+            echo "status=$STATUS" >> $GITHUB_OUTPUT
+            echo "tasks_remaining=$REMAINING" >> $GITHUB_OUTPUT
+            echo "Batch 1 status: $STATUS, Remaining: $REMAINING"
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "tasks_remaining=0" >> $GITHUB_OUTPUT
+          fi
+
+      # --- 5.3: Execute Batch 2 (tasks 4-6) ---
+      - name: "5.3 Execute batch 2"
+        id: batch2
+        if: |
+          steps.batch1.outcome == 'success' &&
+          steps.batch1-output.outputs.status == 'completed' &&
+          steps.batch1-output.outputs.tasks_remaining != '0'
+        uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: |
+            Use story-execution skill in CI mode.
+            Phase: EXECUTE_BATCH
+            Batch: 2
+            Task Range: 4-6
+            Plan: ${{ steps.select-plan.outputs.path }}
+            Story ID: ${{ steps.extract-story.outputs.story_id }}
+
+            Read/write state: .claude/skills/story-execution/temp-CI-notes.json
+
+            INSTRUCTIONS:
+            1. Read temp-CI-notes.json for task list and current progress
+            2. Execute tasks 4-6 (or remaining tasks if fewer)
+            3. For each task: RED -> GREEN -> COMMIT
+            4. Update task status and batches[1] in temp-CI-notes.json
+            5. Update current_batch to 2 and tasks_remaining
+
+            Load references:
+            - references/tdd-execution.md
+
+          claude_args: |
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(pytest:*),Bash(pip:*),BashOutput,TodoWrite"
+            --model claude-sonnet-4-5-20250929
+            --max-turns 30
+
+      - name: "5.3a Read batch 2 output"
+        id: batch2-output
+        if: steps.batch2.outcome == 'success'
+        run: |
+          STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
+          if [ -f "$STATE_FILE" ]; then
+            STATUS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print(b[1].get('status','unknown') if len(b)>1 else 'unknown')")
+            REMAINING=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('tasks_remaining',0))")
+            echo "status=$STATUS" >> $GITHUB_OUTPUT
+            echo "tasks_remaining=$REMAINING" >> $GITHUB_OUTPUT
+            echo "Batch 2 status: $STATUS, Remaining: $REMAINING"
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "tasks_remaining=0" >> $GITHUB_OUTPUT
+          fi
+
+      # --- 5.4: Execute Batch 3 (tasks 7-9) ---
+      - name: "5.4 Execute batch 3"
+        id: batch3
+        if: |
+          steps.batch2.outcome == 'success' &&
+          steps.batch2-output.outputs.status == 'completed' &&
+          steps.batch2-output.outputs.tasks_remaining != '0'
+        uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: |
+            Use story-execution skill in CI mode.
+            Phase: EXECUTE_BATCH
+            Batch: 3
+            Task Range: 7-9
+            Plan: ${{ steps.select-plan.outputs.path }}
+            Story ID: ${{ steps.extract-story.outputs.story_id }}
+
+            Read/write state: .claude/skills/story-execution/temp-CI-notes.json
+
+            Load references:
+            - references/tdd-execution.md
+
+          claude_args: |
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(pytest:*),Bash(pip:*),BashOutput,TodoWrite"
+            --model claude-sonnet-4-5-20250929
+            --max-turns 30
+
+      - name: "5.4a Read batch 3 output"
+        id: batch3-output
+        if: steps.batch3.outcome == 'success'
+        run: |
+          STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
+          if [ -f "$STATE_FILE" ]; then
+            STATUS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print(b[2].get('status','unknown') if len(b)>2 else 'unknown')")
+            REMAINING=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('tasks_remaining',0))")
+            echo "status=$STATUS" >> $GITHUB_OUTPUT
+            echo "tasks_remaining=$REMAINING" >> $GITHUB_OUTPUT
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "tasks_remaining=0" >> $GITHUB_OUTPUT
+          fi
+
+      # --- 5.5: Execute Batch 4 (tasks 10-12) ---
+      - name: "5.5 Execute batch 4"
+        id: batch4
+        if: |
+          steps.batch3.outcome == 'success' &&
+          steps.batch3-output.outputs.status == 'completed' &&
+          steps.batch3-output.outputs.tasks_remaining != '0'
+        uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: |
+            Use story-execution skill in CI mode.
+            Phase: EXECUTE_BATCH
+            Batch: 4
+            Task Range: 10-12
+            Plan: ${{ steps.select-plan.outputs.path }}
+            Story ID: ${{ steps.extract-story.outputs.story_id }}
+
+            Read/write state: .claude/skills/story-execution/temp-CI-notes.json
+
+            Load references:
+            - references/tdd-execution.md
+
+          claude_args: |
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(pytest:*),Bash(pip:*),BashOutput,TodoWrite"
+            --model claude-sonnet-4-5-20250929
+            --max-turns 30
+
+      - name: "5.5a Read batch 4 output"
+        id: batch4-output
+        if: steps.batch4.outcome == 'success'
+        run: |
+          STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
+          if [ -f "$STATE_FILE" ]; then
+            STATUS=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); b=d.get('batches',[]); print(b[3].get('status','unknown') if len(b)>3 else 'unknown')")
+            REMAINING=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('tasks_remaining',0))")
+            echo "status=$STATUS" >> $GITHUB_OUTPUT
+            echo "tasks_remaining=$REMAINING" >> $GITHUB_OUTPUT
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "tasks_remaining=0" >> $GITHUB_OUTPUT
+          fi
+
+      # --- 5.6: Determine final execution status ---
+      - name: "5.6 Determine execution outcome"
+        id: claude
+        if: steps.init-state.outputs.initialized == 'true'
+        run: |
+          STATE_FILE=".claude/skills/story-execution/temp-CI-notes.json"
+
+          # Determine overall outcome
+          if [ "${{ steps.review.outcome }}" != "success" ]; then
+            echo "outcome=failure" >> $GITHUB_OUTPUT
+            echo "reason=review_failed" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          REVIEW_OUTCOME="${{ steps.review-output.outputs.outcome }}"
+          if [ "$REVIEW_OUTCOME" = "pause" ]; then
+            echo "outcome=paused" >> $GITHUB_OUTPUT
+            echo "reason=blocking_issues" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check final state
+          if [ -f "$STATE_FILE" ]; then
+            REMAINING=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('tasks_remaining',0))")
+            FINAL=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('final_status','unknown'))")
+
+            if [ "$REMAINING" = "0" ] || [ "$FINAL" = "completed" ]; then
+              if [ "$REVIEW_OUTCOME" = "proceed_with_review" ]; then
+                echo "outcome=success" >> $GITHUB_OUTPUT
+                echo "needs_review=true" >> $GITHUB_OUTPUT
+              else
+                echo "outcome=success" >> $GITHUB_OUTPUT
+                echo "needs_review=false" >> $GITHUB_OUTPUT
+              fi
+            else
+              # Check if any batch failed
+              FAILED=$(python3 -c "import json; d=json.load(open('$STATE_FILE')); print('yes' if any(b.get('status')=='failed' for b in d.get('batches',[])) else 'no')")
+              if [ "$FAILED" = "yes" ]; then
+                echo "outcome=failure" >> $GITHUB_OUTPUT
+                echo "reason=batch_failed" >> $GITHUB_OUTPUT
+              else
+                echo "outcome=success" >> $GITHUB_OUTPUT
+                echo "needs_review=false" >> $GITHUB_OUTPUT
+              fi
+            fi
+          else
+            echo "outcome=failure" >> $GITHUB_OUTPUT
+            echo "reason=no_state_file" >> $GITHUB_OUTPUT
+          fi
 
       # ══════════════════════════════════════════════════════════════
       # PHASE 6: FINALIZE
       # ══════════════════════════════════════════════════════════════
       - name: "6.1 Archive executed plan"
-        if: steps.claude.outcome == 'success'
+        if: steps.claude.outputs.outcome == 'success'
         run: |
           PLAN_PATH="${{ steps.select-plan.outputs.path }}"
           FILENAME="${{ steps.select-plan.outputs.filename }}"
@@ -323,14 +618,24 @@ jobs:
           fi
 
       - name: "6.2 Update story status in database"
-        if: steps.claude.outcome == 'success' && steps.extract-story.outputs.story_id != 'none'
+        if: steps.claude.outputs.outcome == 'success' && steps.extract-story.outputs.story_id != 'none'
         run: |
           STORY_ID="${{ steps.extract-story.outputs.story_id }}"
           DB_PATH=".claude/data/story-tree.db"
+          NEEDS_REVIEW="${{ steps.claude.outputs.needs_review }}"
 
           if [ ! -f "$DB_PATH" ]; then
             echo "Database not found, skipping status update"
             exit 0
+          fi
+
+          # Set stage based on whether review is needed
+          if [ "$NEEDS_REVIEW" = "true" ]; then
+            STAGE="reviewing"
+            NOTE="CI execution complete (review required)"
+          else
+            STAGE="verifying"
+            NOTE="CI execution complete"
           fi
 
           python3 << PYEOF
@@ -338,18 +643,19 @@ jobs:
           conn = sqlite3.connect("$DB_PATH")
           conn.execute('''
               UPDATE story_nodes
-              SET stage = 'verifying',
-                  notes = COALESCE(notes || char(10), '') || 'CI execution complete: ' || datetime('now'),
+              SET stage = '$STAGE',
+                  human_review = $( [ "$NEEDS_REVIEW" = "true" ] && echo 1 || echo 0 ),
+                  notes = COALESCE(notes || char(10), '') || '$NOTE: ' || datetime('now'),
                   updated_at = datetime('now')
               WHERE id = ?
           ''', ("$STORY_ID",))
           conn.commit()
-          print(f"✓ Updated story $STORY_ID → verifying")
+          print(f"✓ Updated story $STORY_ID → $STAGE")
           conn.close()
           PYEOF
 
       - name: "6.3 Stage all changes"
-        if: steps.claude.outcome == 'success'
+        if: steps.claude.outputs.outcome == 'success'
         run: |
           git add -A
           if git diff --cached --quiet; then
@@ -415,12 +721,17 @@ jobs:
             elif [ "${{ steps.check-deps.outputs.deps_met }}" = "false" ]; then
               echo "| Outcome | 🚫 Blocked (unmet deps) |" >> $GITHUB_STEP_SUMMARY
               echo "| Unmet Deps | ${{ steps.check-deps.outputs.unmet_deps }} |" >> $GITHUB_STEP_SUMMARY
-            elif [ "${{ steps.claude.outcome }}" = "success" ]; then
-              echo "| Outcome | ✅ Success |" >> $GITHUB_STEP_SUMMARY
-            elif [ "${{ steps.claude.outcome }}" = "failure" ]; then
+            elif [ "${{ steps.claude.outputs.outcome }}" = "success" ]; then
+              if [ "${{ steps.claude.outputs.needs_review }}" = "true" ]; then
+                echo "| Outcome | ✅ Success (review required) |" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "| Outcome | ✅ Success |" >> $GITHUB_STEP_SUMMARY
+              fi
+            elif [ "${{ steps.claude.outputs.outcome }}" = "paused" ]; then
+              echo "| Outcome | ⏸️ Paused (blocking issues) |" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ steps.claude.outputs.outcome }}" = "failure" ]; then
               echo "| Outcome | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
-            elif [ "${{ steps.claude.outcome }}" = "skipped" ]; then
-              echo "| Outcome | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+              echo "| Reason | ${{ steps.claude.outputs.reason }} |" >> $GITHUB_STEP_SUMMARY
             else
               echo "| Outcome | ⚠️ Unknown |" >> $GITHUB_STEP_SUMMARY
             fi
@@ -429,33 +740,39 @@ jobs:
           fi
 
       - name: "7.2 Report token usage"
-        if: always() && steps.claude.outcome != 'skipped' && steps.claude.outcome != ''
+        if: always() && steps.init-state.outputs.initialized == 'true'
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Token Usage" >> $GITHUB_STEP_SUMMARY
+          echo "### Token Usage (Multi-Call)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          EXEC_FILE="${{ steps.claude.outputs.execution_file }}"
-          if [ -f "$EXEC_FILE" ]; then
-            if jq -e 'type == "array"' "$EXEC_FILE" > /dev/null 2>&1; then
-              INPUT=$(jq '[.[] | select(.message?.usage?) | .message.usage.input_tokens // 0] | add // 0' "$EXEC_FILE")
-              OUTPUT=$(jq '[.[] | select(.message?.usage?) | .message.usage.output_tokens // 0] | add // 0' "$EXEC_FILE")
-              COST=$(jq '[.[] | select(.type == "result")] | last | .total_cost_usd // .cost_usd // "?"' "$EXEC_FILE" | tr -d '"')
-            else
+          # Aggregate tokens from all Claude calls
+          TOTAL_INPUT=0
+          TOTAL_OUTPUT=0
+
+          for STEP in review batch1 batch2 batch3 batch4; do
+            EXEC_FILE=""
+            case "$STEP" in
+              review) EXEC_FILE="${{ steps.review.outputs.execution_file }}" ;;
+              batch1) EXEC_FILE="${{ steps.batch1.outputs.execution_file }}" ;;
+              batch2) EXEC_FILE="${{ steps.batch2.outputs.execution_file }}" ;;
+              batch3) EXEC_FILE="${{ steps.batch3.outputs.execution_file }}" ;;
+              batch4) EXEC_FILE="${{ steps.batch4.outputs.execution_file }}" ;;
+            esac
+
+            if [ -f "$EXEC_FILE" ]; then
               INPUT=$(grep -o '"input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
               OUTPUT=$(grep -o '"output_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
-              COST="?"
+              TOTAL_INPUT=$((TOTAL_INPUT + INPUT))
+              TOTAL_OUTPUT=$((TOTAL_OUTPUT + OUTPUT))
             fi
+          done
 
-            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Input Tokens | $INPUT |" >> $GITHUB_STEP_SUMMARY
-            echo "| Output Tokens | $OUTPUT |" >> $GITHUB_STEP_SUMMARY
-            echo "| Total Tokens | $((INPUT + OUTPUT)) |" >> $GITHUB_STEP_SUMMARY
-            echo "| Cost | \$$COST |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ Execution file not found" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Input Tokens | $TOTAL_INPUT |" >> $GITHUB_STEP_SUMMARY
+          echo "| Output Tokens | $TOTAL_OUTPUT |" >> $GITHUB_STEP_SUMMARY
+          echo "| Total Tokens | $((TOTAL_INPUT + TOTAL_OUTPUT)) |" >> $GITHUB_STEP_SUMMARY
 
       - name: "7.3 Post results to story issue"
         if: always() && steps.extract-story.outputs.story_id != 'none' && steps.extract-story.outputs.story_id != ''
@@ -489,13 +806,19 @@ jobs:
           fi
 
           # Determine status emoji
-          CLAUDE="${{ steps.claude.outcome }}"
+          CLAUDE="${{ steps.claude.outputs.outcome }}"
           if [ "${{ steps.check-executed.outputs.already_executed }}" = "true" ]; then
             STATUS="⏭️ Skipped (already executed)"
           elif [ "${{ steps.check-deps.outputs.deps_met }}" = "false" ]; then
             STATUS="🚫 Blocked (unmet dependencies)"
           elif [ "$CLAUDE" = "success" ]; then
-            STATUS="✅ Success"
+            if [ "${{ steps.claude.outputs.needs_review }}" = "true" ]; then
+              STATUS="✅ Success (review required)"
+            else
+              STATUS="✅ Success"
+            fi
+          elif [ "$CLAUDE" = "paused" ]; then
+            STATUS="⏸️ Paused (blocking issues)"
           elif [ "$CLAUDE" = "failure" ]; then
             STATUS="❌ Failed"
           else
