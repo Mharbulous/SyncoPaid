@@ -1,135 +1,18 @@
 """
 UI windows for SyncoPaid main application.
 
-Contains the Main window and Export dialog implementations.
+Contains the Main window implementation.
 """
 
-import os
-import sys
 import logging
 import threading
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-from datetime import datetime, date, timedelta
-from pathlib import Path
+from tkinter import ttk, messagebox
+from datetime import datetime, timedelta
 
 from syncopaid.database import format_duration
-from syncopaid.screenshot import get_screenshot_directory
-from syncopaid.action_screenshot import get_action_screenshot_directory
-from syncopaid.tray import get_resource_path
-
-
-def _parse_duration_to_seconds(duration_str: str) -> float:
-    """
-    Parse a duration string like '2h 15m' or '45m' or '30s' back to seconds.
-
-    Args:
-        duration_str: Duration in format from format_duration()
-
-    Returns:
-        Duration in seconds
-    """
-    if not duration_str:
-        return 0.0
-
-    total = 0.0
-
-    # Handle hours
-    if 'h' in duration_str:
-        parts = duration_str.split('h')
-        total += int(parts[0].strip()) * 3600
-        duration_str = parts[1] if len(parts) > 1 else ''
-
-    # Handle minutes
-    if 'm' in duration_str:
-        parts = duration_str.split('m')
-        total += int(parts[0].strip()) * 60
-        duration_str = parts[1] if len(parts) > 1 else ''
-
-    # Handle seconds
-    if 's' in duration_str:
-        parts = duration_str.split('s')
-        total += int(parts[0].strip())
-
-    return total
-
-
-def set_window_icon(root: tk.Tk) -> None:
-    """Set the SyncoPaid icon on a tkinter window (Main window)."""
-    try:
-        if sys.platform == 'win32':
-            icon_path = get_resource_path("assets/SYNCOPaiD.ico")
-            logging.debug(f"Window icon path: {icon_path}")
-            if icon_path.exists():
-                root.iconbitmap(str(icon_path))
-                logging.debug("Window icon set successfully")
-            else:
-                logging.warning(f"Window icon not found: {icon_path}")
-    except Exception as e:
-        logging.warning(f"Could not set window icon: {e}")
-
-
-def show_export_dialog(exporter, database):
-    """
-    Show dialog for exporting data.
-
-    Args:
-        exporter: Exporter instance for performing the export
-        database: Database instance for accessing data
-    """
-    def run_dialog():
-        try:
-            # Create a new Tk instance for this dialog
-            root = tk.Tk()
-            root.withdraw()  # Hide the main window
-            root.attributes('-topmost', True)  # Bring to front
-            root.focus_force()
-
-            # Ask for output file
-            output_path = filedialog.asksaveasfilename(
-                parent=root,
-                title="Export Activity Data",
-                defaultextension=".json",
-                filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
-                initialfile=f"SyncoPaid_export_{datetime.now().strftime('%Y%m%d')}.json"
-            )
-
-            if output_path:
-                # Get date range (default: today)
-                today = date.today().isoformat()
-
-                # Simple dialog for date range (can be enhanced later)
-                # For MVP, just export today's data
-                result = exporter.export_to_json(
-                    output_path=output_path,
-                    start_date=today,
-                    end_date=today,
-                    include_idle=True
-                )
-
-                logging.info(f"Exported {result['events_exported']} events to {output_path}")
-
-                # Show success message
-                messagebox.showinfo(
-                    "Export Successful",
-                    f"Exported {result['events_exported']} events\n"
-                    f"Total time: {result['total_duration_hours']} hours\n\n"
-                    f"File: {output_path}",
-                    parent=root
-                )
-
-            root.destroy()
-
-        except Exception as e:
-            logging.error(f"Error exporting data: {e}", exc_info=True)
-            try:
-                messagebox.showerror("Export Error", f"Failed to export data:\n{str(e)}")
-            except:
-                print(f"Export error: {e}")
-
-    # Run in thread to avoid blocking pystray
-    dialog_thread = threading.Thread(target=run_dialog, daemon=True)
-    dialog_thread.start()
+from syncopaid.main_ui_utilities import set_window_icon
+from syncopaid.main_ui_commands import create_command_handler
 
 
 def show_main_window(database, tray, quit_callback):
@@ -201,6 +84,8 @@ def show_main_window(database, tray, quit_callback):
 
             def view_screenshots():
                 """Open screenshots folder in File Explorer."""
+                from syncopaid.screenshot import get_screenshot_directory
+                import os
                 screenshots_dir = get_screenshot_directory().parent
                 if screenshots_dir.exists():
                     os.startfile(str(screenshots_dir))
@@ -293,149 +178,13 @@ def show_main_window(database, tray, quit_callback):
             command_entry = tk.Entry(command_frame, font=('Segoe UI', 10))
             command_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
 
-            def update_header_totals():
-                """Recalculate and update the header with current totals."""
-                total_secs = 0
-                count = 0
-                for item in tree.get_children():
-                    values = tree.item(item, 'values')
-                    dur_str = values[2]  # Duration is third column (index 2)
-                    if dur_str:
-                        # Parse duration string back to seconds
-                        total_secs += _parse_duration_to_seconds(dur_str)
-                    count += 1
-                header_label.config(
-                    text=f"Activity: {format_duration(total_secs)} ({count} events)"
-                )
-
-            def execute_command(event=None):
-                """Execute command entered by user."""
-                command = command_entry.get().strip().lower()
-
-                if not command:
-                    return
-
-                # Check for delete command
-                if command == "delete":
-                    # Get selected items
-                    selected = tree.selection()
-
-                    if not selected:
-                        messagebox.showwarning(
-                            "No Selection",
-                            "Please select one or more entries to delete.",
-                            parent=root
-                        )
-                        command_entry.delete(0, tk.END)
-                        return
-
-                    # Get event IDs from selected rows
-                    event_ids = []
-                    for item in selected:
-                        values = tree.item(item, 'values')
-                        event_id = int(values[0])  # ID is first column
-                        event_ids.append(event_id)
-
-                    # Confirm deletion
-                    count = len(event_ids)
-                    confirm = messagebox.askyesno(
-                        "Confirm Deletion",
-                        f"Delete {count} selected {'entry' if count == 1 else 'entries'}?\n\n"
-                        f"This action cannot be undone.",
-                        parent=root
-                    )
-
-                    if not confirm:
-                        command_entry.delete(0, tk.END)
-                        return
-
-                    # Delete from database
-                    deleted = database.delete_events_by_ids(event_ids)
-                    logging.info(f"Deleted {deleted} events via delete command")
-
-                    # Remove from Treeview
-                    for item in selected:
-                        tree.delete(item)
-
-                    # Update header totals
-                    update_header_totals()
-
-                    messagebox.showinfo(
-                        "Deleted",
-                        f"Successfully deleted {deleted} {'entry' if deleted == 1 else 'entries'}.",
-                        parent=root
-                    )
-
-                    command_entry.delete(0, tk.END)
-                    return
-
-                # Check for screenshots command
-                elif command == "screenshots":
-                    screenshots_dir = get_screenshot_directory().parent
-                    if screenshots_dir.exists():
-                        os.startfile(str(screenshots_dir))
-                    else:
-                        messagebox.showwarning(
-                            "Screenshots",
-                            f"Screenshots folder not found:\n{screenshots_dir}",
-                            parent=root
-                        )
-                    command_entry.delete(0, tk.END)
-                    return
-
-                # Check for periodic command
-                elif command == "periodic":
-                    periodic_dir = get_screenshot_directory()
-                    if periodic_dir.exists():
-                        os.startfile(str(periodic_dir))
-                    else:
-                        messagebox.showwarning(
-                            "Periodic Screenshots",
-                            f"Periodic screenshots folder not found:\n{periodic_dir}",
-                            parent=root
-                        )
-                    command_entry.delete(0, tk.END)
-                    return
-
-                # Check for actions command
-                elif command == "actions":
-                    actions_dir = get_action_screenshot_directory()
-                    if actions_dir.exists():
-                        os.startfile(str(actions_dir))
-                    else:
-                        messagebox.showwarning(
-                            "Action Screenshots",
-                            f"Action screenshots folder not found:\n{actions_dir}",
-                            parent=root
-                        )
-                    command_entry.delete(0, tk.END)
-                    return
-
-                # Check for quit command
-                elif command == "quit":
-                    root.destroy()
-                    if tray and tray.icon:
-                        tray.icon.stop()
-                    quit_callback()
-                    return
-
-                # Unknown command
-                else:
-                    messagebox.showwarning(
-                        "Unknown Command",
-                        f"Unknown command: '{command}'\n\n"
-                        f"Available commands:\n"
-                        f"  - delete - Delete selected entries\n"
-                        f"  - screenshots - Open main screenshots folder\n"
-                        f"  - periodic - Open periodic screenshots folder\n"
-                        f"  - actions - Open action screenshots folder\n"
-                        f"  - quit - Close application",
-                        parent=root
-                    )
-                    command_entry.delete(0, tk.END)
+            # Create command handler
+            execute_command = create_command_handler(
+                tree, database, tray, quit_callback, root, header_label
+            )
 
             # Bind Enter key to execute command
-            command_entry.bind('<Return>', execute_command)
+            command_entry.bind('<Return>', lambda e: execute_command(command_entry, e))
 
             # Button frame
             btn_frame = tk.Frame(root, pady=5)
