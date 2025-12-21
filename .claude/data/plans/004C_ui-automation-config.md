@@ -1,5 +1,7 @@
 # 004C: UI Automation - Configuration Settings
 
+**Story ID:** 8.3
+
 ## Task
 Add configuration flags to enable/disable UI automation per application.
 
