@@ -15,7 +15,11 @@
     "src/syncopaid/context_extraction.py": { "lines": 167 },
     "src/syncopaid/database.py": { "lines": 135 },
     "src/syncopaid/database_connection.py": { "lines": 55 },
-    "src/syncopaid/database_operations.py": { "lines": 401 },
+    "src/syncopaid/database_operations.py": { "lines": 35 },
+    "src/syncopaid/database_operations_clients.py": { "lines": 68 },
+    "src/syncopaid/database_operations_events.py": { "lines": 246 },
+    "src/syncopaid/database_operations_matters.py": { "lines": 95 },
+    "src/syncopaid/database_operations_transitions.py": { "lines": 38 },
     "src/syncopaid/database_schema.py": { "lines": 198 },
     "src/syncopaid/database_screenshots.py": { "lines": 153 },
     "src/syncopaid/database_statistics.py": { "lines": 122 },
@@ -54,6 +58,7 @@
     "src/syncopaid/__main__.py",
     "src/syncopaid/tracker.py",
     "src/syncopaid/exporter.py",
-    "src/syncopaid/main_ui_windows.py"
+    "src/syncopaid/main_ui_windows.py",
+    "src/syncopaid/database_operations.py"
   ]
 }
