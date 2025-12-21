@@ -117,7 +117,7 @@ def test_integration_get_active_window_populates_url():
     """Test that get_active_window includes extracted context in 'url' field."""
     # This test will pass once tracker.py is modified
     # For now, it serves as documentation of expected behavior
-    from syncopaid.tracker import get_active_window
+    from syncopaid.tracker_windows import get_active_window
 
     # Note: This will return mock data on non-Windows platforms
     # The test verifies the structure, not specific values

@@ -28,5 +28,9 @@ DEFAULT_CONFIG = {
     "action_screenshot_quality": 65,
     "action_screenshot_max_dimension": 1920,
     # Idle resumption detection
-    "minimum_idle_duration_seconds": 180
+    "minimum_idle_duration_seconds": 180,
+    # UI automation settings
+    "ui_automation_enabled": True,
+    "ui_automation_outlook_enabled": True,
+    "ui_automation_explorer_enabled": True
 }

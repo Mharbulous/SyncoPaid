@@ -7,6 +7,7 @@ Provides:
 - Delete events by date range or IDs
 """
 
+import json
 import logging
 from typing import List, Dict, Optional
 from datetime import datetime
@@ -37,10 +38,14 @@ class OperationsMixin:
             # Get optional fields (may be None for older code paths)
             end_time = getattr(event, 'end_time', None)
             state = getattr(event, 'state', 'Active')
+            metadata = getattr(event, 'metadata', None)
+
+            # Serialize metadata to JSON if present
+            metadata_json = json.dumps(metadata) if metadata else None
 
             cursor.execute("""
-                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle, state)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle, state, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 event.timestamp,
                 event.duration_seconds,
@@ -49,7 +54,8 @@ class OperationsMixin:
                 event.title,
                 event.url,
                 1 if event.is_idle else 0,
-                state
+                state,
+                metadata_json
             ))
 
             return cursor.lastrowid
@@ -71,11 +77,12 @@ class OperationsMixin:
             cursor = conn.cursor()
 
             cursor.executemany("""
-                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle, state)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, is_idle, state, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, [
                 (e.timestamp, e.duration_seconds, getattr(e, 'end_time', None),
-                 e.app, e.title, e.url, 1 if e.is_idle else 0, getattr(e, 'state', 'Active'))
+                 e.app, e.title, e.url, 1 if e.is_idle else 0, getattr(e, 'state', 'Active'),
+                 json.dumps(getattr(e, 'metadata', None)) if getattr(e, 'metadata', None) else None)
                 for e in events
             ])
 
@@ -218,6 +225,11 @@ class OperationsMixin:
             else:
                 state = 'Inactive' if row['is_idle'] else 'Active'
 
+            # Deserialize metadata JSON if present
+            metadata = None
+            if 'metadata' in row.keys() and row['metadata']:
+                metadata = json.loads(row['metadata'])
+
             events.append({
                 'id': row['id'],
                 'timestamp': row['timestamp'],
@@ -227,7 +239,163 @@ class OperationsMixin:
                 'title': row['title'],
                 'url': row['url'],
                 'is_idle': bool(row['is_idle']),
-                'state': state
+                'state': state,
+                'metadata': metadata
             })
 
         return events
+
+    def insert_transition(self, timestamp: str, transition_type: str, context: dict = None, user_response: str = None) -> int:
+        """
+        Insert a transition event for tracking timing patterns.
+
+        Args:
+            timestamp: ISO timestamp of the transition
+            transition_type: Type of transition (e.g., 'idle_return', 'inbox_browsing')
+            context: Optional dict with transition context data
+            user_response: Optional user response from prompt
+
+        Returns:
+            The ID of the inserted transition
+        """
+        context_json = json.dumps(context) if context else None
+
+        with self._get_connection() as conn:
+            cursor = conn.execute(
+                "INSERT INTO transitions (timestamp, transition_type, context, user_response) VALUES (?, ?, ?, ?)",
+                (timestamp, transition_type, context_json, user_response)
+            )
+            return cursor.lastrowid
+
+    def insert_client(self, name: str, notes: Optional[str] = None) -> int:
+        """
+        Insert a new client into the database.
+
+        Args:
+            name: Client name
+            notes: Optional notes about the client
+
+        Returns:
+            The ID of the inserted client
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO clients (name, notes) VALUES (?, ?)", (name, notes))
+            return cursor.lastrowid
+
+    def get_clients(self) -> List[Dict]:
+        """
+        Get all clients ordered by name.
+
+        Returns:
+            List of client dictionaries
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM clients ORDER BY name ASC")
+            return [dict(row) for row in cursor.fetchall()]
+
+    def update_client(self, client_id: int, name: str, notes: Optional[str] = None):
+        """
+        Update an existing client.
+
+        Args:
+            client_id: ID of the client to update
+            name: New client name
+            notes: New notes (optional)
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE clients SET name = ?, notes = ? WHERE id = ?",
+                          (name, notes, client_id))
+
+    def delete_client(self, client_id: int):
+        """
+        Delete a client from the database.
+
+        Args:
+            client_id: ID of the client to delete
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM clients WHERE id = ?", (client_id,))
+
+    def insert_matter(self, matter_number: str, client_id: Optional[int] = None,
+                      description: Optional[str] = None, status: str = 'active') -> int:
+        """
+        Insert a new matter into the database.
+
+        Args:
+            matter_number: Unique matter number
+            client_id: ID of the associated client (optional)
+            description: Matter description (optional)
+            status: Matter status (default: 'active')
+
+        Returns:
+            The ID of the inserted matter
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO matters (matter_number, client_id, description, status)
+                VALUES (?, ?, ?, ?)
+            """, (matter_number, client_id, description, status))
+            return cursor.lastrowid
+
+    def get_matters(self, status: str = 'active') -> List[Dict]:
+        """
+        Get matters with optional status filtering.
+
+        Args:
+            status: Filter by status ('active', 'archived', 'all')
+
+        Returns:
+            List of matter dictionaries with client names
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            if status == 'all':
+                cursor.execute("""
+                    SELECT m.*, c.name as client_name FROM matters m
+                    LEFT JOIN clients c ON m.client_id = c.id
+                    ORDER BY m.created_at DESC
+                """)
+            else:
+                cursor.execute("""
+                    SELECT m.*, c.name as client_name FROM matters m
+                    LEFT JOIN clients c ON m.client_id = c.id
+                    WHERE m.status = ? ORDER BY m.created_at DESC
+                """, (status,))
+            return [dict(row) for row in cursor.fetchall()]
+
+    def update_matter(self, matter_id: int, matter_number: str,
+                      client_id: Optional[int] = None, description: Optional[str] = None):
+        """
+        Update an existing matter.
+
+        Args:
+            matter_id: ID of the matter to update
+            matter_number: New matter number
+            client_id: New client ID (optional)
+            description: New description (optional)
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE matters SET matter_number = ?, client_id = ?, description = ?,
+                updated_at = datetime('now') WHERE id = ?
+            """, (matter_number, client_id, description, matter_id))
+
+    def update_matter_status(self, matter_id: int, status: str):
+        """
+        Update the status of a matter.
+
+        Args:
+            matter_id: ID of the matter to update
+            status: New status (e.g., 'active', 'archived')
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE matters SET status = ?, updated_at = datetime('now') WHERE id = ?
+            """, (status, matter_id))

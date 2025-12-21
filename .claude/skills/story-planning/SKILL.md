@@ -223,6 +223,16 @@ ls .claude/data/plans/*.md | tail -5
 
 ---
 
+> **CRITICAL: Story ID in Header**
+>
+> Every plan file MUST include the Story ID in the header. Replace `[ID]` with the actual story ID from the database (e.g., `1.2.3`).
+>
+> The story-execution skill detects "orphan plans" (plans without valid Story IDs) and archives them. Plans missing the Story ID will be skipped during execution.
+>
+> Format: `**Story ID:** X.Y.Z` (where X.Y.Z is the story's `id` field from `story_nodes` table)
+
+---
+
 #### LOW Complexity: Single TDD Plan
 
 **Filename:** `.claude/data/plans/NNN_[story-slug].md`
@@ -234,15 +244,15 @@ ls .claude/data/plans/*.md | tail -5
 ```markdown
 # [Story Title] - Implementation Plan
 
-**Goal:** [One-sentence summary of what this achieves]
-**Approach:** [2-3 sentences on technical approach]
-**Tech Stack:** [Key modules/libraries involved]
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Story ID:** [ID] | **Created:** [YYYY-MM-DD] | **Stage:** `planned`
 
 ---
 
-**Story ID:** [ID]
-**Created:** [YYYY-MM-DD]
-**Stage:** `planned`
+**Goal:** [One-sentence summary of what this achieves]
+**Approach:** [2-3 sentences on technical approach]
+**Tech Stack:** [Key modules/libraries involved]
 
 ---
 
@@ -276,8 +286,9 @@ ls .claude/data/plans/*.md | tail -5
 ### Task 1: [Descriptive Name] (~N min)
 
 **Files:**
-- **Create:** `tests/test_x.py`
-- **Modify:** `src/syncopaid/x.py:45-60`
+- Create: `path/to/file.py`
+- Modify: `path/to/existing.py:123-145`
+- Test: `tests/path/to/test.py`
 
 **Context:** [Why this task exists and what it enables for subsequent tasks]
 
@@ -339,6 +350,25 @@ If issues arise:
 ## Implementation Notes
 
 [Edge cases, gotchas, future considerations]
+
+## Execution Handoff
+
+Plan complete and saved to `.claude/data/plans/[filename]`.
+
+**Two execution options:**
+
+**1. Subagent-Driven (this session)**
+- I dispatch fresh subagent per task
+- Code review between tasks
+- Fast iteration with quality gates
+- **REQUIRED SUB-SKILL:** superpowers:subagent-driven-development
+
+**2. Parallel Session (separate)**
+- Open new Claude Code session in this directory
+- Batch execution with checkpoints
+- **REQUIRED SUB-SKILL:** superpowers:executing-plans
+
+**Which approach?**
 ```
 
 #### CI Mode Template (Compact, Self-Contained)
@@ -346,16 +376,18 @@ If issues arise:
 ```markdown
 # [Story Title] - Implementation Plan
 
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Story ID:** [ID] | **Created:** [YYYY-MM-DD] | **Stage:** `planned`
+
 > **TDD Required:** Each task (~2-5 min): Write test → verify RED → Write code → verify GREEN → Commit
 > **Zero Context:** This plan assumes the implementer knows nothing about the codebase.
+
+---
 
 **Goal:** [One sentence - what user-visible outcome does this achieve?]
 **Approach:** [2-3 sentences on technical approach]
 **Tech Stack:** [Modules/libraries involved]
-
----
-
-**Story ID:** [ID] | **Created:** [YYYY-MM-DD] | **Stage:** `planned`
 
 ---
 
@@ -378,8 +410,9 @@ If issues arise:
 ### Task 1: [Descriptive Name] (~N min)
 
 **Files:**
-- **Create:** `tests/path/test_x.py`
-- **Modify:** `src/path/x.py:123-145`
+- Create: `tests/path/test_x.py`
+- Modify: `src/path/x.py:123-145`
+- Test: `tests/path/test_x.py`
 
 **Context:** [1-2 sentences: why this task exists, what it enables]
 
@@ -466,7 +499,9 @@ Each sub-plan is a focused, independently verifiable unit. Use this template:
 ```markdown
 # NNN: [Story Title] - [Component Name]
 
-**Created:** YYYY-MM-DD | **Story ID:** [ID]
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Story ID:** [ID] | **Created:** YYYY-MM-DD | **Stage:** `planned`
 
 ## Task
 [One sentence describing what this sub-plan accomplishes]
@@ -596,6 +631,16 @@ Complete sub-plans sequentially. Verify each before proceeding to next.
 
 **Option 2: Fresh session per sub-plan** - Each sub-plan in a new session for clean context
 
+## Remember
+
+When generating plans, always:
+- **Exact file paths** - never "somewhere in src/"
+- **Complete code** - not "add validation" but the actual validation code
+- **Exact commands with expected output** - not just "run tests"
+- **DRY, YAGNI, TDD** - test first, minimal code, frequent commits
+- **One action per step** - each step takes 2-5 minutes max
+- **Reference relevant skills** - use @ syntax for skill references
+
 ## Output Format
 
 **CI Mode - LOW complexity Success:**
@@ -625,3 +670,25 @@ Complete sub-plans sequentially. Verify each before proceeding to next.
 ```
 
 **Interactive Mode:** Conversational summary with handoff options.
+
+## Quality Checks
+
+Before completing the workflow, verify:
+- [ ] All approved stories were fetched and analyzed
+- [ ] Priority scoring was applied correctly
+- [ ] Each task has exactly 5 steps: test, verify fail, implement, verify pass, commit
+- [ ] All code examples are complete and copy-paste ready
+- [ ] All commands include expected output
+- [ ] No vague instructions like "add validation" or "handle errors"
+- [ ] Execution handoff options are presented at end (Interactive mode only)
+
+## Common Mistakes
+
+| Mistake | What To Do Instead |
+|---------|-------------------|
+| Using `sqlite3` CLI | Use Python's sqlite3 module |
+| Writing multi-step tasks | Break into single-action steps (test/verify/implement/verify/commit) |
+| Omitting expected output | Every command needs "Expected: [what success looks like]" |
+| Vague code examples | Write complete, copy-paste ready code |
+| Skipping execution handoff | Always offer subagent-driven vs parallel session choice (Interactive mode) |
+| Large commits at end | Commit after each task (RED-GREEN-REFACTOR cycle) |

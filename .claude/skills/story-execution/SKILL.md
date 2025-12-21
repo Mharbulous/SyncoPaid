@@ -101,7 +101,199 @@ print(json.dumps({'story_id': story_id, 'plan_path': plan_path}))
 "
 ```
 
-**If Story ID found:** Verify dependencies are met:
+### Step 1.5a: Detect Orphan Plans (with Story ID Inference)
+
+Plans without a Story ID or whose Story ID doesn't exist in the database may be orphaned. Before archiving as orphan, attempt to infer the Story ID from the plan's filename and content.
+
+**Check for orphan plan with inference:**
+
+```python
+python -c "
+import sqlite3, re, json, os
+
+story_id = '[STORY_ID]'  # Replace with extracted ID (or None if not found)
+plan_path = '.claude/data/plans/[FILENAME]'
+plan_filename = os.path.basename(plan_path)
+ci_mode = False  # Replace with actual CI mode detection
+
+# Read plan content for inference
+with open(plan_path, 'r') as f:
+    plan_content = f.read()
+
+def infer_story_id(filename, content):
+    '''Attempt to match plan to a story in the database.'''
+    conn = sqlite3.connect('.claude/data/story-tree.db')
+
+    # Extract keywords from filename (e.g., '004A_ui-automation-foundation.md' -> ['ui', 'automation', 'foundation'])
+    slug_match = re.match(r'^\d{3}[A-Z]?_(.+)\.md$', filename)
+    slug_keywords = []
+    if slug_match:
+        slug = slug_match.group(1)
+        slug_keywords = [kw.lower() for kw in re.split(r'[-_]', slug) if len(kw) > 2]
+
+    # Extract title from plan content (first H1)
+    title_match = re.search(r'^#\s+(.+)$', content, re.MULTILINE)
+    title_keywords = []
+    if title_match:
+        title = title_match.group(1)
+        title_keywords = [kw.lower() for kw in re.split(r'\W+', title) if len(kw) > 2]
+
+    all_keywords = list(set(slug_keywords + title_keywords))
+
+    if not all_keywords:
+        conn.close()
+        return {'candidates': [], 'keywords': []}
+
+    # Build LIKE query for keyword matching
+    candidates = []
+    for kw in all_keywords[:5]:  # Limit to 5 keywords
+        results = conn.execute('''
+            SELECT id, title, stage FROM story_nodes
+            WHERE disposition IS NULL
+              AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ?)
+        ''', (f'%{kw}%', f'%{kw}%')).fetchall()
+        for r in results:
+            candidates.append({'id': r[0], 'title': r[1], 'stage': r[2], 'matched_keyword': kw})
+
+    conn.close()
+
+    # Count matches per story ID
+    id_counts = {}
+    for c in candidates:
+        sid = c['id']
+        if sid not in id_counts:
+            id_counts[sid] = {'count': 0, 'title': c['title'], 'stage': c['stage'], 'keywords': []}
+        id_counts[sid]['count'] += 1
+        id_counts[sid]['keywords'].append(c['matched_keyword'])
+
+    # Sort by match count (highest first)
+    sorted_candidates = sorted(
+        [{'id': k, **v} for k, v in id_counts.items()],
+        key=lambda x: x['count'],
+        reverse=True
+    )
+
+    return {'candidates': sorted_candidates, 'keywords': all_keywords}
+
+# Flag 1: No Story ID in plan file - attempt inference
+if not story_id or story_id == 'None':
+    inference = infer_story_id(plan_filename, plan_content)
+    candidates = inference['candidates']
+
+    if len(candidates) == 1 and candidates[0]['count'] >= 2:
+        # Single high-confidence match - auto-assign
+        match = candidates[0]
+        print(json.dumps({
+            'is_orphan': False,
+            'inferred': True,
+            'story_id': match['id'],
+            'confidence': 'high',
+            'match_reason': f\"title keyword match: {', '.join(set(match['keywords']))}\",
+            'stage': match['stage'],
+            'title': match['title'],
+            'action': 'auto_assign'
+        }))
+    elif len(candidates) >= 1:
+        # One or more candidates - requires Opus 4.5 analysis
+        print(json.dumps({
+            'is_orphan': False,
+            'inferred': False,
+            'reason': 'Candidates found - Opus 4.5 analysis required',
+            'candidates': candidates[:5],  # Show top 5
+            'keywords_used': inference['keywords'],
+            'action': 'opus_analysis'
+        }))
+    else:
+        # No candidates - true orphan
+        print(json.dumps({
+            'is_orphan': True,
+            'inferred': False,
+            'reason': 'No Story ID found and no matching stories in database',
+            'keywords_searched': inference['keywords'],
+            'action': 'archive_and_skip'
+        }))
+    exit()
+
+# Flag 2: Story ID not in database
+conn = sqlite3.connect('.claude/data/story-tree.db')
+result = conn.execute('SELECT id, stage FROM story_nodes WHERE id = ?', (story_id,)).fetchone()
+conn.close()
+
+if not result:
+    print(json.dumps({
+        'is_orphan': True,
+        'reason': f'Story ID {story_id} not found in database',
+        'action': 'archive_and_skip'
+    }))
+else:
+    print(json.dumps({
+        'is_orphan': False,
+        'story_id': story_id,
+        'stage': result[1]
+    }))
+"
+```
+
+**Handling inference results:**
+
+- **Single high-confidence match (`action: 'auto_assign'`):** Auto-assign the Story ID and log: "Auto-assigned Story ID [X] based on keyword match"
+- **Candidates require analysis (`action: 'opus_analysis'`):** Spawn Opus 4.5 subagent to select best match (see below)
+- **No candidates (`action: 'archive_and_skip'`):** Proceed with orphan archival
+
+**Opus 4.5 Story ID Selection (when `action: 'opus_analysis'`):**
+
+Use the Task tool with `model: "opus"` to analyze candidates and select the best match:
+
+```
+Task tool parameters:
+- subagent_type: "general-purpose"
+- model: "opus"
+- prompt: |
+    Analyze this plan and select the correct Story ID from the candidates.
+
+    Plan filename: [FILENAME]
+    Plan title: [FIRST_H1_FROM_PLAN]
+    Plan summary: [FIRST_200_CHARS_OF_PLAN]
+
+    Candidates:
+    [LIST_CANDIDATES_WITH_ID_TITLE_KEYWORDS]
+
+    Instructions:
+    1. Read the plan content to understand its purpose
+    2. Compare against each candidate story's title and matched keywords
+    3. Select the BEST match, or indicate NONE if no candidate fits
+
+    Respond with JSON only:
+    {"selected_id": "X.Y" or null, "confidence": "high|medium|low", "reason": "brief explanation"}
+```
+
+**If Opus selects a Story ID:** Update the plan file header with Story ID and proceed to dependency check.
+
+**If Opus selects null or low confidence:** Archive as orphan.
+
+**If auto-assigned:** Update the plan file header with Story ID and proceed to dependency check.
+
+**If orphan detected (no inference possible):** Archive to orphan folder and try next plan:
+
+```python
+python -c "
+import os, shutil
+
+plan_path = '.claude/data/plans/[FILENAME]'  # Replace with actual filename
+orphan_dir = '.claude/data/plans/orphan'
+
+os.makedirs(orphan_dir, exist_ok=True)
+shutil.move(plan_path, os.path.join(orphan_dir, os.path.basename(plan_path)))
+print(f'Orphan plan archived: {plan_path} -> {orphan_dir}/')
+print('Reason: Plan lacks associated story node - may be XStory GUI related')
+"
+```
+
+Then re-run Step 1 to select the next earliest plan.
+
+**If not orphan:** Proceed to dependency check below.
+
+**If Story ID found and exists in database:** Verify dependencies are met:
 
 ```python
 python -c "
@@ -145,7 +337,7 @@ conn.close()
 "
 ```
 
-**If ready (or no Story ID):** Proceed to Step 1.6.
+**If ready:** Proceed to Step 1.6.
 
 **If not ready:** Skip this plan file and archive it, then try the next:
 
@@ -596,6 +788,7 @@ Need: [what clarification or help is needed]
   - Active plans: `.claude/data/plans/`
   - Executed plans: `.claude/data/executed/`
   - Blocked plans: `.claude/data/plans/blocked/`
+  - Orphan plans: `.claude/data/plans/orphan/` (no Story ID or not in database - may be XStory GUI)
 - Stage workflow: concept → approved → planned → active → reviewing → verifying → implemented
 - `planned` → `active`: After dependency check passes (Step 1.5 → Step 2)
 - Dependencies not met: `hold_reason = 'blocked'`

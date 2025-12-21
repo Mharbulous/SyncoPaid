@@ -34,6 +34,9 @@ class Config:
         action_screenshot_quality: JPEG quality for action screenshots (default: 65)
         action_screenshot_max_dimension: Max dimension for action screenshots (default: 1920)
         minimum_idle_duration_seconds: Minimum idle duration to trigger resumption event (default: 180)
+        ui_automation_enabled: Enable UI automation extraction globally (default: True)
+        ui_automation_outlook_enabled: Enable UI automation for Outlook (default: True)
+        ui_automation_explorer_enabled: Enable UI automation for Explorer (default: True)
     """
     poll_interval_seconds: float = 1.0
     idle_threshold_seconds: float = 180.0
@@ -57,6 +60,10 @@ class Config:
     action_screenshot_max_dimension: int = 1920
     # Idle resumption detection
     minimum_idle_duration_seconds: float = 180
+    # UI automation settings
+    ui_automation_enabled: bool = True
+    ui_automation_outlook_enabled: bool = True
+    ui_automation_explorer_enabled: bool = True
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary."""

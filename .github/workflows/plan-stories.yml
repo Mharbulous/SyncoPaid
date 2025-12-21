@@ -71,11 +71,13 @@ jobs:
 
             ## Step 3: Git Operations
 
-            After creating the plan:
+            After creating the plan, get the planned story ID and commit:
             ```bash
             git checkout main && git pull origin main
             git add -A
-            git commit -m "planning: create implementation plan for story $(date -u +'%Y-%m-%d')"
+            # Get the story ID that was just planned (most recently updated 'planned' story)
+            PLANNED_ID=$(python3 -c "import sqlite3; conn = sqlite3.connect('.claude/data/story-tree.db'); row = conn.execute(\"SELECT id FROM story_nodes WHERE stage='planned' ORDER BY updated_at DESC LIMIT 1\").fetchone(); print(row[0] if row else 'unknown')")
+            git commit -m "planning: create implementation plan for story $PLANNED_ID"
             git push origin main
             ```
 

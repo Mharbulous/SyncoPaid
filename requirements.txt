@@ -21,5 +21,8 @@ mss>=9.0.0
 # Keyboard and mouse event listeners for action-based screenshots
 pynput>=1.7.6
 
+# UI automation for extracting context from Windows applications
+pywinauto>=0.6.8
+
 # Note: tkinter comes with Python standard library on Windows
 # If missing, install separately via python.org installer

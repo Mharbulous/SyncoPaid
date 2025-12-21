@@ -53,6 +53,12 @@ class SchemaMixin:
             # Create screenshots table
             self._create_screenshots_table(cursor)
 
+            # Create transitions table
+            self._create_transitions_table(cursor)
+
+            # Create clients and matters tables
+            self._create_clients_matters_tables(cursor)
+
             logging.info("Database schema initialized")
 
     def _migrate_events_table(self, cursor):
@@ -83,6 +89,11 @@ class SchemaMixin:
                 WHERE state IS NULL
             """)
             logging.info("Database migration: Backfilled state column from is_idle")
+
+        # Migration: Add metadata column if it doesn't exist
+        if 'metadata' not in columns:
+            cursor.execute("ALTER TABLE events ADD COLUMN metadata TEXT")
+            logging.info("Database migration: Added metadata column to events table")
 
     def _create_indices(self, cursor):
         """
@@ -123,4 +134,65 @@ class SchemaMixin:
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_screenshots_time
             ON screenshots(captured_at)
+        """)
+
+    def _create_transitions_table(self, cursor):
+        """
+        Create transitions table for tracking timing patterns.
+
+        Args:
+            cursor: Database cursor for creating table
+        """
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS transitions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                transition_type TEXT NOT NULL,
+                context TEXT,
+                user_response TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Create index for transitions timestamp queries
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_transitions_timestamp
+            ON transitions(timestamp)
+        """)
+
+    def _create_clients_matters_tables(self, cursor):
+        """
+        Create clients and matters tables for billing categorization.
+
+        Args:
+            cursor: Database cursor for creating tables
+        """
+        # Create clients table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS clients (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                notes TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+
+        # Create matters table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS matters (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                matter_number TEXT NOT NULL UNIQUE,
+                client_id INTEGER,
+                description TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (client_id) REFERENCES clients(id)
+            )
+        """)
+
+        # Create index for matters status queries
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_matters_status
+            ON matters(status)
         """)

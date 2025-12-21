@@ -8,7 +8,7 @@ This module defines:
 """
 
 import re
-from typing import Optional
+from typing import Optional, Dict, List
 from dataclasses import dataclass, asdict
 
 
@@ -77,8 +77,10 @@ class ActivityEvent:
         app: Application executable name
         title: Window title
         url: URL if applicable (future enhancement)
+        cmdline: Process command line arguments (list of strings)
         is_idle: Whether this was an idle period (deprecated - use state)
         state: Activity state or client matter number (e.g., "Active", "1023.L213")
+        metadata: Optional JSON-serializable dict for UI automation context
     """
     timestamp: str  # ISO8601 format: "2025-12-09T10:30:45" (start time)
     duration_seconds: Optional[float]
@@ -86,8 +88,10 @@ class ActivityEvent:
     title: Optional[str]
     end_time: Optional[str] = None  # ISO8601 format (end time)
     url: Optional[str] = None
+    cmdline: Optional[List[str]] = None  # Process command line arguments
     is_idle: bool = False
     state: str = STATE_ACTIVE  # Default to Active (client matter TBD)
+    metadata: Optional[Dict[str, str]] = None  # UI automation context (JSON)
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON export or database storage."""
