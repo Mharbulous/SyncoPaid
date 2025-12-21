@@ -23,3 +23,28 @@ def test_activity_event_has_interaction_level():
 
     assert hasattr(event, 'interaction_level')
     assert event.interaction_level == InteractionLevel.PASSIVE.value
+
+
+def test_is_key_pressed_returns_bool():
+    """Verify is_key_pressed returns boolean."""
+    from syncopaid.tracker import is_key_pressed
+
+    # Test with a common virtual key code (0x41 = 'A')
+    result = is_key_pressed(0x41)
+    assert isinstance(result, bool)
+
+
+def test_get_keyboard_activity_returns_bool():
+    """Verify get_keyboard_activity returns boolean for any typing."""
+    from syncopaid.tracker import get_keyboard_activity
+
+    result = get_keyboard_activity()
+    assert isinstance(result, bool)
+
+
+def test_get_mouse_activity_returns_bool():
+    """Verify get_mouse_activity returns boolean for any clicking."""
+    from syncopaid.tracker import get_mouse_activity
+
+    result = get_mouse_activity()
+    assert isinstance(result, bool)

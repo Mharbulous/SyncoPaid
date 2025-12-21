@@ -35,7 +35,10 @@ from syncopaid.tracker_state import (
 from syncopaid.tracker_windows import (
     WINDOWS_APIS_AVAILABLE,
     is_screensaver_active,
-    is_workstation_locked
+    is_workstation_locked,
+    is_key_pressed,
+    get_keyboard_activity,
+    get_mouse_activity
 )
 
 # Import core TrackerLoop class
