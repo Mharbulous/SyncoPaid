@@ -76,9 +76,14 @@ def test_matter_crud_operations():
         assert len(db.get_matters(status='active')) == 0
         assert len(db.get_matters(status='all')) == 1
 
+def test_client_dialog_module_exists():
+    from syncopaid.matter_client_dialog import ClientDialog
+    assert callable(ClientDialog)
+
 if __name__ == "__main__":
     test_clients_table_exists()
     test_matters_table_exists()
     test_client_crud_operations()
     test_matter_crud_operations()
+    test_client_dialog_module_exists()
     print("All tests passed!")
