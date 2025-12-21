@@ -1,8 +1,9 @@
 name: 2. Plan Story
 
-# Run at 4:00 AM PST (12:00 UTC) every day - after activate-stories
+# Temporary 10-hour schedule: runs at :00 for hours 10-20 UTC on Dec 21, 2025
 on:
-  # schedule disabled - manual trigger only
+  schedule:
+    - cron: '0 10-20 21 12 *'
   workflow_dispatch:
 
 concurrency:

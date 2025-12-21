@@ -1,8 +1,9 @@
 name: 4. Execute Story
 
+# Temporary 10-hour schedule: runs at :15, :30, :45 for hours 10-20 UTC on Dec 21, 2025
 on:
   schedule:
-    - cron: '*/20 * * * *'
+    - cron: '15,30,45 10-20 21 12 *'
   workflow_dispatch:
 
 concurrency:
