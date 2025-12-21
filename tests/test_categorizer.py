@@ -118,3 +118,43 @@ def test_insert_event_with_categorization():
 
         assert events[0]['matter_id'] == matter_id
         assert events[0]['confidence'] == 85
+
+
+def test_get_flagged_events():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = Database(str(Path(tmpdir) / "test.db"))
+        from syncopaid.tracker import ActivityEvent
+
+        # High confidence - not flagged
+        db.insert_event(
+            ActivityEvent(timestamp="2025-12-19T10:00:00", duration_seconds=60, app="test", title="High"),
+            confidence=90, flagged_for_review=False
+        )
+        # Low confidence - flagged
+        db.insert_event(
+            ActivityEvent(timestamp="2025-12-19T10:01:00", duration_seconds=60, app="test", title="Low"),
+            confidence=50, flagged_for_review=True
+        )
+
+        flagged = db.get_flagged_events()
+        assert len(flagged) == 1
+        assert flagged[0]['title'] == "Low"
+
+
+def test_update_event_categorization():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = Database(str(Path(tmpdir) / "test.db"))
+        from syncopaid.tracker import ActivityEvent
+
+        matter_id = db.insert_matter(matter_number="REVIEW", description="Test")
+        event_id = db.insert_event(
+            ActivityEvent(timestamp="2025-12-19T10:00:00", duration_seconds=60, app="test", title="Needs review"),
+            confidence=50, flagged_for_review=True
+        )
+
+        db.update_event_categorization(event_id, matter_id=matter_id, confidence=100)
+
+        events = db.get_events()
+        assert events[0]['matter_id'] == matter_id
+        assert events[0]['confidence'] == 100
+        assert events[0]['flagged_for_review'] is False

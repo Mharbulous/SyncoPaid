@@ -162,6 +162,64 @@ class EventOperationsMixin:
             # Convert rows to dictionaries
             return self._rows_to_dicts(cursor.fetchall())
 
+    def get_flagged_events(
+        self,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        limit: Optional[int] = None
+    ) -> List[Dict]:
+        """Get events flagged for manual review."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            query = "SELECT * FROM events WHERE flagged_for_review = 1"
+            params = []
+
+            if start_date:
+                query += " AND timestamp >= ?"
+                params.append(f"{start_date}T00:00:00")
+
+            query += " ORDER BY timestamp ASC"
+
+            if limit:
+                query += f" LIMIT {limit}"
+
+            cursor.execute(query, params)
+
+            events = []
+            for row in cursor.fetchall():
+                state = row['state'] if 'state' in row.keys() and row['state'] else ('Inactive' if row['is_idle'] else 'Active')
+                events.append({
+                    'id': row['id'],
+                    'timestamp': row['timestamp'],
+                    'duration_seconds': row['duration_seconds'],
+                    'app': row['app'],
+                    'title': row['title'],
+                    'matter_id': row['matter_id'] if 'matter_id' in row.keys() else None,
+                    'confidence': row['confidence'] if 'confidence' in row.keys() else 0,
+                    'flagged_for_review': True,
+                })
+
+            return events
+
+    def update_event_categorization(
+        self,
+        event_id: int,
+        matter_id: Optional[int] = None,
+        confidence: int = 100,
+        flagged_for_review: bool = False
+    ):
+        """Update categorization of an existing event."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE events
+                SET matter_id = ?, confidence = ?, flagged_for_review = ?
+                WHERE id = ?
+            """, (matter_id, confidence, 1 if flagged_for_review else 0, event_id))
+
+            logging.info(f"Updated categorization for event {event_id}")
+
     def delete_events(
         self,
         start_date: Optional[str] = None,
