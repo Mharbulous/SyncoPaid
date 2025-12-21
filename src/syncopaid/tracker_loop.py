@@ -60,10 +60,12 @@ class TrackerLoop:
         ui_automation_worker=None,
         transition_detector=None,
         transition_callback=None,
-        prompt_enabled: bool = True
+        prompt_enabled: bool = True,
+        interaction_threshold: float = 5.0
     ):
         self.poll_interval = poll_interval
         self.idle_threshold = idle_threshold
+        self.interaction_threshold = interaction_threshold
         self.running = False
 
         # Delegate to specialized components
@@ -71,6 +73,10 @@ class TrackerLoop:
         self.screenshot_scheduler = ScreenshotScheduler(screenshot_worker, screenshot_interval) if screenshot_worker else None
         self.state_detector = StateChangeDetector(merge_threshold)
         self.event_finalizer = EventFinalizer(ui_automation_worker)
+
+        # Interaction level tracking
+        self.last_typing_time = None
+        self.last_click_time = None
 
         # Transition detection
         self.transition_detector = transition_detector

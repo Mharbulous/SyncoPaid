@@ -48,3 +48,31 @@ def test_get_mouse_activity_returns_bool():
 
     result = get_mouse_activity()
     assert isinstance(result, bool)
+
+
+def test_tracker_loop_has_interaction_tracking_state():
+    """Verify TrackerLoop has interaction tracking state variables."""
+    from syncopaid.tracker import TrackerLoop
+
+    tracker = TrackerLoop(
+        poll_interval=1.0,
+        idle_threshold=180.0,
+        interaction_threshold=5.0
+    )
+
+    assert hasattr(tracker, 'last_typing_time')
+    assert tracker.last_typing_time is None
+    assert hasattr(tracker, 'last_click_time')
+    assert tracker.last_click_time is None
+    assert hasattr(tracker, 'interaction_threshold')
+    assert tracker.interaction_threshold == 5.0
+
+
+def test_tracker_loop_default_interaction_threshold():
+    """Verify TrackerLoop has sensible default for interaction_threshold."""
+    from syncopaid.tracker import TrackerLoop
+
+    tracker = TrackerLoop(poll_interval=1.0)
+
+    # Default should be 5 seconds (typing/clicking within 5s = active)
+    assert tracker.interaction_threshold == 5.0
