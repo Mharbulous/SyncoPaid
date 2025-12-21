@@ -94,6 +94,59 @@ class TrackerLoop:
             f"transition_detection={transition_detector is not None}"
         )
 
+    def get_interaction_level(self, idle_seconds: float):
+        """
+        Determine current interaction level based on activity state.
+
+        Updates internal tracking timestamps when activity is detected.
+
+        Priority order:
+        1. IDLE if globally idle (idle_seconds >= idle_threshold)
+        2. TYPING if keyboard activity detected or recent
+        3. CLICKING if mouse activity detected or recent
+        4. PASSIVE if none of the above
+
+        Args:
+            idle_seconds: Current global idle time from GetLastInputInfo
+
+        Returns:
+            InteractionLevel enum value
+        """
+        from datetime import datetime, timezone
+        from syncopaid.tracker_state import InteractionLevel
+        from syncopaid.tracker_windows import get_keyboard_activity, get_mouse_activity
+
+        now = datetime.now(timezone.utc)
+
+        # Check if globally idle first
+        if idle_seconds >= self.idle_threshold:
+            return InteractionLevel.IDLE
+
+        # Check for current keyboard activity
+        if get_keyboard_activity():
+            self.last_typing_time = now
+            return InteractionLevel.TYPING
+
+        # Check for current mouse activity
+        if get_mouse_activity():
+            self.last_click_time = now
+            return InteractionLevel.CLICKING
+
+        # Check if recent typing (within threshold)
+        if self.last_typing_time:
+            typing_age = (now - self.last_typing_time).total_seconds()
+            if typing_age < self.interaction_threshold:
+                return InteractionLevel.TYPING
+
+        # Check if recent clicking (within threshold)
+        if self.last_click_time:
+            click_age = (now - self.last_click_time).total_seconds()
+            if click_age < self.interaction_threshold:
+                return InteractionLevel.CLICKING
+
+        # No recent activity - passive reading/reference
+        return InteractionLevel.PASSIVE
+
     def start(self) -> Generator[ActivityEvent, None, None]:
         """
         Start the tracking loop.

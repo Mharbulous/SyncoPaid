@@ -76,3 +76,38 @@ def test_tracker_loop_default_interaction_threshold():
 
     # Default should be 5 seconds (typing/clicking within 5s = active)
     assert tracker.interaction_threshold == 5.0
+
+
+def test_get_interaction_level_returns_idle_when_globally_idle():
+    """Verify get_interaction_level returns IDLE when idle_seconds >= threshold."""
+    from syncopaid.tracker import TrackerLoop, InteractionLevel
+
+    tracker = TrackerLoop(
+        poll_interval=1.0,
+        idle_threshold=180.0,
+        interaction_threshold=5.0
+    )
+
+    # When globally idle, should return IDLE regardless of other state
+    level = tracker.get_interaction_level(idle_seconds=200.0)
+    assert level == InteractionLevel.IDLE
+
+
+def test_get_interaction_level_returns_passive_when_no_activity():
+    """Verify get_interaction_level returns PASSIVE when no recent activity."""
+    from syncopaid.tracker import TrackerLoop, InteractionLevel
+    from unittest.mock import patch
+
+    tracker = TrackerLoop(
+        poll_interval=1.0,
+        idle_threshold=180.0,
+        interaction_threshold=5.0
+    )
+
+    # Mock no keyboard/mouse activity
+    with patch('syncopaid.tracker_windows.get_keyboard_activity', return_value=False):
+        with patch('syncopaid.tracker_windows.get_mouse_activity', return_value=False):
+            level = tracker.get_interaction_level(idle_seconds=0.0)
+
+    # With no recent activity, should be PASSIVE
+    assert level == InteractionLevel.PASSIVE
