@@ -1,5 +1,7 @@
 # 012C: Command Line Tracking - get_active_window Update
 
+**Story ID:** 1.1.2
+
 ## Task
 Update `get_active_window()` to capture and return redacted command line arguments.
 
