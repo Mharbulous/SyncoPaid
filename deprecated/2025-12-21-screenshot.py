@@ -12,6 +12,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor
 
 # Import decomposed modules
 from syncopaid.screenshot_capture import (
@@ -23,15 +24,15 @@ from syncopaid.screenshot_capture import (
     PIL_AVAILABLE
 )
 from syncopaid.screenshot_comparison import (
+    ScreenshotMetadata,
     ComparisonResult,
     compute_dhash,
     compare_screenshots
 )
-from syncopaid.screenshot_persistence import get_screenshot_directory
-from syncopaid.screenshot_worker_state import WorkerState
-from syncopaid.screenshot_worker_actions import (
-    save_new_screenshot,
-    overwrite_screenshot
+from syncopaid.screenshot_persistence import (
+    get_screenshot_directory,
+    get_screenshot_path,
+    save_screenshot
 )
 
 # Platform detection
@@ -86,17 +87,34 @@ class ScreenshotWorker:
             max_dimension: Max width/height in pixels (default: 1920)
             idle_skip_seconds: Skip screenshots if idle > this many seconds (default: 30)
         """
-        self._state = WorkerState(
-            screenshot_dir=screenshot_dir,
-            db_insert_callback=db_insert_callback,
-            threshold_identical=threshold_identical,
-            threshold_significant=threshold_significant,
-            threshold_identical_same_window=threshold_identical_same_window,
-            threshold_identical_different_window=threshold_identical_different_window,
-            quality=quality,
-            max_dimension=max_dimension,
-            idle_skip_seconds=idle_skip_seconds
-        )
+        self.screenshot_dir = screenshot_dir
+        self.db_insert_callback = db_insert_callback
+        self.threshold_identical = threshold_identical
+        self.threshold_significant = threshold_significant
+        self.threshold_identical_same_window = threshold_identical_same_window
+        self.threshold_identical_different_window = threshold_identical_different_window
+        self.quality = quality
+        self.max_dimension = max_dimension
+        self.idle_skip_seconds = idle_skip_seconds
+
+        # Thread pool for async capture
+        self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='screenshot')
+
+        # State tracking
+        self.last_metadata: Optional[ScreenshotMetadata] = None
+        self.last_save_time: float = 0
+
+        # Statistics
+        self.total_submitted = 0
+        self.total_captured = 0
+        self.total_saved = 0
+        self.total_overwritten = 0
+        self.total_skipped = 0
+
+        # Ensure screenshot directory exists
+        self.screenshot_dir.mkdir(parents=True, exist_ok=True)
+
+        logging.info(f"ScreenshotWorker initialized: {screenshot_dir}")
 
     def submit(
         self,
@@ -116,11 +134,11 @@ class ScreenshotWorker:
             window_title: Window title
             idle_seconds: Current idle time in seconds
         """
-        self._state.total_submitted += 1
-        logging.info(f"Screenshot submitted #{self._state.total_submitted} for {window_app}")
+        self.total_submitted += 1
+        logging.info(f"Screenshot submitted #{self.total_submitted} for {window_app}")
 
         # Submit to thread pool
-        self._state.executor.submit(
+        self.executor.submit(
             self._capture_and_compare,
             hwnd,
             timestamp,
@@ -149,60 +167,135 @@ class ScreenshotWorker:
         """
         try:
             # Skip if idle too long
-            if idle_seconds > self._state.idle_skip_seconds:
+            if idle_seconds > self.idle_skip_seconds:
                 logging.debug(f"Skipping screenshot: idle {idle_seconds:.0f}s")
-                self._state.total_skipped += 1
+                self.total_skipped += 1
                 return
 
             # Skip certain apps (lock screen, etc.)
             if window_app in SKIP_APPS:
                 logging.debug(f"Skipping screenshot: {window_app}")
-                self._state.total_skipped += 1
+                self.total_skipped += 1
                 return
 
             # Capture the screenshot
             img = capture_window(hwnd)
             if img is None:
                 logging.info(f"Screenshot capture failed for {window_app} (window issue)")
-                self._state.total_skipped += 1
+                self.total_skipped += 1
                 return
 
-            self._state.total_captured += 1
-            logging.info(f"Screenshot captured #{self._state.total_captured} ({img.size[0]}x{img.size[1]})")
+            self.total_captured += 1
+            logging.info(f"Screenshot captured #{self.total_captured} ({img.size[0]}x{img.size[1]})")
 
             # Resize if needed
-            img = resize_if_needed(img, self._state.max_dimension)
+            img = resize_if_needed(img, self.max_dimension)
 
             # Fast-path check: sample pixels before hashing
-            if self._state.last_metadata and quick_pixel_check(img, self._state.last_metadata.file_path):
+            if self.last_metadata and quick_pixel_check(img, self.last_metadata.file_path):
                 # Very similar, overwrite directly
-                overwrite_screenshot(self._state, img, timestamp)
+                self._overwrite_screenshot(img, timestamp)
                 return
 
             # Compute perceptual hash
             current_hash = compute_dhash(img, hash_size=12)
 
             # Compare with previous screenshot
-            time_since_save = time.time() - self._state.last_save_time
+            time_since_save = time.time() - self.last_save_time
             result = compare_screenshots(
                 current_hash=current_hash,
-                previous_metadata=self._state.last_metadata,
+                previous_metadata=self.last_metadata,
                 current_window_app=window_app,
                 current_window_title=window_title,
                 time_since_save=time_since_save,
-                threshold_identical_same_window=self._state.threshold_identical_same_window,
-                threshold_identical_different_window=self._state.threshold_identical_different_window,
-                threshold_significant=self._state.threshold_significant
+                threshold_identical_same_window=self.threshold_identical_same_window,
+                threshold_identical_different_window=self.threshold_identical_different_window,
+                threshold_significant=self.threshold_significant
             )
 
             # Execute the appropriate action
             if result.action == ComparisonResult.OVERWRITE:
-                overwrite_screenshot(self._state, img, timestamp, current_hash)
+                self._overwrite_screenshot(img, timestamp, current_hash)
             else:
-                save_new_screenshot(self._state, img, timestamp, window_app, window_title, current_hash)
+                self._save_new_screenshot(img, timestamp, window_app, window_title, current_hash)
 
         except Exception as e:
             logging.error(f"Error in screenshot capture: {e}")
+
+    def _save_new_screenshot(
+        self,
+        img: Image.Image,
+        timestamp: str,
+        window_app: Optional[str],
+        window_title: Optional[str],
+        dhash: imagehash.ImageHash
+    ):
+        """
+        Save a new screenshot and insert database record.
+
+        Args:
+            img: PIL Image to save
+            timestamp: ISO timestamp
+            window_app: Application name
+            window_title: Window title
+            dhash: Perceptual hash
+        """
+        file_path = get_screenshot_path(self.screenshot_dir, timestamp, window_app)
+
+        # Save image as JPEG
+        save_screenshot(img, file_path, self.quality)
+
+        # Store metadata
+        self.last_metadata = ScreenshotMetadata(
+            file_path=str(file_path),
+            dhash=str(dhash),
+            captured_at=timestamp,
+            window_app=window_app,
+            window_title=window_title
+        )
+        self.last_save_time = time.time()
+
+        # Insert into database
+        self.db_insert_callback(
+            captured_at=timestamp,
+            file_path=str(file_path),
+            window_app=window_app,
+            window_title=window_title,
+            dhash=str(dhash)
+        )
+
+        self.total_saved += 1
+        logging.info(f"Saved new screenshot: {file_path}")
+
+    def _overwrite_screenshot(
+        self,
+        img: Image.Image,
+        timestamp: str,
+        dhash: Optional[imagehash.ImageHash] = None
+    ):
+        """
+        Overwrite the previous screenshot (near-identical content).
+
+        Args:
+            img: PIL Image to save
+            timestamp: ISO timestamp
+            dhash: Optional updated hash
+        """
+        if not self.last_metadata:
+            logging.warning("No previous screenshot to overwrite")
+            return
+
+        # Overwrite existing file
+        file_path = Path(self.last_metadata.file_path)
+        save_screenshot(img, file_path, self.quality)
+
+        # Update metadata if hash provided
+        if dhash:
+            self.last_metadata.dhash = str(dhash)
+        self.last_metadata.captured_at = timestamp
+
+        self.total_overwritten += 1
+        logging.info(f"Overwritten screenshot: {file_path.name}")
 
     def shutdown(self, wait: bool = True, timeout: float = 5.0):
         """
@@ -212,11 +305,25 @@ class ScreenshotWorker:
             wait: Whether to wait for pending tasks
             timeout: Max seconds to wait
         """
-        self._state.shutdown(wait, timeout)
+        logging.info(
+            f"ScreenshotWorker shutting down. "
+            f"Stats: submitted={self.total_submitted}, "
+            f"captured={self.total_captured}, "
+            f"saved={self.total_saved}, "
+            f"overwritten={self.total_overwritten}, "
+            f"skipped={self.total_skipped}"
+        )
+        self.executor.shutdown(wait=wait, cancel_futures=not wait)
 
     def get_stats(self) -> dict:
         """Get screenshot capture statistics."""
-        return self._state.get_stats()
+        return {
+            'submitted': self.total_submitted,
+            'captured': self.total_captured,
+            'saved': self.total_saved,
+            'overwritten': self.total_overwritten,
+            'skipped': self.total_skipped
+        }
 
 
 # ============================================================================
