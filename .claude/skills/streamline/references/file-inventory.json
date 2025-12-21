@@ -31,7 +31,10 @@
     "src/syncopaid/main_ui_export_dialog.py": { "lines": 74 },
     "src/syncopaid/main_ui_utilities.py": { "lines": 62 },
     "src/syncopaid/main_ui_windows.py": { "lines": 230 },
-    "src/syncopaid/matter_client_dialog.py": { "lines": 327 },
+    "src/syncopaid/matter_client_dialog.py": { "lines": 16 },
+    "src/syncopaid/matter_client_csv.py": { "lines": 45 },
+    "src/syncopaid/matter_client_dialog_clients.py": { "lines": 125 },
+    "src/syncopaid/matter_client_dialog_matters.py": { "lines": 166 },
     "src/syncopaid/prompt.py": { "lines": 68 },
     "src/syncopaid/screenshot.py": { "lines": 372 },
     "src/syncopaid/screenshot_capture.py": { "lines": 204 },
@@ -59,6 +62,7 @@
     "src/syncopaid/tracker.py",
     "src/syncopaid/exporter.py",
     "src/syncopaid/main_ui_windows.py",
-    "src/syncopaid/database_operations.py"
+    "src/syncopaid/database_operations.py",
+    "src/syncopaid/matter_client_dialog.py"
   ]
 }
