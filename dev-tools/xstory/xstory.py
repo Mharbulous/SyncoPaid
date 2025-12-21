@@ -42,7 +42,7 @@ STATUS_COLORS = {
     'legacy': '#CC0000',       # Red (outdated/superseded)
     'archived': '#CC0000',     # Red (mildest - final cold storage)
     # Stages (greens/blues - workflow progression)
-    'concept': '#77CC11',      # Chartreuse (yellowish-green)
+    'concept': '#66CC00',      # Lime green - RGB(102, 204, 0)
     'approved': '#00CC33',     # Spring Green
     'planned': '#00CC99',      # Teal (turquoise-green)
     'active': '#0099CC',       # Cerulean
@@ -61,8 +61,8 @@ STATUS_COLORS = {
     'queued': '#E8C200',       # RGB(232, 194, 0) - dark yellow
     'wishlist': '#EAD000',     # RGB(234, 208, 0) - yellow (least urgent)
     'no hold': '#888888',      # Grey (no hold reason)
-    # Live status (for items without disposition)
-    'live': '#00FF00',         # Bright Green (active/live)
+    # Live status (final stage in color wheel progression)
+    'live': '#9900CC',         # Magenta - RGB(153, 0, 204) - 5.87:1 contrast
 }
 
 # All possible statuses (22-status rainbow system - canonical order)
