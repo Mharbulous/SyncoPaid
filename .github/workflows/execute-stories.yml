@@ -1,6 +1,5 @@
 name: 4. Execute Story
 
-# Run every 20 minutes for intensive story execution
 on:
   schedule:
     - cron: '*/20 * * * *'
@@ -19,259 +18,500 @@ permissions:
 jobs:
   execute-stories:
     runs-on: ubuntu-latest
-    timeout-minutes: 60  # Explicit job timeout
+    timeout-minutes: 60
 
     steps:
-      - name: Checkout repository
+      # ══════════════════════════════════════════════════════════════
+      # PHASE 1: SETUP
+      # ══════════════════════════════════════════════════════════════
+      - name: "1.1 Checkout repository"
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0  # Full history for git operations
+          fetch-depth: 0
 
-      - name: Run Claude Code to execute stories
+      # ══════════════════════════════════════════════════════════════
+      # PHASE 2: PLAN SELECTION
+      # ══════════════════════════════════════════════════════════════
+      - name: "2.1 Find available plans"
+        id: find-plans
+        run: |
+          echo "## Plan Discovery" >> $GITHUB_STEP_SUMMARY
+
+          PLANS_DIR=".claude/data/plans"
+          if [ ! -d "$PLANS_DIR" ]; then
+            echo "plans_found=0" >> $GITHUB_OUTPUT
+            echo "❌ Plans directory not found: $PLANS_DIR" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          # Count plan files (excluding subdirectories)
+          PLAN_COUNT=$(find "$PLANS_DIR" -maxdepth 1 -name "*.md" -type f | wc -l)
+          echo "plans_found=$PLAN_COUNT" >> $GITHUB_OUTPUT
+          echo "Found **$PLAN_COUNT** plan files in $PLANS_DIR" >> $GITHUB_STEP_SUMMARY
+
+          # List them for visibility
+          if [ "$PLAN_COUNT" -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Plan File | Sequence |" >> $GITHUB_STEP_SUMMARY
+            echo "|-----------|----------|" >> $GITHUB_STEP_SUMMARY
+            for f in $(ls -1 "$PLANS_DIR"/*.md 2>/dev/null | head -10); do
+              FNAME=$(basename "$f")
+              SEQ=$(echo "$FNAME" | grep -oP '^\d{3}[A-Z]?' || echo "?")
+              echo "| $FNAME | $SEQ |" >> $GITHUB_STEP_SUMMARY
+            done
+          fi
+
+      - name: "2.2 Select earliest plan"
+        id: select-plan
+        if: steps.find-plans.outputs.plans_found != '0'
+        run: |
+          python3 << 'PYEOF'
+          import os, re, json
+
+          plans_dir = '.claude/data/plans'
+          pattern = re.compile(r'^(\d{3})([A-Z])?_(.+)\.md$')
+
+          plans = []
+          for f in os.listdir(plans_dir):
+              path = os.path.join(plans_dir, f)
+              if os.path.isfile(path) and f.endswith('.md'):
+                  m = pattern.match(f)
+                  if m:
+                      plans.append({
+                          'filename': f,
+                          'path': path,
+                          'sequence': int(m.group(1)),
+                          'letter': m.group(2) or '',
+                      })
+
+          plans.sort(key=lambda x: (x['sequence'], x['letter']))
+
+          if plans:
+              selected = plans[0]
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+                  out.write(f"selected=true\n")
+                  out.write(f"filename={selected['filename']}\n")
+                  out.write(f"path={selected['path']}\n")
+                  out.write(f"sequence={selected['sequence']}{selected['letter']}\n")
+              print(f"Selected: {selected['filename']}")
+          else:
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+                  out.write("selected=false\n")
+              print("No valid plan files found")
+          PYEOF
+
+      - name: "2.3 Extract Story ID from plan"
+        id: extract-story
+        if: steps.select-plan.outputs.selected == 'true'
+        run: |
+          PLAN_PATH="${{ steps.select-plan.outputs.path }}"
+
+          # Extract Story ID using multiple patterns
+          STORY_ID=$(grep -oP 'Story ID[:\s]*\K\d+(\.\d+)*' "$PLAN_PATH" | head -1)
+
+          if [ -z "$STORY_ID" ]; then
+            STORY_ID=$(grep -oP '\*\*Story ID:\*\*\s*\K\d+(\.\d+)*' "$PLAN_PATH" | head -1)
+          fi
+
+          echo "story_id=${STORY_ID:-none}" >> $GITHUB_OUTPUT
+          echo "Story ID: ${STORY_ID:-'(not found)'}"
+
+      # ══════════════════════════════════════════════════════════════
+      # PHASE 3: VALIDATION
+      # ══════════════════════════════════════════════════════════════
+      - name: "3.1 Check if story already executed"
+        id: check-executed
+        if: steps.select-plan.outputs.selected == 'true' && steps.extract-story.outputs.story_id != 'none'
+        run: |
+          STORY_ID="${{ steps.extract-story.outputs.story_id }}"
+          DB_PATH=".claude/data/story-tree.db"
+
+          if [ ! -f "$DB_PATH" ]; then
+            echo "already_executed=false" >> $GITHUB_OUTPUT
+            echo "Database not found, assuming not executed"
+            exit 0
+          fi
+
+          STAGE=$(python3 -c "
+          import sqlite3
+          conn = sqlite3.connect('$DB_PATH')
+          r = conn.execute('SELECT stage FROM story_nodes WHERE id = ?', ('$STORY_ID',)).fetchone()
+          print(r[0] if r else 'unknown')
+          conn.close()
+          ")
+
+          echo "Current stage: $STAGE"
+
+          case "$STAGE" in
+            reviewing|verifying|implemented|ready|polish|released)
+              echo "already_executed=true" >> $GITHUB_OUTPUT
+              echo "current_stage=$STAGE" >> $GITHUB_OUTPUT
+              echo "⚠️ Story $STORY_ID already at stage: $STAGE"
+              ;;
+            *)
+              echo "already_executed=false" >> $GITHUB_OUTPUT
+              echo "current_stage=$STAGE" >> $GITHUB_OUTPUT
+              echo "✓ Story $STORY_ID ready for execution (stage: $STAGE)"
+              ;;
+          esac
+
+      - name: "3.2 Check story dependencies"
+        id: check-deps
+        if: steps.select-plan.outputs.selected == 'true' && steps.check-executed.outputs.already_executed != 'true'
+        run: |
+          STORY_ID="${{ steps.extract-story.outputs.story_id }}"
+          PLAN_PATH="${{ steps.select-plan.outputs.path }}"
+          DB_PATH=".claude/data/story-tree.db"
+
+          if [ "$STORY_ID" = "none" ] || [ ! -f "$DB_PATH" ]; then
+            echo "deps_met=true" >> $GITHUB_OUTPUT
+            echo "No Story ID or database, skipping dependency check"
+            exit 0
+          fi
+
+          python3 << PYEOF
+          import sqlite3, re, os
+
+          story_id = "$STORY_ID"
+          db_path = "$DB_PATH"
+          plan_path = "$PLAN_PATH"
+
+          conn = sqlite3.connect(db_path)
+
+          # Get story description and notes
+          result = conn.execute('SELECT description, notes FROM story_nodes WHERE id = ?', (story_id,)).fetchone()
+          if not result:
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write("deps_met=true\n")
+              print("Story not in database, proceeding")
+              exit(0)
+
+          text = (result[0] or '') + ' ' + (result[1] or '')
+
+          # Also check plan file for dependency mentions
+          with open(plan_path, 'r') as f:
+              text += ' ' + f.read()
+
+          # Find dependency patterns
+          dep_pattern = r'(?:depends on|requires|after|blocked by)\s+(\d+(?:\.\d+)*)'
+          deps = set(re.findall(dep_pattern, text, re.IGNORECASE))
+          deps.discard(story_id)
+
+          if not deps:
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write("deps_met=true\n")
+              print("No dependencies found")
+              exit(0)
+
+          # Check each dependency
+          IMPLEMENTED = ('implemented', 'ready', 'polish', 'released')
+          unmet = []
+          for dep_id in deps:
+              r = conn.execute('SELECT stage FROM story_nodes WHERE id = ? AND disposition IS NULL', (dep_id,)).fetchone()
+              if r and r[0] not in IMPLEMENTED:
+                  unmet.append(f"{dep_id} ({r[0]})")
+
+          conn.close()
+
+          if unmet:
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write("deps_met=false\n")
+                  f.write(f"unmet_deps={', '.join(unmet)}\n")
+              print(f"❌ Unmet dependencies: {', '.join(unmet)}")
+          else:
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write("deps_met=true\n")
+              print("✓ All dependencies met")
+          PYEOF
+
+      # ══════════════════════════════════════════════════════════════
+      # PHASE 4: HANDLE SKIP CONDITIONS
+      # ══════════════════════════════════════════════════════════════
+      - name: "4.1 Archive already-executed plan"
+        if: steps.check-executed.outputs.already_executed == 'true'
+        run: |
+          PLAN_PATH="${{ steps.select-plan.outputs.path }}"
+          FILENAME="${{ steps.select-plan.outputs.filename }}"
+          ARCHIVE_DIR=".claude/data/executed"
+
+          mkdir -p "$ARCHIVE_DIR"
+          mv "$PLAN_PATH" "$ARCHIVE_DIR/"
+          echo "Archived already-executed plan: $FILENAME → $ARCHIVE_DIR/"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "ci: archive already-executed plan $FILENAME"
+          git push origin main
+
+      - name: "4.2 Move blocked plan to blocked folder"
+        if: steps.check-deps.outputs.deps_met == 'false'
+        run: |
+          PLAN_PATH="${{ steps.select-plan.outputs.path }}"
+          FILENAME="${{ steps.select-plan.outputs.filename }}"
+          BLOCKED_DIR=".claude/data/plans/blocked"
+          UNMET="${{ steps.check-deps.outputs.unmet_deps }}"
+
+          mkdir -p "$BLOCKED_DIR"
+          mv "$PLAN_PATH" "$BLOCKED_DIR/"
+          echo "Moved blocked plan: $FILENAME → $BLOCKED_DIR/"
+          echo "Unmet dependencies: $UNMET"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "ci: move blocked plan $FILENAME (deps: $UNMET)"
+          git push origin main
+
+      # ══════════════════════════════════════════════════════════════
+      # PHASE 5: EXECUTE PLAN (Claude AI)
+      # ══════════════════════════════════════════════════════════════
+      - name: "5.1 Execute plan with Claude"
         id: claude
+        if: |
+          steps.select-plan.outputs.selected == 'true' &&
+          steps.check-executed.outputs.already_executed != 'true' &&
+          steps.check-deps.outputs.deps_met != 'false'
         uses: anthropics/claude-code-action@v1
         with:
-          # GitHub token for repository operations (required for scheduled workflows)
           github_token: ${{ secrets.GITHUB_TOKEN }}
-
-          # Use OAuth token for Max subscription
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-
-          # Show full output for debugging
           show_full_output: true
 
-          # Direct prompt mode for scheduled automation (CI-optimized)
-          # Pattern: Simple skill invocation + git operations (matching build-stories.yml)
           prompt: |
-            MODE: Daily Story Execution (CI - fully autonomous)
+            Execute the implementation plan: ${{ steps.select-plan.outputs.path }}
+            Story ID: ${{ steps.extract-story.outputs.story_id }}
 
-            Use the story-execution skill to execute a plan:
-            ```
-            Skill(skill="story-execution")
-            ```
+            INSTRUCTIONS:
+            1. Read the plan file
+            2. For each task:
+               - Write failing test (RED)
+               - Write minimal code to pass (GREEN)
+               - Commit with message including Story ID
+            3. Run verification commands from the plan
+            4. If all tests pass, execution is complete
 
-            The skill will:
-            - Check for available plan files (auto-exit if none)
-            - Select the earliest sequence-numbered plan from .claude/data/plans/
-            - Execute only ONE plan per run using TDD cycles
-            - Archive completed plan to .claude/data/executed/
-            - Update story status in the database
+            CONSTRAINTS:
+            - Follow plan steps exactly
+            - Do NOT modify unrelated files
+            - Do NOT run commands in background
+            - If a test fails unexpectedly, stop and report
 
-            After the skill completes, commit and push:
-            ```bash
-            git checkout main && git pull origin main
-            git add -A
-            git diff --cached --quiet || git commit -m "ci: execute plan $(date -u +'%Y-%m-%d')"
-            git push origin main
-            ```
+            TOOL NOTE: Use BashOutput (not TaskOutput) for background commands.
 
-            **CRITICAL**: Push changes before exiting.
-
-            Constraints: Execute only 1 plan file per run. 60-minute timeout.
-
-          # Tool permissions for file operations, database access, git, and testing
           claude_args: |
-            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pytest:*),Bash(npm:*),Bash(pip:*),BashOutput,Skill,SlashCommand,TodoWrite"
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(pytest:*),Bash(pip:*),BashOutput,TodoWrite"
             --model claude-sonnet-4-5-20250929
-            --max-turns 100
+            --max-turns 50
 
-      - name: Report Token Usage
+      # ══════════════════════════════════════════════════════════════
+      # PHASE 6: FINALIZE
+      # ══════════════════════════════════════════════════════════════
+      - name: "6.1 Archive executed plan"
+        if: steps.claude.outcome == 'success'
+        run: |
+          PLAN_PATH="${{ steps.select-plan.outputs.path }}"
+          FILENAME="${{ steps.select-plan.outputs.filename }}"
+          ARCHIVE_DIR=".claude/data/executed"
+
+          if [ -f "$PLAN_PATH" ]; then
+            mkdir -p "$ARCHIVE_DIR"
+            mv "$PLAN_PATH" "$ARCHIVE_DIR/"
+            echo "✓ Archived: $FILENAME → $ARCHIVE_DIR/"
+          else
+            echo "Plan already archived or moved"
+          fi
+
+      - name: "6.2 Update story status in database"
+        if: steps.claude.outcome == 'success' && steps.extract-story.outputs.story_id != 'none'
+        run: |
+          STORY_ID="${{ steps.extract-story.outputs.story_id }}"
+          DB_PATH=".claude/data/story-tree.db"
+
+          if [ ! -f "$DB_PATH" ]; then
+            echo "Database not found, skipping status update"
+            exit 0
+          fi
+
+          python3 << PYEOF
+          import sqlite3
+          conn = sqlite3.connect("$DB_PATH")
+          conn.execute('''
+              UPDATE story_nodes
+              SET stage = 'verifying',
+                  notes = COALESCE(notes || char(10), '') || 'CI execution complete: ' || datetime('now'),
+                  updated_at = datetime('now')
+              WHERE id = ?
+          ''', ("$STORY_ID",))
+          conn.commit()
+          print(f"✓ Updated story $STORY_ID → verifying")
+          conn.close()
+          PYEOF
+
+      - name: "6.3 Stage all changes"
+        if: steps.claude.outcome == 'success'
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes to commit"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changes staged for commit:"
+            git diff --cached --stat
+          fi
+        id: stage
+
+      - name: "6.4 Commit changes"
+        if: steps.stage.outputs.has_changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          FILENAME="${{ steps.select-plan.outputs.filename }}"
+          STORY_ID="${{ steps.extract-story.outputs.story_id }}"
+
+          git commit -m "ci: execute plan $FILENAME
+
+          Story: $STORY_ID"
+
+          echo "✓ Committed changes"
+
+      - name: "6.5 Push to remote"
+        if: steps.stage.outputs.has_changes == 'true'
+        run: |
+          for attempt in 1 2 3 4; do
+            if git push origin main; then
+              echo "✓ Push successful"
+              exit 0
+            else
+              echo "Push failed (attempt $attempt), retrying in $((2 ** attempt))s..."
+              sleep $((2 ** attempt))
+            fi
+          done
+          echo "❌ Push failed after 4 attempts"
+          exit 1
+
+      # ══════════════════════════════════════════════════════════════
+      # PHASE 7: REPORTING
+      # ══════════════════════════════════════════════════════════════
+      - name: "7.1 Generate execution summary"
         if: always()
         run: |
-          echo "## Token Usage Report" >> $GITHUB_STEP_SUMMARY
+          echo "## Execution Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Plan info
+          if [ "${{ steps.select-plan.outputs.selected }}" = "true" ]; then
+            echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Plan | \`${{ steps.select-plan.outputs.filename }}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Sequence | ${{ steps.select-plan.outputs.sequence }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Story ID | ${{ steps.extract-story.outputs.story_id }} |" >> $GITHUB_STEP_SUMMARY
+
+            # Outcome
+            if [ "${{ steps.check-executed.outputs.already_executed }}" = "true" ]; then
+              echo "| Outcome | ⏭️ Skipped (already executed) |" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ steps.check-deps.outputs.deps_met }}" = "false" ]; then
+              echo "| Outcome | 🚫 Blocked (unmet deps) |" >> $GITHUB_STEP_SUMMARY
+              echo "| Unmet Deps | ${{ steps.check-deps.outputs.unmet_deps }} |" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ steps.claude.outcome }}" = "success" ]; then
+              echo "| Outcome | ✅ Success |" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ steps.claude.outcome }}" = "failure" ]; then
+              echo "| Outcome | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ steps.claude.outcome }}" = "skipped" ]; then
+              echo "| Outcome | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| Outcome | ⚠️ Unknown |" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "No plan files available for execution." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: "7.2 Report token usage"
+        if: always() && steps.claude.outcome != 'skipped' && steps.claude.outcome != ''
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Token Usage" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           EXEC_FILE="${{ steps.claude.outputs.execution_file }}"
           if [ -f "$EXEC_FILE" ]; then
-            # Debug: Show file format
-            echo "::debug::Execution file size: $(wc -c < "$EXEC_FILE") bytes"
-
-            # Determine file format (JSONL vs JSON array) and extract data
-            # Try to parse as JSON array first, fall back to JSONL
             if jq -e 'type == "array"' "$EXEC_FILE" > /dev/null 2>&1; then
-              # JSON array format - sum usage from all messages with message.usage
-              INPUT_TOKENS=$(jq '[.[] | select(.message?.usage?) | .message.usage.input_tokens // 0] | add // 0' "$EXEC_FILE")
-              OUTPUT_TOKENS=$(jq '[.[] | select(.message?.usage?) | .message.usage.output_tokens // 0] | add // 0' "$EXEC_FILE")
-              CACHE_CREATION=$(jq '[.[] | select(.message?.usage?) | .message.usage.cache_creation_input_tokens // 0] | add // 0' "$EXEC_FILE")
-              CACHE_READ=$(jq '[.[] | select(.message?.usage?) | .message.usage.cache_read_input_tokens // 0] | add // 0' "$EXEC_FILE")
-              # Get cost and duration from result entry
-              TOTAL_COST=$(jq '[.[] | select(.type == "result")] | last | .total_cost_usd // .cost_usd // "N/A"' "$EXEC_FILE" | tr -d '"')
-              DURATION_MS=$(jq '[.[] | select(.type == "result")] | last | .duration_ms // "N/A"' "$EXEC_FILE" | tr -d '"')
+              INPUT=$(jq '[.[] | select(.message?.usage?) | .message.usage.input_tokens // 0] | add // 0' "$EXEC_FILE")
+              OUTPUT=$(jq '[.[] | select(.message?.usage?) | .message.usage.output_tokens // 0] | add // 0' "$EXEC_FILE")
+              COST=$(jq '[.[] | select(.type == "result")] | last | .total_cost_usd // .cost_usd // "?"' "$EXEC_FILE" | tr -d '"')
             else
-              # JSONL format - use grep + jq
-              INPUT_TOKENS=$(grep -o '"input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
-              OUTPUT_TOKENS=$(grep -o '"output_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
-              CACHE_CREATION=$(grep -o '"cache_creation_input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
-              CACHE_READ=$(grep -o '"cache_read_input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
-              RESULT=$(grep '"type":"result"' "$EXEC_FILE" | tail -1)
-              if [ -n "$RESULT" ]; then
-                TOTAL_COST=$(echo "$RESULT" | jq -r '.total_cost_usd // .cost_usd // "N/A"')
-                DURATION_MS=$(echo "$RESULT" | jq -r '.duration_ms // "N/A"')
-              else
-                TOTAL_COST="N/A"
-                DURATION_MS="N/A"
-              fi
-            fi
-
-            # Validate we got numeric values
-            if ! [[ "$INPUT_TOKENS" =~ ^[0-9]+$ ]]; then INPUT_TOKENS=0; fi
-            if ! [[ "$OUTPUT_TOKENS" =~ ^[0-9]+$ ]]; then OUTPUT_TOKENS=0; fi
-            if ! [[ "$CACHE_CREATION" =~ ^[0-9]+$ ]]; then CACHE_CREATION=0; fi
-            if ! [[ "$CACHE_READ" =~ ^[0-9]+$ ]]; then CACHE_READ=0; fi
-
-            # Calculate total tokens
-            if [ "$INPUT_TOKENS" -gt 0 ] || [ "$OUTPUT_TOKENS" -gt 0 ]; then
-              TOTAL_TOKENS=$((INPUT_TOKENS + OUTPUT_TOKENS))
-            else
-              TOTAL_TOKENS="N/A"
-            fi
-
-            # Format duration in seconds
-            if [[ "$DURATION_MS" =~ ^[0-9]+$ ]]; then
-              DURATION_S=$(echo "scale=1; $DURATION_MS / 1000" | bc)
-            else
-              DURATION_S="N/A"
+              INPUT=$(grep -o '"input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              OUTPUT=$(grep -o '"output_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              COST="?"
             fi
 
             echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
             echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Input Tokens | $INPUT_TOKENS |" >> $GITHUB_STEP_SUMMARY
-            echo "| Output Tokens | $OUTPUT_TOKENS |" >> $GITHUB_STEP_SUMMARY
-            echo "| Cache Creation Tokens | $CACHE_CREATION |" >> $GITHUB_STEP_SUMMARY
-            echo "| Cache Read Tokens | $CACHE_READ |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Total Tokens** | **$TOTAL_TOKENS** |" >> $GITHUB_STEP_SUMMARY
-            echo "| Total Cost | \$$TOTAL_COST |" >> $GITHUB_STEP_SUMMARY
-            echo "| Duration | ${DURATION_S}s |" >> $GITHUB_STEP_SUMMARY
+            echo "| Input Tokens | $INPUT |" >> $GITHUB_STEP_SUMMARY
+            echo "| Output Tokens | $OUTPUT |" >> $GITHUB_STEP_SUMMARY
+            echo "| Total Tokens | $((INPUT + OUTPUT)) |" >> $GITHUB_STEP_SUMMARY
+            echo "| Cost | \$$COST |" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ Execution file not found: $EXEC_FILE" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ Execution file not found" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Post Results to Story Issue
-        if: always()
+      - name: "7.3 Post results to story issue"
+        if: always() && steps.extract-story.outputs.story_id != 'none' && steps.extract-story.outputs.story_id != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "## Posting Results to Story Issue" >> $GITHUB_STEP_SUMMARY
+          STORY_ID="${{ steps.extract-story.outputs.story_id }}"
+          FILENAME="${{ steps.select-plan.outputs.filename }}"
+          DB_PATH=".claude/data/story-tree.db"
 
-          # Find the most recently modified file in executed/ directory
-          EXECUTED_DIR=".claude/data/executed"
-          if [ ! -d "$EXECUTED_DIR" ]; then
-            echo "No executed directory found, skipping issue update" >> $GITHUB_STEP_SUMMARY
+          # Get story title
+          TITLE=""
+          if [ -f "$DB_PATH" ]; then
+            TITLE=$(python3 -c "import sqlite3; c=sqlite3.connect('$DB_PATH'); r=c.execute('SELECT title FROM story_nodes WHERE id=?',('$STORY_ID',)).fetchone(); print(r[0] if r else '')" 2>/dev/null)
+          fi
+          TITLE="${TITLE:-Story $STORY_ID}"
+
+          ISSUE_TITLE="$STORY_ID - $TITLE"
+
+          # Find or create issue
+          ISSUE_NUM=$(gh issue list --state all --search "\"$ISSUE_TITLE\" in:title" --json number,title --jq ".[] | select(.title == \"$ISSUE_TITLE\") | .number" | head -1)
+
+          if [ -z "$ISSUE_NUM" ]; then
+            ISSUE_NUM=$(gh issue create --title "$ISSUE_TITLE" --body "Tracking issue for story **$STORY_ID**" --label "story-tracking" 2>/dev/null | grep -oP 'issues/\K[0-9]+' || \
+                        gh issue create --title "$ISSUE_TITLE" --body "Tracking issue for story **$STORY_ID**" | grep -oP 'issues/\K[0-9]+' || echo "")
+          fi
+
+          if [ -z "$ISSUE_NUM" ]; then
+            echo "Could not find/create issue"
             exit 0
           fi
 
-          # Get the most recently modified plan file (by git, looking at the last commit)
-          LATEST_PLAN=$(git diff --name-only HEAD~1 HEAD -- "$EXECUTED_DIR" 2>/dev/null | head -1)
-
-          # If no file found via git diff, try finding most recent by modification time
-          if [ -z "$LATEST_PLAN" ] || [ ! -f "$LATEST_PLAN" ]; then
-            LATEST_PLAN=$(ls -t "$EXECUTED_DIR"/*.md 2>/dev/null | head -1)
-          fi
-
-          if [ -z "$LATEST_PLAN" ] || [ ! -f "$LATEST_PLAN" ]; then
-            echo "No executed plan file found, skipping issue update" >> $GITHUB_STEP_SUMMARY
-            exit 0
-          fi
-
-          echo "Found executed plan: $LATEST_PLAN" >> $GITHUB_STEP_SUMMARY
-
-          # Extract the base sequence number from filename (e.g., "006" from "006A_something.md")
-          PLAN_FILENAME=$(basename "$LATEST_PLAN")
-          BASE_SEQ=$(echo "$PLAN_FILENAME" | grep -oP '^\d+')
-          SUB_PLAN_ID=$(echo "$PLAN_FILENAME" | grep -oP '^\d+\K[A-Z]?' | head -1)
-
-          echo "Plan sequence: ${BASE_SEQ}${SUB_PLAN_ID}" >> $GITHUB_STEP_SUMMARY
-
-          # Extract Story ID from the plan file (format: **Story ID:** X.Y | ...)
-          STORY_ID=$(grep -oP '\*\*Story ID:\*\*\s*\K[0-9]+(\.[0-9]+)*' "$LATEST_PLAN" | head -1)
-
-          # If no Story ID in current plan, search sibling plans with same base sequence
-          if [ -z "$STORY_ID" ] && [ -n "$BASE_SEQ" ]; then
-            echo "No Story ID in current plan, searching sibling plans..." >> $GITHUB_STEP_SUMMARY
-            for SEARCH_DIR in ".claude/data/executed" ".claude/data/plans" ".claude/data/plans/blocked"; do
-              if [ -d "$SEARCH_DIR" ]; then
-                for SIBLING in "$SEARCH_DIR"/${BASE_SEQ}*.md "$SEARCH_DIR"/${BASE_SEQ}[A-Z]*.md; do
-                  if [ -f "$SIBLING" ]; then
-                    FOUND_ID=$(grep -oP '\*\*Story ID:\*\*\s*\K[0-9]+(\.[0-9]+)*' "$SIBLING" 2>/dev/null | head -1)
-                    if [ -n "$FOUND_ID" ]; then
-                      STORY_ID="$FOUND_ID"
-                      echo "Found Story ID $STORY_ID in sibling: $(basename "$SIBLING")" >> $GITHUB_STEP_SUMMARY
-                      break 2
-                    fi
-                  fi
-                done
-              fi
-            done
-          fi
-
-          if [ -z "$STORY_ID" ]; then
-            echo "No Story ID found in plan or siblings, skipping issue update" >> $GITHUB_STEP_SUMMARY
-            exit 0
-          fi
-
-          # Get story title from story-tree database using Story ID
-          STORY_TITLE=""
-          if command -v python3 &> /dev/null && [ -f ".claude/data/story-tree.db" ]; then
-            STORY_TITLE=$(python3 -c "import sqlite3; conn = sqlite3.connect('.claude/data/story-tree.db'); r = conn.execute('SELECT title FROM story_nodes WHERE id = ?', ('$STORY_ID',)).fetchone(); print(r[0] if r else '')" 2>/dev/null)
-          fi
-
-          # Fallback: extract title from plan markdown header
-          if [ -z "$STORY_TITLE" ]; then
-            STORY_TITLE=$(grep -m1 '^# ' "$LATEST_PLAN" | sed 's/^# //' | sed 's/^[0-9A-Z]*: //')
-          fi
-
-          # Final fallback: use plan filename
-          if [ -z "$STORY_TITLE" ]; then
-            STORY_TITLE=$(basename "$LATEST_PLAN" .md | sed 's/^[0-9A-Z]*_//' | tr '-' ' ')
-          fi
-
-          ISSUE_TITLE="${STORY_ID} - ${STORY_TITLE}"
-          echo "Story Issue Title: $ISSUE_TITLE" >> $GITHUB_STEP_SUMMARY
-
-          # Check if issue already exists
-          ISSUE_NUMBER=$(gh issue list --state all --search "\"${ISSUE_TITLE}\" in:title" --json number,title --jq ".[] | select(.title == \"${ISSUE_TITLE}\") | .number" | head -1)
-
-          if [ -z "$ISSUE_NUMBER" ]; then
-            echo "Creating new issue: $ISSUE_TITLE" >> $GITHUB_STEP_SUMMARY
-            ISSUE_BODY="Tracking issue for story node **${STORY_ID}**"$'\n\n'"## Description"$'\n'"${STORY_TITLE}"$'\n\n'"---"$'\n'"*This issue was automatically created by the execute-stories workflow to track CI execution results.*"
-            ISSUE_NUMBER=$(gh issue create --title "$ISSUE_TITLE" --body "$ISSUE_BODY" --label "story-tracking" 2>/dev/null | grep -oP 'issues/\K[0-9]+' || echo "")
-            # If label doesn't exist, try without it
-            if [ -z "$ISSUE_NUMBER" ]; then
-              ISSUE_NUMBER=$(gh issue create --title "$ISSUE_TITLE" --body "$ISSUE_BODY" | grep -oP 'issues/\K[0-9]+' || echo "")
-            fi
-            if [ -n "$ISSUE_NUMBER" ]; then
-              echo "Created issue #${ISSUE_NUMBER}" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "Failed to create issue" >> $GITHUB_STEP_SUMMARY
-              exit 0
-            fi
+          # Determine status emoji
+          CLAUDE="${{ steps.claude.outcome }}"
+          if [ "${{ steps.check-executed.outputs.already_executed }}" = "true" ]; then
+            STATUS="⏭️ Skipped (already executed)"
+          elif [ "${{ steps.check-deps.outputs.deps_met }}" = "false" ]; then
+            STATUS="🚫 Blocked (unmet dependencies)"
+          elif [ "$CLAUDE" = "success" ]; then
+            STATUS="✅ Success"
+          elif [ "$CLAUDE" = "failure" ]; then
+            STATUS="❌ Failed"
           else
-            echo "Found existing issue #${ISSUE_NUMBER}" >> $GITHUB_STEP_SUMMARY
+            STATUS="⚠️ $CLAUDE"
           fi
 
-          # Determine job result status
-          JOB_STATUS="${{ job.status }}"
-          if [ "$JOB_STATUS" = "success" ]; then
-            STATUS_EMOJI="✅"
-            STATUS_TEXT="Success"
-          elif [ "$JOB_STATUS" = "failure" ]; then
-            STATUS_EMOJI="❌"
-            STATUS_TEXT="Failed"
-          else
-            STATUS_EMOJI="⚠️"
-            STATUS_TEXT="$JOB_STATUS"
-          fi
-
-          # Build the result comment
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          PLAN_FILENAME=$(basename "$LATEST_PLAN")
-          COMMENT_BODY="## ${STATUS_EMOJI} Execution Result: ${STATUS_TEXT}"$'\n\n'"**Plan Executed:** \`${PLAN_FILENAME}\`"$'\n'"**Timestamp:** ${TIMESTAMP}"$'\n'"**Workflow Run:** [View Details](${RUN_URL})"$'\n\n'"### Summary"$'\n'"Story execution completed with status: **${STATUS_TEXT}**"$'\n\n'"---"$'\n'"*Posted automatically by [execute-stories workflow](${RUN_URL})*"
 
-          # Post comment to the issue
-          echo "$COMMENT_BODY" | gh issue comment "$ISSUE_NUMBER" --body-file -
-          if [ $? -eq 0 ]; then
-            echo "Posted results to issue #${ISSUE_NUMBER}" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Failed to post comment to issue #${ISSUE_NUMBER}" >> $GITHUB_STEP_SUMMARY
-          fi
+          BODY="## $STATUS
+
+          **Plan:** \`$FILENAME\`
+          **Time:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')
+          **Run:** [View Details]($RUN_URL)
+
+          ---
+          *Posted by [execute-stories workflow]($RUN_URL)*"
+
+          echo "$BODY" | gh issue comment "$ISSUE_NUM" --body-file -
+          echo "Posted to issue #$ISSUE_NUM"
