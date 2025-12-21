@@ -22,12 +22,21 @@ class EventOperationsMixin:
     Requires _get_connection() method from ConnectionMixin.
     """
 
-    def insert_event(self, event: ActivityEvent) -> int:
+    def insert_event(
+        self,
+        event: ActivityEvent,
+        matter_id: Optional[int] = None,
+        confidence: int = 0,
+        flagged_for_review: bool = False
+    ) -> int:
         """
         Insert a single activity event into the database.
 
         Args:
             event: ActivityEvent object to store
+            matter_id: Optional matter ID for categorization
+            confidence: Confidence score (0-100) for matter assignment
+            flagged_for_review: Whether event needs manual review
 
         Returns:
             The ID of the inserted event
@@ -49,8 +58,10 @@ class EventOperationsMixin:
             cmdline_json = json.dumps(cmdline) if cmdline else None
 
             cursor.execute("""
-                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, cmdline, is_idle, state, metadata, interaction_level)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO events (timestamp, duration_seconds, end_time, app, title, url, cmdline,
+                                  is_idle, state, metadata, interaction_level,
+                                  matter_id, confidence, flagged_for_review)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 event.timestamp,
                 event.duration_seconds,
@@ -62,7 +73,10 @@ class EventOperationsMixin:
                 1 if event.is_idle else 0,
                 state,
                 metadata_json,
-                interaction_level
+                interaction_level,
+                matter_id,
+                confidence,
+                1 if flagged_for_review else 0
             ))
 
             return cursor.lastrowid
