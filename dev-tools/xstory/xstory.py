@@ -1432,6 +1432,10 @@ class DetailView(QWidget):
         # Workflow progress bar
         self._add_progress_bar(node)
 
+        # Success Criteria section
+        if node.success_criteria:
+            self._add_success_criteria_section(node)
+
         # Description section - always show if present
         if node.description:
             self._add_description_section(node, node.description)
@@ -1483,6 +1487,40 @@ class DetailView(QWidget):
         desc_layout.addWidget(text)
 
         self.content_layout.addWidget(desc_widget)
+
+    def _add_success_criteria_section(self, node: StoryNode):
+        """Add the success criteria section.
+
+        Args:
+            node: The story node being displayed
+        """
+        if not node.success_criteria:
+            return
+
+        criteria_widget = QWidget()
+        criteria_widget.setStyleSheet("background: transparent;")
+        criteria_layout = QVBoxLayout(criteria_widget)
+        criteria_layout.setContentsMargins(0, 0, 0, 0)
+        criteria_layout.setSpacing(8)
+
+        header = QLabel("Success Criteria")
+        header.setStyleSheet("font-size: 12pt; font-weight: bold; color: #212529;")
+        criteria_layout.addWidget(header)
+
+        text = QLabel(node.success_criteria)
+        text.setStyleSheet("""
+            color: #495057;
+            font-size: 10pt;
+            line-height: 1.5;
+            background-color: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+        """)
+        text.setWordWrap(True)
+        text.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        criteria_layout.addWidget(text)
+
+        self.content_layout.addWidget(criteria_widget)
 
     def _add_notes_section(self, node: StoryNode):
         """Add the notes section."""
