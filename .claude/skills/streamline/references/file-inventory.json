@@ -41,7 +41,11 @@
     "src/syncopaid/screenshot_comparison.py": { "lines": 139 },
     "src/syncopaid/screenshot_persistence.py": { "lines": 105 },
     "src/syncopaid/tracker.py": { "lines": 59 },
-    "src/syncopaid/tracker_loop.py": { "lines": 308 },
+    "src/syncopaid/tracker_loop.py": { "lines": 152 },
+    "src/syncopaid/tracker_loop_events.py": { "lines": 90 },
+    "src/syncopaid/tracker_loop_idle.py": { "lines": 86 },
+    "src/syncopaid/tracker_loop_screenshots.py": { "lines": 61 },
+    "src/syncopaid/tracker_loop_state.py": { "lines": 93 },
     "src/syncopaid/tracker_screenshot.py": { "lines": 57 },
     "src/syncopaid/tracker_state.py": { "lines": 118 },
     "src/syncopaid/tracker_testing.py": { "lines": 78 },
@@ -63,6 +67,7 @@
     "src/syncopaid/exporter.py",
     "src/syncopaid/main_ui_windows.py",
     "src/syncopaid/database_operations.py",
-    "src/syncopaid/matter_client_dialog.py"
+    "src/syncopaid/matter_client_dialog.py",
+    "src/syncopaid/tracker_loop.py"
   ]
 }
