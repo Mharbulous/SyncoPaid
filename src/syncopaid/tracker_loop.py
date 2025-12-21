@@ -33,6 +33,7 @@ class TrackerLoop:
     - Merges consecutive identical activities
     - Yields ActivityEvent objects for storage
     - Submits periodic screenshots (if enabled)
+    - Detects transitions and triggers prompts (if enabled)
 
     Configuration:
         poll_interval: How often to check active window (seconds)
@@ -40,7 +41,13 @@ class TrackerLoop:
         merge_threshold: Max gap to merge identical windows (seconds)
         screenshot_worker: Optional ScreenshotWorker for capturing screenshots
         screenshot_interval: Seconds between screenshot attempts
+        transition_detector: Optional TransitionDetector for detecting task switches
+        transition_callback: Callback to record transitions in database
+        prompt_enabled: Whether to show prompts at transitions
     """
+
+    # Minimum seconds between transition prompts
+    PROMPT_COOLDOWN = 600  # 10 minutes
 
     def __init__(
         self,
@@ -50,7 +57,10 @@ class TrackerLoop:
         screenshot_worker=None,
         screenshot_interval: float = 10.0,
         minimum_idle_duration: float = 180.0,
-        ui_automation_worker=None
+        ui_automation_worker=None,
+        transition_detector=None,
+        transition_callback=None,
+        prompt_enabled: bool = True
     ):
         self.poll_interval = poll_interval
         self.idle_threshold = idle_threshold
@@ -62,12 +72,20 @@ class TrackerLoop:
         self.state_detector = StateChangeDetector(merge_threshold)
         self.event_finalizer = EventFinalizer(ui_automation_worker)
 
+        # Transition detection
+        self.transition_detector = transition_detector
+        self.transition_callback = transition_callback
+        self.prompt_enabled = prompt_enabled
+        self.prev_window_state = None
+        self._last_prompt_time = 0  # Cooldown tracking
+
         logging.info(
             f"TrackerLoop initialized: "
             f"poll={poll_interval}s, idle_threshold={idle_threshold}s, "
             f"merge_threshold={merge_threshold}s, "
             f"minimum_idle_duration={minimum_idle_duration}s, "
-            f"screenshot_enabled={screenshot_worker is not None}"
+            f"screenshot_enabled={screenshot_worker is not None}, "
+            f"transition_detection={transition_detector is not None}"
         )
 
     def start(self) -> Generator[ActivityEvent, None, None]:
@@ -127,6 +145,12 @@ class TrackerLoop:
                     # Start new event
                     self.state_detector.start_new_event(state)
 
+                # Check for transitions (if enabled)
+                self._check_for_transitions(state, idle_seconds)
+
+                # Update previous state for next iteration
+                self.prev_window_state = state.copy()
+
                 # Sleep until next poll
                 time.sleep(self.poll_interval)
 
@@ -150,3 +174,86 @@ class TrackerLoop:
     def stop(self):
         """Stop the tracking loop."""
         self.running = False
+
+    def _check_for_transitions(self, state: dict, idle_seconds: float):
+        """
+        Check for transition points and optionally show prompt.
+
+        Args:
+            state: Current window state dict
+            idle_seconds: Current idle time in seconds
+        """
+        if not self.transition_detector:
+            return
+
+        # Get previous state info
+        prev_app = self.prev_window_state['app'] if self.prev_window_state else None
+        prev_title = self.prev_window_state['title'] if self.prev_window_state else None
+
+        # Check if this is a transition
+        is_trans = self.transition_detector.is_transition(
+            app=state['app'],
+            title=state['title'],
+            prev_app=prev_app,
+            prev_title=prev_title,
+            idle_seconds=idle_seconds
+        )
+
+        if not is_trans:
+            return
+
+        transition_type = self.transition_detector.last_transition_type
+        logging.info(f"Transition detected: {transition_type}")
+
+        # Record transition in database
+        if self.transition_callback:
+            from datetime import datetime, timezone
+            self.transition_callback(
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                transition_type=transition_type,
+                context={"app": state['app'], "title": state['title']},
+                user_response=None
+            )
+
+        # Check cooldown before showing prompt
+        current_time = time.time()
+        if current_time - self._last_prompt_time < self.PROMPT_COOLDOWN:
+            logging.debug(f"Skipping prompt due to cooldown")
+            return
+
+        # Show prompt if enabled (in background thread)
+        if self.prompt_enabled:
+            self._show_prompt_async(state, transition_type)
+            self._last_prompt_time = current_time
+
+    def _show_prompt_async(self, state: dict, transition_type: str):
+        """
+        Show transition prompt in background thread.
+
+        Args:
+            state: Current window state dict
+            transition_type: Type of transition detected
+        """
+        import threading
+        from datetime import datetime, timezone
+
+        def show_prompt():
+            try:
+                from syncopaid.prompt import TransitionPrompt
+                prompt = TransitionPrompt()
+                response = prompt.show(transition_type)
+
+                # Update transition record with user response
+                if response and self.transition_callback:
+                    self.transition_callback(
+                        timestamp=datetime.now(timezone.utc).isoformat(),
+                        transition_type=transition_type,
+                        context={"app": state['app'], "title": state['title']},
+                        user_response=response
+                    )
+                    logging.info(f"User response to transition prompt: {response}")
+
+            except Exception as e:
+                logging.error(f"Error showing transition prompt: {e}")
+
+        threading.Thread(target=show_prompt, daemon=True).start()

@@ -5,8 +5,8 @@ Defines the Config dataclass that holds all application settings
 with type annotations and documentation.
 """
 
-from typing import Dict, Any, Optional
-from dataclasses import dataclass, asdict
+from typing import Dict, Any, Optional, List
+from dataclasses import dataclass, asdict, field
 
 
 @dataclass
@@ -37,6 +37,9 @@ class Config:
         ui_automation_enabled: Enable UI automation extraction globally (default: True)
         ui_automation_outlook_enabled: Enable UI automation for Outlook (default: True)
         ui_automation_explorer_enabled: Enable UI automation for Explorer (default: True)
+        transition_prompt_enabled: Enable transition detection prompts (default: True)
+        transition_sensitivity: Prompt aggressiveness level (default: moderate)
+        transition_never_prompt_apps: Apps where prompts are never shown (default: common editing apps)
     """
     poll_interval_seconds: float = 1.0
     idle_threshold_seconds: float = 180.0
@@ -64,6 +67,10 @@ class Config:
     ui_automation_enabled: bool = True
     ui_automation_outlook_enabled: bool = True
     ui_automation_explorer_enabled: bool = True
+    # Transition detection & smart prompts
+    transition_prompt_enabled: bool = True
+    transition_sensitivity: str = "moderate"
+    transition_never_prompt_apps: List[str] = field(default_factory=lambda: ["WINWORD.EXE", "EXCEL.EXE", "Teams.exe", "Zoom.exe"])
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary."""
