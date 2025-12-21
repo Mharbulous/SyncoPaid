@@ -76,6 +76,9 @@ else:
 "
 ```
 
+**If no plans found (`selected: null`):**
+Output "✓ No plan files available for execution" and exit successfully. Do not proceed with the remaining steps.
+
 **Important:** Execute only ONE plan file at a time. Even if multiple files share the same sequence number with different letter suffixes (e.g., 003A, 003B, 003C), only execute the first one (003A). The next run will execute the next file (003B).
 
 Select the earliest plan and read the plan file.
