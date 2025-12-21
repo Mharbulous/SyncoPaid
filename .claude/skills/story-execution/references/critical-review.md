@@ -20,7 +20,7 @@ Require human decision before implementation:
 - Missing critical information
 - Conflicting requirements
 
-**CI Mode Action:** Set `review.outcome = "pause"`, do NOT proceed.
+**CI Mode Action:** Set `outcome = "pause"`, do NOT proceed.
 
 ### Deferrable Issues
 
@@ -31,58 +31,59 @@ Can be addressed by post-implementation refactoring:
 - Documentation gaps
 - Non-critical edge cases
 
-**CI Mode Action:** Set `review.outcome = "proceed_with_review"`, document decisions and proceed.
+**CI Mode Action:** Set `outcome = "proceed_with_review"`, document decisions and proceed.
 
 ## Review Output
 
-### temp-CI-notes.json Update
+Write to `.claude/skills/story-execution/ci-review-result.json`:
 
-```python
-python -c "
-import json
-
-state_file = '.claude/skills/story-execution/temp-CI-notes.json'
-
-# Read existing state (or initialize)
-try:
-    with open(state_file) as f:
-        state = json.load(f)
-except FileNotFoundError:
-    state = {}
-
-# Update review section
-state['review'] = {
-    'outcome': 'proceed',  # or 'pause' or 'proceed_with_review'
-    'blocking_issues': [],
-    'deferrable_issues': [],
-    'notes': 'Critical review: No blocking or deferrable issues identified'
+```json
+{
+  "outcome": "proceed",
+  "blocking_issues": [],
+  "deferrable_issues": [],
+  "notes": "Critical review: No blocking or deferrable issues identified"
 }
+```
 
-# Example blocking issue format:
-# state['review']['blocking_issues'].append({
-#     'description': 'Authentication method not specified',
-#     'why_blocking': 'Cannot implement login without knowing OAuth vs JWT vs session',
-#     'options': ['A: OAuth 2.0', 'B: JWT tokens', 'C: Session cookies']
-# })
+### Example: Blocking Issue
 
-# Example deferrable issue format:
-# state['review']['deferrable_issues'].append({
-#     'description': 'Function naming inconsistent with codebase',
-#     'decision': 'Using camelCase to match plan, can rename later',
-#     'rationale': 'Plan specifies camelCase, refactoring deferred'
-# })
+```json
+{
+  "outcome": "pause",
+  "blocking_issues": [
+    {
+      "description": "Authentication method not specified",
+      "why_blocking": "Cannot implement login without knowing OAuth vs JWT vs session",
+      "options": ["A: OAuth 2.0", "B: JWT tokens", "C: Session cookies"]
+    }
+  ],
+  "deferrable_issues": [],
+  "notes": "Plan paused due to missing auth specification"
+}
+```
 
-with open(state_file, 'w') as f:
-    json.dump(state, f, indent=2)
+### Example: Deferrable Issue
 
-print(json.dumps(state['review'], indent=2))
-"
+```json
+{
+  "outcome": "proceed_with_review",
+  "blocking_issues": [],
+  "deferrable_issues": [
+    {
+      "description": "Function naming inconsistent with codebase",
+      "decision": "Using camelCase to match plan, can rename later",
+      "rationale": "Plan specifies camelCase, refactoring deferred"
+    }
+  ],
+  "notes": "Proceeding with noted style inconsistency"
+}
 ```
 
 ## Review Outcomes
 
 | Outcome | Meaning | Next Step |
 |---------|---------|-----------|
-| `proceed` | No issues found | Execute batches |
+| `proceed` | No issues found | Continue to decompose stage |
 | `pause` | Blocking issues | Stop, report issues |
-| `proceed_with_review` | Deferrable issues documented | Execute batches, flag for review |
+| `proceed_with_review` | Deferrable issues documented | Continue, flag for review |

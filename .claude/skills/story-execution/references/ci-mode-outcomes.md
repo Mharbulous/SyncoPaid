@@ -1,6 +1,14 @@
 # CI Mode Outcomes
 
-Handling execution outcomes when no human is available for feedback.
+Handling execution outcomes in the 5-stage CI pipeline.
+
+## Pipeline Overview
+
+```
+setup-and-plan → review-plan → decompose → execute → finalize
+```
+
+Each stage produces a result file that the next stage (or finalize) uses.
 
 ## Review Outcomes
 
@@ -8,150 +16,150 @@ Handling execution outcomes when no human is available for feedback.
 
 Cannot proceed without human decision.
 
-**temp-CI-notes.json:**
+**ci-review-result.json:**
 ```json
 {
-  "review": {
-    "outcome": "pause",
-    "blocking_issues": [
-      {"description": "...", "why_blocking": "...", "options": ["A", "B", "C"]}
-    ]
-  },
-  "final_status": "paused"
+  "outcome": "pause",
+  "blocking_issues": [
+    {"description": "...", "why_blocking": "...", "options": ["A", "B", "C"]}
+  ],
+  "deferrable_issues": [],
+  "notes": "Plan paused due to blocking issue"
 }
 ```
 
-**Database update:** `hold_reason = 'paused'`, `human_review = 1`
-
-**Output format:**
-```
-=== Story Execution Paused ===
-Story: [STORY_ID] - [Title]
-Status: planned -> paused
-
-BLOCKING ISSUES REQUIRING HUMAN DECISION:
-
-1. [Issue description]
-   Why blocking: [explanation]
-   Options: [A, B, C...]
-
-Action required: Review issues and update plan, then re-trigger execution.
-```
+**Result:** Pipeline stops at review-plan stage.
+**Database update:** `stage = 'reviewing'`, `human_review = 1`
 
 ### Outcome B: Deferrable Issues Found
 
 Can proceed, but needs post-implementation review.
 
-**temp-CI-notes.json:**
+**ci-review-result.json:**
 ```json
 {
-  "review": {
-    "outcome": "proceed_with_review",
-    "deferrable_issues": [
-      {"description": "...", "decision": "...", "rationale": "..."}
-    ]
-  },
-  "final_status": "in_progress"
+  "outcome": "proceed_with_review",
+  "blocking_issues": [],
+  "deferrable_issues": [
+    {"description": "...", "decision": "...", "rationale": "..."}
+  ],
+  "notes": "Proceeding with documented decisions"
 }
 ```
 
-**After all batches complete:**
-- Set `final_status = "completed"`
-- Database: `stage = 'reviewing'`, `human_review = 1`
+**Result:** Pipeline continues through all stages.
+**Database update:** `stage = 'reviewing'`, `human_review = 1`
 
-**Output format:**
-```
-=== Story Execution Complete (Review Required) ===
-Story: [STORY_ID] - [Title]
-Tasks: [N]/[N] completed
-Status: planned -> active -> reviewing
-
-DECISIONS MADE DURING CI EXECUTION:
-
-1. [Issue identified]
-   Decision: [what was decided]
-   Rationale: [why this choice]
-
-Action required: Review decisions above, approve or request changes.
-```
-
-### Outcome C: No Critical Issues
+### Outcome C: No Issues
 
 Clean execution path.
 
-**temp-CI-notes.json:**
+**ci-review-result.json:**
 ```json
 {
-  "review": {
-    "outcome": "proceed",
-    "notes": "Critical review: No blocking or deferrable issues identified"
-  },
-  "final_status": "in_progress"
+  "outcome": "proceed",
+  "blocking_issues": [],
+  "deferrable_issues": [],
+  "notes": "No issues identified"
 }
 ```
 
-**After all batches complete:**
-- Set `final_status = "completed"`
-- Database: `stage = 'verifying'`, `human_review = 0`
+**Result:** Pipeline continues through all stages.
+**Database update:** `stage = 'verifying'`, `human_review = 0`
 
-**Output format:**
-```
-=== Story Execution Complete ===
-Story: [STORY_ID] - [Title]
-Tasks: [N]/[N] completed
-Status: planned -> active -> verifying
+## Decompose Outcomes
 
-Next step: Run story-verification skill to verify acceptance criteria
-```
+### Simple/Medium Complexity
 
-## Batch Failure Handling
+Execute the plan as-is.
 
-If any batch fails:
-
-```python
-python -c "
-import json
-
-state_file = '.claude/skills/story-execution/temp-CI-notes.json'
-with open(state_file) as f:
-    state = json.load(f)
-
-state['final_status'] = 'failed'
-
-# Find failed batch
-failed_batch = next((b for b in state['batches'] if b['status'] == 'failed'), None)
-failed_task = next((t for t in state['tasks'] if t['status'] == 'failed'), None)
-
-state['failure'] = {
-    'batch': failed_batch['batch'] if failed_batch else None,
-    'task': failed_task['id'] if failed_task else None,
-    'reason': failed_task.get('notes', 'Unknown failure') if failed_task else 'Unknown'
+**ci-decompose-result.json:**
+```json
+{
+  "complexity": "medium",
+  "task_count": 5,
+  "execute_plan": ".claude/data/plans/016_configurable-idle-threshold.md",
+  "sub_plans_created": [],
+  "notes": "5 tasks, moderate complexity"
 }
-
-with open(state_file, 'w') as f:
-    json.dump(state, f, indent=2)
-
-print(json.dumps(state['failure'], indent=2))
-"
 ```
 
-**Output format:**
-```
-=== Execution Blocked ===
-Story: [STORY_ID] - [Title]
-Completed: [M]/[N] tasks
-Blocked at: Task [M+1] - [task_name]
-Status: active -> paused
+### Complex - Decomposed
 
-Issue: [description of blocker]
-Need: [what clarification or help is needed]
+Split into sub-plans, execute first one.
+
+**ci-decompose-result.json:**
+```json
+{
+  "complexity": "complex",
+  "task_count": 12,
+  "execute_plan": ".claude/data/plans/016A_configurable-idle-threshold.md",
+  "sub_plans_created": [
+    ".claude/data/plans/016B_idle-threshold-integration.md",
+    ".claude/data/plans/016C_idle-threshold-ui.md"
+  ],
+  "notes": "Split into 3 sub-plans"
+}
+```
+
+**Result:** Execute first sub-plan (A), others picked up in future runs.
+
+## Execute Outcomes
+
+### All Tasks Completed
+
+**ci-execute-result.json:**
+```json
+{
+  "status": "completed",
+  "tasks_completed": 5,
+  "tasks_total": 5,
+  "commits": ["abc1234", "def5678", "ghi9012", "jkl3456", "mno7890"],
+  "notes": "All tasks completed successfully"
+}
+```
+
+### Partial Completion
+
+**ci-execute-result.json:**
+```json
+{
+  "status": "partial",
+  "tasks_completed": 3,
+  "tasks_total": 5,
+  "commits": ["abc1234", "def5678", "ghi9012"],
+  "notes": "Stopped at task 4 due to test failure"
+}
+```
+
+### Failed
+
+**ci-execute-result.json:**
+```json
+{
+  "status": "failed",
+  "tasks_completed": 0,
+  "tasks_total": 5,
+  "commits": [],
+  "notes": "Could not start execution - missing dependency"
+}
 ```
 
 ## Final Status Summary
 
-| Review Outcome | Batch Status | Final Status | DB Stage | human_review |
-|----------------|--------------|--------------|----------|--------------|
-| pause | - | paused | active (hold_reason=paused) | 1 |
-| proceed_with_review | all completed | completed | reviewing | 1 |
-| proceed | all completed | completed | verifying | 0 |
-| any | any failed | failed | active (hold_reason=paused) | 1 |
+| Review | Execute | Final | DB Stage | human_review |
+|--------|---------|-------|----------|--------------|
+| pause | - | paused | reviewing | 1 |
+| proceed_with_review | completed | success | reviewing | 1 |
+| proceed | completed | success | verifying | 0 |
+| any | partial | partial | reviewing | 1 |
+| any | failed | failure | reviewing | 1 |
+
+## Finalize Actions
+
+Based on outcome:
+
+1. **success**: Archive plan, update DB to verifying/reviewing, commit & push
+2. **partial**: Keep plan, update DB to reviewing, commit & push what's done
+3. **paused**: Keep plan, update DB hold_reason, report blocking issues
+4. **failure**: Keep plan, update DB to reviewing, report errors

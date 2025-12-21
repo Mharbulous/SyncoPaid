@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Story Execution
 
-Load plan from story-tree database, review critically, execute tasks in batches, report for review between batches.
+Load plan from story-tree database, review critically, execute TDD tasks, report for review.
 
 **Announce:** On activation, say: "I'm using the story-execution skill to implement this plan."
 
@@ -15,42 +15,93 @@ Load plan from story-tree database, review critically, execute tasks in batches,
 **CI Mode** activates when:
 - Environment variable `CI=true` is set, OR
 - Trigger phrase includes "(ci)" like "execute plan (ci)"
-- Prompt includes `Phase: REVIEW` or `Phase: EXECUTE_BATCH`
 
 **Interactive Mode** (default): Pause after each batch for human feedback.
 
-## CI Mode Phases
+## CI Mode Pipeline
 
-When `Phase:` is specified in the prompt, load the appropriate reference:
+The CI pipeline has 5 semantically meaningful stages:
 
-| Phase | Reference | Purpose |
-|-------|-----------|---------|
-| `REVIEW` | `references/critical-review.md` | Review plan, classify issues |
-| `EXECUTE_BATCH` | `references/tdd-execution.md` | TDD cycle for task batch |
+```
+setup-and-plan → review-plan → decompose → execute → finalize
+```
 
-**Shared state:** `.claude/skills/story-execution/temp-CI-notes.json`
+| Stage | Model | Purpose | Output |
+|-------|-------|---------|--------|
+| setup-and-plan | Bash/Python | Find plan, validate deps | plan_path, story_id |
+| review-plan | Sonnet | Review critically, decide proceed/pause | ci-review-result.json |
+| decompose | Opus | Assess complexity, split if needed | ci-decompose-result.json |
+| execute | Sonnet | Follow plan's TDD steps directly | ci-execute-result.json |
+| finalize | Bash/Python | Archive, commit, push, report | - |
 
-### Phase: REVIEW
+### Stage: review-plan
 
-Load reference: `references/critical-review.md`
+Read the plan and determine if it's ready to execute.
 
-1. Initialize temp-CI-notes.json with plan info
-2. Read and review plan critically
-3. Classify issues as blocking or deferrable
-4. Write review outcome to temp-CI-notes.json
-5. Update database (load `references/database-updates.md`)
+**Output:** `.claude/skills/story-execution/ci-review-result.json`
 
-### Phase: EXECUTE_BATCH
+```json
+{
+  "outcome": "proceed|pause|proceed_with_review",
+  "blocking_issues": [],
+  "deferrable_issues": [],
+  "notes": "Brief summary of review findings"
+}
+```
 
-Load reference: `references/tdd-execution.md`
+**Outcomes:**
+- `proceed`: No issues, execute the plan
+- `pause`: Blocking issues found, stop and report
+- `proceed_with_review`: Deferrable issues documented, execute but flag for review
 
-1. Read temp-CI-notes.json for task list and batch number
-2. Execute tasks in specified range using TDD cycle
-3. RED (failing test) -> GREEN (implementation) -> COMMIT
-4. Update task status and commits in temp-CI-notes.json
-5. Update database (load `references/database-updates.md`)
+### Stage: decompose
 
-For outcome handling: Load `references/ci-mode-outcomes.md`
+Assess plan complexity and split into sub-plans if needed.
+
+**Complexity Levels:**
+- `simple`: 1-3 tasks, straightforward changes
+- `medium`: 4-6 tasks, moderate complexity
+- `complex`: 7+ tasks OR high integration complexity
+
+**Output:** `.claude/skills/story-execution/ci-decompose-result.json`
+
+```json
+{
+  "complexity": "simple|medium|complex",
+  "task_count": 5,
+  "execute_plan": ".claude/data/plans/016_configurable-idle-threshold.md",
+  "sub_plans_created": [],
+  "notes": "Brief explanation"
+}
+```
+
+**Decomposition Rules:**
+1. If complex, split into sub-plans of 3-5 tasks each
+2. Name with letter suffixes: 016A_..., 016B_..., 016C_...
+3. Execute first sub-plan (A) now, save others for future runs
+4. Each sub-plan must be independently executable
+
+### Stage: execute
+
+Read the plan document directly and follow its TDD steps.
+
+**Output:** `.claude/skills/story-execution/ci-execute-result.json`
+
+```json
+{
+  "status": "completed|partial|failed",
+  "tasks_completed": 5,
+  "tasks_total": 5,
+  "commits": ["abc1234", "def5678"],
+  "notes": "Brief summary of execution"
+}
+```
+
+**TDD Discipline:**
+1. Follow the plan's test code EXACTLY
+2. RED: Write failing test, verify it fails
+3. GREEN: Implement code, verify test passes
+4. COMMIT: Stage and commit after each task
 
 ## Interactive Mode Workflow
 
@@ -84,7 +135,7 @@ Load reference: `references/critical-review.md`
 - If concerns: Raise them before starting
 - If no concerns: Create TodoWrite with tasks, proceed to execution
 
-### Step 3: Execute Batch (3 tasks at a time)
+### Step 3: Execute Tasks (3 at a time)
 
 Load reference: `references/tdd-execution.md`
 
