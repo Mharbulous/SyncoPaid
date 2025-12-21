@@ -24,7 +24,9 @@ Load plan from story-tree database, review critically, execute TDD tasks, report
 
 1. **NEVER read `.db` files with Read tool** - SQLite databases are binary files
 2. **NEVER use heredocs** (`<< 'EOF'`) - requires shell approval
-3. **For database operations:** Write a `.py` script file first, then run it with `python script.py`
+3. **NEVER use `timeout` command** - requires shell approval
+4. **For database operations:** Write a `.py` script file first, then run it with `python script.py`
+5. **For module verification:** Use `python -c "import module; print('OK')"` instead of running modules directly
 
 **Pattern - Database Query:**
 ```bash
@@ -38,6 +40,15 @@ python .claude/skills/story-execution/temp-query.py
 **Pattern - Inline Python (simple one-liners only):**
 ```bash
 python -c "import sqlite3; print(sqlite3.connect('.claude/data/story-tree.db').execute('SELECT id FROM story_nodes LIMIT 1').fetchone())"
+```
+
+**Pattern - Module Verification (instead of running module directly):**
+```bash
+# WRONG - requires approval:
+# timeout 5 python -m syncopaid.tracker
+
+# CORRECT - verifies module loads without running:
+export PYTHONPATH=src && python -c "import syncopaid.tracker; print('Module loaded successfully')"
 ```
 
 ## CI Mode Pipeline
