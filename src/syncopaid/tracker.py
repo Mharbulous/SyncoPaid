@@ -26,6 +26,7 @@ from syncopaid.tracker_state import (
     is_valid_state,
     is_client_matter,
     can_convert_to_matter,
+    InteractionLevel,
     ActivityEvent,
     IdleResumptionEvent
 )
