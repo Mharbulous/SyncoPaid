@@ -83,3 +83,38 @@ def test_description_keyword_match():
         assert result.matter_id == matter_id
         assert result.confidence == 60
         assert result.flagged_for_review is True  # 60 < 70 threshold
+
+
+def test_events_table_has_categorization_columns():
+    import sqlite3
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = Database(str(Path(tmpdir) / "test.db"))
+
+        conn = sqlite3.connect(Path(tmpdir) / "test.db")
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(events)")
+        columns = {row[1] for row in cursor.fetchall()}
+        conn.close()
+
+        assert 'matter_id' in columns
+        assert 'confidence' in columns
+        assert 'flagged_for_review' in columns
+
+
+def test_insert_event_with_categorization():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db = Database(str(Path(tmpdir) / "test.db"))
+        from syncopaid.tracker import ActivityEvent
+
+        matter_id = db.insert_matter(matter_number="TEST", description="Test")
+        event = ActivityEvent(
+            timestamp="2025-12-19T10:00:00",
+            duration_seconds=60.0,
+            app="test.exe", title="Test"
+        )
+
+        db.insert_event(event, matter_id=matter_id, confidence=85)
+        events = db.get_events()
+
+        assert events[0]['matter_id'] == matter_id
+        assert events[0]['confidence'] == 85

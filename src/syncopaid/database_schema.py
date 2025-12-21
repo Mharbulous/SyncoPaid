@@ -105,6 +105,19 @@ class SchemaMixin:
             cursor.execute("ALTER TABLE events ADD COLUMN interaction_level TEXT DEFAULT 'passive'")
             logging.info("Database migration: Added interaction_level column to events table")
 
+        # Migration: Add categorization columns if they don't exist
+        if 'matter_id' not in columns:
+            cursor.execute("ALTER TABLE events ADD COLUMN matter_id INTEGER")
+            logging.info("Database migration: Added matter_id column to events table")
+
+        if 'confidence' not in columns:
+            cursor.execute("ALTER TABLE events ADD COLUMN confidence INTEGER DEFAULT 0")
+            logging.info("Database migration: Added confidence column to events table")
+
+        if 'flagged_for_review' not in columns:
+            cursor.execute("ALTER TABLE events ADD COLUMN flagged_for_review INTEGER DEFAULT 0")
+            logging.info("Database migration: Added flagged_for_review column to events table")
+
     def _create_indices(self, cursor):
         """
         Create database indices for query performance.
