@@ -32,5 +32,9 @@ DEFAULT_CONFIG = {
     # UI automation settings
     "ui_automation_enabled": True,
     "ui_automation_outlook_enabled": True,
-    "ui_automation_explorer_enabled": True
+    "ui_automation_explorer_enabled": True,
+    # Transition detection & smart prompts
+    "transition_prompt_enabled": True,
+    "transition_sensitivity": "moderate",  # aggressive, moderate, minimal
+    "transition_never_prompt_apps": ["WINWORD.EXE", "EXCEL.EXE", "Teams.exe", "Zoom.exe"]
 }

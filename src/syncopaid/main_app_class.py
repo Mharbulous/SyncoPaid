@@ -83,6 +83,13 @@ class SyncoPaidApp:
             )
             logging.info("Action screenshot worker initialized")
 
+        # Initialize transition detector (if enabled)
+        self.transition_detector = None
+        if self.config.transition_prompt_enabled:
+            from syncopaid.transition_detector import TransitionDetector
+            self.transition_detector = TransitionDetector()
+            logging.info("Transition detector initialized")
+
         # Initialize tracker loop
         self.tracker = TrackerLoop(
             poll_interval=self.config.poll_interval_seconds,
@@ -90,7 +97,10 @@ class SyncoPaidApp:
             merge_threshold=self.config.merge_threshold_seconds,
             screenshot_worker=self.screenshot_worker,
             screenshot_interval=self.config.screenshot_interval_seconds,
-            minimum_idle_duration=self.config.minimum_idle_duration_seconds
+            minimum_idle_duration=self.config.minimum_idle_duration_seconds,
+            transition_detector=self.transition_detector,
+            transition_callback=self.database.insert_transition if self.transition_detector else None,
+            prompt_enabled=self.config.transition_prompt_enabled
         )
 
         # Tracking state

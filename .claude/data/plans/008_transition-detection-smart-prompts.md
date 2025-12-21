@@ -10,7 +10,7 @@
 
 ---
 
-**Story ID:** 8.4.2 | **Created:** 2025-12-17 | **Status:** `planned`
+**Story ID:** 8.4.2 | **Created:** 2025-12-17 | **Status:** `implemented`
 
 ---
 

@@ -158,6 +158,8 @@ def print_config(config: Config):
     print(f"  Screenshot enabled: {config.screenshot_enabled}")
     print(f"  Screenshot interval: {config.screenshot_interval_seconds}s")
     print(f"  Screenshot quality: {config.screenshot_quality}")
+    print(f"  Transition prompts: {config.transition_prompt_enabled}")
+    print(f"  Transition sensitivity: {config.transition_sensitivity}")
     print("=" * 50)
 
 
