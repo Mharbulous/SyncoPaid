@@ -15,11 +15,14 @@ from syncopaid.tracker_state import (
     ActivityEvent,
     IdleResumptionEvent,
     STATE_ACTIVE,
-    STATE_INACTIVE
+    STATE_INACTIVE,
+    STATE_OFF
 )
 from syncopaid.tracker_windows import (
     get_active_window,
     get_idle_seconds,
+    is_screensaver_active,
+    is_workstation_locked,
     WINDOWS_APIS_AVAILABLE
 )
 from syncopaid.tracker_screenshot import submit_screenshot
@@ -69,6 +72,9 @@ class TrackerLoop:
         # Idle resumption tracking
         self.was_idle: bool = False
         self.last_idle_resumption_time: Optional[datetime] = None
+
+        # Lock screen / screensaver tracking
+        self._was_locked: bool = False
 
         # Screenshot timing
         self.last_screenshot_time: float = 0
@@ -145,12 +151,29 @@ class TrackerLoop:
 
                 self.was_idle = is_idle
 
+                # Detect lock screen / screensaver
+                is_locked_or_screensaver = is_workstation_locked() or is_screensaver_active()
+
+                # Log lock/screensaver transitions for debugging
+                if is_locked_or_screensaver:
+                    if not self._was_locked:
+                        if is_workstation_locked():
+                            logging.info("Workstation locked - switching to STATE_OFF")
+                        else:
+                            logging.info("Screensaver active - switching to STATE_OFF")
+                        self._was_locked = True
+                else:
+                    if self._was_locked:
+                        logging.info("Workstation unlocked/screensaver deactivated - resuming tracking")
+                        self._was_locked = False
+
                 # Create state dict for comparison
                 state = {
                     'app': window['app'],
                     'title': window['title'],
                     'url': window.get('url'),  # Extracted context (URL, subject, or filepath)
                     'is_idle': is_idle,
+                    'is_locked_or_screensaver': is_locked_or_screensaver,
                     'window_info': window  # For UI automation extraction
                 }
 
@@ -221,7 +244,8 @@ class TrackerLoop:
         # Check if core attributes changed
         if (new_state['app'] != self.current_event['app'] or
             new_state['title'] != self.current_event['title'] or
-            new_state['is_idle'] != self.current_event['is_idle']):
+            new_state['is_idle'] != self.current_event['is_idle'] or
+            new_state.get('is_locked_or_screensaver', False) != self.current_event.get('is_locked_or_screensaver', False)):
 
             # State changed - check if within merge threshold
             if self.event_start_time:
@@ -252,8 +276,13 @@ class TrackerLoop:
         if duration < 0.5:
             return None
 
-        # Derive state from is_idle flag
-        event_state = STATE_INACTIVE if self.current_event['is_idle'] else STATE_ACTIVE
+        # Determine state: locked/screensaver > idle > active
+        if self.current_event.get('is_locked_or_screensaver', False):
+            event_state = STATE_OFF
+        elif self.current_event.get('is_idle', False):
+            event_state = STATE_INACTIVE
+        else:
+            event_state = STATE_ACTIVE
 
         # Extract metadata if UI automation worker is configured
         metadata = None
