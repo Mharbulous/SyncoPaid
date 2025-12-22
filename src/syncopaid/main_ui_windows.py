@@ -7,7 +7,7 @@ Contains the Main window implementation.
 import logging
 import threading
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 from datetime import datetime, timedelta
 
 from syncopaid.database import format_duration
@@ -228,6 +228,104 @@ def show_main_window(database, tray, quit_callback):
     # Run in thread to avoid blocking pystray
     window_thread = threading.Thread(target=run_window, daemon=True)
     window_thread.start()
+
+
+def show_import_dialog(database):
+    """Show dialog for importing client/matter data from folder structure."""
+
+    def run_dialog():
+        from syncopaid.client_matter_importer import import_from_folder
+
+        root = tk.Tk()
+        root.title("Import Clients & Matters")
+        root.geometry("600x400")
+        root.attributes('-topmost', True)
+        set_window_icon(root)
+
+        # State
+        import_result = None
+
+        # Folder selection frame
+        folder_frame = tk.Frame(root, pady=10, padx=10)
+        folder_frame.pack(fill=tk.X)
+
+        tk.Label(folder_frame, text="Folder:").pack(side=tk.LEFT)
+        folder_var = tk.StringVar()
+        folder_entry = tk.Entry(folder_frame, textvariable=folder_var, width=40)
+        folder_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+
+        def browse_folder():
+            nonlocal import_result
+            path = filedialog.askdirectory(parent=root, title="Select Client Folder")
+            if path:
+                folder_var.set(path)
+                import_result = import_from_folder(path)
+                update_preview()
+
+        tk.Button(folder_frame, text="Browse...", command=browse_folder).pack(side=tk.LEFT)
+
+        # Preview label
+        preview_label = tk.Label(root, text="Select a folder to preview", pady=5)
+        preview_label.pack()
+
+        # Preview frame with treeview
+        preview_frame = tk.Frame(root)
+        preview_frame.pack(fill=tk.BOTH, expand=True, padx=10)
+
+        columns = ('client', 'matter')
+        tree = ttk.Treeview(preview_frame, columns=columns, show='headings', height=10)
+        tree.heading('client', text='Client')
+        tree.heading('matter', text='Matter')
+        tree.column('client', width=200)
+        tree.column('matter', width=300)
+
+        scrollbar = ttk.Scrollbar(preview_frame, orient=tk.VERTICAL, command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        def update_preview():
+            for item in tree.get_children():
+                tree.delete(item)
+
+            if import_result:
+                preview_label.config(
+                    text=f"Found {import_result.stats['clients']} clients, "
+                         f"{import_result.stats['matters']} matters"
+                )
+                for m in import_result.matters:
+                    tree.insert('', tk.END, values=(
+                        m.client_display_name,
+                        m.display_name
+                    ))
+
+        # Button frame
+        btn_frame = tk.Frame(root, pady=10, padx=10)
+        btn_frame.pack(fill=tk.X, side=tk.BOTTOM)
+
+        def do_import():
+            if not import_result or not import_result.clients:
+                messagebox.showwarning("No Data",
+                    "No clients found in selected folder.", parent=root)
+                return
+
+            try:
+                save_import_to_database(database, import_result)
+                messagebox.showinfo("Import Complete",
+                    f"Imported {import_result.stats['clients']} clients and "
+                    f"{import_result.stats['matters']} matters.", parent=root)
+                root.destroy()
+            except Exception as e:
+                logging.error(f"Import failed: {e}", exc_info=True)
+                messagebox.showerror("Import Failed", str(e), parent=root)
+
+        tk.Button(btn_frame, text="Cancel", command=root.destroy, width=10).pack(side=tk.RIGHT, padx=5)
+        tk.Button(btn_frame, text="Import", command=do_import, width=10).pack(side=tk.RIGHT, padx=5)
+
+        root.mainloop()
+
+    dialog_thread = threading.Thread(target=run_dialog, daemon=True)
+    dialog_thread.start()
 
 
 def save_import_to_database(database, import_result):
