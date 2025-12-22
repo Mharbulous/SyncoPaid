@@ -59,3 +59,38 @@ def test_save_import_to_database_inserts_clients():
     # Verify client insert was called
     calls = mock_cursor.execute.call_args_list
     assert any("INSERT" in str(call) and "clients" in str(call) for call in calls)
+
+
+def test_save_import_to_database_inserts_matters_with_client_id():
+    """Test that matters are inserted with correct client_id foreign key."""
+    from syncopaid.main_ui_windows import save_import_to_database
+
+    client = ImportedClient(
+        display_name="Johnson Corp",
+        folder_path="/path/to/Johnson Corp"
+    )
+    matter = ImportedMatter(
+        display_name="Contract Dispute",
+        folder_path="/path/to/Johnson Corp/Contract Dispute",
+        client_display_name="Johnson Corp"
+    )
+    import_result = ImportResult(
+        clients=[client],
+        matters=[matter],
+        root_path="/path/to",
+        stats={'clients': 1, 'matters': 1}
+    )
+
+    mock_db = Mock()
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value = mock_cursor
+    mock_cursor.fetchone.return_value = (42,)  # Client ID = 42
+    mock_db._get_connection.return_value.__enter__ = Mock(return_value=mock_conn)
+    mock_db._get_connection.return_value.__exit__ = Mock(return_value=False)
+
+    save_import_to_database(mock_db, import_result)
+
+    # Verify matters insert was called with client_id
+    calls = mock_cursor.execute.call_args_list
+    assert any("INSERT" in str(call) and "matters" in str(call) for call in calls)
