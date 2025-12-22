@@ -1922,19 +1922,110 @@ jobs:
           fi
           DB_PATH=".claude/data/story-tree.db"
 
+          # Query story details from database
           TITLE=""
+          DESCRIPTION=""
+          USER_STORY=""
+          SUCCESS_CRITERIA=""
           if [ -f "$DB_PATH" ]; then
-            TITLE=$(python3 -c "import sqlite3; c=sqlite3.connect('$DB_PATH'); r=c.execute('SELECT title FROM story_nodes WHERE id=?',('$STORY_ID',)).fetchone(); print(r[0] if r else '')" 2>/dev/null)
+            # Query all relevant fields from story_nodes (pipe-delimited output)
+            IFS='|' read -r TITLE DESCRIPTION USER_STORY SUCCESS_CRITERIA <<< "$(python3 << PYEOF
+          import sqlite3
+
+          conn = sqlite3.connect("$DB_PATH")
+          r = conn.execute('''
+              SELECT title, description, story, success_criteria
+              FROM story_nodes WHERE id = ?
+          ''', ("$STORY_ID",)).fetchone()
+          conn.close()
+
+          if r:
+              # Use | as delimiter, escape any existing |
+              title = (r[0] or '').replace('|', '/')
+              desc = (r[1] or '').replace('|', '/').replace('\n', ' ')[:500]
+              story = (r[2] or '').replace('|', '/').replace('\n', ' ')
+              criteria = (r[3] or '').replace('|', '/')
+              print(f"{title}|{desc}|{story}|{criteria}")
+          else:
+              print("|||")
+          PYEOF
+            )"
           fi
           TITLE="${TITLE:-Story $STORY_ID}"
+
+          # Derive parent story ID (e.g., "8.1.1" -> "8.1", "8.1" -> "8")
+          PARENT_ID=""
+          if [[ "$STORY_ID" =~ \. ]]; then
+            PARENT_ID="${STORY_ID%.*}"
+          fi
+
+          # Look up parent story's tracking issue if parent exists
+          PARENT_ISSUE_REF=""
+          if [ -n "$PARENT_ID" ]; then
+            PARENT_TITLE=""
+            if [ -f "$DB_PATH" ]; then
+              PARENT_TITLE=$(python3 -c "import sqlite3; c=sqlite3.connect('$DB_PATH'); r=c.execute('SELECT title FROM story_nodes WHERE id=?',('$PARENT_ID',)).fetchone(); print(r[0] if r else '')" 2>/dev/null)
+            fi
+            if [ -n "$PARENT_TITLE" ]; then
+              PARENT_ISSUE_TITLE="$PARENT_ID - $PARENT_TITLE"
+              PARENT_ISSUE_NUM=$(gh issue list --state all --search "\"$PARENT_ISSUE_TITLE\" in:title" --json number,title --jq ".[] | select(.title == \"$PARENT_ISSUE_TITLE\") | .number" | head -1)
+              if [ -n "$PARENT_ISSUE_NUM" ]; then
+                PARENT_ISSUE_REF="#$PARENT_ISSUE_NUM"
+              else
+                PARENT_ISSUE_REF="$PARENT_ID - $PARENT_TITLE"
+              fi
+            fi
+          fi
 
           ISSUE_TITLE="$STORY_ID - $TITLE"
 
           ISSUE_NUM=$(gh issue list --state all --search "\"$ISSUE_TITLE\" in:title" --json number,title --jq ".[] | select(.title == \"$ISSUE_TITLE\") | .number" | head -1)
 
           if [ -z "$ISSUE_NUM" ]; then
-            ISSUE_NUM=$(gh issue create --title "$ISSUE_TITLE" --body "Tracking issue for story **$STORY_ID**" --label "story-tracking" 2>/dev/null | grep -oP 'issues/\K[0-9]+' || \
-                        gh issue create --title "$ISSUE_TITLE" --body "Tracking issue for story **$STORY_ID**" | grep -oP 'issues/\K[0-9]+' || echo "")
+            # Build rich initial issue body
+            RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+            INITIAL_BODY="# $TITLE
+
+          **Story ID:** $STORY_ID"
+
+            if [ -n "$PARENT_ISSUE_REF" ]; then
+              INITIAL_BODY="$INITIAL_BODY
+          **Parent Story:** $PARENT_ISSUE_REF"
+            fi
+
+            INITIAL_BODY="$INITIAL_BODY
+          **Plan:** \`$PLAN_FILENAME\`
+
+          ---
+
+          ## Description
+          ${DESCRIPTION:-_No description available_}"
+
+            if [ -n "$USER_STORY" ]; then
+              INITIAL_BODY="$INITIAL_BODY
+
+          ## User Story
+          > $USER_STORY"
+            fi
+
+            if [ -n "$SUCCESS_CRITERIA" ]; then
+              # Convert \n back to actual newlines for display
+              FORMATTED_CRITERIA=$(echo "$SUCCESS_CRITERIA" | sed 's/\\n/\n/g')
+              INITIAL_BODY="$INITIAL_BODY
+
+          ## Success Criteria
+          $FORMATTED_CRITERIA"
+            fi
+
+            INITIAL_BODY="$INITIAL_BODY
+
+          ---
+          *Created by [execute-stories workflow]($RUN_URL)*"
+
+            ISSUE_NUM=$(gh issue create --title "$ISSUE_TITLE" --body "$INITIAL_BODY" --label "story-tracking" 2>/dev/null | grep -oP 'issues/\K[0-9]+' || \
+                        gh issue create --title "$ISSUE_TITLE" --body "$INITIAL_BODY" | grep -oP 'issues/\K[0-9]+' || echo "")
+            echo "Created new issue #$ISSUE_NUM with rich context"
           fi
 
           if [ -z "$ISSUE_NUM" ]; then
