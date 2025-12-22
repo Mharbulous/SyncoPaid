@@ -93,8 +93,17 @@ def get_active_window() -> Dict[str, Optional[str]]:
         except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError):
             pass
 
-        # Extract contextual information
-        url = extract_context(process_name, title)
+        # Extract URL if browser and config enabled
+        url = None
+        # Import here to avoid circular dependency
+        from .url_extractor import extract_browser_url
+        # TODO: Check config.url_extraction_enabled
+        url = extract_browser_url(process_name, timeout_ms=100)
+
+        # Fallback to title-based extraction if UI Automation fails
+        if not url:
+            url = extract_context(process_name, title)
+
         if url:
             logging.debug(f"Extracted context from {process_name}: {url[:50]}...")  # Log first 50 chars
         elif process_name and title:

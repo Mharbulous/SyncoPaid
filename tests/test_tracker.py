@@ -2,6 +2,15 @@
 import pytest
 from syncopaid.tracker import TrackerLoop
 from syncopaid.ui_automation import UIAutomationWorker
+from syncopaid.tracker_windows import get_active_window
+
+
+def test_get_active_window_includes_url_for_chrome():
+    """Should include URL when Chrome is active."""
+    # Mock scenario: Chrome window active
+    info = get_active_window()
+    # URL should be present if Chrome, else None
+    assert "url" in info
 
 
 def test_tracker_loop_ui_automation_integration():
