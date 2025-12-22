@@ -2,7 +2,9 @@
 
 import pytest
 import logging
-from syncopaid.config import Config
+import json
+from pathlib import Path
+from syncopaid.config import Config, ConfigManager
 
 
 def test_idle_threshold_valid_range_accepted():
@@ -55,5 +57,22 @@ def test_idle_threshold_non_numeric_falls_back_to_default(caplog):
     assert config.idle_threshold_seconds == 180.0
 
     # Should log warning
+    assert any('idle_threshold_seconds' in record.message.lower()
+               for record in caplog.records)
+
+
+def test_config_manager_validates_idle_threshold_on_load(caplog, tmp_path):
+    """ConfigManager should validate idle_threshold when loading from file."""
+    # Create config file with invalid value
+    config_file = tmp_path / "config.json"
+    config_file.write_text(json.dumps({'idle_threshold_seconds': 5}))
+
+    with caplog.at_level(logging.WARNING):
+        manager = ConfigManager(config_path=config_file)
+
+    # Should fallback to default
+    assert manager.config.idle_threshold_seconds == 180.0
+
+    # Should have logged warning
     assert any('idle_threshold_seconds' in record.message.lower()
                for record in caplog.records)
