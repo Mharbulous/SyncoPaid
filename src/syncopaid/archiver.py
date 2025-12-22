@@ -135,4 +135,25 @@ class ArchiveWorker:
             month_key: Month identifier that failed
             error: Exception that occurred
         """
-        logging.error(f"Failed to archive {month_key}: {error}")
+        import tkinter as tk
+        from tkinter import messagebox
+
+        root = tk.Tk()
+        root.withdraw()
+
+        message = f"Failed to archive {month_key}: {error}\n\nRetry options:"
+        response = messagebox.askretrycancel(
+            "Archive Failed",
+            message,
+            detail="Choose Retry to try again now, or Cancel to retry on next startup"
+        )
+
+        if response:  # Retry now
+            archivable = self.get_archivable_folders(datetime.now())
+            grouped = self.group_by_month(archivable)
+            if month_key in grouped:
+                self.archive_month(month_key, grouped[month_key])
+        else:  # Cancel - will retry on next startup
+            logging.warning(f"Archive pending for {month_key}")
+
+        root.destroy()

@@ -92,3 +92,35 @@ def test_archive_worker_startup(tmp_path, mocker):
 
     # Verify archivable months were processed
     assert mock_archive_month.called
+
+
+def test_error_dialog(tmp_path, mocker):
+    """Test error handler shows tkinter dialog with retry options."""
+    import sys
+    from unittest.mock import patch, MagicMock
+
+    screenshot_dir = tmp_path / "screenshots"
+    archive_dir = tmp_path / "archives"
+
+    # Create mock tkinter modules
+    mock_root = MagicMock()
+    mock_tk = MagicMock()
+    mock_tk.Tk.return_value = mock_root
+
+    mock_messagebox = MagicMock()
+    mock_messagebox.askretrycancel.return_value = True  # Retry now
+
+    # Set up messagebox as an attribute of mock_tk
+    mock_tk.messagebox = mock_messagebox
+
+    # Inject mocks into sys.modules before import
+    with patch.dict(sys.modules, {
+        'tkinter': mock_tk,
+        'tkinter.messagebox': mock_messagebox
+    }):
+        archiver = ArchiveWorker(screenshot_dir, archive_dir)
+        archiver._handle_error("2025-10", Exception("Disk full"))
+
+    assert mock_messagebox.askretrycancel.called
+    assert mock_root.withdraw.called
+    assert mock_root.destroy.called
