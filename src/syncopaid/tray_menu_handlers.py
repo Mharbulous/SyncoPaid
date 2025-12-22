@@ -34,7 +34,21 @@ class TrayMenuHandlers:
     def _handle_open(self, icon, item):
         """Handle Open SyncoPaid menu item."""
         logging.info("User clicked Open SyncoPaid from tray menu")
-        self.on_open()
+        try:
+            self.on_open()
+        except Exception as e:
+            logging.error(f"Error in on_open callback: {e}", exc_info=True)
+            # Show error in a messagebox so it's visible even without console
+            try:
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(
+                    0,
+                    f"Error opening SyncoPaid:\n\n{type(e).__name__}: {e}",
+                    "SyncoPaid Error",
+                    0x10  # MB_ICONERROR
+                )
+            except Exception:
+                pass
 
     def _toggle_startup(self, icon, item):
         """Handle Start with Windows toggle."""

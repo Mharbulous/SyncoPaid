@@ -26,7 +26,10 @@ def show_main_window(database, tray, quit_callback):
         tray: TrayIcon instance for stopping the tray
         quit_callback: Callback function to quit the application
     """
+    logging.info("show_main_window called - starting window thread")
+
     def run_window():
+        logging.info("run_window thread started")
         try:
             # Query events from the past 24 hours
             cutoff = datetime.now() - timedelta(hours=24)
@@ -258,6 +261,17 @@ def show_main_window(database, tray, quit_callback):
 
         except Exception as e:
             logging.error(f"Error showing main window: {e}", exc_info=True)
+            # Show error in a messagebox so it's visible even without console
+            try:
+                import ctypes
+                ctypes.windll.user32.MessageBoxW(
+                    0,
+                    f"Error opening SyncoPaid window:\n\n{type(e).__name__}: {e}",
+                    "SyncoPaid Error",
+                    0x10  # MB_ICONERROR
+                )
+            except Exception:
+                pass  # If even the messagebox fails, we can't do much
 
     # Run in thread to avoid blocking pystray
     window_thread = threading.Thread(target=run_window, daemon=True)
