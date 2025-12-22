@@ -50,13 +50,13 @@ class MatterOperationsMixin:
             cursor = conn.cursor()
             if status == 'all':
                 cursor.execute("""
-                    SELECT m.*, c.name as client_name FROM matters m
+                    SELECT m.*, c.display_name as client_name FROM matters m
                     LEFT JOIN clients c ON m.client_id = c.id
                     ORDER BY m.created_at DESC
                 """)
             else:
                 cursor.execute("""
-                    SELECT m.*, c.name as client_name FROM matters m
+                    SELECT m.*, c.display_name as client_name FROM matters m
                     LEFT JOIN clients c ON m.client_id = c.id
                     WHERE m.status = ? ORDER BY m.created_at DESC
                 """, (status,))

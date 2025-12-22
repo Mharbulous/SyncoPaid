@@ -147,6 +147,60 @@ def test_update_matter_keywords_batch():
         assert any(k['keyword'] == 'contract' for k in keywords)
 
 
+def test_format_keywords_for_display():
+    """Test formatting keywords for UI display."""
+    from syncopaid.matter_client_dialog import format_keywords_for_display
+
+    # Test with multiple keywords
+    keywords = [
+        {'keyword': 'smith', 'confidence': 0.95},
+        {'keyword': 'contract', 'confidence': 0.80},
+        {'keyword': 'litigation', 'confidence': 0.60},
+    ]
+    result = format_keywords_for_display(keywords)
+    assert 'smith' in result
+    assert 'contract' in result
+    assert ', ' in result  # Comma separated
+
+    # Test empty list
+    assert format_keywords_for_display([]) == ""
+
+    # Test max keywords (should truncate with ...)
+    many_keywords = [{'keyword': f'kw{i}', 'confidence': 0.9} for i in range(10)]
+    result = format_keywords_for_display(many_keywords, max_display=5)
+    assert '...' in result
+
+
+def test_get_matter_with_keywords():
+    """Test that get_matters_with_keywords returns keyword data."""
+    from syncopaid.matter_client_dialog import get_matters_with_keywords
+    import sqlite3
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "test.db"
+        db = Database(str(db_path))
+
+        # Create client and matter using direct SQL (schema API mismatch)
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO clients (display_name) VALUES (?)', ('Test Client',))
+        client_id = cursor.lastrowid
+        cursor.execute('INSERT INTO matters (client_id, display_name) VALUES (?, ?)',
+                      (client_id, 'Test Matter'))
+        matter_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+
+        db.add_matter_keyword(matter_id, "contract", source="ai", confidence=0.9)
+        db.add_matter_keyword(matter_id, "smith", source="ai", confidence=0.8)
+
+        matters = get_matters_with_keywords(db)
+        assert len(matters) == 1
+        assert matters[0]['display_name'] == 'Test Matter'
+        assert 'keywords_display' in matters[0]
+        assert 'contract' in matters[0]['keywords_display']
+
+
 if __name__ == "__main__":
     test_matter_keywords_table_exists()
     test_matter_keywords_table_schema()

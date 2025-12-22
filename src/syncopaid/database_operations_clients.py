@@ -27,7 +27,7 @@ class ClientOperationsMixin:
         """
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("INSERT INTO clients (name, notes) VALUES (?, ?)", (name, notes))
+            cursor.execute("INSERT INTO clients (display_name) VALUES (?)", (name,))
             return cursor.lastrowid
 
     def get_clients(self) -> List[Dict]:
@@ -39,7 +39,7 @@ class ClientOperationsMixin:
         """
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM clients ORDER BY name ASC")
+            cursor.execute("SELECT * FROM clients ORDER BY display_name ASC")
             return [dict(row) for row in cursor.fetchall()]
 
     def update_client(self, client_id: int, name: str, notes: Optional[str] = None):
@@ -53,8 +53,8 @@ class ClientOperationsMixin:
         """
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE clients SET name = ?, notes = ? WHERE id = ?",
-                          (name, notes, client_id))
+            cursor.execute("UPDATE clients SET display_name = ? WHERE id = ?",
+                          (name, client_id))
 
     def delete_client(self, client_id: int):
         """
