@@ -720,7 +720,7 @@ jobs:
         run: |
           PLAN_PATH="${{ needs.setup-and-plan.outputs.plan_path }}"
           FILENAME="${{ needs.setup-and-plan.outputs.plan_filename }}"
-          ARCHIVE_DIR=".claude/data/executed"
+          ARCHIVE_DIR=".claude/data/plans/executed"
 
           # Pull latest changes before making any modifications
           git fetch origin main
@@ -1201,7 +1201,7 @@ jobs:
             ls -la .claude/data/plans/*.md 2>/dev/null || echo "(none)"
             echo ""
             echo "Recently executed plans:"
-            ls -la .claude/data/executed/*.md 2>/dev/null | head -5 || echo "(none)"
+            ls -la .claude/data/plans/executed/*.md 2>/dev/null | head -5 || echo "(none)"
             echo "plan_exists=false" >> $GITHUB_OUTPUT
             exit 1
           fi
@@ -1479,7 +1479,7 @@ jobs:
           if [ -z "$EXECUTE_PLAN" ]; then
             EXECUTE_PLAN="${{ needs.setup-and-plan.outputs.plan_path }}"
           fi
-          ARCHIVE_DIR=".claude/data/executed"
+          ARCHIVE_DIR=".claude/data/plans/executed"
 
           if [ -f "$EXECUTE_PLAN" ]; then
             mkdir -p "$ARCHIVE_DIR"
