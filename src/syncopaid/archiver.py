@@ -2,6 +2,8 @@
 import os
 import logging
 import shutil
+import threading
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Dict
@@ -21,6 +23,7 @@ class ArchiveWorker:
         self.screenshot_dir = Path(screenshot_dir)
         self.archive_dir = Path(archive_dir)
         self.archive_dir.mkdir(parents=True, exist_ok=True)
+        self.last_run_date = None
 
     def get_archivable_folders(self, reference_date: datetime) -> List[str]:
         """Get folders eligible for archiving.
@@ -101,3 +104,35 @@ class ArchiveWorker:
             for folder in folders:
                 shutil.rmtree(self.screenshot_dir / folder)
             logging.info(f"Archived and cleaned up {len(folders)} folders for {month_key}")
+
+    def run_once(self):
+        """Run archiving process synchronously."""
+        today = datetime.now().date()
+        archivable = self.get_archivable_folders(datetime.now())
+        grouped = self.group_by_month(archivable)
+        for month_key, folders in grouped.items():
+            try:
+                self.archive_month(month_key, folders)
+            except Exception as e:
+                self._handle_error(month_key, e)
+        self.last_run_date = today
+
+    def start_background(self):
+        """Start background thread for monthly checks."""
+        threading.Thread(target=self._background_loop, daemon=True).start()
+
+    def _background_loop(self):
+        while True:
+            time.sleep(86400)  # Check daily
+            today = datetime.now().date()
+            if self.last_run_date is None or today.month != self.last_run_date.month:
+                self.run_once()
+
+    def _handle_error(self, month_key: str, error: Exception):
+        """Handle archiving errors.
+
+        Args:
+            month_key: Month identifier that failed
+            error: Exception that occurred
+        """
+        logging.error(f"Failed to archive {month_key}: {error}")

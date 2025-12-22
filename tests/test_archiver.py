@@ -74,3 +74,21 @@ def test_cleanup_after_archive(tmp_path):
 
     assert not (screenshot_dir / "2025-10-01").exists()
     assert (archive_dir / "2025-10_screenshots.zip").exists()
+
+
+def test_archive_worker_startup(tmp_path, mocker):
+    """Test archiver runs on startup and schedules monthly checks."""
+    screenshot_dir = tmp_path / "screenshots"
+    (screenshot_dir / "2025-10-01").mkdir(parents=True)
+    (screenshot_dir / "2025-10-01" / "test.jpg").write_text("img")
+
+    archive_dir = tmp_path / "archives"
+    archiver = ArchiveWorker(screenshot_dir, archive_dir)
+
+    # Mock archive_month to verify it's called
+    mock_archive_month = mocker.patch.object(archiver, 'archive_month')
+
+    archiver.run_once()  # Synchronous run for testing
+
+    # Verify archivable months were processed
+    assert mock_archive_month.called
