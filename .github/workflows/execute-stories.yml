@@ -999,20 +999,24 @@ jobs:
                - Integration complexity
                - Test complexity
 
-            ## COMPLEXITY LEVELS
+            ## COMPLEXITY CLASSIFICATION
+            - simple: 1-2 tasks → execute directly
+            - complex: 3+ tasks → MUST decompose
 
-            - **simple**: 1-3 tasks, straightforward changes
-            - **medium**: 4-6 tasks, moderate complexity
-            - **complex**: 7+ tasks OR high integration complexity
+            ## DECOMPOSITION RULES (MANDATORY)
+            If task_count > 2:
+            1. Split into sub-plans of 1-2 tasks each
+            2. Name: 016A_..., 016B_..., 016C_..., etc.
+            3. First sub-plan (A) executes this run
+            4. Remaining sub-plans queued for future runs
+            5. Each sub-plan must be independently executable
+            6. Save sub-plans to `.claude/data/plans/`
 
-            ## DECOMPOSITION RULES
-
-            If complexity is "complex":
-            1. Split into logical sub-plans of 3-5 tasks each
-            2. Name sub-plans with letter suffixes: 016A_..., 016B_..., 016C_...
-            3. First sub-plan (A) executes now, others saved for future runs
-            4. Each sub-plan must be independently executable
-            5. Save sub-plans to `.claude/data/plans/`
+            ## AUTOMATIC COMPLEXITY ESCALATION
+            Always flag as complex (even if ≤2 tasks) when plan involves:
+            - GUI/UI testing (tkinter, Qt, browser)
+            - Image processing (PIL, OpenCV)
+            - System package dependencies
 
             ## OUTPUT REQUIRED
 
@@ -1228,6 +1232,11 @@ jobs:
           prompt: |
             You are executing a TDD implementation plan in CI mode.
 
+            ## ENVIRONMENT
+            - Runner: ubuntu-latest (Linux)
+            - Python venv: Use `source venv/bin/activate` NOT `venv\Scripts\activate`
+            - Use Linux paths with forward slashes
+
             Plan to execute: ${{ needs.decompose.outputs.execute_plan }}
             Story ID: ${{ needs.validate-plan.outputs.story_id || needs.setup-and-plan.outputs.story_id }}
             Review outcome: ${{ needs.review-plan.outputs.outcome }}
@@ -1283,7 +1292,7 @@ jobs:
             - Commit your changes after each task (push is handled automatically by the workflow)
 
           claude_args: |
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(pytest:*),Bash(pip:*),Bash(pip3:*),Bash(mkdir:*),BashOutput,TodoWrite"
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(pytest:*),Bash(pip:*),Bash(pip3:*),Bash(mkdir:*),Bash(source:*),Bash(cat:*),Bash(ls:*),Bash(rm:*),Bash(chmod:*),BashOutput,TodoWrite"
             --model claude-sonnet-4-5-20250929
             --max-turns 50
 
