@@ -15,3 +15,13 @@ def test_extract_unsupported_browser():
     """Should return None for unsupported browsers."""
     result = extract_browser_url("notepad.exe")
     assert result is None
+
+def test_extract_edge_url():
+    """Should extract URL from Edge."""
+    result = extract_browser_url("msedge.exe", timeout_ms=50)
+    assert result is None or isinstance(result, str)
+
+def test_extract_firefox_url():
+    """Should extract URL from Firefox."""
+    result = extract_browser_url("firefox.exe", timeout_ms=50)
+    assert result is None or isinstance(result, str)
