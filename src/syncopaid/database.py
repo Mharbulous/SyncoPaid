@@ -17,6 +17,7 @@ from .database_schema import SchemaMixin
 from .database_operations import OperationsMixin
 from .database_screenshots import ScreenshotDatabaseMixin
 from .database_statistics import StatisticsDatabaseMixin, format_duration
+from .database_keywords import KeywordsDatabaseMixin
 
 
 class Database(
@@ -24,7 +25,8 @@ class Database(
     SchemaMixin,
     OperationsMixin,
     ScreenshotDatabaseMixin,
-    StatisticsDatabaseMixin
+    StatisticsDatabaseMixin,
+    KeywordsDatabaseMixin
 ):
     """
     SQLite database manager for activity events.
