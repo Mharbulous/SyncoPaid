@@ -200,7 +200,7 @@ Load reference: `references/database-updates.md`
 1. Run full test suite
 2. Verify acceptance criteria
 3. Link commits to story
-4. Archive plan file to `.claude/data/executed/`
+4. Archive plan file to `.claude/data/plans/executed/`
 5. Update story status
 
 ## Database Integration
