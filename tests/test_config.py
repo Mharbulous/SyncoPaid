@@ -35,3 +35,21 @@ def test_archive_config_defaults():
 
         assert manager.config.archive_enabled == True
         assert manager.config.archive_check_interval_hours == 24
+
+
+def test_llm_config_defaults():
+    from syncopaid.config import DEFAULT_CONFIG, ConfigManager
+    import tempfile
+    from pathlib import Path
+
+    assert 'llm_provider' in DEFAULT_CONFIG
+    assert DEFAULT_CONFIG['llm_provider'] == 'openai'
+    assert 'billing_increment' in DEFAULT_CONFIG
+    assert DEFAULT_CONFIG['billing_increment'] == 6
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "test_config.json"
+        manager = ConfigManager(config_path=config_path)
+
+        assert manager.config.llm_provider == 'openai'
+        assert manager.config.billing_increment == 6

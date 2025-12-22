@@ -90,6 +90,9 @@ class Config:
         categorization_confidence_threshold: Minimum confidence score for automatic categorization (default: 70)
         archive_enabled: Enable automatic screenshot archiving (default: True)
         archive_check_interval_hours: Hours between archive checks (default: 24)
+        llm_provider: LLM provider to use - 'openai' or 'anthropic' (default: openai)
+        llm_api_key: API key or environment variable name (default: empty string)
+        billing_increment: Minutes per billing increment (default: 6 = 0.1 hour)
     """
     poll_interval_seconds: float = 1.0
     idle_threshold_seconds: float = 180.0
@@ -128,6 +131,10 @@ class Config:
     # Archive settings
     archive_enabled: bool = True
     archive_check_interval_hours: int = 24
+    # LLM settings
+    llm_provider: str = "openai"
+    llm_api_key: str = ""
+    billing_increment: int = 6
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary."""

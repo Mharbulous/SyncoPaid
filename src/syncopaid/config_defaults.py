@@ -43,5 +43,9 @@ DEFAULT_CONFIG = {
     "categorization_confidence_threshold": 70,
     # Archive settings
     "archive_enabled": True,
-    "archive_check_interval_hours": 24
+    "archive_check_interval_hours": 24,
+    # LLM settings
+    "llm_provider": "openai",  # 'openai' or 'anthropic'
+    "llm_api_key": "",         # API key (or env var name)
+    "billing_increment": 6     # Minutes per billing increment (default: 6 = 0.1 hour)
 }
