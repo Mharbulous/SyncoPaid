@@ -56,6 +56,58 @@ def get_matters_with_keywords(db) -> list:
     return matters
 
 
+class ToolTip:
+    """Simple tooltip for tkinter widgets."""
+
+    def __init__(self, widget, text_func):
+        """
+        Create tooltip that shows text from text_func on hover.
+
+        Args:
+            widget: Widget to attach tooltip to
+            text_func: Callable that returns tooltip text (receives event)
+        """
+        self.widget = widget
+        self.text_func = text_func
+        self.tip_window = None
+
+        widget.bind('<Enter>', self._show)
+        widget.bind('<Leave>', self._hide)
+        widget.bind('<Motion>', self._update_position)
+
+    def _show(self, event):
+        text = self.text_func(event)
+        if not text:
+            return
+
+        x = event.x_root + 10
+        y = event.y_root + 10
+
+        self.tip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+
+        label = tk.Label(
+            tw,
+            text=text,
+            background="#ffffe0",
+            relief=tk.SOLID,
+            borderwidth=1,
+            font=("TkDefaultFont", 9)
+        )
+        label.pack()
+
+    def _hide(self, event):
+        if self.tip_window:
+            self.tip_window.destroy()
+            self.tip_window = None
+
+    def _update_position(self, event):
+        if self.tip_window:
+            self._hide(event)
+            self._show(event)
+
+
 class MatterDialog:
     """Dialog for managing matters."""
 
@@ -63,6 +115,7 @@ class MatterDialog:
         self.db = db
         self.on_close = on_close
         self.status_filter = tk.StringVar(value='active')
+        self._matters_data = {}  # Store matters data for tooltip lookup
 
         self.window = tk.Toplevel(parent)
         self.window.title("Manage Matters")
@@ -106,6 +159,28 @@ class MatterDialog:
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=5)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=5)
 
+        # Add tooltip for keywords
+        def get_keyword_tooltip(event):
+            """Get full keyword list for hovered row."""
+            item = self.tree.identify_row(event.y)
+            if not item:
+                return None
+
+            matter_id = self.tree.item(item, 'values')[0]  # Assuming first col is ID
+            matter_data = self._matters_data.get(matter_id)
+            if not matter_data or not matter_data.get('keywords_raw'):
+                return None
+
+            keywords = matter_data['keywords_raw']
+            lines = [f"AI Keywords for {matter_id}:"]
+            for kw in keywords:
+                conf = kw.get('confidence', 0)
+                lines.append(f"  • {kw['keyword']} ({conf:.0%})")
+
+            return "\n".join(lines)
+
+        ToolTip(self.tree, get_keyword_tooltip)
+
         # Buttons
         button_frame = ttk.Frame(self.window, padding=10)
         button_frame.pack(fill=tk.X)
@@ -127,6 +202,9 @@ class MatterDialog:
 
         # Get matters with keywords
         self.matters = get_matters_with_keywords(self.db)
+
+        # Store for tooltip lookup
+        self._matters_data = {m['matter_number']: m for m in self.matters}
 
         # Filter by status
         status_filter = self.status_filter.get()
