@@ -99,3 +99,35 @@ def create_thumbnail_widget(parent, screenshots: List[Dict], cache: 'ScreenshotC
     scrollbar.pack(side="bottom", fill="x")
 
     return frame
+
+
+def show_screenshot_modal(parent, screenshot_path: str):
+    """Show full-resolution screenshot in modal dialog."""
+    if not HAS_TKINTER:
+        raise ImportError("tkinter is required for GUI components")
+
+    modal = tk.Toplevel(parent)
+    modal.title("Screenshot Viewer")
+    modal.transient(parent)
+
+    if os.path.exists(screenshot_path):
+        img = Image.open(screenshot_path)
+
+        # Scale to fit screen (max 1200x800)
+        img.thumbnail((1200, 800))
+        photo = ImageTk.PhotoImage(img)
+
+        label = tk.Label(modal, image=photo)
+        label.image = photo  # Keep reference
+        label.pack()
+    else:
+        # Missing file placeholder
+        label = tk.Label(modal, text="Screenshot not found", fg="gray")
+        label.pack(padx=50, pady=50)
+
+    # Close button
+    btn = ttk.Button(modal, text="Close", command=modal.destroy)
+    btn.pack(pady=10)
+
+    modal.grab_set()
+    return modal

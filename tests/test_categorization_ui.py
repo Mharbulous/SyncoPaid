@@ -84,3 +84,27 @@ def test_thumbnail_widget_creation():
         assert len(widget.winfo_children()) == 2
 
         root.destroy()
+
+
+@pytest.mark.skipif(not HAS_TKINTER, reason="tkinter not available in CI")
+def test_modal_viewer():
+    import tkinter as tk
+    from syncopaid.categorization_ui import show_screenshot_modal
+    from PIL import Image
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = tk.Tk()
+        screenshot_path = str(Path(tmpdir) / 'test_screenshot.png')
+
+        # Create test image
+        img = Image.new('RGB', (800, 600), color='red')
+        img.save(screenshot_path)
+
+        modal = show_screenshot_modal(root, screenshot_path)
+
+        assert modal is not None
+        # Modal should be transient window
+        assert modal.winfo_toplevel() != root
+
+        modal.destroy()
+        root.destroy()
