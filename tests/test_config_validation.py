@@ -31,3 +31,16 @@ def test_idle_threshold_below_minimum_falls_back_to_default(caplog):
     # Should log warning
     assert any('idle_threshold_seconds' in record.message.lower()
                for record in caplog.records)
+
+
+def test_idle_threshold_above_maximum_falls_back_to_default(caplog):
+    """Idle threshold above 600s should fallback to default with warning."""
+    with caplog.at_level(logging.WARNING):
+        config = Config.from_dict({'idle_threshold_seconds': 700})
+
+    # Should fallback to default (180s)
+    assert config.idle_threshold_seconds == 180.0
+
+    # Should log warning
+    assert any('idle_threshold_seconds' in record.message.lower()
+               for record in caplog.records)
