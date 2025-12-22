@@ -85,7 +85,8 @@ jobs:
             echo "|-----------|----------|" >> $GITHUB_STEP_SUMMARY
             for f in $(ls -1 "$PLANS_DIR"/*.md 2>/dev/null | head -10); do
               FNAME=$(basename "$f")
-              SEQ=$(echo "$FNAME" | grep -oP '^\d{3}[A-Z]?' || echo "?")
+              # Match hierarchical: 024, 024A, 024A1, 024A1a, 024A1a1
+              SEQ=$(echo "$FNAME" | grep -oP '^\d{3}([A-Z](\d+([a-z](\d+)?)?)?)?' || echo "?")
               echo "| $FNAME | $SEQ |" >> $GITHUB_STEP_SUMMARY
             done
           fi
@@ -95,25 +96,46 @@ jobs:
         if: steps.find-plans.outputs.plans_found != '0'
         run: |
           python3 << 'PYEOF'
-          import os, re, json
+          import os, re
 
           plans_dir = '.claude/data/plans'
-          pattern = re.compile(r'^(\d{3})([A-Z])?_(.+)\.md$')
+          # Match hierarchical naming: 024, 024A, 024A1, 024A1a, 024A1a1, etc.
+          pattern = re.compile(r'^(\d{3})([A-Z])?(\d+)?([a-z])?(\d+)?_(.+)\.md$')
+
+          def parse_hierarchy(filename):
+              """Parse hierarchical prefix into sortable tuple."""
+              m = pattern.match(filename)
+              if not m:
+                  return None
+              # Extract components: (seq, letter, num1, lower, num2)
+              seq = int(m.group(1))
+              letter = m.group(2) or ''      # A, B, C or ''
+              num1 = int(m.group(3)) if m.group(3) else 0   # 1, 2, 3 or 0
+              lower = m.group(4) or ''       # a, b, c or ''
+              num2 = int(m.group(5)) if m.group(5) else 0   # 1, 2, 3 or 0
+              # Build prefix string for output
+              prefix = str(seq) + letter + (str(num1) if num1 else '') + lower + (str(num2) if num2 else '')
+              return {
+                  'sort_key': (seq, letter, num1, lower, num2),
+                  'prefix': prefix
+              }
 
           plans = []
           for f in os.listdir(plans_dir):
               path = os.path.join(plans_dir, f)
               if os.path.isfile(path) and f.endswith('.md'):
-                  m = pattern.match(f)
-                  if m:
+                  parsed = parse_hierarchy(f)
+                  if parsed:
                       plans.append({
                           'filename': f,
                           'path': path,
-                          'sequence': int(m.group(1)),
-                          'letter': m.group(2) or '',
+                          'sort_key': parsed['sort_key'],
+                          'prefix': parsed['prefix'],
                       })
 
-          plans.sort(key=lambda x: (x['sequence'], x['letter']))
+          # Sort by hierarchical key: (seq, letter, num1, lower, num2)
+          # Empty strings sort before letters, 0 sorts before numbers
+          plans.sort(key=lambda x: x['sort_key'])
 
           if plans:
               selected = plans[0]
@@ -121,7 +143,7 @@ jobs:
                   out.write(f"selected=true\n")
                   out.write(f"filename={selected['filename']}\n")
                   out.write(f"path={selected['path']}\n")
-                  out.write(f"sequence={selected['sequence']}{selected['letter']}\n")
+                  out.write(f"sequence={selected['prefix']}\n")
               print(f"Selected: {selected['filename']}")
           else:
               with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
