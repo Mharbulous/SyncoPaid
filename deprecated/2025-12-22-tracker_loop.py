@@ -21,8 +21,6 @@ from syncopaid.tracker_loop_idle import IdleTracker
 from syncopaid.tracker_loop_screenshots import ScreenshotScheduler
 from syncopaid.tracker_loop_state import StateChangeDetector
 from syncopaid.tracker_loop_events import EventFinalizer
-from syncopaid.tracker_loop_interaction import InteractionLevelDetector
-from syncopaid.tracker_loop_transitions import TransitionHandler
 
 
 class TrackerLoop:
@@ -48,6 +46,9 @@ class TrackerLoop:
         prompt_enabled: Whether to show prompts at transitions
     """
 
+    # Minimum seconds between transition prompts
+    PROMPT_COOLDOWN = 600  # 10 minutes
+
     def __init__(
         self,
         poll_interval: float = 1.0,
@@ -63,6 +64,8 @@ class TrackerLoop:
         interaction_threshold: float = 5.0
     ):
         self.poll_interval = poll_interval
+        self.idle_threshold = idle_threshold
+        self.interaction_threshold = interaction_threshold
         self.running = False
 
         # Delegate to specialized components
@@ -70,8 +73,17 @@ class TrackerLoop:
         self.screenshot_scheduler = ScreenshotScheduler(screenshot_worker, screenshot_interval) if screenshot_worker else None
         self.state_detector = StateChangeDetector(merge_threshold)
         self.event_finalizer = EventFinalizer(ui_automation_worker)
-        self.interaction_detector = InteractionLevelDetector(idle_threshold, interaction_threshold)
-        self.transition_handler = TransitionHandler(transition_detector, transition_callback, prompt_enabled)
+
+        # Interaction level tracking
+        self.last_typing_time = None
+        self.last_click_time = None
+
+        # Transition detection
+        self.transition_detector = transition_detector
+        self.transition_callback = transition_callback
+        self.prompt_enabled = prompt_enabled
+        self.prev_window_state = None
+        self._last_prompt_time = 0  # Cooldown tracking
 
         logging.info(
             f"TrackerLoop initialized: "
@@ -81,6 +93,59 @@ class TrackerLoop:
             f"screenshot_enabled={screenshot_worker is not None}, "
             f"transition_detection={transition_detector is not None}"
         )
+
+    def get_interaction_level(self, idle_seconds: float):
+        """
+        Determine current interaction level based on activity state.
+
+        Updates internal tracking timestamps when activity is detected.
+
+        Priority order:
+        1. IDLE if globally idle (idle_seconds >= idle_threshold)
+        2. TYPING if keyboard activity detected or recent
+        3. CLICKING if mouse activity detected or recent
+        4. PASSIVE if none of the above
+
+        Args:
+            idle_seconds: Current global idle time from GetLastInputInfo
+
+        Returns:
+            InteractionLevel enum value
+        """
+        from datetime import datetime, timezone
+        from syncopaid.tracker_state import InteractionLevel
+        from syncopaid.tracker_windows import get_keyboard_activity, get_mouse_activity
+
+        now = datetime.now(timezone.utc)
+
+        # Check if globally idle first
+        if idle_seconds >= self.idle_threshold:
+            return InteractionLevel.IDLE
+
+        # Check for current keyboard activity
+        if get_keyboard_activity():
+            self.last_typing_time = now
+            return InteractionLevel.TYPING
+
+        # Check for current mouse activity
+        if get_mouse_activity():
+            self.last_click_time = now
+            return InteractionLevel.CLICKING
+
+        # Check if recent typing (within threshold)
+        if self.last_typing_time:
+            typing_age = (now - self.last_typing_time).total_seconds()
+            if typing_age < self.interaction_threshold:
+                return InteractionLevel.TYPING
+
+        # Check if recent clicking (within threshold)
+        if self.last_click_time:
+            click_age = (now - self.last_click_time).total_seconds()
+            if click_age < self.interaction_threshold:
+                return InteractionLevel.CLICKING
+
+        # No recent activity - passive reading/reference
+        return InteractionLevel.PASSIVE
 
     def start(self) -> Generator[ActivityEvent, None, None]:
         """
@@ -100,7 +165,7 @@ class TrackerLoop:
                 # Get current state
                 window = get_active_window()
                 idle_seconds = get_idle_seconds()
-                is_idle = idle_seconds >= self.interaction_detector.idle_threshold
+                is_idle = idle_seconds >= self.idle_threshold
 
                 # Handle idle state transitions
                 resumption_event = self.idle_tracker.update_idle_state(is_idle, idle_seconds)
@@ -112,7 +177,7 @@ class TrackerLoop:
                 self.state_detector.log_lock_transitions(is_locked_or_screensaver)
 
                 # Get interaction level
-                interaction_level = self.interaction_detector.get_interaction_level(idle_seconds)
+                interaction_level = self.get_interaction_level(idle_seconds)
 
                 # Create state dict for comparison
                 state = {
@@ -144,10 +209,10 @@ class TrackerLoop:
                     self.state_detector.start_new_event(state)
 
                 # Check for transitions (if enabled)
-                self.transition_handler.check_for_transitions(state, idle_seconds)
+                self._check_for_transitions(state, idle_seconds)
 
                 # Update previous state for next iteration
-                self.transition_handler.update_previous_state(state)
+                self.prev_window_state = state.copy()
 
                 # Sleep until next poll
                 time.sleep(self.poll_interval)
@@ -172,3 +237,86 @@ class TrackerLoop:
     def stop(self):
         """Stop the tracking loop."""
         self.running = False
+
+    def _check_for_transitions(self, state: dict, idle_seconds: float):
+        """
+        Check for transition points and optionally show prompt.
+
+        Args:
+            state: Current window state dict
+            idle_seconds: Current idle time in seconds
+        """
+        if not self.transition_detector:
+            return
+
+        # Get previous state info
+        prev_app = self.prev_window_state['app'] if self.prev_window_state else None
+        prev_title = self.prev_window_state['title'] if self.prev_window_state else None
+
+        # Check if this is a transition
+        is_trans = self.transition_detector.is_transition(
+            app=state['app'],
+            title=state['title'],
+            prev_app=prev_app,
+            prev_title=prev_title,
+            idle_seconds=idle_seconds
+        )
+
+        if not is_trans:
+            return
+
+        transition_type = self.transition_detector.last_transition_type
+        logging.info(f"Transition detected: {transition_type}")
+
+        # Record transition in database
+        if self.transition_callback:
+            from datetime import datetime, timezone
+            self.transition_callback(
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                transition_type=transition_type,
+                context={"app": state['app'], "title": state['title']},
+                user_response=None
+            )
+
+        # Check cooldown before showing prompt
+        current_time = time.time()
+        if current_time - self._last_prompt_time < self.PROMPT_COOLDOWN:
+            logging.debug(f"Skipping prompt due to cooldown")
+            return
+
+        # Show prompt if enabled (in background thread)
+        if self.prompt_enabled:
+            self._show_prompt_async(state, transition_type)
+            self._last_prompt_time = current_time
+
+    def _show_prompt_async(self, state: dict, transition_type: str):
+        """
+        Show transition prompt in background thread.
+
+        Args:
+            state: Current window state dict
+            transition_type: Type of transition detected
+        """
+        import threading
+        from datetime import datetime, timezone
+
+        def show_prompt():
+            try:
+                from syncopaid.prompt import TransitionPrompt
+                prompt = TransitionPrompt()
+                response = prompt.show(transition_type)
+
+                # Update transition record with user response
+                if response and self.transition_callback:
+                    self.transition_callback(
+                        timestamp=datetime.now(timezone.utc).isoformat(),
+                        transition_type=transition_type,
+                        context={"app": state['app'], "title": state['title']},
+                        user_response=response
+                    )
+                    logging.info(f"User response to transition prompt: {response}")
+
+            except Exception as e:
+                logging.error(f"Error showing transition prompt: {e}")
+
+        threading.Thread(target=show_prompt, daemon=True).start()
