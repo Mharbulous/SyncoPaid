@@ -23,6 +23,7 @@ from syncopaid.action_screenshot import ActionScreenshotWorker, get_action_scree
 from syncopaid.main_single_instance import release_single_instance
 from syncopaid.main_ui_windows import show_main_window
 from syncopaid.main_ui_export_dialog import show_export_dialog
+from syncopaid.categorizer import ActivityMatcher
 
 
 # Version info
@@ -89,6 +90,13 @@ class SyncoPaidApp:
             from syncopaid.transition_detector import TransitionDetector
             self.transition_detector = TransitionDetector()
             logging.info("Transition detector initialized")
+
+        # Initialize activity matcher (for categorization)
+        self.matcher = ActivityMatcher(
+            self.database,
+            confidence_threshold=self.config.categorization_confidence_threshold
+        )
+        logging.info("Activity matcher initialized")
 
         # Initialize tracker loop
         self.tracker = TrackerLoop(
@@ -165,8 +173,21 @@ class SyncoPaidApp:
 
         try:
             for event in self.tracker.start():
-                # Store event in database
-                event_id = self.database.insert_event(event)
+                # Categorize activity before insertion
+                categorization = self.matcher.categorize_activity(
+                    app=event.app,
+                    title=event.title,
+                    url=event.url,
+                    path=None
+                )
+
+                # Store event in database with categorization
+                event_id = self.database.insert_event(
+                    event,
+                    matter_id=categorization.matter_id,
+                    confidence=categorization.confidence,
+                    flagged_for_review=categorization.flagged_for_review
+                )
 
                 # Log to console (optional - can be disabled for production)
                 if not event.is_idle:
