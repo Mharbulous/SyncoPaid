@@ -117,3 +117,37 @@ class KeywordExtractor:
 
         counter = Counter(all_keywords)
         return counter.most_common()
+
+    def calculate_confidence(
+        self,
+        texts: List[str],
+        top_n: int = 10
+    ) -> List[tuple]:
+        """
+        Calculate confidence scores for keywords based on frequency.
+
+        Confidence = (times keyword appears) / (total number of texts)
+        This gives a 0.0-1.0 score representing how consistently
+        this keyword appears in the matter's activities.
+
+        Args:
+            texts: List of activity texts for a single matter
+            top_n: Maximum number of keywords to return
+
+        Returns:
+            List of (keyword, confidence) tuples, sorted by confidence desc
+        """
+        if not texts:
+            return []
+
+        frequency = self.extract_with_frequency(texts)
+        total_texts = len(texts)
+
+        scored = []
+        for keyword, count in frequency[:top_n * 2]:  # Get extra, filter later
+            confidence = round(count / total_texts, 2)
+            # Only include keywords that appear in at least 20% of activities
+            if confidence >= 0.2:
+                scored.append((keyword, confidence))
+
+        return scored[:top_n]
