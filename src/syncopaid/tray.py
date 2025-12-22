@@ -14,7 +14,7 @@ import logging
 from typing import Callable, Optional
 
 # Import helper modules
-from syncopaid.tray_startup import is_startup_enabled
+from syncopaid.tray_startup import is_startup_enabled, sync_startup_registry
 from syncopaid.tray_icons import create_icon_image
 from syncopaid.tray_menu_handlers import TrayMenuHandlers
 from syncopaid.tray_console_fallback import TrayConsoleFallback
