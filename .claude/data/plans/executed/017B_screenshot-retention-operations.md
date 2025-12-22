@@ -1,74 +1,45 @@
-# Screenshot Retention & Cleanup - Archive Operations
+# Screenshot Retention - Worker Operations & Integration
 
 > **TDD Required:** Each task: Write test → RED → Write code → GREEN → Commit
 
-**Goal:** Implement folder cleanup, background scheduling, and error handling for archiver
-
-**Approach:** Extend `ArchiveWorker` with cleanup after archiving, background scheduling thread, and tkinter error dialogs.
-
-**Tech Stack:** Python shutil, threading, tkinter
-
----
+**Goal:** Implement archive worker scheduling, error handling, and app integration
 
 **Story ID:** 2.6 | **Created:** 2025-12-22 | **Status:** `planned`
 
-**Parent Plan:** 017_screenshot-retention-cleanup.md (Tasks 4-6 of 8)
-
-**Depends On:** 017A_screenshot-retention-core.md
-
 ---
+
+## Story Context
+
+**Title:** Screenshot Retention & Cleanup Policy (Part B - Operations)
+
+**Description:** Worker scheduling, error handling UI, and integration with the main application.
+
+**Prerequisites:** `017A_screenshot-retention-core.md` must be completed first.
+
+**Scope:** This sub-plan covers:
+- Archive worker with startup and monthly scheduling
+- Error handling UI with retry dialog
+- Integration with __main__.py
+- Configuration options for archiving
 
 ## Prerequisites
 
 - [x] venv activated: `venv\Scripts\activate`
-- [x] Sub-plan A completed (core archive logic exists)
 - [x] Baseline tests pass: `python -m pytest -v`
+- [x] Core archiving logic complete (017A)
 
 ## Files Affected
 
 | File | Change | Purpose |
 |------|--------|---------|
-| `tests/test_archiver.py` | Modify | Add cleanup and scheduling tests |
-| `src/syncopaid/archiver.py` | Modify | Add cleanup, scheduling, error UI |
+| `tests/test_archiver.py` | Modify | Add worker and error tests |
+| `src/syncopaid/archiver.py` | Modify | Add worker and error handling |
+| `tests/test_integration.py` | Modify | Test app integration |
+| `src/syncopaid/__main__.py:147-160` | Modify | Initialize archiver on startup |
+| `tests/test_config.py` | Modify | Test archive config |
+| `src/syncopaid/config.py:16-37` | Modify | Add archive config options |
 
 ## TDD Tasks
-
-### Task 4: Delete folders after successful archiving
-
-**Files:** Test: `tests/test_archiver.py` | Impl: `src/syncopaid/archiver.py`
-
-**RED:** Test verifies folders are removed after archiving.
-```python
-def test_cleanup_after_archive(tmp_path):
-    screenshot_dir = tmp_path / "screenshots"
-    (screenshot_dir / "2025-10-01").mkdir(parents=True)
-    (screenshot_dir / "2025-10-01" / "test.jpg").write_text("img")
-
-    archive_dir = tmp_path / "archives"
-    archiver = ArchiveWorker(screenshot_dir, archive_dir)
-
-    archiver.archive_month("2025-10", ["2025-10-01"])
-
-    assert not (screenshot_dir / "2025-10-01").exists()
-    assert (archive_dir / "2025-10_screenshots.zip").exists()
-```
-Run: `pytest tests/test_archiver.py::test_cleanup_after_archive -v` → Expect: FAILED
-
-**GREEN:** Implement folder cleanup after archiving.
-```python
-def archive_month(self, month_key: str, folders: List[str]):
-    zip_path = self.create_archive(month_key, folders)
-    # Verify zip created successfully before deleting
-    if zip_path.exists() and zip_path.stat().st_size > 0:
-        for folder in folders:
-            shutil.rmtree(self.screenshot_dir / folder)
-        logging.info(f"Archived and cleaned up {len(folders)} folders for {month_key}")
-```
-Run: `pytest tests/test_archiver.py::test_cleanup_after_archive -v` → Expect: PASSED
-
-**COMMIT:** `git add tests/test_archiver.py src/syncopaid/archiver.py && git commit -m "feat: cleanup folders after successful archiving"`
-
----
 
 ### Task 5: Archive worker with startup and monthly schedule
 
@@ -169,11 +140,79 @@ Run: `pytest tests/test_archiver.py::test_error_dialog -v` → Expect: PASSED
 
 ---
 
+### Task 7: Integration with __main__.py
+
+**Files:** Test: `tests/test_integration.py` | Impl: `src/syncopaid/__main__.py:147-160`
+
+**RED:** Test app initializes archiver on startup.
+```python
+def test_app_initializes_archiver(mocker):
+    mock_archiver = mocker.patch('syncopaid.archiver.ArchiveWorker')
+    app = SyncoPaidApp()
+    assert mock_archiver.called
+    mock_archiver.return_value.run_once.assert_called_once()
+```
+Run: `pytest tests/test_integration.py::test_app_initializes_archiver -v` → Expect: FAILED
+
+**GREEN:** Add archiver initialization to __main__.py.
+```python
+# In __main__.py after screenshot worker init
+from syncopaid.archiver import ArchiveWorker
+
+# Initialize archiver
+screenshot_base_dir = get_screenshot_directory().parent
+archive_dir = screenshot_base_dir / "archives"
+self.archiver = ArchiveWorker(screenshot_base_dir, archive_dir)
+self.archiver.run_once()  # Run on startup
+self.archiver.start_background()  # Schedule monthly checks
+```
+Run: `pytest tests/test_integration.py::test_app_initializes_archiver -v` → Expect: PASSED
+
+**COMMIT:** `git add tests/test_integration.py src/syncopaid/__main__.py && git commit -m "feat: integrate archiver into app startup"`
+
+---
+
+### Task 8: Add config options for archiving
+
+**Files:** Test: `tests/test_config.py` | Impl: `src/syncopaid/config.py:16-37`
+
+**RED:** Test config includes archive settings.
+```python
+def test_archive_config_defaults():
+    config = Config()
+    assert config.archive_enabled == True
+    assert config.archive_check_interval_hours == 24
+```
+Run: `pytest tests/test_config.py::test_archive_config_defaults -v` → Expect: FAILED
+
+**GREEN:** Add archive config to DEFAULT_CONFIG.
+```python
+# In config.py DEFAULT_CONFIG
+"archive_enabled": True,
+"archive_check_interval_hours": 24,
+```
+Run: `pytest tests/test_config.py::test_archive_config_defaults -v` → Expect: PASSED
+
+**COMMIT:** `git add tests/test_config.py src/syncopaid/config.py && git commit -m "feat: add archive configuration options"`
+
+---
+
 ## Verification
 
-- [ ] All tests pass: `python -m pytest tests/test_archiver.py -v`
-- [ ] Manual test: Trigger archive error (simulate failure), verify dialog appears
+- [ ] All tests pass: `python -m pytest -v`
+- [ ] Manual test: Create old folders, run app, verify archiving
+- [ ] Manual test: Trigger archive error (disk full), verify dialog
+- [ ] Check zip contents match original screenshots
+- [ ] Verify monthly scheduling (mock system date)
 
 ## Notes
 
-This sub-plan completes the archiver module functionality. Sub-plan C will integrate with the main app and add configuration options.
+**Edge Cases:**
+- Empty folders (skip archiving)
+- Malformed folder names (ignore)
+- Archives folder doesn't exist (create on init)
+- Partial month at month boundary (excluded correctly)
+
+**Follow-up Work:**
+- Story 8.4.3 will use archives for screenshot retrieval in AI review UI
+- Consider compression level tuning for disk space vs. CPU tradeoff
