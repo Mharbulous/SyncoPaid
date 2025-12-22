@@ -399,10 +399,11 @@ jobs:
 
             ## SQL QUERY EXAMPLES
 
-            Use Python sqlite3 module (preferred) or sqlite3 CLI with proper quoting:
+            IMPORTANT: Do NOT use heredocs (<<EOF) for Python - they are blocked by security policy.
+            Instead, write Python code to a .py file and execute it:
 
             ```python
-            # Find stories by keyword (Python - PREFERRED)
+            # Write this to a file like /tmp/query.py, then run: python3 /tmp/query.py
             import sqlite3
             conn = sqlite3.connect('.claude/data/story-tree.db')
             results = conn.execute('''
@@ -411,10 +412,12 @@ jobs:
                 WHERE disposition IS NULL
                   AND (title LIKE ? OR description LIKE ? OR story LIKE ?)
             ''', ('%keyword%', '%keyword%', '%keyword%')).fetchall()
+            for row in results:
+                print(row)
             ```
 
+            Or use sqlite3 CLI directly (simpler for quick queries):
             ```bash
-            # If using sqlite3 CLI, use <> instead of != and quote carefully
             sqlite3 .claude/data/story-tree.db "SELECT id, title FROM story_nodes WHERE stage <> 'concept' AND disposition IS NULL"
             ```
 
