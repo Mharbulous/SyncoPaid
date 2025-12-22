@@ -1012,6 +1012,15 @@ jobs:
             5. Each sub-plan must be independently executable
             6. Save sub-plans to `.claude/data/plans/`
 
+            ## FILENAME COLLISION PREVENTION (CRITICAL)
+            BEFORE creating any sub-plans:
+            1. Run: `ls -1 .claude/data/plans/*.md` to see existing plans
+            2. Run: `ls -1 .claude/data/plans/executed/*.md` to see executed plans
+            3. Extract the sequence number from the plan filename (e.g., "024" from "024_timeline.md")
+            4. Find ALL existing plans with that sequence (024A_, 024B_, 024C_, etc.)
+            5. Use the NEXT available letter that doesn't conflict
+            6. Example: If 024A, 024B, 024C exist, your new plans should be 024D, 024E, 024F
+
             ## AUTOMATIC COMPLEXITY ESCALATION
             Always flag as complex (even if ≤2 tasks) when plan involves:
             - GUI/UI testing (tkinter, Qt, browser)
@@ -1046,10 +1055,18 @@ jobs:
             }
             ```
 
+            ## CRITICAL VALIDATION BEFORE OUTPUT
+            BEFORE writing the JSON output:
+            1. Verify EVERY file path you reference actually exists using `ls -la <path>`
+            2. The execute_plan MUST be a file that exists in .claude/data/plans/
+            3. If you created sub-plans, verify they were written successfully
+            4. NEVER output a path that doesn't exist - this will cause the workflow to fail
+
             IMPORTANT: If you create sub-plans, you must:
             1. Move the original plan to executed folder OR keep it if you're just extracting sub-plans
             2. Create the new sub-plan files with proper content
             3. The execute_plan should be the FIRST sub-plan to execute (A suffix)
+            4. VERIFY the file exists before putting it in execute_plan
 
           claude_args: |
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(python:*),Bash(python3:*),Bash(mkdir:*),Bash(mv:*),Bash(cp:*)"
@@ -1075,26 +1092,49 @@ jobs:
             if [ -n "$EXECUTE_PLAN" ] && [ ! -f "$EXECUTE_PLAN" ]; then
               echo "⚠️ WARNING: Decompose generated non-existent plan path: $EXECUTE_PLAN"
               echo ""
-              echo "Available plans:"
-              ls -la .claude/data/plans/*.md 2>/dev/null || echo "(none)"
+              echo "Available plans in .claude/data/plans/:"
+              ls -1 .claude/data/plans/*.md 2>/dev/null || echo "(none)"
               echo ""
 
-              # Fall back to original plan if it exists
-              if [ -f "$PLAN_PATH" ]; then
-                echo "Falling back to original plan: $PLAN_PATH"
-                FINAL_PLAN="$PLAN_PATH"
-              else
-                echo "❌ ERROR: Neither generated plan nor original plan exists!"
-                echo "Generated: $EXECUTE_PLAN"
-                echo "Original: $PLAN_PATH"
-                # Still output something so the execute job can fail gracefully
-                FINAL_PLAN="$EXECUTE_PLAN"
+              # Try to find a matching plan by searching for similar names
+              PLAN_BASENAME=$(basename "$EXECUTE_PLAN" .md)
+              PLAN_SEQ=$(echo "$PLAN_BASENAME" | grep -oP '^\d{3}[A-Z]?' || echo "")
+
+              if [ -n "$PLAN_SEQ" ]; then
+                echo "Looking for plans with sequence: $PLAN_SEQ"
+                MATCHING_PLAN=$(ls -1 .claude/data/plans/${PLAN_SEQ}*.md 2>/dev/null | head -1)
+                if [ -n "$MATCHING_PLAN" ] && [ -f "$MATCHING_PLAN" ]; then
+                  echo "✓ Found matching plan: $MATCHING_PLAN"
+                  FINAL_PLAN="$MATCHING_PLAN"
+                fi
+              fi
+
+              # If still no match, fall back to original plan
+              if [ ! -f "$FINAL_PLAN" ]; then
+                if [ -f "$PLAN_PATH" ]; then
+                  echo "Falling back to original plan: $PLAN_PATH"
+                  FINAL_PLAN="$PLAN_PATH"
+                else
+                  echo "❌ ERROR: No valid plan found!"
+                  echo "Generated: $EXECUTE_PLAN"
+                  echo "Original: $PLAN_PATH"
+                  # Re-select earliest available plan
+                  EARLIEST=$(ls -1 .claude/data/plans/*.md 2>/dev/null | head -1)
+                  if [ -n "$EARLIEST" ]; then
+                    echo "✓ Re-selecting earliest plan: $EARLIEST"
+                    FINAL_PLAN="$EARLIEST"
+                  else
+                    echo "decompose_failed=true" >> $GITHUB_OUTPUT
+                    exit 1
+                  fi
+                fi
               fi
             fi
 
             echo "complexity=$COMPLEXITY" >> $GITHUB_OUTPUT
             echo "execute_plan=$FINAL_PLAN" >> $GITHUB_OUTPUT
             echo "sub_plans_created=$SUB_PLANS" >> $GITHUB_OUTPUT
+            echo "decompose_failed=false" >> $GITHUB_OUTPUT
 
             echo "Execute plan: $FINAL_PLAN"
             if [ -n "$SUB_PLANS" ]; then
@@ -1105,6 +1145,7 @@ jobs:
             echo "complexity=unknown" >> $GITHUB_OUTPUT
             echo "execute_plan=$PLAN_PATH" >> $GITHUB_OUTPUT
             echo "sub_plans_created=" >> $GITHUB_OUTPUT
+            echo "decompose_failed=false" >> $GITHUB_OUTPUT
             echo "No decompose result, using original plan: $PLAN_PATH"
           fi
 
@@ -1167,6 +1208,8 @@ jobs:
     outputs:
       status: ${{ steps.execute-output.outputs.status }}
       commits_made: ${{ steps.execute-output.outputs.commits_made }}
+      complexity_ok: ${{ steps.verify-complexity.outputs.complexity_ok }}
+      task_count: ${{ steps.verify-complexity.outputs.task_count }}
 
     steps:
       - name: "3.0 Checkout repository"
@@ -1213,7 +1256,46 @@ jobs:
           echo "✓ Plan file verified: $PLAN_PATH"
           echo "plan_exists=true" >> $GITHUB_OUTPUT
 
-      - name: "3.1.3 Setup Python environment"
+      - name: "3.1.3 Verify plan complexity is simple"
+        id: verify-complexity
+        run: |
+          PLAN_PATH="${{ needs.decompose.outputs.execute_plan }}"
+
+          # Count TDD tasks in the plan
+          # Look for patterns like "### Task 1:", "### Task 2:", etc.
+          TASK_COUNT=$(grep -cE '^###\s+Task\s+[0-9]+' "$PLAN_PATH" 2>/dev/null || echo "0")
+
+          echo "Plan: $PLAN_PATH"
+          echo "Task count: $TASK_COUNT"
+
+          if [ "$TASK_COUNT" -gt 2 ]; then
+            echo ""
+            echo "⚠️ WARNING: Plan has $TASK_COUNT tasks (max 2 for execution)"
+            echo "This plan should have been decomposed further."
+            echo ""
+            echo "Tasks found:"
+            grep -E '^###\s+Task\s+[0-9]+' "$PLAN_PATH" || true
+            echo ""
+            echo "## ⚠️ Plan Too Complex" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Plan \`$(basename $PLAN_PATH)\` has **$TASK_COUNT tasks** but max is 2." >> $GITHUB_STEP_SUMMARY
+            echo "The decompose step should have split this further." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Action needed:** Re-run the workflow or manually decompose this plan." >> $GITHUB_STEP_SUMMARY
+
+            echo "complexity_ok=false" >> $GITHUB_OUTPUT
+            echo "task_count=$TASK_COUNT" >> $GITHUB_OUTPUT
+
+            # Don't fail - let execution attempt it, but flag the issue
+            # The execution may still succeed for borderline cases
+            echo "Proceeding with execution despite complexity warning..."
+          else
+            echo "✓ Plan complexity OK: $TASK_COUNT tasks"
+            echo "complexity_ok=true" >> $GITHUB_OUTPUT
+            echo "task_count=$TASK_COUNT" >> $GITHUB_OUTPUT
+          fi
+
+      - name: "3.1.5 Setup Python environment"
         run: |
           echo "Setting up Python environment..."
           python3 --version
