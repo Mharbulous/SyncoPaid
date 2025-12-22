@@ -132,3 +132,61 @@ def test_get_timeline_blocks_filter_by_app():
 
         assert len(blocks) == 1
         assert blocks[0].app == "WINWORD.EXE"
+
+
+def test_calculate_block_position_day_view():
+    """Test calculating pixel position for day view (24 hours)."""
+    from syncopaid.timeline_view import TimelineBlock, calculate_block_rect
+    from datetime import datetime
+
+    block = TimelineBlock(
+        start_time=datetime(2025, 12, 21, 12, 0, 0),  # Noon
+        end_time=datetime(2025, 12, 21, 13, 0, 0),    # 1 PM
+        app="test.exe",
+        title="Test",
+        is_idle=False
+    )
+
+    # Canvas 1440 pixels wide (1 pixel per minute for 24 hours)
+    # At noon (720 minutes from midnight), block should start at x=720
+    x1, y1, x2, y2 = calculate_block_rect(
+        block,
+        canvas_width=1440,
+        canvas_height=60,
+        day_start=datetime(2025, 12, 21, 0, 0, 0),
+        zoom_minutes=24 * 60  # Full day view
+    )
+
+    assert x1 == 720  # Noon = 12 hours * 60 min = 720 pixels
+    assert x2 == 780  # 1 PM = 13 hours * 60 min = 780 pixels
+    assert y1 == 5    # Top padding
+    assert y2 == 55   # Height minus padding
+
+
+def test_calculate_block_position_hour_view():
+    """Test calculating pixel position for 1-hour zoom."""
+    from syncopaid.timeline_view import TimelineBlock, calculate_block_rect
+    from datetime import datetime
+
+    block = TimelineBlock(
+        start_time=datetime(2025, 12, 21, 9, 15, 0),
+        end_time=datetime(2025, 12, 21, 9, 30, 0),
+        app="test.exe",
+        title="Test",
+        is_idle=False
+    )
+
+    # Canvas 600 pixels wide, showing 1 hour (60 minutes)
+    # Start of view is 9:00, so 9:15 is 15 minutes in
+    x1, y1, x2, y2 = calculate_block_rect(
+        block,
+        canvas_width=600,
+        canvas_height=60,
+        day_start=datetime(2025, 12, 21, 9, 0, 0),  # View starts at 9 AM
+        zoom_minutes=60  # 1 hour view
+    )
+
+    # 15 minutes into 60-minute window on 600px canvas = 150px
+    assert x1 == 150
+    # 30 minutes into 60-minute window = 300px
+    assert x2 == 300
