@@ -24,6 +24,7 @@ from syncopaid.main_single_instance import release_single_instance
 from syncopaid.main_ui_windows import show_main_window
 from syncopaid.main_ui_export_dialog import show_export_dialog
 from syncopaid.categorizer import ActivityMatcher
+from syncopaid.archiver import ArchiveWorker
 
 
 # Version info
@@ -83,6 +84,14 @@ class SyncoPaidApp:
                 enabled=True
             )
             logging.info("Action screenshot worker initialized")
+
+        # Initialize archiver
+        screenshot_base_dir = get_screenshot_directory().parent
+        archive_dir = screenshot_base_dir / "archives"
+        self.archiver = ArchiveWorker(screenshot_base_dir, archive_dir)
+        self.archiver.run_once()  # Run on startup
+        self.archiver.start_background()  # Schedule monthly checks
+        logging.info("Screenshot archiver initialized")
 
         # Initialize transition detector (if enabled)
         self.transition_detector = None
