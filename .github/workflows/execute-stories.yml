@@ -1061,12 +1061,35 @@ jobs:
             EXECUTE_PLAN=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('execute_plan',''))")
             SUB_PLANS=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(','.join(d.get('sub_plans_created',[])))")
 
+            echo "Complexity: $COMPLEXITY"
+
+            # CRITICAL: Validate that the execute_plan file actually exists
+            FINAL_PLAN="${EXECUTE_PLAN:-$PLAN_PATH}"
+            if [ -n "$EXECUTE_PLAN" ] && [ ! -f "$EXECUTE_PLAN" ]; then
+              echo "⚠️ WARNING: Decompose generated non-existent plan path: $EXECUTE_PLAN"
+              echo ""
+              echo "Available plans:"
+              ls -la .claude/data/plans/*.md 2>/dev/null || echo "(none)"
+              echo ""
+
+              # Fall back to original plan if it exists
+              if [ -f "$PLAN_PATH" ]; then
+                echo "Falling back to original plan: $PLAN_PATH"
+                FINAL_PLAN="$PLAN_PATH"
+              else
+                echo "❌ ERROR: Neither generated plan nor original plan exists!"
+                echo "Generated: $EXECUTE_PLAN"
+                echo "Original: $PLAN_PATH"
+                # Still output something so the execute job can fail gracefully
+                FINAL_PLAN="$EXECUTE_PLAN"
+              fi
+            fi
+
             echo "complexity=$COMPLEXITY" >> $GITHUB_OUTPUT
-            echo "execute_plan=${EXECUTE_PLAN:-$PLAN_PATH}" >> $GITHUB_OUTPUT
+            echo "execute_plan=$FINAL_PLAN" >> $GITHUB_OUTPUT
             echo "sub_plans_created=$SUB_PLANS" >> $GITHUB_OUTPUT
 
-            echo "Complexity: $COMPLEXITY"
-            echo "Execute plan: ${EXECUTE_PLAN:-$PLAN_PATH}"
+            echo "Execute plan: $FINAL_PLAN"
             if [ -n "$SUB_PLANS" ]; then
               echo "Sub-plans created: $SUB_PLANS"
             fi
@@ -1075,7 +1098,7 @@ jobs:
             echo "complexity=unknown" >> $GITHUB_OUTPUT
             echo "execute_plan=$PLAN_PATH" >> $GITHUB_OUTPUT
             echo "sub_plans_created=" >> $GITHUB_OUTPUT
-            echo "No decompose result, using original plan"
+            echo "No decompose result, using original plan: $PLAN_PATH"
           fi
 
       - name: "2.3 Commit sub-plans if created"
@@ -1156,6 +1179,42 @@ jobs:
           pkill -f "claude" 2>/dev/null || true
           echo "✓ Cleaned up potential installation locks"
 
+      - name: "3.1.2 Verify plan file exists"
+        id: verify-plan
+        run: |
+          PLAN_PATH="${{ needs.decompose.outputs.execute_plan }}"
+          echo "Checking plan file: $PLAN_PATH"
+
+          if [ -z "$PLAN_PATH" ]; then
+            echo "❌ No plan path provided by decompose job"
+            echo "plan_exists=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          if [ ! -f "$PLAN_PATH" ]; then
+            echo "❌ Plan file does not exist: $PLAN_PATH"
+            echo ""
+            echo "Available plans in .claude/data/plans/:"
+            ls -la .claude/data/plans/*.md 2>/dev/null || echo "(none)"
+            echo ""
+            echo "Recently executed plans:"
+            ls -la .claude/data/executed/*.md 2>/dev/null | head -5 || echo "(none)"
+            echo "plan_exists=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          echo "✓ Plan file verified: $PLAN_PATH"
+          echo "plan_exists=true" >> $GITHUB_OUTPUT
+
+      - name: "3.1.3 Setup Python environment"
+        run: |
+          echo "Setting up Python environment..."
+          python3 --version
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pytest
+          python3 -m pytest --version
+          echo "✓ Python environment ready with pytest"
+
       - name: "3.2 Execute plan"
         id: execute
         uses: anthropics/claude-code-action@v1
@@ -1221,7 +1280,7 @@ jobs:
             - Commit your changes after each task (push is handled automatically by the workflow)
 
           claude_args: |
-            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(pytest:*),Bash(pip:*),Bash(mkdir:*),BashOutput,TodoWrite"
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(pytest:*),Bash(pip:*),Bash(pip3:*),Bash(mkdir:*),BashOutput,TodoWrite"
             --model claude-sonnet-4-5-20250929
             --max-turns 50
 
