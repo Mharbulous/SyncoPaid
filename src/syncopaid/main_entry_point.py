@@ -10,7 +10,11 @@ Handles application initialization:
 import sys
 import logging
 
-from syncopaid.main_single_instance import acquire_single_instance, release_single_instance
+from syncopaid.main_single_instance import (
+    acquire_single_instance,
+    release_single_instance,
+    start_shutdown_monitor
+)
 from syncopaid.main_app_class import SyncoPaidApp
 
 
@@ -27,14 +31,18 @@ def main():
         ]
     )
 
-    # Enforce single instance
+    # Enforce single instance (with graceful takeover support)
     if not acquire_single_instance():
-        print("SyncoPaid is already running.")
-        print("Check your system tray for the existing instance.")
+        # Takeover was attempted but failed
         sys.exit(0)
 
     try:
         app = SyncoPaidApp()
+
+        # Start monitoring for shutdown requests from new instances
+        # This allows graceful takeover when a new version is launched
+        start_shutdown_monitor(app.quit_app)
+
         app.run()
 
     except KeyboardInterrupt:

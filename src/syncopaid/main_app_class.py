@@ -144,6 +144,10 @@ class SyncoPaidApp:
         # Show final statistics
         self.show_statistics()
 
+        # Stop the tray icon (releases the pystray event loop)
+        if self.tray:
+            self.tray.stop()
+
         # Release single-instance mutex
         release_single_instance()
 
