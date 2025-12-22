@@ -115,3 +115,59 @@ class TimelineBlock:
             title=event.get('title'),
             is_idle=event.get('is_idle', False)
         )
+
+
+def get_timeline_blocks(
+    db,
+    date: str,
+    app_filter: Optional[str] = None,
+    include_idle: bool = True
+) -> List[TimelineBlock]:
+    """
+    Get timeline blocks for a specific date.
+
+    Args:
+        db: Database instance
+        date: ISO date string (YYYY-MM-DD)
+        app_filter: Optional app name to filter by
+        include_idle: Whether to include idle periods
+
+    Returns:
+        List of TimelineBlock sorted by start time
+    """
+    events = db.get_events(
+        start_date=date,
+        end_date=date,
+        include_idle=include_idle
+    )
+
+    blocks = []
+    for event in events:
+        # Apply app filter if specified
+        if app_filter and event.get('app') != app_filter:
+            continue
+
+        block = TimelineBlock.from_event(event)
+        blocks.append(block)
+
+    # Sort by start time
+    blocks.sort(key=lambda b: b.start_time)
+
+    return blocks
+
+
+def get_unique_apps(blocks: List[TimelineBlock]) -> List[str]:
+    """
+    Get list of unique application names from timeline blocks.
+
+    Args:
+        blocks: List of TimelineBlock instances
+
+    Returns:
+        Sorted list of unique app names (excluding None/idle)
+    """
+    apps = set()
+    for block in blocks:
+        if block.app and not block.is_idle:
+            apps.add(block.app)
+    return sorted(apps)
