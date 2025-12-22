@@ -27,3 +27,13 @@ def test_detect_archivable_months(tmp_path):
     assert "2025-09-15" in folders
     assert "2025-10-20" in folders
     assert "2025-11-05" not in folders
+
+
+def test_group_folders_by_month():
+    """Test groups folders by YYYY-MM for zip creation."""
+    folders = ["2025-10-01", "2025-10-15", "2025-10-31", "2025-09-20"]
+    grouped = ArchiveWorker.group_by_month(folders)
+    assert grouped == {
+        "2025-10": ["2025-10-01", "2025-10-15", "2025-10-31"],
+        "2025-09": ["2025-09-20"]
+    }
