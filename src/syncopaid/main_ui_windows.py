@@ -35,22 +35,22 @@ def show_main_window(database, tray, quit_callback):
             with database._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    """SELECT * FROM events
+                    """SELECT id, timestamp, duration_seconds, end_time, app, title, client, matter
+                       FROM events
                        WHERE timestamp >= ? AND is_idle = 0
                        ORDER BY timestamp DESC""",
                     (cutoff_iso,)
                 )
-                columns = [desc[0] for desc in cursor.description]
                 for row in cursor.fetchall():
-                    # Handle end_time column which may not exist in older databases
-                    end_time = row['end_time'] if 'end_time' in columns else None
                     events.append({
                         'id': row['id'],
                         'timestamp': row['timestamp'],
                         'duration_seconds': row['duration_seconds'],
-                        'end_time': end_time,
+                        'end_time': row['end_time'],
                         'app': row['app'],
                         'title': row['title'],
+                        'client': row['client'],
+                        'matter': row['matter'],
                     })
 
             # Create window
@@ -151,7 +151,7 @@ def show_main_window(database, tray, quit_callback):
             header_label.pack()
 
             # Treeview for events with start time, duration, end time columns
-            columns = ('id', 'start', 'duration', 'end', 'app', 'title')
+            columns = ('id', 'start', 'duration', 'end', 'app', 'title', 'client', 'matter')
             tree = ttk.Treeview(root, columns=columns, show='headings', selectmode='extended')
             tree.heading('id', text='ID')
             tree.heading('start', text='Start')
@@ -159,6 +159,8 @@ def show_main_window(database, tray, quit_callback):
             tree.heading('end', text='End')
             tree.heading('app', text='Application')
             tree.heading('title', text='Window Title')
+            tree.heading('client', text='Client')
+            tree.heading('matter', text='Matter')
 
             tree.column('id', width=0, stretch=False)  # Hidden column
             tree.column('start', width=140, minwidth=100)
@@ -166,6 +168,8 @@ def show_main_window(database, tray, quit_callback):
             tree.column('end', width=140, minwidth=100)
             tree.column('app', width=100, minwidth=80)
             tree.column('title', width=330, minwidth=200)
+            tree.column('client', width=120, minwidth=80)
+            tree.column('matter', width=120, minwidth=80)
 
             # Scrollbar
             scrollbar = ttk.Scrollbar(root, orient=tk.VERTICAL, command=tree.yview)
@@ -224,7 +228,9 @@ def show_main_window(database, tray, quit_callback):
 
                 app = event['app'] or ''
                 title = event['title'] or ''
-                tree.insert('', tk.END, values=(event['id'], start_ts, dur, end_ts, app, title))
+                client = event.get('client') or ''
+                matter = event.get('matter') or ''
+                tree.insert('', tk.END, values=(event['id'], start_ts, dur, end_ts, app, title, client, matter))
 
             root.mainloop()
 
