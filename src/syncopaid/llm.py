@@ -96,6 +96,24 @@ Respond in JSON format:
         )
         return response.content[0].text
 
+    def generate_narrative(self, activity_summary: str) -> str:
+        """
+        Generate professional billing narrative from activity summary.
+
+        Args:
+            activity_summary: Combined description of activities
+
+        Returns:
+            Professional billing narrative string
+        """
+        prompt = f"""Convert these work activities into a professional billing narrative:
+
+Activities: {activity_summary}
+
+Respond with only the narrative text, no JSON. Keep it concise (1-2 sentences)."""
+
+        return self._call_api(prompt).strip()
+
     def _parse_classification_response(self, response: str) -> ClassificationResult:
         """Parse LLM response into ClassificationResult."""
         try:

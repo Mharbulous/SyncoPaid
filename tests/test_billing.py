@@ -30,6 +30,35 @@ def test_format_billing_time():
     assert format_billing_time(90) == "1.5 hours"
 
 
+def test_generate_narrative():
+    from syncopaid.billing import generate_billing_narrative
+
+    activities = [
+        {'app': 'Chrome', 'title': 'Estate Tax Research'},
+        {'app': 'Word', 'title': 'Trust Amendment Draft.docx'}
+    ]
+    narrative = generate_billing_narrative(activities)
+
+    assert narrative != ""
+    assert len(narrative) > 0
+
+
+def test_generate_narrative_empty():
+    from syncopaid.billing import generate_billing_narrative
+    assert generate_billing_narrative([]) == ""
+
+
+def test_generate_basic_narrative():
+    from syncopaid.billing import _generate_basic_narrative
+
+    activities = [
+        {'app': 'WINWORD.EXE', 'title': 'Contract Review.docx'}
+    ]
+    narrative = _generate_basic_narrative(activities)
+
+    assert 'document drafting' in narrative or 'Contract Review' in narrative
+
+
 if __name__ == "__main__":
     test_round_to_billing_increment()
     test_round_to_increment_edge_cases()
