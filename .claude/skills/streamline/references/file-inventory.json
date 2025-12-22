@@ -111,7 +111,16 @@
       "lines": 131
     },
     "src/syncopaid/main_app_class.py": {
-      "lines": 302
+      "lines": 180
+    },
+    "src/syncopaid/main_app_initialization.py": {
+      "lines": 153
+    },
+    "src/syncopaid/main_app_tracking.py": {
+      "lines": 100
+    },
+    "src/syncopaid/main_app_display.py": {
+      "lines": 70
     },
     "src/syncopaid/main_entry_point.py": {
       "lines": 48
@@ -248,6 +257,7 @@
     "src/syncopaid/matter_client_dialog.py",
     "src/syncopaid/tracker_loop.py",
     "src/syncopaid/__main__.py",
-    "src/syncopaid/exporter.py"
+    "src/syncopaid/exporter.py",
+    "src/syncopaid/main_app_class.py"
   ]
 }
