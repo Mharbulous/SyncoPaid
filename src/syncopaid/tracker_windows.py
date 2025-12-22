@@ -44,10 +44,13 @@ if WINDOWS_APIS_AVAILABLE:
 # ACTIVE WINDOW DETECTION
 # ============================================================================
 
-def get_active_window() -> Dict[str, Optional[str]]:
+def get_active_window(config=None) -> Dict[str, Optional[str]]:
     """
     Get information about the currently active foreground window.
     Now includes redacted cmdline for instance differentiation.
+
+    Args:
+        config: Optional Config object to control URL extraction behavior
 
     Returns:
         Dictionary with keys:
@@ -68,7 +71,8 @@ def get_active_window() -> Dict[str, Optional[str]]:
             ("OUTLOOK.EXE", "Inbox - user@lawfirm.com - Outlook", ["OUTLOOK.EXE"]),
         ]
         app, title, cmdline = random.choice(mock_apps)
-        url = extract_context(app, title)
+        url_extraction_enabled = config.url_extraction_enabled if config else True
+        url = extract_context(app, title) if url_extraction_enabled else None
         return {"app": app, "title": title, "pid": 0, "url": url, "cmdline": cmdline}
 
     try:
@@ -95,14 +99,16 @@ def get_active_window() -> Dict[str, Optional[str]]:
 
         # Extract URL if browser and config enabled
         url = None
-        # Import here to avoid circular dependency
-        from .url_extractor import extract_browser_url
-        # TODO: Check config.url_extraction_enabled
-        url = extract_browser_url(process_name, timeout_ms=100)
+        url_extraction_enabled = config.url_extraction_enabled if config else True
 
-        # Fallback to title-based extraction if UI Automation fails
-        if not url:
-            url = extract_context(process_name, title)
+        if url_extraction_enabled:
+            # Import here to avoid circular dependency
+            from .url_extractor import extract_browser_url
+            url = extract_browser_url(process_name, timeout_ms=100)
+
+            # Fallback to title-based extraction if UI Automation fails
+            if not url:
+                url = extract_context(process_name, title)
 
         if url:
             logging.debug(f"Extracted context from {process_name}: {url[:50]}...")  # Log first 50 chars

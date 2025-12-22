@@ -35,3 +35,18 @@ def test_tracker_loop_without_ui_automation():
     )
 
     assert tracker.ui_automation_worker is None
+
+
+def test_tracker_respects_url_config_disabled(tmp_path):
+    """Should not extract URLs when disabled in config."""
+    from syncopaid.config_dataclass import Config
+    from syncopaid.tracker_windows import get_active_window
+
+    # Create config with url_extraction_enabled=False
+    config = Config(url_extraction_enabled=False)
+
+    # Get active window with config
+    info = get_active_window(config)
+
+    # URL should be None when disabled (even for browsers)
+    assert info["url"] is None
