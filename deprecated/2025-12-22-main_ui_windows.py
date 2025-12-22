@@ -7,14 +7,78 @@ Contains the Main window implementation.
 import logging
 import threading
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 from datetime import datetime, timedelta
 
 from syncopaid.database import format_duration
 from syncopaid.main_ui_utilities import set_window_icon
 from syncopaid.main_ui_commands import create_command_handler
-from syncopaid.main_ui_assignment_dialog import show_assignment_dialog
-from syncopaid.main_ui_import_dialog import show_import_dialog
+
+
+def show_assignment_dialog(database, event_id, current_client, current_matter, on_save):
+    """Show dialog to assign client/matter to an event."""
+    root = tk.Toplevel()
+    root.title("Assign Client/Matter")
+    root.geometry("350x150")
+    root.attributes('-topmost', True)
+    root.grab_set()  # Modal
+
+    # Fetch available clients
+    clients = []
+    with database._get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT display_name FROM clients ORDER BY display_name")
+        clients = [row[0] for row in cursor.fetchall()]
+
+    # Client selection
+    tk.Label(root, text="Client:", pady=5).grid(row=0, column=0, sticky='e', padx=10)
+    client_var = tk.StringVar(value=current_client or '')
+    client_combo = ttk.Combobox(root, textvariable=client_var, values=clients, width=30)
+    client_combo.grid(row=0, column=1, pady=5, padx=10)
+
+    # Matter selection (filtered by client)
+    tk.Label(root, text="Matter:", pady=5).grid(row=1, column=0, sticky='e', padx=10)
+    matter_var = tk.StringVar(value=current_matter or '')
+    matter_combo = ttk.Combobox(root, textvariable=matter_var, width=30)
+    matter_combo.grid(row=1, column=1, pady=5, padx=10)
+
+    def update_matters(*args):
+        """Update matter dropdown when client changes."""
+        selected_client = client_var.get()
+        matters = []
+        if selected_client:
+            with database._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT m.display_name FROM matters m
+                    JOIN clients c ON m.client_id = c.id
+                    WHERE c.display_name = ?
+                    ORDER BY m.display_name
+                """, (selected_client,))
+                matters = [row[0] for row in cursor.fetchall()]
+        matter_combo['values'] = matters
+        if matter_var.get() not in matters:
+            matter_var.set('')
+
+    client_var.trace_add('write', update_matters)
+    update_matters()  # Initial population
+
+    # Buttons
+    btn_frame = tk.Frame(root)
+    btn_frame.grid(row=2, column=0, columnspan=2, pady=15)
+
+    def save():
+        with database._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE events SET client = ?, matter = ? WHERE id = ?
+            """, (client_var.get() or None, matter_var.get() or None, event_id))
+            conn.commit()
+        on_save(client_var.get(), matter_var.get())
+        root.destroy()
+
+    tk.Button(btn_frame, text="Cancel", command=root.destroy, width=8).pack(side=tk.LEFT, padx=5)
+    tk.Button(btn_frame, text="Save", command=save, width=8).pack(side=tk.LEFT, padx=5)
 
 
 def show_main_window(database, tray, quit_callback):
@@ -262,3 +326,135 @@ def show_main_window(database, tray, quit_callback):
     # Run in thread to avoid blocking pystray
     window_thread = threading.Thread(target=run_window, daemon=True)
     window_thread.start()
+
+
+def show_import_dialog(database):
+    """Show dialog for importing client/matter data from folder structure."""
+
+    def run_dialog():
+        from syncopaid.client_matter_importer import import_from_folder
+
+        root = tk.Tk()
+        root.title("Import Clients & Matters")
+        root.geometry("600x400")
+        root.attributes('-topmost', True)
+        set_window_icon(root)
+
+        # State
+        import_result = None
+
+        # Folder selection frame
+        folder_frame = tk.Frame(root, pady=10, padx=10)
+        folder_frame.pack(fill=tk.X)
+
+        tk.Label(folder_frame, text="Folder:").pack(side=tk.LEFT)
+        folder_var = tk.StringVar()
+        folder_entry = tk.Entry(folder_frame, textvariable=folder_var, width=40)
+        folder_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+
+        def browse_folder():
+            nonlocal import_result
+            path = filedialog.askdirectory(parent=root, title="Select Client Folder")
+            if path:
+                folder_var.set(path)
+                import_result = import_from_folder(path)
+                update_preview()
+
+        tk.Button(folder_frame, text="Browse...", command=browse_folder).pack(side=tk.LEFT)
+
+        # Preview label
+        preview_label = tk.Label(root, text="Select a folder to preview", pady=5)
+        preview_label.pack()
+
+        # Preview frame with treeview
+        preview_frame = tk.Frame(root)
+        preview_frame.pack(fill=tk.BOTH, expand=True, padx=10)
+
+        columns = ('client', 'matter')
+        tree = ttk.Treeview(preview_frame, columns=columns, show='headings', height=10)
+        tree.heading('client', text='Client')
+        tree.heading('matter', text='Matter')
+        tree.column('client', width=200)
+        tree.column('matter', width=300)
+
+        scrollbar = ttk.Scrollbar(preview_frame, orient=tk.VERTICAL, command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        def update_preview():
+            for item in tree.get_children():
+                tree.delete(item)
+
+            if import_result:
+                preview_label.config(
+                    text=f"Found {import_result.stats['clients']} clients, "
+                         f"{import_result.stats['matters']} matters"
+                )
+                for m in import_result.matters:
+                    tree.insert('', tk.END, values=(
+                        m.client_display_name,
+                        m.display_name
+                    ))
+
+        # Button frame
+        btn_frame = tk.Frame(root, pady=10, padx=10)
+        btn_frame.pack(fill=tk.X, side=tk.BOTTOM)
+
+        def do_import():
+            if not import_result or not import_result.clients:
+                messagebox.showwarning("No Data",
+                    "No clients found in selected folder.", parent=root)
+                return
+
+            try:
+                save_import_to_database(database, import_result)
+                messagebox.showinfo("Import Complete",
+                    f"Imported {import_result.stats['clients']} clients and "
+                    f"{import_result.stats['matters']} matters.", parent=root)
+                root.destroy()
+            except Exception as e:
+                logging.error(f"Import failed: {e}", exc_info=True)
+                messagebox.showerror("Import Failed", str(e), parent=root)
+
+        tk.Button(btn_frame, text="Cancel", command=root.destroy, width=10).pack(side=tk.RIGHT, padx=5)
+        tk.Button(btn_frame, text="Import", command=do_import, width=10).pack(side=tk.RIGHT, padx=5)
+
+        root.mainloop()
+
+    dialog_thread = threading.Thread(target=run_dialog, daemon=True)
+    dialog_thread.start()
+
+
+def save_import_to_database(database, import_result):
+    """Save imported clients and matters to database."""
+    with database._get_connection() as conn:
+        cursor = conn.cursor()
+
+        # Build client ID map
+        client_ids = {}
+        for client in import_result.clients:
+            cursor.execute("""
+                INSERT OR IGNORE INTO clients (display_name, folder_path)
+                VALUES (?, ?)
+            """, (client.display_name, client.folder_path))
+
+            cursor.execute(
+                "SELECT id FROM clients WHERE display_name = ?",
+                (client.display_name,)
+            )
+            row = cursor.fetchone()
+            if row:
+                client_ids[client.display_name] = row[0]
+
+        # Insert matters
+        for matter in import_result.matters:
+            client_id = client_ids.get(matter.client_display_name)
+            if client_id:
+                cursor.execute("""
+                    INSERT OR IGNORE INTO matters
+                    (client_id, display_name, folder_path)
+                    VALUES (?, ?, ?)
+                """, (client_id, matter.display_name, matter.folder_path))
+
+        conn.commit()
