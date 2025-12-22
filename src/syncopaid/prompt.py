@@ -13,10 +13,10 @@ class TransitionPrompt:
     """Prompt dialog asking user if now is a good time to categorize."""
 
     RESPONSES = {
-        "free": "I'm free",
-        "break": "I'm on a break",
-        "interrupting": "You're interrupting work",
-        "dismiss": "Got to go, TTYL!"
+        "free": "Yes, I'm free",
+        "break": "No, I'm on break.",
+        "interrupting": "No, I'm working.",
+        "dismiss": "Not now, ask later."
     }
 
     def __init__(self):

@@ -13,10 +13,10 @@ except ModuleNotFoundError as e:
         # Create mock for structure verification
         class TransitionPrompt:
             RESPONSES = {
-                "free": "I'm free",
-                "break": "I'm on a break",
-                "interrupting": "You're interrupting work",
-                "dismiss": "Got to go, TTYL!"
+                "free": "Yes, I'm free",
+                "break": "No, I'm on break.",
+                "interrupting": "No, I'm working.",
+                "dismiss": "Not now, ask later."
             }
             def show(self, transition_type=None):
                 pass
