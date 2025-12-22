@@ -53,3 +53,10 @@ def test_llm_config_defaults():
 
         assert manager.config.llm_provider == 'openai'
         assert manager.config.billing_increment == 6
+
+
+def test_default_config_has_url_extraction_enabled():
+    """Default config should enable URL extraction."""
+    from syncopaid.config import DEFAULT_CONFIG
+    assert "url_extraction_enabled" in DEFAULT_CONFIG
+    assert DEFAULT_CONFIG["url_extraction_enabled"] is True

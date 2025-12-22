@@ -67,6 +67,7 @@ class Config:
         database_path: Path to SQLite database file (default: auto-detected)
         start_on_boot: Launch automatically on Windows startup (default: False)
         start_tracking_on_launch: Begin tracking when app starts (default: True)
+        url_extraction_enabled: Enable browser URL extraction (default: True)
         screenshot_enabled: Enable periodic screenshot capture (default: True)
         screenshot_interval_seconds: Seconds between screenshot attempts (default: 10)
         screenshot_threshold_identical: Similarity threshold to overwrite (≥0.92)
@@ -100,6 +101,7 @@ class Config:
     database_path: Optional[str] = None
     start_on_boot: bool = False
     start_tracking_on_launch: bool = True
+    url_extraction_enabled: bool = True
     # Screenshot settings (periodic)
     screenshot_enabled: bool = True
     screenshot_interval_seconds: float = 10.0

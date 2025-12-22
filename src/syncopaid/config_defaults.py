@@ -13,6 +13,7 @@ DEFAULT_CONFIG = {
     "database_path": None,  # Will be set to default location if None
     "start_on_boot": False,
     "start_tracking_on_launch": True,
+    "url_extraction_enabled": True,
     # Screenshot settings (periodic)
     "screenshot_enabled": True,
     "screenshot_interval_seconds": 10,
