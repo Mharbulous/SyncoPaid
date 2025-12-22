@@ -1,20 +1,28 @@
-# Screenshot Retention & Cleanup - Core Archive Logic
+# Screenshot Retention - Core Archiving Logic
 
 > **TDD Required:** Each task: Write test → RED → Write code → GREEN → Commit
 
-**Goal:** Implement core archive detection and zip creation logic
-
-**Approach:** Create the foundational `ArchiveWorker` class with methods to detect archivable folders, group them by month, and create zip archives.
-
-**Tech Stack:** Python zipfile, pathlib, datetime
-
----
+**Goal:** Implement core archiving functionality - detection, grouping, zip creation, and cleanup
 
 **Story ID:** 2.6 | **Created:** 2025-12-22 | **Status:** `planned`
 
-**Parent Plan:** 017_screenshot-retention-cleanup.md (Tasks 1-3 of 8)
-
 ---
+
+## Story Context
+
+**Title:** Screenshot Retention & Cleanup Policy (Part A - Core Logic)
+
+**Description:** Core archiving functionality for compressing old screenshots into monthly zip files.
+
+**Scope:** This sub-plan covers the foundational archiving logic:
+- Detecting which folders are eligible for archiving
+- Grouping folders by month
+- Creating zip archives
+- Cleaning up folders after archiving
+
+**Storage locations:**
+- Screenshots: `%LOCALAPPDATA%/SyncoPaid/screenshots/YYYY-MM-DD/`
+- Archives: `%LOCALAPPDATA%/SyncoPaid/screenshots/archives/`
 
 ## Prerequisites
 
@@ -139,11 +147,52 @@ Run: `pytest tests/test_archiver.py::test_create_archive -v` → Expect: PASSED
 
 ---
 
+### Task 4: Delete folders after successful archiving
+
+**Files:** Test: `tests/test_archiver.py` | Impl: `src/syncopaid/archiver.py`
+
+**RED:** Test verifies folders are removed after archiving.
+```python
+def test_cleanup_after_archive(tmp_path):
+    screenshot_dir = tmp_path / "screenshots"
+    (screenshot_dir / "2025-10-01").mkdir(parents=True)
+    (screenshot_dir / "2025-10-01" / "test.jpg").write_text("img")
+
+    archive_dir = tmp_path / "archives"
+    archiver = ArchiveWorker(screenshot_dir, archive_dir)
+
+    archiver.archive_month("2025-10", ["2025-10-01"])
+
+    assert not (screenshot_dir / "2025-10-01").exists()
+    assert (archive_dir / "2025-10_screenshots.zip").exists()
+```
+Run: `pytest tests/test_archiver.py::test_cleanup_after_archive -v` → Expect: FAILED
+
+**GREEN:** Implement folder cleanup after archiving.
+```python
+def archive_month(self, month_key: str, folders: List[str]):
+    zip_path = self.create_archive(month_key, folders)
+    # Verify zip created successfully before deleting
+    if zip_path.exists() and zip_path.stat().st_size > 0:
+        for folder in folders:
+            shutil.rmtree(self.screenshot_dir / folder)
+        logging.info(f"Archived and cleaned up {len(folders)} folders for {month_key}")
+```
+Run: `pytest tests/test_archiver.py::test_cleanup_after_archive -v` → Expect: PASSED
+
+**COMMIT:** `git add tests/test_archiver.py src/syncopaid/archiver.py && git commit -m "feat: cleanup folders after successful archiving"`
+
+---
+
 ## Verification
 
 - [ ] All tests pass: `python -m pytest tests/test_archiver.py -v`
-- [ ] archiver.py module can be imported without errors
+- [ ] Core archiving logic complete
 
-## Notes
+## Next Steps
 
-This sub-plan establishes the foundational archive logic. Sub-plan B will add cleanup, scheduling, and error handling. Sub-plan C will integrate with the main app.
+After this sub-plan completes, proceed to `017B_screenshot-retention-operations.md` for:
+- Archive worker with startup and monthly scheduling
+- Error handling UI with retry options
+- Integration with __main__.py
+- Config options for archiving
