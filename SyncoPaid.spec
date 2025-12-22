@@ -2,7 +2,7 @@
 # PyInstaller spec file for SyncoPaid
 
 a = Analysis(
-    ['src/SyncoPaid/__main__.py'],
+    ['src/syncopaid/__main__.py'],
     pathex=['src'],
     binaries=[],
     datas=[
@@ -13,6 +13,17 @@ a = Analysis(
     ],
     hiddenimports=[
         'win32timezone',  # pywin32 hidden dependency
+        # Refactored modules that may need explicit inclusion
+        'syncopaid.tray_menu_handlers',
+        'syncopaid.tray_console_fallback',
+        'syncopaid.main_app_display',
+        'syncopaid.main_app_initialization',
+        'syncopaid.main_app_tracking',
+        'syncopaid.main_ui_assignment_dialog',
+        'syncopaid.main_ui_import_dialog',
+        'syncopaid.main_ui_commands',
+        'syncopaid.main_ui_utilities',
+        'syncopaid.client_matter_importer',
     ],
     hookspath=[],
     hooksconfig={},
