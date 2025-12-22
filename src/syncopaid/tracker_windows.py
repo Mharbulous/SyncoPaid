@@ -10,6 +10,20 @@ This is the main entry point that re-exports all Windows tracking functionality
 from specialized submodules.
 """
 
+import sys
+
+# Platform detection
+WINDOWS = sys.platform == 'win32'
+
+if WINDOWS:
+    try:
+        import win32gui
+        WINDOWS_APIS_AVAILABLE = True
+    except ImportError:
+        WINDOWS_APIS_AVAILABLE = False
+else:
+    WINDOWS_APIS_AVAILABLE = False
+
 # Re-export all functions from submodules
 from .tracker_windows_active import get_active_window
 from .tracker_windows_idle import get_idle_seconds

@@ -6,10 +6,15 @@ Privacy-focused: only detects activity, never captures keystrokes or content.
 """
 
 import sys
-from ctypes import windll
 
 # Platform detection
 WINDOWS = sys.platform == 'win32'
+
+# Import Windows-specific ctypes only on Windows
+if WINDOWS:
+    from ctypes import windll
+else:
+    windll = None
 
 if WINDOWS:
     try:

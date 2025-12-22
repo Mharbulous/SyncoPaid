@@ -60,6 +60,9 @@ class SchemaMixin:
             self._create_clients_table(cursor)
             self._create_matters_table(cursor)
 
+            # Create matter keywords table for AI keyword extraction
+            self._create_matter_keywords_table(cursor)
+
             logging.info("Database schema initialized")
 
     def _migrate_events_table(self, cursor):
@@ -214,3 +217,39 @@ class SchemaMixin:
             "CREATE INDEX IF NOT EXISTS idx_matters_client ON matters(client_id)"
         )
         logging.debug("Ensured matters table exists")
+
+    def _create_matter_keywords_table(self, cursor):
+        """
+        Create matter_keywords table for AI-managed keyword extraction.
+
+        Keywords are extracted and managed by AI - users cannot edit directly.
+        This ensures keyword quality and avoids human error in categorization.
+
+        Args:
+            cursor: Database cursor for creating table
+        """
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS matter_keywords (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                matter_id INTEGER NOT NULL,
+                keyword TEXT NOT NULL,
+                source TEXT NOT NULL DEFAULT 'ai',
+                confidence REAL DEFAULT 1.0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (matter_id) REFERENCES matters(id) ON DELETE CASCADE,
+                UNIQUE(matter_id, keyword)
+            )
+        """)
+
+        # Create index for efficient keyword lookups
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_matter_keywords_matter
+            ON matter_keywords(matter_id)
+        """)
+
+        # Create index for keyword search across all matters
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_matter_keywords_keyword
+            ON matter_keywords(keyword)
+        """)
+        logging.debug("Ensured matter_keywords table exists")

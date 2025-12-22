@@ -6,10 +6,20 @@ Provides functions to measure user idle time based on keyboard/mouse inactivity.
 
 import sys
 import logging
-from ctypes import Structure, windll, c_uint, sizeof, byref
 
 # Platform detection
 WINDOWS = sys.platform == 'win32'
+
+# Import Windows-specific ctypes only on Windows
+if WINDOWS:
+    from ctypes import Structure, windll, c_uint, sizeof, byref
+else:
+    # Dummy imports for non-Windows platforms
+    Structure = object
+    windll = None
+    c_uint = None
+    sizeof = None
+    byref = None
 
 if WINDOWS:
     try:

@@ -6,10 +6,15 @@ Provides functions to detect when the workstation is locked or screensaver is ac
 
 import sys
 import logging
-from ctypes import windll
 
 # Platform detection
 WINDOWS = sys.platform == 'win32'
+
+# Import Windows-specific ctypes only on Windows
+if WINDOWS:
+    from ctypes import windll
+else:
+    windll = None
 
 if WINDOWS:
     try:
