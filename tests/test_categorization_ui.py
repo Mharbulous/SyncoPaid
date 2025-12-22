@@ -108,3 +108,17 @@ def test_modal_viewer():
 
         modal.destroy()
         root.destroy()
+
+
+def test_conditional_screenshot_display():
+    from syncopaid.categorization_ui import should_show_screenshots
+
+    # High confidence - no screenshots
+    assert should_show_screenshots(ai_confidence=0.85) == False
+
+    # Low confidence - show screenshots
+    assert should_show_screenshots(ai_confidence=0.65) == True
+    assert should_show_screenshots(ai_confidence=0.70) == True
+
+    # Edge case
+    assert should_show_screenshots(ai_confidence=0.69) == True

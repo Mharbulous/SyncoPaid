@@ -6,7 +6,7 @@ flow when AI confidence is low.
 """
 
 from typing import List, Dict
-from PIL import Image, ImageTk
+from PIL import Image
 import os
 import importlib.util
 
@@ -16,6 +16,7 @@ HAS_TKINTER = importlib.util.find_spec('tkinter') is not None
 if HAS_TKINTER:
     import tkinter as tk
     from tkinter import ttk
+    from PIL import ImageTk
 
 
 def query_screenshots_for_activity(db, start_time: str, end_time: str) -> List[Dict]:
@@ -131,3 +132,8 @@ def show_screenshot_modal(parent, screenshot_path: str):
 
     modal.grab_set()
     return modal
+
+
+def should_show_screenshots(ai_confidence: float, threshold: float = 0.70) -> bool:
+    """Determine if screenshots should be shown based on AI confidence."""
+    return ai_confidence <= threshold
