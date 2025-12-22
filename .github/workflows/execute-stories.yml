@@ -1422,10 +1422,17 @@ jobs:
               "status": "completed|partial|failed",
               "tasks_completed": 5,
               "tasks_total": 5,
-              "commits": ["abc1234", "def5678", ...],
-              "notes": "Brief summary of execution"
+              "commits": ["abc1234", "def5678"],
+              "files_modified": ["src/file1.py", "tests/test_file1.py"],
+              "notes": "Brief summary of what was accomplished",
+              "error": "If failed/partial, describe the error or blocker"
             }
             ```
+
+            IMPORTANT for result file:
+            - Include ALL commit SHAs you created (full 40-char or short 7-char)
+            - List the key files you modified (not every file, just the main ones)
+            - If status is "failed" or "partial", explain WHY in the error field
 
             ## IMPORTANT
 
@@ -1888,6 +1895,89 @@ jobs:
 
           echo "| finalize | ${{ steps.outcome.outputs.outcome }} |" >> $GITHUB_STEP_SUMMARY
 
+      - name: "4.8.1 Download result artifacts"
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/artifacts
+          merge-multiple: true
+        continue-on-error: true
+
+      - name: "4.8.2 Parse result files for issue message"
+        id: parse-results
+        if: always()
+        run: |
+          # Initialize default values
+          echo "tasks_completed=0" >> $GITHUB_OUTPUT
+          echo "tasks_total=0" >> $GITHUB_OUTPUT
+          echo "commits_list=" >> $GITHUB_OUTPUT
+          echo "blocking_issues=" >> $GITHUB_OUTPUT
+          echo "review_notes=" >> $GITHUB_OUTPUT
+          echo "files_changed=" >> $GITHUB_OUTPUT
+          echo "error_summary=" >> $GITHUB_OUTPUT
+
+          # Parse execute-result.json if exists
+          EXEC_RESULT="/tmp/artifacts/ci-execute-result.json"
+          if [ -f "$EXEC_RESULT" ]; then
+            echo "Found execute result file"
+            python3 << 'PYEOF'
+          import json, os
+
+          with open("/tmp/artifacts/ci-execute-result.json") as f:
+              data = json.load(f)
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write(f"tasks_completed={data.get('tasks_completed', 0)}\n")
+              out.write(f"tasks_total={data.get('tasks_total', 0)}\n")
+
+              commits = data.get('commits', [])
+              if commits:
+                  # Format as short SHAs
+                  short_commits = [c[:7] if len(c) > 7 else c for c in commits]
+                  out.write(f"commits_list={','.join(short_commits)}\n")
+
+              files = data.get('files_modified', []) or data.get('files_changed', [])
+              if files:
+                  # Limit to first 5 files
+                  display_files = files[:5]
+                  if len(files) > 5:
+                      display_files.append(f"... and {len(files) - 5} more")
+                  out.write(f"files_changed={' | '.join(display_files)}\n")
+
+              # Check for error info
+              error = data.get('error') or data.get('failure_reason') or data.get('notes', '')
+              if error and data.get('status') != 'completed':
+                  # Truncate to 200 chars
+                  error_short = str(error)[:200]
+                  out.write(f"error_summary={error_short}\n")
+          PYEOF
+          fi
+
+          # Parse review-result.json if exists
+          REVIEW_RESULT="/tmp/artifacts/ci-review-result.json"
+          if [ -f "$REVIEW_RESULT" ]; then
+            echo "Found review result file"
+            python3 << 'PYEOF'
+          import json, os
+
+          with open("/tmp/artifacts/ci-review-result.json") as f:
+              data = json.load(f)
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              blocking = data.get('blocking_issues', [])
+              if blocking:
+                  # Format blocking issues as bullet points
+                  issues_text = ' • '.join(str(i) for i in blocking[:3])
+                  out.write(f"blocking_issues={issues_text}\n")
+
+              notes = data.get('notes', '')
+              if notes:
+                  out.write(f"review_notes={notes[:150]}\n")
+          PYEOF
+          fi
+
+          echo "Result parsing complete"
+
       - name: "4.9 Post results to story issue"
         if: |
           always() &&
@@ -2084,14 +2174,111 @@ jobs:
 
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          BODY="## $STATUS
+          # Get parsed result data
+          TASKS_COMPLETED="${{ steps.parse-results.outputs.tasks_completed }}"
+          TASKS_TOTAL="${{ steps.parse-results.outputs.tasks_total }}"
+          COMMITS_LIST="${{ steps.parse-results.outputs.commits_list }}"
+          FILES_CHANGED="${{ steps.parse-results.outputs.files_changed }}"
+          BLOCKING_ISSUES="${{ steps.parse-results.outputs.blocking_issues }}"
+          REVIEW_NOTES="${{ steps.parse-results.outputs.review_notes }}"
+          ERROR_SUMMARY="${{ steps.parse-results.outputs.error_summary }}"
+
+          # Get pipeline stage info
+          REVIEW_OUTCOME="${{ needs.review-plan.outputs.outcome }}"
+          EXECUTE_STATUS="${{ needs.execute.outputs.status }}"
+
+          # Build enhanced message using heredoc for proper formatting
+          BODY=$(cat <<EOF
+          ## $STATUS
 
           **Plan:** \`$PLAN_FILENAME\`
           **Complexity:** $COMPLEXITY
+          EOF
+          )
+
+          # Add execution details for success/partial outcomes
+          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "partial" ]; then
+            # Add tasks progress
+            if [ "$TASKS_TOTAL" != "0" ] && [ -n "$TASKS_TOTAL" ]; then
+              BODY="$BODY
+          **Tasks:** $TASKS_COMPLETED/$TASKS_TOTAL completed"
+            fi
+
+            # Add commits
+            if [ -n "$COMMITS_LIST" ]; then
+              # Convert comma-separated to inline code format
+              COMMITS_FORMATTED=$(echo "$COMMITS_LIST" | sed 's/,/`, `/g')
+              BODY="$BODY
+          **Commits:** \`$COMMITS_FORMATTED\`"
+            fi
+
+            # Add files changed
+            if [ -n "$FILES_CHANGED" ]; then
+              BODY="$BODY
+          **Files:** $FILES_CHANGED"
+            fi
+          fi
+
+          # Add failure details
+          if [ "$OUTCOME" = "failure" ] || [ "$OUTCOME" = "partial" ]; then
+            BODY="$BODY
+
+          ### Failure Details"
+
+            # Add which stage failed
+            if [ "$REVIEW_OUTCOME" = "pause" ]; then
+              BODY="$BODY
+          **Failed at:** Review (blocking issues found)"
+            elif [ -z "$EXECUTE_STATUS" ] || [ "$EXECUTE_STATUS" = "failed" ]; then
+              BODY="$BODY
+          **Failed at:** Execute"
+            fi
+
+            # Add error summary if available
+            if [ -n "$ERROR_SUMMARY" ]; then
+              BODY="$BODY
+          **Error:** $ERROR_SUMMARY"
+            fi
+
+            # Add tasks progress for partial failures
+            if [ "$TASKS_TOTAL" != "0" ] && [ -n "$TASKS_TOTAL" ]; then
+              BODY="$BODY
+          **Progress:** $TASKS_COMPLETED/$TASKS_TOTAL tasks completed before failure"
+            fi
+          fi
+
+          # Add blocking issues for paused plans
+          if [ "$OUTCOME" = "paused" ] && [ -n "$BLOCKING_ISSUES" ]; then
+            BODY="$BODY
+
+          ### Blocking Issues
+          $BLOCKING_ISSUES"
+          fi
+
+          # Add review notes if available
+          if [ -n "$REVIEW_NOTES" ] && [ "$OUTCOME" != "success" ]; then
+            BODY="$BODY
+
+          ### Review Notes
+          $REVIEW_NOTES"
+          fi
+
+          # Add debug info section for non-success outcomes
+          if [ "$OUTCOME" != "success" ] && [ "$OUTCOME" != "verified" ] && [ "$OUTCOME" != "skipped" ]; then
+            BODY="$BODY
+
+          ### Debug Info
+          - **Artifacts:** \`execute-result\`, \`review-result\` (download from [workflow run]($RUN_URL))
+          - **Result files:** \`.claude/skills/story-execution/ci-*.json\`"
+          fi
+
+          # Add footer
+          BODY="$BODY
+
+          ---
           **Time:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')
           **Run:** [View Details]($RUN_URL)
 
-          ---
           *Posted by [execute-stories workflow]($RUN_URL)*"
 
           echo "$BODY" | gh issue comment "$ISSUE_NUM" --body-file -
