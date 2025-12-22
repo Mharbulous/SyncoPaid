@@ -2187,14 +2187,11 @@ jobs:
           REVIEW_OUTCOME="${{ needs.review-plan.outputs.outcome }}"
           EXECUTE_STATUS="${{ needs.execute.outputs.status }}"
 
-          # Build enhanced message using heredoc for proper formatting
-          BODY=$(cat <<EOF
-          ## $STATUS
+          # Build enhanced message
+          BODY="## $STATUS
 
           **Plan:** \`$PLAN_FILENAME\`
-          **Complexity:** $COMPLEXITY
-          EOF
-          )
+          **Complexity:** $COMPLEXITY"
 
           # Add execution details for success/partial outcomes
           if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "partial" ]; then
