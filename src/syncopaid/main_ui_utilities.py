@@ -9,7 +9,7 @@ import logging
 import tkinter as tk
 from pathlib import Path
 
-from syncopaid.tray import get_resource_path
+from syncopaid.tray_icons import get_resource_path
 
 
 def parse_duration_to_seconds(duration_str: str) -> float:
