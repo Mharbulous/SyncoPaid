@@ -5,8 +5,54 @@ Defines the Config dataclass that holds all application settings
 with type annotations and documentation.
 """
 
+import logging
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, asdict, field
+
+
+# Validation constants
+IDLE_THRESHOLD_MIN = 10.0
+IDLE_THRESHOLD_MAX = 600.0
+IDLE_THRESHOLD_DEFAULT = 180.0
+
+
+def validate_idle_threshold(value: float) -> float:
+    """
+    Validate idle_threshold_seconds value.
+
+    Args:
+        value: The idle threshold value to validate
+
+    Returns:
+        The validated value, or default if invalid
+
+    Valid range: 10-600 seconds (10 seconds to 10 minutes)
+    Invalid values log a warning and return the default (180s).
+    """
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        logging.warning(
+            f"Invalid idle_threshold_seconds value '{value}': not a number. "
+            f"Using default: {IDLE_THRESHOLD_DEFAULT}s"
+        )
+        return IDLE_THRESHOLD_DEFAULT
+
+    if value < IDLE_THRESHOLD_MIN:
+        logging.warning(
+            f"idle_threshold_seconds value {value}s is below minimum ({IDLE_THRESHOLD_MIN}s). "
+            f"Using default: {IDLE_THRESHOLD_DEFAULT}s"
+        )
+        return IDLE_THRESHOLD_DEFAULT
+
+    if value > IDLE_THRESHOLD_MAX:
+        logging.warning(
+            f"idle_threshold_seconds value {value}s exceeds maximum ({IDLE_THRESHOLD_MAX}s). "
+            f"Using default: {IDLE_THRESHOLD_DEFAULT}s"
+        )
+        return IDLE_THRESHOLD_DEFAULT
+
+    return value
 
 
 @dataclass
@@ -90,4 +136,11 @@ class Config:
             k: v for k, v in data.items()
             if k in cls.__dataclass_fields__
         }
+
+        # Apply validation for idle_threshold_seconds
+        if 'idle_threshold_seconds' in valid_fields:
+            valid_fields['idle_threshold_seconds'] = validate_idle_threshold(
+                valid_fields['idle_threshold_seconds']
+            )
+
         return cls(**valid_fields)
