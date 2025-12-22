@@ -1006,20 +1006,37 @@ jobs:
             ## DECOMPOSITION RULES (MANDATORY)
             If task_count > 2:
             1. Split into sub-plans of 1-2 tasks each
-            2. Name: 016A_..., 016B_..., 016C_..., etc.
-            3. First sub-plan (A) executes this run
-            4. Remaining sub-plans queued for future runs
-            5. Each sub-plan must be independently executable
-            6. Save sub-plans to `.claude/data/plans/`
+            2. Each sub-plan must be independently executable
+            3. Save sub-plans to `.claude/data/plans/`
+            4. First sub-plan executes this run, others queued for future runs
+
+            ## HIERARCHICAL NAMING (CRITICAL)
+            Use hierarchical suffixes to maintain parent-child relationships:
+
+            Level 0 (base):     022_feature.md
+            Level 1 (letters):  022A_..., 022B_..., 022C_...
+            Level 2 (numbers):  022A1_..., 022A2_..., 022A3_...
+            Level 3 (lowercase): 022A1a_..., 022A1b_..., 022A1c_...
+
+            To determine the correct suffix:
+            1. Parse the current plan's prefix (e.g., "024A" from "024A_timeline.md")
+            2. If prefix is just digits (024): add uppercase letter → 024A, 024B, 024C
+            3. If prefix ends with letter (024A): add number → 024A1, 024A2, 024A3
+            4. If prefix ends with number (024A1): add lowercase letter → 024A1a, 024A1b
+            5. If prefix ends with lowercase (024A1a): add number → 024A1a1, 024A1a2
 
             ## FILENAME COLLISION PREVENTION (CRITICAL)
             BEFORE creating any sub-plans:
             1. Run: `ls -1 .claude/data/plans/*.md` to see existing plans
             2. Run: `ls -1 .claude/data/plans/executed/*.md` to see executed plans
-            3. Extract the sequence number from the plan filename (e.g., "024" from "024_timeline.md")
-            4. Find ALL existing plans with that sequence (024A_, 024B_, 024C_, etc.)
-            5. Use the NEXT available letter that doesn't conflict
-            6. Example: If 024A, 024B, 024C exist, your new plans should be 024D, 024E, 024F
+            3. Parse the current plan's prefix to determine the hierarchy level
+            4. Find ALL existing plans with the same parent prefix
+            5. Use the NEXT available suffix at the correct hierarchy level
+
+            Examples:
+            - Decomposing 024_timeline.md: If 024A, 024B exist → create 024C, 024D
+            - Decomposing 024A_timeline.md: If 024A1 exists → create 024A2, 024A3
+            - Decomposing 024A1_timeline.md: If 024A1a exists → create 024A1b, 024A1c
 
             ## AUTOMATIC COMPLEXITY ESCALATION
             Always flag as complex (even if ≤2 tasks) when plan involves:
@@ -1041,17 +1058,30 @@ jobs:
             }
             ```
 
-            If decomposed:
+            If decomposed (from base plan 016_...):
             ```json
             {
               "complexity": "complex",
               "task_count": 12,
-              "execute_plan": ".claude/data/plans/016A_configurable-idle-threshold.md",
+              "execute_plan": ".claude/data/plans/016A_idle-threshold-validation.md",
               "sub_plans_created": [
                 ".claude/data/plans/016B_idle-threshold-integration.md",
                 ".claude/data/plans/016C_idle-threshold-ui.md"
               ],
               "notes": "Split into 3 sub-plans: A (validation), B (integration), C (UI)"
+            }
+            ```
+
+            If decomposed (from sub-plan 016A_... that's still too complex):
+            ```json
+            {
+              "complexity": "complex",
+              "task_count": 4,
+              "execute_plan": ".claude/data/plans/016A1_validation-schema.md",
+              "sub_plans_created": [
+                ".claude/data/plans/016A2_validation-rules.md"
+              ],
+              "notes": "Split 016A into 2 sub-plans: A1 (schema), A2 (rules)"
             }
             ```
 
@@ -1065,7 +1095,8 @@ jobs:
             IMPORTANT: If you create sub-plans, you must:
             1. Move the original plan to executed folder OR keep it if you're just extracting sub-plans
             2. Create the new sub-plan files with proper content
-            3. The execute_plan should be the FIRST sub-plan to execute (A suffix)
+            3. The execute_plan should be the FIRST sub-plan at the correct hierarchy level
+               (e.g., 024A for base plan, 024A1 for sub-plan A, 024A1a for sub-plan A1)
             4. VERIFY the file exists before putting it in execute_plan
 
           claude_args: |
@@ -1097,8 +1128,10 @@ jobs:
               echo ""
 
               # Try to find a matching plan by searching for similar names
+              # Handles hierarchical naming: 024, 024A, 024A1, 024A1a, etc.
               PLAN_BASENAME=$(basename "$EXECUTE_PLAN" .md)
-              PLAN_SEQ=$(echo "$PLAN_BASENAME" | grep -oP '^\d{3}[A-Z]?' || echo "")
+              # Match: digits + optional (letter + optional (digit + optional lowercase))
+              PLAN_SEQ=$(echo "$PLAN_BASENAME" | grep -oP '^\d{3}([A-Z](\d+[a-z]?)?)?' || echo "")
 
               if [ -n "$PLAN_SEQ" ]; then
                 echo "Looking for plans with sequence: $PLAN_SEQ"
