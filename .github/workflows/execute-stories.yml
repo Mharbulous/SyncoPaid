@@ -1051,9 +1051,10 @@ jobs:
             BEFORE creating any sub-plans:
             1. Run: `ls -1 .claude/data/plans/*.md` to see existing plans
             2. Run: `ls -1 .claude/data/plans/executed/*.md` to see executed plans
-            3. Parse the current plan's prefix to determine the hierarchy level
-            4. Find ALL existing plans with the same parent prefix
-            5. Use the NEXT available suffix at the correct hierarchy level
+            3. Run: `ls -1 .claude/data/plans/decomposed/*.md` to see decomposed parent plans
+            4. Parse the current plan's prefix to determine the hierarchy level
+            5. Find ALL existing plans with the same parent prefix (in ALL folders)
+            6. Use the NEXT available suffix at the correct hierarchy level
 
             Examples:
             - Decomposing 024_timeline.md: If 024A, 024B exist → create 024C, 024D
@@ -1090,7 +1091,8 @@ jobs:
                 ".claude/data/plans/016B_idle-threshold-integration.md",
                 ".claude/data/plans/016C_idle-threshold-ui.md"
               ],
-              "notes": "Split into 3 sub-plans: A (validation), B (integration), C (UI)"
+              "parent_moved": true,
+              "notes": "Split into 3 sub-plans: A (validation), B (integration), C (UI). Parent moved to decomposed/"
             }
             ```
 
@@ -1103,7 +1105,8 @@ jobs:
               "sub_plans_created": [
                 ".claude/data/plans/016A2_validation-rules.md"
               ],
-              "notes": "Split 016A into 2 sub-plans: A1 (schema), A2 (rules)"
+              "parent_moved": true,
+              "notes": "Split 016A into 2 sub-plans: A1 (schema), A2 (rules). Parent moved to decomposed/"
             }
             ```
 
@@ -1115,11 +1118,14 @@ jobs:
             4. NEVER output a path that doesn't exist - this will cause the workflow to fail
 
             IMPORTANT: If you create sub-plans, you must:
-            1. Move the original plan to executed folder OR keep it if you're just extracting sub-plans
+            1. Move the PARENT plan to `.claude/data/plans/decomposed/` folder (NOT executed!)
+               This prevents the parent from being selected again in an infinite loop.
+               Create the folder if it doesn't exist: `mkdir -p .claude/data/plans/decomposed`
             2. Create the new sub-plan files with proper content
             3. The execute_plan should be the FIRST sub-plan at the correct hierarchy level
                (e.g., 024A for base plan, 024A1 for sub-plan A, 024A1a for sub-plan A1)
             4. VERIFY the file exists before putting it in execute_plan
+            5. Add "parent_moved": true to the JSON output if you moved the parent
 
           claude_args: |
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(python:*),Bash(python3:*),Bash(mkdir:*),Bash(mv:*),Bash(cp:*)"
