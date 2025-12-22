@@ -57,7 +57,8 @@ class SchemaMixin:
             self._create_transitions_table(cursor)
 
             # Create clients and matters tables
-            self._create_clients_matters_tables(cursor)
+            self._create_clients_table(cursor)
+            self._create_matters_table(cursor)
 
             logging.info("Database schema initialized")
 
@@ -183,39 +184,33 @@ class SchemaMixin:
             ON transitions(timestamp)
         """)
 
-    def _create_clients_matters_tables(self, cursor):
-        """
-        Create clients and matters tables for billing categorization.
-
-        Args:
-            cursor: Database cursor for creating tables
-        """
-        # Create clients table
+    def _create_clients_table(self, cursor):
+        """Create clients table for imported client folder names."""
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS clients (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                notes TEXT,
-                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                display_name TEXT NOT NULL,
+                folder_path TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(display_name)
             )
         """)
+        logging.debug("Ensured clients table exists")
 
-        # Create matters table
+    def _create_matters_table(self, cursor):
+        """Create matters table for imported matter folder names."""
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS matters (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                matter_number TEXT NOT NULL UNIQUE,
-                client_id INTEGER,
-                description TEXT,
-                status TEXT NOT NULL DEFAULT 'active',
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-                FOREIGN KEY (client_id) REFERENCES clients(id)
+                client_id INTEGER NOT NULL,
+                display_name TEXT NOT NULL,
+                folder_path TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(client_id) REFERENCES clients(id),
+                UNIQUE(client_id, display_name)
             )
         """)
-
-        # Create index for matters status queries
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_matters_status
-            ON matters(status)
-        """)
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_matters_client ON matters(client_id)"
+        )
+        logging.debug("Ensured matters table exists")
