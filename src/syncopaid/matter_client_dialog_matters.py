@@ -6,6 +6,56 @@ from syncopaid.database import Database
 from syncopaid.matter_client_csv import import_matters_csv, export_matters_csv
 
 
+def format_keywords_for_display(
+    keywords: list,
+    max_display: int = 5
+) -> str:
+    """
+    Format keywords list for UI display.
+
+    Args:
+        keywords: List of keyword dicts with 'keyword' and 'confidence'
+        max_display: Maximum keywords to show before truncating
+
+    Returns:
+        Comma-separated string of keywords, with "..." if truncated
+    """
+    if not keywords:
+        return ""
+
+    # Sort by confidence (should already be sorted, but ensure)
+    sorted_kw = sorted(keywords, key=lambda k: k.get('confidence', 0), reverse=True)
+
+    # Take top N keywords
+    display_kw = [k['keyword'] for k in sorted_kw[:max_display]]
+
+    # Add ellipsis if truncated
+    if len(sorted_kw) > max_display:
+        display_kw.append("...")
+
+    return ", ".join(display_kw)
+
+
+def get_matters_with_keywords(db) -> list:
+    """
+    Get all matters with their AI-extracted keywords formatted for display.
+
+    Args:
+        db: Database instance
+
+    Returns:
+        List of matter dicts with added 'keywords_display' field
+    """
+    matters = db.get_matters(status='all')
+
+    for matter in matters:
+        keywords = db.get_matter_keywords(matter['id'])
+        matter['keywords_display'] = format_keywords_for_display(keywords)
+        matter['keywords_raw'] = keywords  # For tooltip/detail view
+
+    return matters
+
+
 class MatterDialog:
     """Dialog for managing matters."""
 
@@ -30,8 +80,31 @@ class MatterDialog:
         # Matter list
         list_frame = ttk.Frame(self.window, padding=10)
         list_frame.pack(fill=tk.BOTH, expand=True)
-        self.matter_listbox = tk.Listbox(list_frame, height=15)
-        self.matter_listbox.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        # Create treeview with columns
+        columns = ("matter_number", "client", "description", "keywords", "status")
+        self.tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=15)
+
+        # Configure column headings
+        self.tree.heading("matter_number", text="Matter Number")
+        self.tree.heading("client", text="Client")
+        self.tree.heading("description", text="Description")
+        self.tree.heading("keywords", text="Keywords (AI)")
+        self.tree.heading("status", text="Status")
+
+        # Configure column widths
+        self.tree.column("matter_number", width=120, minwidth=80)
+        self.tree.column("client", width=150, minwidth=100)
+        self.tree.column("description", width=200, minwidth=150)
+        self.tree.column("keywords", width=200, minwidth=100)
+        self.tree.column("status", width=80, minwidth=60)
+
+        # Add scrollbar
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=5)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=5)
 
         # Buttons
         button_frame = ttk.Frame(self.window, padding=10)
@@ -48,13 +121,33 @@ class MatterDialog:
         self.window.grab_set()
 
     def _refresh_list(self):
-        self.matter_listbox.delete(0, tk.END)
-        self.matters = self.db.get_matters(status=self.status_filter.get())
+        # Clear existing items
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        # Get matters with keywords
+        self.matters = get_matters_with_keywords(self.db)
+
+        # Filter by status
+        status_filter = self.status_filter.get()
+        if status_filter != 'all':
+            self.matters = [m for m in self.matters if m['status'] == status_filter]
+
+        # Populate treeview
         for matter in self.matters:
-            display = f"[{matter['matter_number']}] {matter.get('client_name', 'No Client')}"
-            if matter['status'] == 'archived':
-                display += " (ARCHIVED)"
-            self.matter_listbox.insert(tk.END, display)
+            client_name = matter.get('client_name', 'No Client')
+            description = matter.get('description', '')
+            keywords_display = matter.get('keywords_display', '')
+            status = matter['status']
+
+            values = (
+                matter['matter_number'],
+                client_name,
+                description,
+                keywords_display,
+                status
+            )
+            self.tree.insert('', tk.END, values=values)
 
     def _add_matter(self):
         dialog = MatterEditDialog(self.window, self.db)
@@ -62,18 +155,24 @@ class MatterDialog:
         self._refresh_list()
 
     def _edit_matter(self):
-        selection = self.matter_listbox.curselection()
+        selection = self.tree.selection()
         if not selection:
             return messagebox.showwarning("No Selection", "Please select a matter.")
-        dialog = MatterEditDialog(self.window, self.db, self.matters[selection[0]])
+        # Get the index of the selected item
+        item_id = selection[0]
+        item_index = self.tree.index(item_id)
+        dialog = MatterEditDialog(self.window, self.db, self.matters[item_index])
         self.window.wait_window(dialog.window)
         self._refresh_list()
 
     def _toggle_status(self):
-        selection = self.matter_listbox.curselection()
+        selection = self.tree.selection()
         if not selection:
             return messagebox.showwarning("No Selection", "Please select a matter.")
-        matter = self.matters[selection[0]]
+        # Get the index of the selected item
+        item_id = selection[0]
+        item_index = self.tree.index(item_id)
+        matter = self.matters[item_index]
         new_status = 'archived' if matter['status'] == 'active' else 'active'
         self.db.update_matter_status(matter['id'], new_status)
         self._refresh_list()
