@@ -68,6 +68,12 @@ def show_main_window(database, tray, quit_callback):
             file_menu = tk.Menu(menubar, tearoff=0)
             menubar.add_cascade(label="File", menu=file_menu)
 
+            def open_import_dialog():
+                show_import_dialog(database)
+
+            file_menu.add_command(label="Import Clients && Matters...", command=open_import_dialog)
+            file_menu.add_separator()
+
             def exit_program():
                 """Exit the application."""
                 root.destroy()
