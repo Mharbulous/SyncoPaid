@@ -40,5 +40,8 @@ DEFAULT_CONFIG = {
     # Interaction level detection
     "interaction_threshold_seconds": 5.0,
     # Activity-to-Matter categorization
-    "categorization_confidence_threshold": 70
+    "categorization_confidence_threshold": 70,
+    # Archive settings
+    "archive_enabled": True,
+    "archive_check_interval_hours": 24
 }

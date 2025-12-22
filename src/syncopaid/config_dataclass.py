@@ -88,6 +88,8 @@ class Config:
         transition_never_prompt_apps: Apps where prompts are never shown (default: common editing apps)
         interaction_threshold_seconds: Seconds of recent typing/clicking to mark as active (default: 5.0)
         categorization_confidence_threshold: Minimum confidence score for automatic categorization (default: 70)
+        archive_enabled: Enable automatic screenshot archiving (default: True)
+        archive_check_interval_hours: Hours between archive checks (default: 24)
     """
     poll_interval_seconds: float = 1.0
     idle_threshold_seconds: float = 180.0
@@ -123,6 +125,9 @@ class Config:
     interaction_threshold_seconds: float = 5.0
     # Activity-to-Matter categorization
     categorization_confidence_threshold: int = 70
+    # Archive settings
+    archive_enabled: bool = True
+    archive_check_interval_hours: int = 24
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary."""
