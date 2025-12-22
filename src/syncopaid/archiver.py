@@ -1,5 +1,7 @@
 """Screenshot archiving and retention management."""
 import os
+import logging
+import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Dict
@@ -85,3 +87,17 @@ class ArchiveWorker:
                     arcname = f"{folder}/{file.name}"
                     zf.write(file, arcname)
         return zip_path
+
+    def archive_month(self, month_key: str, folders: List[str]):
+        """Archive folders for a month and clean up.
+
+        Args:
+            month_key: Month identifier (YYYY-MM)
+            folders: List of folder names to archive
+        """
+        zip_path = self.create_archive(month_key, folders)
+        # Verify zip created successfully before deleting
+        if zip_path.exists() and zip_path.stat().st_size > 0:
+            for folder in folders:
+                shutil.rmtree(self.screenshot_dir / folder)
+            logging.info(f"Archived and cleaned up {len(folders)} folders for {month_key}")

@@ -60,3 +60,17 @@ def test_create_archive(tmp_path):
     with zipfile.ZipFile(zip_path) as zf:
         assert "2025-10-01/test1.jpg" in zf.namelist()
         assert "2025-10-15/test2.jpg" in zf.namelist()
+
+
+def test_cleanup_after_archive(tmp_path):
+    screenshot_dir = tmp_path / "screenshots"
+    (screenshot_dir / "2025-10-01").mkdir(parents=True)
+    (screenshot_dir / "2025-10-01" / "test.jpg").write_text("img")
+
+    archive_dir = tmp_path / "archives"
+    archiver = ArchiveWorker(screenshot_dir, archive_dir)
+
+    archiver.archive_month("2025-10", ["2025-10-01"])
+
+    assert not (screenshot_dir / "2025-10-01").exists()
+    assert (archive_dir / "2025-10_screenshots.zip").exists()
