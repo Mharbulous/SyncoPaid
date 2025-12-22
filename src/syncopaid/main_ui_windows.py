@@ -262,6 +262,26 @@ def show_main_window(database, tray, quit_callback):
             # Bind Enter key to execute command
             command_entry.bind('<Return>', lambda e: execute_command(command_entry, e))
 
+            # Bind double-click to open assignment dialog
+            def on_double_click(event):
+                selection = tree.selection()
+                if not selection:
+                    return
+                item = tree.item(selection[0])
+                values = item['values']
+                event_id = values[0]
+                current_client = values[6] if len(values) > 6 else ''
+                current_matter = values[7] if len(values) > 7 else ''
+
+                def on_save(client, matter):
+                    # Update treeview
+                    tree.set(selection[0], 'client', client or '')
+                    tree.set(selection[0], 'matter', matter or '')
+
+                show_assignment_dialog(database, event_id, current_client, current_matter, on_save)
+
+            tree.bind('<Double-1>', on_double_click)
+
             # Button frame
             btn_frame = tk.Frame(root, pady=5)
             btn_frame.pack(fill=tk.X, side=tk.TOP)
