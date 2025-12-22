@@ -38,5 +38,7 @@ DEFAULT_CONFIG = {
     "transition_sensitivity": "moderate",  # aggressive, moderate, minimal
     "transition_never_prompt_apps": ["WINWORD.EXE", "EXCEL.EXE", "Teams.exe", "Zoom.exe"],
     # Interaction level detection
-    "interaction_threshold_seconds": 5.0
+    "interaction_threshold_seconds": 5.0,
+    # Activity-to-Matter categorization
+    "categorization_confidence_threshold": 70
 }

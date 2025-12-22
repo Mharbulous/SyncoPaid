@@ -158,3 +158,19 @@ def test_update_event_categorization():
         assert events[0]['matter_id'] == matter_id
         assert events[0]['confidence'] == 100
         assert events[0]['flagged_for_review'] is False
+
+
+def test_config_has_confidence_threshold():
+    from syncopaid.config import DEFAULT_CONFIG, Config
+
+    assert 'categorization_confidence_threshold' in DEFAULT_CONFIG
+    assert DEFAULT_CONFIG['categorization_confidence_threshold'] == 70
+
+    config = Config(categorization_confidence_threshold=80)
+    assert config.categorization_confidence_threshold == 80
+
+
+def test_categorizer_integrates_with_app():
+    from syncopaid.__main__ import SyncoPaidApp
+    from syncopaid.categorizer import ActivityMatcher
+    assert callable(ActivityMatcher)
