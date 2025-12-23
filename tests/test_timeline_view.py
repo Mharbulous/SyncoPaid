@@ -2,6 +2,7 @@ import pytest
 from datetime import datetime, timedelta
 import tempfile
 from pathlib import Path
+import os
 
 
 def test_timeline_block_creation():
@@ -190,3 +191,38 @@ def test_calculate_block_position_hour_view():
     assert x1 == 150
     # 30 minutes into 60-minute window = 300px
     assert x2 == 300
+
+
+def test_export_timeline_image():
+    """Test exporting timeline to image file."""
+    from syncopaid.timeline_view import export_timeline_image, TimelineBlock
+    from datetime import datetime
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        blocks = [
+            TimelineBlock(
+                start_time=datetime(2025, 12, 21, 9, 0, 0),
+                end_time=datetime(2025, 12, 21, 10, 0, 0),
+                app="test.exe",
+                title="Test",
+                is_idle=False
+            ),
+        ]
+
+        output_path = os.path.join(tmpdir, "timeline.png")
+
+        result = export_timeline_image(
+            blocks,
+            date="2025-12-21",
+            output_path=output_path,
+            width=1200,
+            height=100
+        )
+
+        assert result == output_path
+        assert os.path.exists(output_path)
+
+        # Verify it's a valid PNG
+        with open(output_path, 'rb') as f:
+            header = f.read(8)
+            assert header[:4] == b'\x89PNG'
