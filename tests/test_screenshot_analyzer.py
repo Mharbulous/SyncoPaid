@@ -1,7 +1,8 @@
 # tests/test_screenshot_analyzer.py
 import pytest
 import json
-from syncopaid.screenshot_analyzer import AnalysisResult
+from unittest.mock import MagicMock
+from syncopaid.screenshot_analyzer import AnalysisResult, ScreenshotAnalyzer
 
 
 def test_analysis_result_defaults():
@@ -96,3 +97,51 @@ def test_analysis_result_from_json_empty_object():
     assert result.application is None
     assert result.confidence == 0.0
     assert result.case_numbers == []
+
+
+def test_analyzer_parse_response_valid():
+    """Test parsing valid LLM JSON response."""
+    mock_llm = MagicMock()
+    analyzer = ScreenshotAnalyzer(mock_llm)
+
+    response = json.dumps({
+        'application': 'Chrome',
+        'webpage_title': 'CanLII - Legal Research',
+        'case_numbers': ['2024 BCSC 100'],
+        'confidence': 0.9
+    })
+
+    result = analyzer._parse_response(response)
+
+    assert result.application == 'Chrome'
+    assert result.webpage_title == 'CanLII - Legal Research'
+    assert result.case_numbers == ['2024 BCSC 100']
+    assert result.confidence == 0.9
+
+
+def test_analyzer_parse_response_invalid_json():
+    """Test handling of invalid JSON response."""
+    mock_llm = MagicMock()
+    analyzer = ScreenshotAnalyzer(mock_llm)
+
+    result = analyzer._parse_response('not valid json at all')
+
+    assert result.confidence == 0.0
+    assert result.application is None
+
+
+def test_analyzer_parse_response_partial():
+    """Test parsing response with only some fields."""
+    mock_llm = MagicMock()
+    analyzer = ScreenshotAnalyzer(mock_llm)
+
+    response = json.dumps({
+        'application': 'Word',
+        'confidence': 0.7
+    })
+
+    result = analyzer._parse_response(response)
+
+    assert result.application == 'Word'
+    assert result.document_name is None
+    assert result.confidence == 0.7
