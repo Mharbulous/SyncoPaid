@@ -241,3 +241,18 @@ class ScreenshotDatabaseMixin:
                 LIMIT ?
             """, (limit,))
             return [dict(row) for row in cursor.fetchall()]
+
+    def get_pending_screenshot_count(self) -> int:
+        """
+        Get count of screenshots pending analysis.
+
+        Returns:
+            Number of screenshots with analysis_status NULL or 'pending'
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT COUNT(*) FROM screenshots
+                WHERE analysis_status IS NULL OR analysis_status = 'pending'
+            """)
+            return cursor.fetchone()[0]

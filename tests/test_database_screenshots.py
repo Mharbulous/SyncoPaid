@@ -153,3 +153,42 @@ def test_get_pending_analysis_screenshots_respects_limit(db_screenshots):
     pending = db_screenshots.get_pending_analysis_screenshots(limit=3)
 
     assert len(pending) == 3
+
+
+@pytest.fixture
+def db_with_screenshots(db_screenshots):
+    """Create database with 3 screenshots with NULL analysis_status."""
+    for i in range(3):
+        db_screenshots.insert_screenshot(
+            file_path=f'/screenshots/img_{i}.png',
+            window_app='App',
+            window_title=f'Window {i}',
+            captured_at=datetime.now().isoformat()
+        )
+    return db_screenshots
+
+
+def test_get_pending_screenshot_count_returns_count(db_with_screenshots):
+    """Test that get_pending_screenshot_count returns correct count."""
+    # Arrange: db_with_screenshots fixture creates 3 screenshots with NULL analysis_status
+
+    # Act
+    count = db_with_screenshots.get_pending_screenshot_count()
+
+    # Assert
+    assert count == 3
+
+
+def test_get_pending_screenshot_count_excludes_completed(db_with_screenshots):
+    """Test that completed screenshots are not counted."""
+    # Arrange: Update one screenshot to 'completed'
+    with db_with_screenshots._get_connection() as conn:
+        conn.execute(
+            "UPDATE screenshots SET analysis_status = 'completed' WHERE id = 1"
+        )
+
+    # Act
+    count = db_with_screenshots.get_pending_screenshot_count()
+
+    # Assert
+    assert count == 2
