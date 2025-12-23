@@ -63,6 +63,9 @@ class SchemaMixin:
             # Create matter keywords table for AI keyword extraction
             self._create_matter_keywords_table(cursor)
 
+            # Create categorization patterns table for AI learning
+            self._create_categorization_patterns_table(cursor)
+
             logging.info("Database schema initialized")
 
     def _migrate_events_table(self, cursor):
@@ -263,3 +266,50 @@ class SchemaMixin:
             ON matter_keywords(keyword)
         """)
         logging.debug("Ensured matter_keywords table exists")
+
+    def _create_categorization_patterns_table(self, cursor):
+        """
+        Create categorization_patterns table for AI learning.
+
+        Stores user corrections to build matter-specific patterns that
+        improve categorization accuracy over time. Patterns match on
+        app name, URL, and/or window title.
+
+        Args:
+            cursor: Database cursor for creating table
+        """
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS categorization_patterns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                matter_id INTEGER NOT NULL,
+                app_pattern TEXT,
+                url_pattern TEXT,
+                title_pattern TEXT,
+                confidence_score REAL NOT NULL DEFAULT 1.0,
+                match_count INTEGER NOT NULL DEFAULT 1,
+                correction_count INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                last_used_at TEXT NOT NULL DEFAULT (datetime('now')),
+                is_archived INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY (matter_id) REFERENCES matters(id) ON DELETE CASCADE
+            )
+        """)
+
+        # Index for efficient pattern lookups during categorization
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_patterns_app
+            ON categorization_patterns(app_pattern)
+            WHERE app_pattern IS NOT NULL AND is_archived = 0
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_patterns_matter
+            ON categorization_patterns(matter_id)
+            WHERE is_archived = 0
+        """)
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_patterns_last_used
+            ON categorization_patterns(last_used_at)
+            WHERE is_archived = 0
+        """)
