@@ -91,3 +91,19 @@ class ScreenshotReviewDialog:
             del self.screenshots[i]
 
         messagebox.showinfo("Deleted", f"Securely deleted {deleted} screenshot{'s' if deleted != 1 else ''}.", parent=self.window)
+
+
+def show_screenshot_review_dialog(parent: tk.Tk, db: Database) -> ScreenshotReviewDialog:
+    """
+    Show the screenshot review dialog.
+
+    Args:
+        parent: Parent tkinter window
+        db: Database instance
+
+    Returns:
+        The dialog instance
+    """
+    dialog = ScreenshotReviewDialog(parent, db)
+    dialog.show()
+    return dialog

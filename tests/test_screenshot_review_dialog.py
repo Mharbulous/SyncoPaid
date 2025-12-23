@@ -93,3 +93,23 @@ def test_delete_selected_calls_secure_delete():
         if dialog.window:
             dialog.window.destroy()
         root.destroy()
+
+
+def test_show_screenshot_review_dialog_function():
+    """Test the convenience function for showing the dialog."""
+    from syncopaid.screenshot_review_dialog import show_screenshot_review_dialog
+
+    mock_db = MagicMock()
+    mock_db.get_screenshots.return_value = []
+
+    root = tk.Tk()
+    root.withdraw()
+
+    try:
+        # Should not raise
+        dialog = show_screenshot_review_dialog(root, mock_db)
+        assert dialog is not None
+    finally:
+        if dialog and dialog.window:
+            dialog.window.destroy()
+        root.destroy()

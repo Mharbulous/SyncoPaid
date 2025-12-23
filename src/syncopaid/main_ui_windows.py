@@ -109,6 +109,13 @@ def show_main_window(database, tray, quit_callback):
 
             view_menu.add_command(label="View Screenshots", command=view_screenshots)
 
+            def review_screenshots():
+                """Open screenshot review dialog for deletion."""
+                from syncopaid.screenshot_review_dialog import show_screenshot_review_dialog
+                show_screenshot_review_dialog(root, database)
+
+            view_menu.add_command(label="Review && Delete Screenshots...", command=review_screenshots)
+
             def view_timeline():
                 """Open timeline view window."""
                 from syncopaid.timeline_view import show_timeline_window
