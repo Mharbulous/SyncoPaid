@@ -30,6 +30,50 @@ class MattersSchemaMixin:
         """)
         logging.debug("Ensured clients table exists")
 
+    def _migrate_clients_table(self, cursor):
+        """
+        Apply migrations to clients table for backward compatibility.
+
+        Handles schema evolution from older versions that used 'name' column
+        to the current schema using 'display_name' and 'folder_path'.
+
+        Args:
+            cursor: Database cursor for executing migrations
+        """
+        # Check if clients table exists
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='clients'"
+        )
+        if not cursor.fetchone():
+            return  # Table doesn't exist yet, nothing to migrate
+
+        # Get current columns
+        cursor.execute("PRAGMA table_info(clients)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+        # Migration: Add display_name column if missing (migrate from 'name')
+        if 'display_name' not in columns:
+            cursor.execute("ALTER TABLE clients ADD COLUMN display_name TEXT")
+            logging.info(
+                "Database migration: Added display_name column to clients table"
+            )
+
+            # If old 'name' column exists, migrate data from it
+            if 'name' in columns:
+                cursor.execute(
+                    "UPDATE clients SET display_name = name WHERE display_name IS NULL"
+                )
+                logging.info(
+                    "Database migration: Migrated data from name to display_name"
+                )
+
+        # Migration: Add folder_path column if missing
+        if 'folder_path' not in columns:
+            cursor.execute("ALTER TABLE clients ADD COLUMN folder_path TEXT")
+            logging.info(
+                "Database migration: Added folder_path column to clients table"
+            )
+
     def _create_matters_table(self, cursor):
         """Create matters table for imported matter folder names."""
         cursor.execute("""
