@@ -70,7 +70,8 @@ class ScreenshotWorker:
         threshold_identical_different_window: float = 0.99,
         quality: int = 65,
         max_dimension: int = 1920,
-        idle_skip_seconds: int = 30
+        idle_skip_seconds: int = 30,
+        resource_monitor=None
     ):
         """
         Initialize the screenshot worker.
@@ -95,7 +96,8 @@ class ScreenshotWorker:
             threshold_identical_different_window=threshold_identical_different_window,
             quality=quality,
             max_dimension=max_dimension,
-            idle_skip_seconds=idle_skip_seconds
+            idle_skip_seconds=idle_skip_seconds,
+            resource_monitor=resource_monitor
         )
 
     def submit(
@@ -151,6 +153,12 @@ class ScreenshotWorker:
             # Skip if idle too long
             if idle_seconds > self._state.idle_skip_seconds:
                 logging.debug(f"Skipping screenshot: idle {idle_seconds:.0f}s")
+                self._state.total_skipped += 1
+                return
+
+            # Skip if resources are constrained
+            if self._state.resource_monitor and self._state.resource_monitor.should_skip_screenshot():
+                logging.debug("Skipping screenshot: resource constraints")
                 self._state.total_skipped += 1
                 return
 

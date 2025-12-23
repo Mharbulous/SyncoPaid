@@ -29,7 +29,8 @@ class WorkerState:
         threshold_identical_different_window: float = 0.99,
         quality: int = 65,
         max_dimension: int = 1920,
-        idle_skip_seconds: int = 30
+        idle_skip_seconds: int = 30,
+        resource_monitor=None
     ):
         """
         Initialize worker state.
@@ -55,6 +56,7 @@ class WorkerState:
         self.quality = quality
         self.max_dimension = max_dimension
         self.idle_skip_seconds = idle_skip_seconds
+        self.resource_monitor = resource_monitor
 
         # Thread pool for async capture
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='screenshot')
