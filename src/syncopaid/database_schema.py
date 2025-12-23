@@ -48,8 +48,9 @@ class SchemaMixin(EventsSchemaMixin, ScreenshotsSchemaMixin, MattersSchemaMixin)
             # Create transitions table
             self._create_transitions_table(cursor)
 
-            # Create clients and matters tables
+            # Create clients and matters tables (with migration for old schemas)
             self._create_clients_table(cursor)
+            self._migrate_clients_table(cursor)
             self._create_matters_table(cursor)
 
             # Create matter keywords table for AI keyword extraction
