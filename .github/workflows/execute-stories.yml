@@ -1,9 +1,8 @@
 name: 4. Execute Story
 
-# Temporary 2-hour schedule: runs every 10 min for hours 20-22 UTC on Dec 22, 2025
 on:
   schedule:
-    - cron: '0,10,20,30,40,50 20-22 22 12 *'
+    - cron: '*/10 * * * *'  # Every 10 minutes
   workflow_dispatch:
 
 concurrency:
