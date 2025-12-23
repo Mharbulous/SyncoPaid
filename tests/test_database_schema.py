@@ -110,3 +110,21 @@ def test_migrate_screenshots_analysis_columns(db_path, temp_db):
 
     assert 'analysis_data' in columns
     assert 'analysis_status' in columns
+
+
+def test_schema_init_runs_migrations(tmp_path):
+    """Test that schema initialization runs migrations automatically."""
+    db_path = tmp_path / "test.db"
+
+    # Create initial schema
+    schema = Database(db_path)
+    schema._init_schema()
+
+    # Verify analysis columns exist after initialization
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(screenshots)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+    assert 'analysis_data' in columns
+    assert 'analysis_status' in columns

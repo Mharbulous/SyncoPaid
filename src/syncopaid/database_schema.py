@@ -66,7 +66,10 @@ class SchemaMixin:
             # Create categorization patterns table for AI learning
             self._create_categorization_patterns_table(cursor)
 
-            logging.info("Database schema initialized")
+        # Run migrations for screenshots table (outside cursor context)
+        self._migrate_screenshots_table()
+
+        logging.info("Database schema initialized")
 
     def _migrate_events_table(self, cursor):
         """
