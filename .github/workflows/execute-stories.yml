@@ -1323,8 +1323,13 @@ jobs:
           PLAN_PATH="${{ needs.decompose.outputs.execute_plan }}"
 
           # Count TDD tasks in the plan
-          # Look for patterns like "### Task 1:", "### Task 2:", etc.
-          TASK_COUNT=$(grep -cE '^###\s+Task\s+[0-9]+' "$PLAN_PATH" 2>/dev/null || echo "0")
+          # Match various task header formats:
+          #   - "### Task 1:", "### TDD Task 1:", "### Step 1:"
+          #   - "### 1. Description" (numbered sections)
+          # Note: grep -c outputs "0" AND exits with code 1 when no matches,
+          # so we use || true to avoid that, then default empty to 0.
+          TASK_COUNT=$(grep -cE '^###\s+(Task|TDD Task|Step)\s+[0-9]+|^###\s+[0-9]+\.' "$PLAN_PATH" 2>/dev/null || true)
+          TASK_COUNT=${TASK_COUNT:-0}
 
           echo "Plan: $PLAN_PATH"
           echo "Task count: $TASK_COUNT"
