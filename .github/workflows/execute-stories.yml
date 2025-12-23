@@ -133,9 +133,10 @@ jobs:
                           'prefix': parsed['prefix'],
                       })
 
-          # Sort by hierarchical key: (seq, letter, num1, lower, num2)
+          # Sort by hierarchical key: (seq, letter, num1, lower, num2), then filename
           # Empty strings sort before letters, 0 sorts before numbers
-          plans.sort(key=lambda x: x['sort_key'])
+          # Secondary sort by filename ensures deterministic ordering when prefixes match
+          plans.sort(key=lambda x: (x['sort_key'], x['filename']))
 
           if plans:
               selected = plans[0]
