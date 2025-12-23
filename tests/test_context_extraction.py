@@ -139,3 +139,26 @@ class TestLegalContextIntegration:
     def test_legal_desktop_app(self):
         result = extract_context("westlaw.exe", "Research: Smith v. Jones - 2024 SCC 15")
         assert result is not None
+
+
+class TestGracefulErrorHandling:
+    """Test extraction handles edge cases without crashing."""
+
+    def test_none_app_returns_none(self):
+        assert extract_context(None, "Some Title") is None
+
+    def test_none_title_returns_none(self):
+        assert extract_context("chrome.exe", None) is None
+
+    def test_empty_title_returns_none(self):
+        assert extract_context("chrome.exe", "") is None
+
+    def test_malformed_citation_graceful(self):
+        # Should not crash on malformed input
+        result = extract_context("chrome.exe", "20XX FAKE ####")
+        assert result is None or isinstance(result, str)
+
+    def test_very_long_title_graceful(self):
+        long_title = "A" * 10000
+        result = extract_context("chrome.exe", long_title)
+        assert result is None or isinstance(result, str)
