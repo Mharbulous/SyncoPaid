@@ -220,3 +220,24 @@ class ScreenshotDatabaseMixin:
                 WHERE id = ?
             """, (analysis_data, analysis_status, screenshot_id))
             conn.commit()
+
+    def get_pending_analysis_screenshots(self, limit: int = 10) -> List[Dict]:
+        """
+        Get screenshots pending analysis.
+
+        Args:
+            limit: Maximum number of screenshots to return
+
+        Returns:
+            List of screenshot records with id, file_path, window_app, window_title
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, file_path, window_app, window_title
+                FROM screenshots
+                WHERE analysis_status = 'pending' OR analysis_status IS NULL
+                ORDER BY captured_at DESC
+                LIMIT ?
+            """, (limit,))
+            return [dict(row) for row in cursor.fetchall()]

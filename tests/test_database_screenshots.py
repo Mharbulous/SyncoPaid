@@ -89,3 +89,67 @@ def test_update_screenshot_analysis_failed_status(db_screenshots, sample_screens
         row = cursor.fetchone()
 
     assert row['analysis_status'] == 'failed'
+
+
+def test_get_pending_analysis_screenshots(db_screenshots, sample_screenshot):
+    """Test retrieving screenshots pending analysis."""
+    # Insert multiple screenshots
+    for i in range(5):
+        db_screenshots.insert_screenshot(
+            file_path=f'/screenshots/img_{i}.png',
+            window_app='App',
+            window_title=f'Window {i}',
+            captured_at=datetime.now().isoformat()
+        )
+
+    # Get pending screenshots
+    pending = db_screenshots.get_pending_analysis_screenshots(limit=10)
+
+    assert len(pending) == 5
+    assert all('id' in s for s in pending)
+    assert all('file_path' in s for s in pending)
+
+
+def test_get_pending_analysis_screenshots_excludes_completed(db_screenshots, sample_screenshot):
+    """Test that completed screenshots are not returned."""
+    # Insert screenshot and mark as completed
+    screenshot_id = db_screenshots.insert_screenshot(
+        file_path='/screenshots/completed.png',
+        window_app='App',
+        window_title='Window',
+        captured_at=datetime.now().isoformat()
+    )
+    db_screenshots.update_screenshot_analysis(
+        screenshot_id=screenshot_id,
+        analysis_data='{"confidence": 1.0}',
+        analysis_status='completed'
+    )
+
+    # Insert another pending screenshot
+    db_screenshots.insert_screenshot(
+        file_path='/screenshots/pending.png',
+        window_app='App',
+        window_title='Window 2',
+        captured_at=datetime.now().isoformat()
+    )
+
+    pending = db_screenshots.get_pending_analysis_screenshots()
+
+    assert len(pending) == 1
+    assert pending[0]['file_path'] == '/screenshots/pending.png'
+
+
+def test_get_pending_analysis_screenshots_respects_limit(db_screenshots):
+    """Test limit parameter works correctly."""
+    # Insert 10 screenshots
+    for i in range(10):
+        db_screenshots.insert_screenshot(
+            file_path=f'/screenshots/img_{i}.png',
+            window_app='App',
+            window_title=f'Window {i}',
+            captured_at=datetime.now().isoformat()
+        )
+
+    pending = db_screenshots.get_pending_analysis_screenshots(limit=3)
+
+    assert len(pending) == 3
