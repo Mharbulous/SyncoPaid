@@ -2,8 +2,10 @@
 """AI-powered screenshot analysis for automatic context extraction."""
 import json
 import logging
+import base64
 from dataclasses import dataclass, field
 from typing import Optional, List
+from pathlib import Path
 
 
 @dataclass
@@ -91,3 +93,29 @@ Only include fields where information is visible. Confidence indicates how clear
         except json.JSONDecodeError:
             logging.warning("Failed to parse LLM response as JSON")
             return AnalysisResult(confidence=0.0)
+
+    def analyze(self, image_path: Path) -> AnalysisResult:
+        """
+        Analyze a screenshot image.
+
+        Args:
+            image_path: Path to screenshot file
+
+        Returns:
+            AnalysisResult with extracted information
+        """
+        try:
+            image_data = self._encode_image(image_path)
+            response = self.llm_client.analyze_image(
+                image_data=image_data,
+                prompt=self._analysis_prompt
+            )
+            return self._parse_response(response)
+        except Exception as e:
+            logging.error(f"Screenshot analysis failed: {e}")
+            return AnalysisResult(confidence=0.0)
+
+    def _encode_image(self, image_path: Path) -> str:
+        """Encode image to base64 for API."""
+        with open(image_path, 'rb') as f:
+            return base64.b64encode(f.read()).decode('utf-8')

@@ -1,7 +1,8 @@
 # tests/test_screenshot_analyzer.py
 import pytest
 import json
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+from pathlib import Path
 from syncopaid.screenshot_analyzer import AnalysisResult, ScreenshotAnalyzer
 
 
@@ -145,3 +146,37 @@ def test_analyzer_parse_response_partial():
     assert result.application == 'Word'
     assert result.document_name is None
     assert result.confidence == 0.7
+
+
+@patch('syncopaid.screenshot_analyzer.ScreenshotAnalyzer._encode_image')
+def test_analyzer_analyze_success(mock_encode):
+    """Test successful screenshot analysis."""
+    mock_llm = MagicMock()
+    mock_llm.analyze_image.return_value = json.dumps({
+        'application': 'Word',
+        'document_name': 'Brief.docx',
+        'confidence': 0.85
+    })
+    mock_encode.return_value = 'base64imagedata'
+
+    analyzer = ScreenshotAnalyzer(mock_llm)
+    result = analyzer.analyze(Path('/fake/path.jpg'))
+
+    assert result.application == 'Word'
+    assert result.document_name == 'Brief.docx'
+    assert result.confidence == 0.85
+    mock_llm.analyze_image.assert_called_once()
+
+
+@patch('syncopaid.screenshot_analyzer.ScreenshotAnalyzer._encode_image')
+def test_analyzer_analyze_llm_error(mock_encode):
+    """Test analyzer handles LLM errors gracefully."""
+    mock_llm = MagicMock()
+    mock_llm.analyze_image.side_effect = Exception("API error")
+    mock_encode.return_value = 'base64data'
+
+    analyzer = ScreenshotAnalyzer(mock_llm)
+    result = analyzer.analyze(Path('/fake/path.jpg'))
+
+    assert result.confidence == 0.0
+    assert result.application is None
