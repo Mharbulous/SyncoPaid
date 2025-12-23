@@ -25,6 +25,7 @@ Diagnose structural issues and reorganize story-tree.db nodes using deterministi
 | Validate structure | `python scripts/validate_tree.py` |
 | List orphans | `python scripts/list_orphans.py` |
 | Fix orphans | `python scripts/fix_orphans.py` |
+| Create node | `python scripts/create_node.py <parent> --title "..."` |
 | Move node | `python scripts/move_node.py <id> <parent>` |
 | Rename node | `python scripts/rename_node.py <old> <new>` |
 | Rebuild paths | `python scripts/rebuild_paths.py <id>` |
@@ -145,6 +146,14 @@ List orphaned nodes.
 
 ### fix_orphans.py
 Auto-fix all orphaned nodes by rebuilding paths.
+- `--dry-run`: Preview without changes
+
+### create_node.py
+Create new node under a parent with auto-generated ID.
+- `--title`: Required. Node title
+- `--description`: Optional. Node description
+- `--stage`: Stage (default: concept)
+- `--capacity`: Story capacity/points
 - `--dry-run`: Preview without changes
 
 ### move_node.py
