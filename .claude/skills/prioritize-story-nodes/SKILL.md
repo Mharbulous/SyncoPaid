@@ -1,10 +1,10 @@
 ---
-name: prioritize-story-notes
+name: prioritize-story-nodes
 description: Use when user says "prioritize stories", "what should I work on next", "find next story", "review approved stories", "plan next feature" - reviews all approved story notes, analyzes dependencies, identifies blocked stories, prioritizes low-hanging fruit, creates implementation plan for the best candidate, and updates status to planned.
 disable-model-invocation: true
 ---
 
-# Prioritize Story Notes
+# Prioritize Story Nodes
 
 Analyze approved stories to select the best candidate for implementation.
 
