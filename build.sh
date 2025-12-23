@@ -57,6 +57,25 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Optional: Sign the executable if certificate is available
+if [ -n "$CODE_SIGNING_CERT" ] && [ -n "$CODE_SIGNING_PASSWORD" ]; then
+    echo ""
+    echo "Signing executable..."
+    python scripts/sign_exe.py "dist/SyncoPaid.exe" "$CODE_SIGNING_CERT" "$CODE_SIGNING_PASSWORD"
+    if [ $? -ne 0 ]; then
+        echo ""
+        echo "================================================"
+        echo "SIGNING FAILED!"
+        echo "================================================"
+        exit 1
+    fi
+    echo "Executable signed successfully"
+else
+    echo ""
+    echo "Note: Skipping code signing (no certificate configured)"
+    echo "Set CODE_SIGNING_CERT and CODE_SIGNING_PASSWORD to enable signing"
+fi
+
 echo ""
 echo "================================================"
 echo "BUILD SUCCESSFUL!"
