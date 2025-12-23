@@ -212,6 +212,52 @@ class TestApplicationPatterns:
             f"\n\nFix: Add to hiddenimports list in {spec_files[0].name}"
         )
 
+    def test_sibling_imports_use_relative_syntax(self):
+        """Ensure sibling module imports use relative syntax.
+
+        Issue: Absolute imports for sibling modules fail in PyInstaller bundles
+               because the module is not at the top level namespace
+        Fix: Use relative imports (from .module import ...) for sibling modules
+        Related commit: 2024964
+        """
+        src_dir = Path('src/syncopaid')
+        if not src_dir.exists():
+            pytest.skip("No src/syncopaid directory")
+
+        # Get all syncopaid module names (without .py extension)
+        syncopaid_modules = set()
+        for py_file in src_dir.glob('*.py'):
+            if py_file.stem != '__init__':
+                syncopaid_modules.add(py_file.stem)
+
+        issues = []
+        for py_file in src_dir.rglob('*.py'):
+            if '__pycache__' in str(py_file):
+                continue
+
+            with open(py_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+
+            for i, line in enumerate(lines, 1):
+                # Match: from module_name import ... (absolute import)
+                # But NOT: from .module_name import ... (relative import)
+                # And NOT: from syncopaid.module import ... (qualified import)
+                match = re.match(r'^from\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+import', line)
+                if match:
+                    module_name = match.group(1)
+                    # Check if this is a sibling syncopaid module
+                    if module_name in syncopaid_modules:
+                        issues.append(
+                            f"{py_file}:{i} - from {module_name} import ...\n"
+                            f"  Fix: from .{module_name} import ..."
+                        )
+
+        assert not issues, (
+            "Absolute imports for sibling modules fail in PyInstaller (commit 2024964):\n" +
+            "\n".join(issues) +
+            "\n\nFix: Use relative imports: from .module import ..."
+        )
+
 
 class TestCodeQualityPatterns:
     """Test general code quality patterns"""

@@ -1,9 +1,9 @@
 """Extract contextual information from window titles."""
 import logging
-from context_extraction_browser import extract_url_from_browser
-from context_extraction_outlook import extract_subject_from_outlook
-from context_extraction_office import extract_filepath_from_office
-from context_extraction_legal import extract_legal_context
+from .context_extraction_browser import extract_url_from_browser
+from .context_extraction_outlook import extract_subject_from_outlook
+from .context_extraction_office import extract_filepath_from_office
+from .context_extraction_legal import extract_legal_context
 
 def extract_context(app: str, title: str) -> str:
     """
