@@ -83,3 +83,21 @@ class TestCanadianCitationExtraction:
     def test_no_citation_returns_none(self):
         from syncopaid.context_extraction import extract_canadian_citation
         assert extract_canadian_citation("CanLII - Search Results") is None
+
+
+class TestUSCitationExtraction:
+    """Test US case citation extraction."""
+
+    @pytest.mark.parametrize("title,expected", [
+        ("Westlaw - Brown v. Board of Education", "Brown v. Board of Education"),
+        ("Smith v. Jones - LexisNexis", "Smith v. Jones"),
+        ("Re: Matter of Johnson", "Matter of Johnson"),
+        ("In re Application of Smith", "In re Application of Smith"),
+    ])
+    def test_case_name_extraction(self, title, expected):
+        from syncopaid.context_extraction import extract_case_name
+        assert extract_case_name(title) == expected
+
+    def test_no_case_name_returns_none(self):
+        from syncopaid.context_extraction import extract_case_name
+        assert extract_case_name("Westlaw - Home Page") is None

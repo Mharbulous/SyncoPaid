@@ -24,6 +24,18 @@ CANADIAN_CITATION_PATTERN = re.compile(
     r'(\d{1,5})\b'       # Decision number
 )
 
+# Case name patterns: Party v. Party, In re X, Matter of X
+CASE_NAME_PATTERN = re.compile(
+    r'\b('
+    r'[A-Z][a-zA-Z\'\-]+(?:\s+(?:of\s+)?[A-Z][a-zA-Z\'\-]+)*'  # First party (with "of")
+    r'\s+v\.?\s+'                                               # "v" or "v."
+    r'[A-Z][a-zA-Z\'\-]+(?:\s+(?:of\s+)?[A-Z][a-zA-Z\'\-]+)*'  # Second party (with "of")
+    r'|'
+    r'(?:In\s+re|Matter\s+of)\s+'                               # In re / Matter of
+    r'[A-Z][a-zA-Z\'\-]+(?:\s+(?:of\s+)?[A-Z][a-zA-Z\'\-]+)*'  # Subject (with "of")
+    r')\b'
+)
+
 def extract_url_from_browser(app: str, title: str) -> str:
     """
     Extract URL from browser window title.
@@ -229,5 +241,34 @@ def extract_canadian_citation(title: str) -> str:
     if match:
         year, court, number = match.groups()
         return f"{year} {court} {number}"
+
+    return None
+
+def extract_case_name(title: str) -> str:
+    """
+    Extract US-style case name from window title.
+
+    Examples: Smith v. Jones, In re Application of Smith
+
+    Args:
+        title: Window title text
+
+    Returns:
+        Case name string or None
+    """
+    if not title:
+        return None
+
+    # Handle "Re:" prefix separately (strip it from result)
+    re_prefix_match = re.search(r'Re:\s*(Matter\s+of\s+[A-Z][a-zA-Z\'\-]+(?:\s+(?:of\s+)?[A-Z][a-zA-Z\'\-]+)*)', title)
+    if re_prefix_match:
+        return re_prefix_match.group(1).strip()
+
+    match = CASE_NAME_PATTERN.search(title)
+    if match:
+        case_name = match.group(1).strip()
+        # Clean up trailing punctuation
+        case_name = re.sub(r'[\s\-]+$', '', case_name)
+        return case_name if len(case_name) > 5 else None
 
     return None
