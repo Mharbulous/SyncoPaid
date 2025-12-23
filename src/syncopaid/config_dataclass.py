@@ -99,6 +99,8 @@ class Config:
         night_processing_end_hour: Hour when night mode ends (default: 8)
         night_processing_idle_minutes: Idle minutes required to trigger night processing (default: 30)
         night_processing_batch_size: Number of activities to process per batch (default: 50)
+        vision_engine_enabled: Enable local vision LLM for screenshot analysis (default: False)
+        vision_engine: Default vision engine to use (default: moondream2)
     """
     poll_interval_seconds: float = 1.0
     idle_threshold_seconds: float = 180.0
@@ -153,6 +155,9 @@ class Config:
     night_processing_end_hour: int = 8
     night_processing_idle_minutes: int = 30
     night_processing_batch_size: int = 50
+    # Vision engine settings (local LLM for screenshot analysis)
+    vision_engine_enabled: bool = False
+    vision_engine: str = "moondream2"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary."""
