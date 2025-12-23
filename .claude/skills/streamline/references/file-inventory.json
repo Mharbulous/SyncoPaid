@@ -1,5 +1,5 @@
 {
-  "lastScanned": "2025-12-22",
+  "lastScanned": "2025-12-23",
   "sourceRoot": "src/syncopaid",
   "fileExtensions": [
     ".py"
@@ -39,22 +39,25 @@
       "lines": 211
     },
     "src/syncopaid/config_dataclass.py": {
-      "lines": 160
+      "lines": 165
     },
     "src/syncopaid/config_defaults.py": {
-      "lines": 52
+      "lines": 57
     },
     "src/syncopaid/config_paths.py": {
       "lines": 64
     },
     "src/syncopaid/context_extraction.py": {
-      "lines": 167
+      "lines": 346
     },
     "src/syncopaid/database.py": {
-      "lines": 135
+      "lines": 139
     },
     "src/syncopaid/database_connection.py": {
-      "lines": 55
+      "lines": 56
+    },
+    "src/syncopaid/database_keywords.py": {
+      "lines": 159
     },
     "src/syncopaid/database_operations.py": {
       "lines": 35
@@ -69,7 +72,7 @@
       "lines": 70
     },
     "src/syncopaid/database_operations_events_delete.py": {
-      "lines": 87
+      "lines": 118
     },
     "src/syncopaid/database_operations_events_insert.py": {
       "lines": 110
@@ -86,11 +89,23 @@
     "src/syncopaid/database_operations_transitions.py": {
       "lines": 38
     },
+    "src/syncopaid/database_patterns.py": {
+      "lines": 30
+    },
+    "src/syncopaid/database_patterns_crud.py": {
+      "lines": 183
+    },
+    "src/syncopaid/database_patterns_learning.py": {
+      "lines": 142
+    },
+    "src/syncopaid/database_patterns_export.py": {
+      "lines": 85
+    },
     "src/syncopaid/database_schema.py": {
-      "lines": 216
+      "lines": 335
     },
     "src/syncopaid/database_screenshots.py": {
-      "lines": 153
+      "lines": 199
     },
     "src/syncopaid/database_statistics.py": {
       "lines": 122
@@ -107,20 +122,26 @@
     "src/syncopaid/exporter_tests.py": {
       "lines": 113
     },
+    "src/syncopaid/keyword_analyzer.py": {
+      "lines": 99
+    },
+    "src/syncopaid/keyword_extractor.py": {
+      "lines": 153
+    },
     "src/syncopaid/llm.py": {
       "lines": 131
     },
     "src/syncopaid/main_app_class.py": {
-      "lines": 180
-    },
-    "src/syncopaid/main_app_initialization.py": {
-      "lines": 153
-    },
-    "src/syncopaid/main_app_tracking.py": {
-      "lines": 100
+      "lines": 202
     },
     "src/syncopaid/main_app_display.py": {
       "lines": 70
+    },
+    "src/syncopaid/main_app_initialization.py": {
+      "lines": 157
+    },
+    "src/syncopaid/main_app_tracking.py": {
+      "lines": 100
     },
     "src/syncopaid/main_entry_point.py": {
       "lines": 48
@@ -128,38 +149,47 @@
     "src/syncopaid/main_single_instance.py": {
       "lines": 46
     },
+    "src/syncopaid/main_ui_assignment_dialog.py": {
+      "lines": 74
+    },
     "src/syncopaid/main_ui_commands.py": {
       "lines": 174
     },
     "src/syncopaid/main_ui_export_dialog.py": {
       "lines": 74
     },
+    "src/syncopaid/main_ui_import_dialog.py": {
+      "lines": 305
+    },
     "src/syncopaid/main_ui_utilities.py": {
       "lines": 62
     },
     "src/syncopaid/main_ui_windows.py": {
-      "lines": 264
+      "lines": 285
     },
     "src/syncopaid/matter_client_csv.py": {
       "lines": 45
     },
     "src/syncopaid/matter_client_dialog.py": {
-      "lines": 16
+      "lines": 81
     },
     "src/syncopaid/matter_client_dialog_clients.py": {
       "lines": 125
     },
     "src/syncopaid/matter_client_dialog_matters.py": {
-      "lines": 166
+      "lines": 343
     },
     "src/syncopaid/prompt.py": {
-      "lines": 68
+      "lines": 72
+    },
+    "src/syncopaid/resource_monitor.py": {
+      "lines": 245
     },
     "src/syncopaid/review_ui.py": {
       "lines": 144
     },
     "src/syncopaid/screenshot.py": {
-      "lines": 265
+      "lines": 273
     },
     "src/syncopaid/screenshot_capture.py": {
       "lines": 204
@@ -174,13 +204,34 @@
       "lines": 108
     },
     "src/syncopaid/screenshot_worker_state.py": {
-      "lines": 104
+      "lines": 106
+    },
+    "src/syncopaid/secure_delete.py": {
+      "lines": 52
+    },
+    "src/syncopaid/timeline_view.py": {
+      "lines": 204
+    },
+    "src/syncopaid/timeline_view_canvas.py": {
+      "lines": 205
+    },
+    "src/syncopaid/timeline_view_export.py": {
+      "lines": 111
+    },
+    "src/syncopaid/timeline_view_geometry.py": {
+      "lines": 73
+    },
+    "src/syncopaid/timeline_view_models.py": {
+      "lines": 124
+    },
+    "src/syncopaid/timeline_view_styling.py": {
+      "lines": 58
     },
     "src/syncopaid/tracker.py": {
       "lines": 63
     },
     "src/syncopaid/tracker_loop.py": {
-      "lines": 322
+      "lines": 189
     },
     "src/syncopaid/tracker_loop_events.py": {
       "lines": 92
@@ -188,11 +239,17 @@
     "src/syncopaid/tracker_loop_idle.py": {
       "lines": 86
     },
+    "src/syncopaid/tracker_loop_interaction.py": {
+      "lines": 85
+    },
     "src/syncopaid/tracker_loop_screenshots.py": {
       "lines": 61
     },
     "src/syncopaid/tracker_loop_state.py": {
       "lines": 93
+    },
+    "src/syncopaid/tracker_loop_transitions.py": {
+      "lines": 133
     },
     "src/syncopaid/tracker_screenshot.py": {
       "lines": 57
@@ -204,7 +261,7 @@
       "lines": 78
     },
     "src/syncopaid/tracker_windows.py": {
-      "lines": 40
+      "lines": 54
     },
     "src/syncopaid/tracker_windows_active.py": {
       "lines": 107
@@ -213,13 +270,13 @@
       "lines": 78
     },
     "src/syncopaid/tracker_windows_idle.py": {
-      "lines": 53
+      "lines": 63
     },
     "src/syncopaid/tracker_windows_input.py": {
-      "lines": 108
+      "lines": 113
     },
     "src/syncopaid/tracker_windows_lock.py": {
-      "lines": 90
+      "lines": 95
     },
     "src/syncopaid/transition_detector.py": {
       "lines": 69
@@ -234,7 +291,7 @@
       "lines": 193
     },
     "src/syncopaid/tray_menu_handlers.py": {
-      "lines": 84
+      "lines": 98
     },
     "src/syncopaid/tray_startup.py": {
       "lines": 227
@@ -258,6 +315,7 @@
     "src/syncopaid/tracker_loop.py",
     "src/syncopaid/__main__.py",
     "src/syncopaid/exporter.py",
-    "src/syncopaid/main_app_class.py"
+    "src/syncopaid/main_app_class.py",
+    "src/syncopaid/database_patterns.py"
   ]
 }
