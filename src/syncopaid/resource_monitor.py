@@ -60,6 +60,13 @@ class ResourceMonitor:
             f"memory_threshold={memory_threshold_mb}MB, battery_threshold={battery_threshold}%"
         )
 
+        # Statistics tracking
+        self._peak_cpu = 0.0
+        self._peak_memory_mb = 0.0
+        self._total_cpu = 0.0
+        self._total_memory_mb = 0.0
+        self._samples_count = 0
+
     def get_current_metrics(self) -> dict:
         """
         Get current resource metrics.
@@ -157,3 +164,59 @@ class ResourceMonitor:
         except Exception as e:
             logger.warning(f"Error checking memory for cache clear: {e}")
             return False
+
+    def record_metrics(self) -> dict:
+        """
+        Record current metrics for statistics tracking.
+
+        Updates peak/average values. Should be called periodically
+        (e.g., every 60 seconds).
+
+        Returns:
+            Current metrics dict
+        """
+        metrics = self.get_current_metrics()
+
+        # Update peaks
+        if metrics['cpu_percent'] > self._peak_cpu:
+            self._peak_cpu = metrics['cpu_percent']
+        if metrics['memory_mb'] > self._peak_memory_mb:
+            self._peak_memory_mb = metrics['memory_mb']
+
+        # Update totals for averaging
+        self._total_cpu += metrics['cpu_percent']
+        self._total_memory_mb += metrics['memory_mb']
+        self._samples_count += 1
+
+        logger.debug(
+            f"Resource metrics: CPU={metrics['cpu_percent']:.1f}%, "
+            f"Memory={metrics['memory_mb']:.1f}MB, "
+            f"Battery={metrics['battery_percent']}%, "
+            f"Threads={metrics['thread_count']}"
+        )
+
+        return metrics
+
+    def get_statistics(self) -> dict:
+        """
+        Get resource usage statistics.
+
+        Returns:
+            dict with peak and average values
+        """
+        if self._samples_count == 0:
+            return {
+                'peak_cpu': 0.0,
+                'peak_memory_mb': 0.0,
+                'avg_cpu': 0.0,
+                'avg_memory_mb': 0.0,
+                'samples_count': 0
+            }
+
+        return {
+            'peak_cpu': self._peak_cpu,
+            'peak_memory_mb': self._peak_memory_mb,
+            'avg_cpu': self._total_cpu / self._samples_count,
+            'avg_memory_mb': self._total_memory_mb / self._samples_count,
+            'samples_count': self._samples_count
+        }

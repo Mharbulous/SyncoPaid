@@ -46,3 +46,30 @@ def test_should_clear_cache_returns_bool():
     monitor = ResourceMonitor(memory_threshold_mb=200)
     result = monitor.should_clear_cache()
     assert isinstance(result, bool)
+
+
+def test_record_metrics_updates_statistics():
+    """Test record_metrics updates peak and average tracking."""
+    monitor = ResourceMonitor()
+
+    # Record some metrics
+    monitor.record_metrics()
+    monitor.record_metrics()
+
+    stats = monitor.get_statistics()
+    assert 'peak_cpu' in stats
+    assert 'peak_memory_mb' in stats
+    assert 'avg_cpu' in stats
+    assert 'avg_memory_mb' in stats
+    assert 'samples_count' in stats
+    assert stats['samples_count'] >= 2
+
+
+def test_get_statistics_returns_empty_when_no_samples():
+    """Test get_statistics returns zeros when no samples recorded."""
+    monitor = ResourceMonitor()
+    stats = monitor.get_statistics()
+
+    assert stats['samples_count'] == 0
+    assert stats['peak_cpu'] == 0.0
+    assert stats['peak_memory_mb'] == 0.0
