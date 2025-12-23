@@ -103,7 +103,56 @@ Match commits to parent node scope using keyword similarity.
 
 ### Step 4: Generate Stories
 
-**Story ID format:** `[parent-id].[N]` (next available child number)
+**Story ID format:**
+- **Root children (primary epics):** Plain integer `[N]` where N is the next available integer
+- **All other levels:** `[parent-id].[N]` (next available child number)
+
+**Finding next available ID for root children:**
+```python
+python -c "
+import sqlite3
+conn = sqlite3.connect('.claude/data/story-tree.db')
+# Find all integer IDs that are direct children of root
+existing = conn.execute('''
+    SELECT CAST(sn.id AS INTEGER) FROM story_nodes sn
+    JOIN story_paths sp ON sn.id = sp.descendant_id
+    WHERE sp.ancestor_id = 'root' AND sp.depth = 1
+    AND sn.id GLOB '[0-9]*' AND sn.id NOT LIKE '%.%'
+''').fetchall()
+existing_ints = sorted([r[0] for r in existing])
+# Find next available (may fill gaps or extend)
+next_id = 1
+for e in existing_ints:
+    if e == next_id: next_id = e + 1
+print(next_id)
+conn.close()
+"
+```
+
+**Finding next available child number for non-root parents:**
+```python
+python -c "
+import sqlite3
+conn = sqlite3.connect('.claude/data/story-tree.db')
+parent_id = 'PARENT_ID'  # Replace with actual parent ID
+cursor = conn.execute('''
+    SELECT sn.id FROM story_nodes sn
+    JOIN story_paths sp ON sn.id = sp.descendant_id
+    WHERE sp.ancestor_id = ? AND sp.depth = 1
+''', (parent_id,))
+existing = [r[0] for r in cursor.fetchall()]
+# Extract child numbers (after last dot)
+child_nums = []
+for eid in existing:
+    if '.' in eid:
+        parts = eid.rsplit('.', 1)
+        if parts[0] == parent_id and parts[1].isdigit():
+            child_nums.append(int(parts[1]))
+next_child = max(child_nums, default=0) + 1
+print(f'{parent_id}.{next_child}')
+conn.close()
+"
+```
 
 **Template:**
 ```markdown
@@ -185,6 +234,9 @@ Include: Goals status, context analysis, commits analyzed, gaps identified (with
 
 - **Always check `hold_reason='polish'` first** before generating new stories
 - **Always check goals files** before generating (if they exist)
+- **ID format is critical:**
+  - Root children (primary epics): plain integer IDs like `16`, `17`, `18` (NOT `root.1` or decimal formats)
+  - All other levels: `[parent-id].[N]` format like `1.1`, `8.4.2`
 - Max 3 stories per invocation (max 1 per node when batching)
 - Every story must reference commits OR specific gap
 - Stories decompose parent scope, don't expand it

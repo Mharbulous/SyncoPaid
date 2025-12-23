@@ -13,6 +13,18 @@ Self-managing tree of user stories with capacity-based story generation.
 
 **Design rationale:** If instructions seem counter-intuitive, consult `references/rationales.md`.
 
+## Story ID Format
+
+**Critical:** IDs follow a strict hierarchical format:
+
+| Level | Parent | ID Format | Examples |
+|-------|--------|-----------|----------|
+| Root | None | `root` | `root` |
+| Level 1 (Primary Epics) | `root` | Plain integer | `1`, `2`, `15`, `16` |
+| Level 2+ | Any non-root | `[parent].[N]` | `1.1`, `8.4`, `15.2.1` |
+
+**Common mistake:** Creating root children with decimal IDs like `8.6` or `root.1`. Primary epics MUST have plain integer IDs.
+
 ## Environment Requirements
 
 **Critical:** The `sqlite3` CLI is NOT available. Always use Python's sqlite3 module:
