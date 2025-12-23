@@ -97,3 +97,38 @@ def test_delete_screenshots_securely(tmp_path):
     # Verify database record is gone
     screenshots = db.get_screenshots()
     assert len(screenshots) == 0
+
+
+def test_delete_events_securely_with_screenshots(tmp_path):
+    """Verify event deletion cascades to secure screenshot deletion."""
+    db_path = tmp_path / "test.db"
+    db = Database(str(db_path))
+
+    # Create event
+    event = ActivityEvent(
+        timestamp="2025-12-21T10:00:00",
+        duration_seconds=60.0,
+        app="test.exe",
+        title="Test Window",
+        is_idle=False
+    )
+    event_id = db.insert_event(event)
+
+    # Create associated screenshot
+    screenshot_dir = tmp_path / "screenshots" / "2025-12-21"
+    screenshot_dir.mkdir(parents=True)
+    screenshot_file = screenshot_dir / "100000.jpg"  # Timestamp-based name
+    screenshot_file.write_bytes(b"fake image content")
+
+    screenshot_id = db.insert_screenshot(
+        captured_at="2025-12-21T10:00:00",
+        file_path=str(screenshot_file),
+        window_app="test.exe",
+        window_title="Test Window"
+    )
+
+    # Delete events securely (should also delete screenshots in same time range)
+    deleted = db.delete_events_securely(start_date="2025-12-21", end_date="2025-12-21")
+
+    assert deleted > 0
+    assert not screenshot_file.exists(), "Associated screenshot should be deleted"

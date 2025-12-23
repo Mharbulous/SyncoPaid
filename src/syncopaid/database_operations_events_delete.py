@@ -85,3 +85,34 @@ class EventDeleteMixin:
 
             logging.warning(f"Deleted {deleted_count} events by ID from database")
             return deleted_count
+
+    def delete_events_securely(
+        self,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> int:
+        """
+        Securely delete events and associated screenshots.
+
+        Uses secure_delete pragma for database records and overwrites
+        screenshot files before deletion.
+
+        Args:
+            start_date: ISO date string (YYYY-MM-DD) for range start
+            end_date: ISO date string (YYYY-MM-DD) for range end
+
+        Returns:
+            Number of events deleted
+        """
+        if not start_date and not end_date:
+            raise ValueError("Must specify at least start_date or end_date")
+
+        # First, find and delete associated screenshots
+        # Screenshots are associated by timestamp overlap
+        screenshots = self.get_screenshots(start_date=start_date, end_date=end_date)
+        if screenshots:
+            screenshot_ids = [s['id'] for s in screenshots]
+            self.delete_screenshots_securely(screenshot_ids)
+
+        # Then delete events (secure_delete pragma handles secure deletion)
+        return self.delete_events(start_date=start_date, end_date=end_date)
