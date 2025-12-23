@@ -116,3 +116,48 @@ def test_engine_default_config_schema():
     engine = MinimalEngine()
     # Base class should provide default empty schema
     assert engine.config_schema() == {}
+
+
+def test_get_available_engines():
+    """get_available_engines returns only engines where is_available() is True."""
+    from syncopaid.vision_engine import (
+        register_engine, get_available_engines, VisionEngine, AnalysisResult, _registry
+    )
+    _registry.clear()
+
+    class AvailableEngine(VisionEngine):
+        @property
+        def name(self) -> str:
+            return "Available"
+
+        @property
+        def model_id(self) -> str:
+            return "test/available"
+
+        def is_available(self) -> bool:
+            return True
+
+        def analyze(self, image_path, prompt=None):
+            return AnalysisResult("test", "test", 1.0, "test")
+
+    class UnavailableEngine(VisionEngine):
+        @property
+        def name(self) -> str:
+            return "Unavailable"
+
+        @property
+        def model_id(self) -> str:
+            return "test/unavailable"
+
+        def is_available(self) -> bool:
+            return False
+
+        def analyze(self, image_path, prompt=None):
+            return AnalysisResult("test", "test", 1.0, "test")
+
+    register_engine("available", AvailableEngine)
+    register_engine("unavailable", UnavailableEngine)
+
+    available = get_available_engines()
+    assert "available" in available
+    assert "unavailable" not in available

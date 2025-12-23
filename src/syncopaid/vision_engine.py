@@ -111,3 +111,21 @@ def get_engine(name: str) -> Optional[VisionEngine]:
     if engine_class is None:
         return None
     return engine_class()
+
+
+def get_available_engines() -> Dict[str, Type[VisionEngine]]:
+    """Get engines that are currently available for use.
+
+    Returns:
+        Dict mapping engine names to classes, filtered to only available engines
+    """
+    available = {}
+    for name, engine_class in _registry.items():
+        try:
+            engine = engine_class()
+            if engine.is_available():
+                available[name] = engine_class
+        except Exception:
+            # Skip engines that fail to instantiate
+            pass
+    return available
