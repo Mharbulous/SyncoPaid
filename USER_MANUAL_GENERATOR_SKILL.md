@@ -7,7 +7,7 @@ A comprehensive Claude Code skill for generating deployment-ready user documenta
 ## Installation Location
 
 ```
-/mnt/skills/user/user-manual-generator/
+.claude/skills/user-manual-generator/
 ├── SKILL.md                          # Main skill file (15,000+ words)
 ├── README.md                         # Installation and usage guide
 ├── examples/
@@ -164,7 +164,7 @@ After generation (~20% effort):
 
 Full documentation available at:
 ```
-/mnt/skills/user/user-manual-generator/README.md
+.claude/skills/user-manual-generator/README.md
 ```
 
 Key sections:
@@ -178,14 +178,14 @@ Key sections:
 ## Examples
 
 ### Example 1: Express.js API Documentation
-See `/mnt/skills/user/user-manual-generator/examples/sample-output.md`
+See `.claude/skills/user-manual-generator/examples/sample-output.md`
 
 **Input**: Express API with 42 endpoints, JWT auth, rate limiting
 **Output**: 18 pages, Docusaurus site, complete API reference
 **Time**: 50 minutes (vs 13 hours manual)
 
 ### Example 2: React Web App Workflow
-See `/mnt/skills/user/user-manual-generator/examples/workflow-example.md`
+See `.claude/skills/user-manual-generator/examples/workflow-example.md`
 
 **Input**: React task management app with Firebase
 **Output**: 15 pages, VitePress site, user guides + troubleshooting
@@ -240,7 +240,7 @@ Generating user documentation for SyncoPaid would provide:
 
 ## Next Steps
 
-1. ✅ **Skill installed and ready** at `/mnt/skills/user/user-manual-generator/`
+1. ✅ **Skill installed and ready** at `.claude/skills/user-manual-generator/`
 2. **Test with SyncoPaid** (optional): Generate docs for this project
 3. **Use on future projects**: Web apps, APIs, CLIs, desktop apps
 4. **Iterate and improve**: Provide feedback on what works well
@@ -264,6 +264,6 @@ The `user-manual-generator` skill is a production-ready tool that transforms doc
 
 **Skill created**: December 23, 2025
 **Status**: ✅ Production-ready
-**Location**: `/mnt/skills/user/user-manual-generator/`
+**Location**: `.claude/skills/user-manual-generator/`
 **Total files**: 7 (SKILL.md, README.md, 3 templates, 2 examples)
 **Total content**: ~30,000 words of comprehensive guidance
