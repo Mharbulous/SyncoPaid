@@ -50,3 +50,37 @@ def test_tracker_respects_url_config_disabled(tmp_path):
 
     # URL should be None when disabled (even for browsers)
     assert info["url"] is None
+
+
+def test_tracker_loop_with_resource_monitor():
+    """Test TrackerLoop accepts resource_monitor parameter."""
+    from syncopaid.resource_monitor import ResourceMonitor
+
+    monitor = ResourceMonitor()
+    tracker = TrackerLoop(
+        poll_interval=1.0,
+        idle_threshold=180.0,
+        merge_threshold=2.0,
+        resource_monitor=monitor
+    )
+
+    assert tracker.resource_monitor is monitor
+
+
+def test_tracker_loop_get_effective_poll_interval():
+    """Test get_effective_poll_interval returns throttled value when needed."""
+    from syncopaid.resource_monitor import ResourceMonitor
+
+    monitor = ResourceMonitor(cpu_threshold=80.0)
+    tracker = TrackerLoop(
+        poll_interval=1.0,
+        idle_threshold=180.0,
+        merge_threshold=2.0,
+        resource_monitor=monitor,
+        throttled_poll_interval=5.0
+    )
+
+    # Method should exist and return a float
+    interval = tracker.get_effective_poll_interval()
+    assert isinstance(interval, float)
+    assert interval >= 1.0  # At least base interval

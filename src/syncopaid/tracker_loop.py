@@ -60,7 +60,9 @@ class TrackerLoop:
         transition_detector=None,
         transition_callback=None,
         prompt_enabled: bool = True,
-        interaction_threshold: float = 5.0
+        interaction_threshold: float = 5.0,
+        resource_monitor=None,
+        throttled_poll_interval: float = 5.0
     ):
         self.poll_interval = poll_interval
         self.running = False
@@ -72,6 +74,8 @@ class TrackerLoop:
         self.event_finalizer = EventFinalizer(ui_automation_worker)
         self.interaction_detector = InteractionLevelDetector(idle_threshold, interaction_threshold)
         self.transition_handler = TransitionHandler(transition_detector, transition_callback, prompt_enabled)
+        self.resource_monitor = resource_monitor
+        self.throttled_poll_interval = throttled_poll_interval
 
         logging.info(
             f"TrackerLoop initialized: "
@@ -81,6 +85,17 @@ class TrackerLoop:
             f"screenshot_enabled={screenshot_worker is not None}, "
             f"transition_detection={transition_detector is not None}"
         )
+
+    def get_effective_poll_interval(self) -> float:
+        """
+        Get current poll interval, considering throttling.
+
+        Returns throttled interval (5s) if system CPU is high,
+        otherwise returns normal poll interval (1s).
+        """
+        if self.resource_monitor and self.resource_monitor.should_throttle_polling():
+            return self.throttled_poll_interval
+        return self.poll_interval
 
     def start(self) -> Generator[ActivityEvent, None, None]:
         """
@@ -149,8 +164,8 @@ class TrackerLoop:
                 # Update previous state for next iteration
                 self.transition_handler.update_previous_state(state)
 
-                # Sleep until next poll
-                time.sleep(self.poll_interval)
+                # Sleep until next poll (adaptive based on resource usage)
+                time.sleep(self.get_effective_poll_interval())
 
             except Exception as e:
                 logging.error(f"Error in tracking loop: {e}")
