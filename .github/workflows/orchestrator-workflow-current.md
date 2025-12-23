@@ -19,13 +19,13 @@ These workflows run independently on a daily schedule, ordered from later stages
 
 ```mermaid
 flowchart TB
-    subgraph "Daily Schedule (PST) - DRAIN FIRST"
+    subgraph "Schedule - DRAIN FIRST"
         direction LR
         T0["2:00 AM - Orchestrator"]
         T1["2:20 AM - ready-check"]
         T2["2:40 AM - verify-stories"]
         T3["3:00 AM - review-stories"]
-        T4["3:20 AM - execute-stories"]
+        T4["*/10 min - execute-stories"]
         T5["3:40 AM - activate-stories"]
         T6["4:00 AM - plan-stories"]
         T7["4:20 AM - approve-stories"]
@@ -47,10 +47,22 @@ flowchart TB
         R1 -->|"issues found"| R3["reviewing (broken)"]
     end
 
-    subgraph "execute-stories.yml"
-        E1["active (no hold)"] -->|"blocking issues"| E2["active (paused)"]
-        E1 -->|"deferrable issues"| E3["reviewing"]
-        E1 -->|"no issues"| E4["verifying"]
+    subgraph "execute-stories.yml (7 stages)"
+        E0["plan file exists"] --> E1
+        E1{"plan has Story ID?"} -->|"no"| E_VALIDATE["validate-plan<br/>(match to DB)"]
+        E1 -->|"yes"| E2{"already executed?"}
+        E_VALIDATE -->|"matched"| E2
+        E_VALIDATE -->|"no match"| E_BLOCKED["blocked/"]
+        E2 -->|"reviewing/verifying"| E_VERIFY["verify-implementation"]
+        E_VERIFY -->|"confirmed"| E_ARCHIVE["archive plan"]
+        E_VERIFY -->|"missing"| E3
+        E2 -->|"active/planned"| E3["review-plan"]
+        E3 -->|"blocking"| E_PAUSE["paused"]
+        E3 -->|"proceed"| E4["decompose (Opus)"]
+        E4 -->|"simple"| E5["execute (Sonnet)"]
+        E4 -->|"complex"| E_SPLIT["split sub-plans"]
+        E_SPLIT --> E5
+        E5 -->|"success"| E6["reviewing/verifying"]
     end
 
     subgraph "activate-stories.yml"
@@ -75,7 +87,7 @@ flowchart TB
     T1 --> RC1
     T2 --> V1
     T3 --> R1
-    T4 --> E1
+    T4 --> E0
     T5 --> A1
     T6 --> P1
     T7 --> AP1
@@ -201,9 +213,10 @@ The orchestrator only handles Plan→Write→Vet. All other transitions are hand
 | `concept` | `approved` | Human manual | ✅ By design (approve-stories.yml reports only) |
 | `planned` | `active` | `activate-stories.yml` | ✅ Standalone (3:40 AM PST) |
 | `planned` | `blocked:IDs` | `activate-stories.yml` | ✅ Standalone (3:40 AM PST) |
-| `active` | `reviewing` | `execute-stories.yml` | ✅ Standalone (3:20 AM PST) |
-| `active` | `verifying` | `execute-stories.yml` | ✅ Standalone (3:20 AM PST) |
-| `active` | `paused` | `execute-stories.yml` | ✅ Standalone (3:20 AM PST) |
+| `planned` | `reviewing/verifying` | `execute-stories.yml` | ✅ Standalone (every 10 min) |
+| `active` | `reviewing` | `execute-stories.yml` | ✅ Standalone (every 10 min) |
+| `active` | `verifying` | `execute-stories.yml` | ✅ Standalone (every 10 min) |
+| `active` | `paused` | `execute-stories.yml` | ✅ Standalone (every 10 min) |
 | `reviewing` | `verifying` | `review-stories.yml` | ✅ Standalone (3:00 AM PST) |
 | `verifying` | `implemented` | `verify-stories.yml` | ✅ Standalone (2:40 AM PST) |
 | `implemented` | `ready` | `ready-check.yml` | ✅ Standalone (2:20 AM PST) |
@@ -213,21 +226,21 @@ The orchestrator only handles Plan→Write→Vet. All other transitions are hand
 
 ## Current Workflow File Summary
 
-| Workflow | Schedule (PST) | Transitions | Model | Status |
-|----------|----------------|-------------|-------|--------|
-| `story-tree-orchestrator.yml` | 2:00 AM | approved→planned, NEW→concept, conflict→pending | Opus (plan), Sonnet (write/vet) | ✅ Main Loop |
-| `ready-check.yml` | 2:20 AM | implemented→ready/broken | Sonnet | ✅ Standalone |
-| `verify-stories.yml` | 2:40 AM | verifying→implemented/broken | Sonnet | ✅ Standalone |
-| `review-stories.yml` | 3:00 AM | reviewing→verifying/broken | Opus | ✅ Standalone |
-| `execute-stories.yml` | 3:20 AM | active→reviewing/verifying/paused | Sonnet | ✅ Standalone |
-| `activate-stories.yml` | 3:40 AM | planned→active/blocked:IDs | Sonnet | ✅ Standalone |
-| `plan-stories.yml` | 4:00 AM | approved→planned | Opus | ✅ Standalone |
-| `approve-stories.yml` | 4:20 AM | (reports only) | N/A | ✅ Human-only |
-| `write-stories.yml` | 4:40 AM | NEW→concept | Sonnet | ✅ Standalone |
+| Workflow | Schedule | Transitions | Model | Status |
+|----------|----------|-------------|-------|--------|
+| `story-tree-orchestrator.yml` | 2:00 AM PST | approved→planned, NEW→concept, conflict→pending | Opus (plan), Sonnet (write/vet) | ✅ Main Loop |
+| `ready-check.yml` | 2:20 AM PST | implemented→ready/broken | Sonnet | ✅ Standalone |
+| `verify-stories.yml` | 2:40 AM PST | verifying→implemented/broken | Sonnet | ✅ Standalone |
+| `review-stories.yml` | 3:00 AM PST | reviewing→verifying/broken | Opus | ✅ Standalone |
+| `execute-stories.yml` | Every 10 min | planned→reviewing/verifying/paused | Opus (decompose), Sonnet (others) | ✅ Standalone |
+| `activate-stories.yml` | 3:40 AM PST | planned→active/blocked:IDs | Sonnet | ✅ Standalone |
+| `plan-stories.yml` | 4:00 AM PST | approved→planned | Opus | ✅ Standalone |
+| `approve-stories.yml` | 4:20 AM PST | (reports only) | N/A | ✅ Human-only |
+| `write-stories.yml` | 4:40 AM PST | NEW→concept | Sonnet | ✅ Standalone |
 | `deploy.yml` | Manual | ready→released | N/A | ✅ Production branch |
 
 **Note**: Standalone workflows follow a DRAIN-FIRST pattern - later stages (ready-check) run before earlier stages (write-stories) to make room in the pipeline.
 
 ---
 
-*Updated: 2025-12-18*
+*Updated: 2025-12-23*
