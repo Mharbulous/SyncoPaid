@@ -109,6 +109,13 @@ def show_main_window(database, tray, quit_callback):
 
             view_menu.add_command(label="View Screenshots", command=view_screenshots)
 
+            def view_timeline():
+                """Open timeline view window."""
+                from syncopaid.timeline_view import show_timeline_window
+                show_timeline_window(database)
+
+            view_menu.add_command(label="View Timeline", command=view_timeline)
+
             # Help menu with About
             help_menu = tk.Menu(menubar, tearoff=0)
             menubar.add_cascade(label="Help", menu=help_menu)
