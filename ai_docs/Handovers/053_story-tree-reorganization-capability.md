@@ -153,13 +153,13 @@ On "move story [ID] to [NEW_PARENT]":
 
 ## Acceptance Criteria
 
-- [ ] `validate_tree_structure()` function identifies ID format violations
-- [ ] `validate_tree_structure()` identifies orphaned nodes
-- [ ] `rename_story()` correctly updates all references
-- [ ] `move_story()` generates correct new IDs
-- [ ] `rebuild_paths()` correctly recomputes closure table
-- [ ] SKILL.md documents new commands
-- [ ] common-mistakes.md updated with structural issues
+- [x] `validate_tree_structure()` function identifies ID format violations
+- [x] `validate_tree_structure()` identifies orphaned nodes
+- [x] `rename_story()` correctly updates all references
+- [x] `move_story()` generates correct new IDs
+- [x] `rebuild_paths()` correctly recomputes closure table
+- [x] SKILL.md documents new commands
+- [x] common-mistakes.md updated with structural issues
 
 ## Files to Modify
 

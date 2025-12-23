@@ -79,3 +79,88 @@ print(next_id)
 conn.close()
 "
 ```
+
+## 8. Creating Orphaned Nodes
+
+**Wrong:** Inserting into `story_nodes` without adding `story_paths` entries
+
+**Right:** Always insert both:
+1. The node into `story_nodes`
+2. Self-path (depth=0) into `story_paths`
+3. All ancestor paths into `story_paths`
+
+```python
+# Correct insertion pattern
+conn.execute('''
+    INSERT INTO story_nodes (id, title, description, stage, created_at, updated_at)
+    VALUES (?, ?, ?, 'concept', datetime('now'), datetime('now'))
+''', (new_id, title, description))
+
+# Self-path + ancestor paths
+conn.execute('''
+    INSERT INTO story_paths (ancestor_id, descendant_id, depth)
+    SELECT ancestor_id, ?, depth + 1 FROM story_paths WHERE descendant_id = ?
+    UNION ALL SELECT ?, ?, 0
+''', (new_id, parent_id, new_id, new_id))
+```
+
+## 9. Parent-ID Mismatch
+
+**Wrong:** Story `3.5` as child of `8` in `story_paths`
+
+**Right:** Story ID prefix MUST match parent. If moving a story, use `move_story()` to properly rename.
+
+| Story ID | Must Have Parent |
+|----------|------------------|
+| `5` | `root` |
+| `5.2` | `5` |
+| `5.2.3` | `5.2` |
+
+**Detection:** Run `validate_tree_structure()` to find mismatches.
+
+## 10. Missing Self-Paths
+
+**Wrong:** Node exists in `story_nodes` but has no `depth=0` entry in `story_paths`
+
+**Right:** Every node MUST have a self-referencing path with `depth=0`.
+
+```python
+# Fix missing self-path
+conn.execute('''
+    INSERT OR IGNORE INTO story_paths (ancestor_id, descendant_id, depth)
+    VALUES (?, ?, 0)
+''', (node_id, node_id))
+```
+
+## 11. Manual ID Renaming Without Path Updates
+
+**Wrong:** Directly updating `story_nodes.id` without updating `story_paths`
+
+**Right:** Use `rename_story()` which updates all references:
+- `story_nodes.id`
+- `story_paths.ancestor_id` and `descendant_id`
+- `story_commits.story_id`
+- `vetting_decisions.story_a_id` and `story_b_id`
+
+```python
+import sys
+sys.path.insert(0, '.claude/skills/story-tree/utility')
+from story_db_common import get_connection, rename_story
+
+conn = get_connection()
+conn.execute('PRAGMA foreign_keys = OFF')
+renames = rename_story(conn, '8.6', '16')
+conn.execute('PRAGMA foreign_keys = ON')
+conn.commit()
+```
+
+## 12. Circular Move Attempts
+
+**Wrong:** Trying to move a story under its own descendant
+
+**Right:** `move_story()` validates this automatically:
+```
+Cannot move story to its own descendant 'X.Y.Z'
+```
+
+Always verify the target parent is NOT a descendant of the story being moved.
