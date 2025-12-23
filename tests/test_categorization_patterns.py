@@ -144,6 +144,105 @@ def test_delete_pattern():
         assert len(patterns) == 0
 
 
+def test_record_user_correction():
+    """Test recording a user correction creates appropriate pattern."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "test.db"
+        db = Database(str(db_path))
+
+        # Create client and matter first (using direct SQL due to schema mismatch bug)
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO clients (display_name) VALUES (?)', ('Test Client',))
+        client_id = cursor.lastrowid
+        cursor.execute('INSERT INTO matters (client_id, display_name) VALUES (?, ?)', (client_id, 'Contract review'))
+        matter_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+
+        # User corrects: activity was misclassified, should be matter 2024-001
+        pattern_id = db.record_correction(
+            matter_id=matter_id,
+            app="WINWORD.EXE",
+            url=None,
+            title="Smith Contract Draft.docx - Word"
+        )
+
+        assert pattern_id > 0
+
+        # Pattern should now match similar activities
+        matches = db.find_matching_patterns(app="WINWORD.EXE")
+        assert len(matches) == 1
+        assert matches[0]['matter_id'] == matter_id
+
+
+def test_duplicate_correction_increases_confidence():
+    """Test that repeated corrections increase pattern confidence."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "test.db"
+        db = Database(str(db_path))
+
+        # Create client and matter first (using direct SQL due to schema mismatch bug)
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO clients (display_name) VALUES (?)', ('Test Client',))
+        client_id = cursor.lastrowid
+        cursor.execute('INSERT INTO matters (client_id, display_name) VALUES (?, ?)', (client_id, 'Contract review'))
+        matter_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+
+        # First correction
+        db.record_correction(matter_id, app="WINWORD.EXE")
+        patterns = db.get_patterns_for_matter(matter_id)
+        initial_confidence = patterns[0]['confidence_score']
+        initial_count = patterns[0]['match_count']
+
+        # Same correction again - should reinforce pattern
+        db.record_correction(matter_id, app="WINWORD.EXE")
+        patterns = db.get_patterns_for_matter(matter_id)
+
+        assert patterns[0]['match_count'] > initial_count
+        assert patterns[0]['confidence_score'] >= initial_confidence
+
+
+def test_contradicting_correction_decreases_confidence():
+    """Test that contradicting corrections decrease old pattern confidence."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "test.db"
+        db = Database(str(db_path))
+
+        # Create client and matters first (using direct SQL due to schema mismatch bug)
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO clients (display_name) VALUES (?)', ('Test Client',))
+        client_id = cursor.lastrowid
+        cursor.execute('INSERT INTO matters (client_id, display_name) VALUES (?, ?)', (client_id, 'Matter A'))
+        matter_a = cursor.lastrowid
+        cursor.execute('INSERT INTO matters (client_id, display_name) VALUES (?, ?)', (client_id, 'Matter B'))
+        matter_b = cursor.lastrowid
+        conn.commit()
+        conn.close()
+
+        # Initial pattern: WINWORD.EXE -> Matter A
+        db.insert_pattern(matter_a, app_pattern="WINWORD.EXE", confidence_score=0.9)
+
+        # User correction: same app but different matter
+        db.record_correction_with_contradiction(
+            correct_matter_id=matter_b,
+            app="WINWORD.EXE"
+        )
+
+        # Old pattern confidence should decrease
+        patterns_a = db.get_patterns_for_matter(matter_a)
+        assert patterns_a[0]['confidence_score'] < 0.9
+        assert patterns_a[0]['correction_count'] > 0
+
+        # New pattern for matter B should exist
+        patterns_b = db.get_patterns_for_matter(matter_b)
+        assert len(patterns_b) == 1
+
+
 if __name__ == "__main__":
     test_categorization_patterns_table_exists()
     test_categorization_patterns_table_schema()
