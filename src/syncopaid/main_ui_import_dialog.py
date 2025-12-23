@@ -56,8 +56,8 @@ def show_import_dialog(database):
         # Helper text
         helper_text = tk.Label(
             instruction_frame,
-            text="Select a folder containing client subfolders. Each client folder "
-                 "should contain matter subfolders.",
+            text="Select your root client folder. SyncoPaid will scan for subfolders "
+                 "organized by client number and matter number.",
             font=('Segoe UI', 9),
             fg='#555555',
             anchor='w',
@@ -130,6 +130,11 @@ def show_import_dialog(database):
             )
             if path:
                 folder_var.set(path)
+                # Show scanning state
+                preview_label.config(text="Scanning...")
+                status_label.config(text="", fg='#666666')
+                root.update()
+                # Perform scan
                 import_result = import_from_folder(path)
                 update_preview()
 
@@ -149,7 +154,7 @@ def show_import_dialog(database):
 
         preview_label = tk.Label(
             preview_header,
-            text="Preview",
+            text="Results",
             font=('Segoe UI', 10, 'bold'),
             anchor='w'
         )
@@ -196,6 +201,8 @@ def show_import_dialog(database):
             if import_result:
                 client_count = import_result.stats['clients']
                 matter_count = import_result.stats['matters']
+                # Update header to show finished state
+                preview_label.config(text="Finished!")
                 status_label.config(
                     text=f"Found {client_count} client{'s' if client_count != 1 else ''}, "
                          f"{matter_count} matter{'s' if matter_count != 1 else ''}",
@@ -207,6 +214,7 @@ def show_import_dialog(database):
                         m.display_name
                     ))
             else:
+                preview_label.config(text="Results")
                 status_label.config(text="No folder selected", fg='#666666')
 
         # ══════════════════════════════════════════════════════════════
