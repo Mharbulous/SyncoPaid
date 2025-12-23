@@ -60,4 +60,7 @@ DEFAULT_CONFIG = {
     "night_processing_end_hour": 8,     # 8 AM
     "night_processing_idle_minutes": 30,
     "night_processing_batch_size": 50,
+    # Vision engine settings (local LLM for screenshot analysis)
+    "vision_engine_enabled": False,  # Disabled until model downloaded
+    "vision_engine": "moondream2",   # Default engine (when available)
 }

@@ -79,3 +79,12 @@ def test_config_has_resource_monitoring_defaults():
     assert config.resource_memory_threshold_mb == 200
     assert config.resource_battery_threshold == 20
     assert config.resource_monitoring_interval_seconds == 60
+
+
+def test_vision_engine_defaults_exist():
+    """Vision engine settings exist in DEFAULT_CONFIG."""
+    from syncopaid.config_defaults import DEFAULT_CONFIG
+
+    assert "vision_engine" in DEFAULT_CONFIG
+    assert "vision_engine_enabled" in DEFAULT_CONFIG
+    assert DEFAULT_CONFIG["vision_engine_enabled"] is False  # Disabled by default until models downloaded
