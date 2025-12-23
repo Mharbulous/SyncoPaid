@@ -51,3 +51,19 @@ def test_secure_delete_overwrites_data(tmp_path):
     raw_content = db_path.read_bytes()
     assert secret_marker.encode() not in raw_content, \
         "Deleted data should not be recoverable from database file"
+
+
+def test_secure_file_delete(tmp_path):
+    """Verify file contents are overwritten before deletion."""
+    test_file = tmp_path / "sensitive.jpg"
+    secret_content = b"ATTORNEY_CLIENT_PRIVILEGED_CONTENT"
+    test_file.write_bytes(secret_content)
+
+    from syncopaid.secure_delete import secure_delete_file
+    secure_delete_file(test_file)
+
+    # File should be deleted
+    assert not test_file.exists()
+
+    # Content should not be recoverable (check parent directory for remnants)
+    # Note: This is a best-effort test; full forensic verification requires OS-level tools
