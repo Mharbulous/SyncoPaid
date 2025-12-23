@@ -5,6 +5,7 @@ Verifies that deleted data is overwritten and cannot be recovered.
 """
 
 import pytest
+import time
 from syncopaid.database import Database
 from syncopaid.tracker_state import ActivityEvent
 
@@ -132,3 +133,26 @@ def test_delete_events_securely_with_screenshots(tmp_path):
 
     assert deleted > 0
     assert not screenshot_file.exists(), "Associated screenshot should be deleted"
+
+
+def test_secure_delete_performance(tmp_path):
+    """Verify single event deletion completes in under 100ms."""
+    db_path = tmp_path / "test.db"
+    db = Database(str(db_path))
+
+    # Insert an event
+    event = ActivityEvent(
+        timestamp="2025-12-21T10:00:00",
+        duration_seconds=60.0,
+        app="test.exe",
+        title="Test Window",
+        is_idle=False
+    )
+    event_id = db.insert_event(event)
+
+    # Time the deletion
+    start = time.perf_counter()
+    db.delete_events_by_ids([event_id])
+    elapsed_ms = (time.perf_counter() - start) * 1000
+
+    assert elapsed_ms < 100, f"Deletion took {elapsed_ms:.2f}ms, should be under 100ms"
