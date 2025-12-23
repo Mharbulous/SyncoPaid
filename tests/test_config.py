@@ -60,3 +60,22 @@ def test_default_config_has_url_extraction_enabled():
     from syncopaid.config import DEFAULT_CONFIG
     assert "url_extraction_enabled" in DEFAULT_CONFIG
     assert DEFAULT_CONFIG["url_extraction_enabled"] is True
+
+
+def test_config_has_resource_monitoring_defaults():
+    """Test config includes resource monitoring settings with defaults."""
+    from syncopaid.config_defaults import DEFAULT_CONFIG
+    from syncopaid.config_dataclass import Config
+
+    # Check defaults exist
+    assert 'resource_cpu_threshold' in DEFAULT_CONFIG
+    assert 'resource_memory_threshold_mb' in DEFAULT_CONFIG
+    assert 'resource_battery_threshold' in DEFAULT_CONFIG
+    assert 'resource_monitoring_interval_seconds' in DEFAULT_CONFIG
+
+    # Check Config dataclass accepts them
+    config = Config(**DEFAULT_CONFIG)
+    assert config.resource_cpu_threshold == 80.0
+    assert config.resource_memory_threshold_mb == 200
+    assert config.resource_battery_threshold == 20
+    assert config.resource_monitoring_interval_seconds == 60

@@ -137,6 +137,11 @@ class Config:
     llm_provider: str = "openai"
     llm_api_key: str = ""
     billing_increment: int = 6
+    # Resource monitoring settings
+    resource_cpu_threshold: float = 80.0
+    resource_memory_threshold_mb: int = 200
+    resource_battery_threshold: int = 20
+    resource_monitoring_interval_seconds: int = 60
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary."""

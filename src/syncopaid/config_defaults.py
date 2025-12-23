@@ -48,5 +48,10 @@ DEFAULT_CONFIG = {
     # LLM settings
     "llm_provider": "openai",  # 'openai' or 'anthropic'
     "llm_api_key": "",         # API key (or env var name)
-    "billing_increment": 6     # Minutes per billing increment (default: 6 = 0.1 hour)
+    "billing_increment": 6,    # Minutes per billing increment (default: 6 = 0.1 hour)
+    # Resource monitoring settings
+    "resource_cpu_threshold": 80.0,
+    "resource_memory_threshold_mb": 200,
+    "resource_battery_threshold": 20,
+    "resource_monitoring_interval_seconds": 60,
 }
