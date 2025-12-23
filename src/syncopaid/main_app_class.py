@@ -64,13 +64,7 @@ class SyncoPaidApp:
         # Initialize exporter
         self.exporter = Exporter(self.database)
 
-        # Initialize screenshot worker (if enabled)
-        self.screenshot_worker = initialize_screenshot_worker(self.config, self.database)
-
-        # Initialize action screenshot worker (if enabled)
-        self.action_screenshot_worker = initialize_action_screenshot_worker(self.config, self.database)
-
-        # Initialize resource monitor
+        # Initialize resource monitor (before screenshot worker and tracker loop)
         self.resource_monitor = ResourceMonitor(
             cpu_threshold=self.config.resource_cpu_threshold,
             memory_threshold_mb=self.config.resource_memory_threshold_mb,
@@ -78,6 +72,12 @@ class SyncoPaidApp:
             monitoring_interval_seconds=self.config.resource_monitoring_interval_seconds
         )
         logging.info("Resource monitor initialized")
+
+        # Initialize screenshot worker (if enabled)
+        self.screenshot_worker = initialize_screenshot_worker(self.config, self.database, self.resource_monitor)
+
+        # Initialize action screenshot worker (if enabled)
+        self.action_screenshot_worker = initialize_action_screenshot_worker(self.config, self.database)
 
         # Initialize archiver
         self.archiver = initialize_archiver()
@@ -93,7 +93,8 @@ class SyncoPaidApp:
             self.config,
             self.screenshot_worker,
             self.transition_detector,
-            self.database
+            self.database,
+            self.resource_monitor
         )
 
         # Tracking state

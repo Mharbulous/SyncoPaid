@@ -16,13 +16,14 @@ from syncopaid.categorizer import ActivityMatcher
 from syncopaid.tracker import TrackerLoop
 
 
-def initialize_screenshot_worker(config, database):
+def initialize_screenshot_worker(config, database, resource_monitor=None):
     """
     Initialize screenshot worker if enabled in config.
 
     Args:
         config: Application configuration object
         database: Database instance for callbacks
+        resource_monitor: Optional ResourceMonitor instance for throttling
 
     Returns:
         ScreenshotWorker instance or None if disabled
@@ -39,7 +40,8 @@ def initialize_screenshot_worker(config, database):
         threshold_identical_same_window=config.screenshot_threshold_identical_same_window,
         threshold_identical_different_window=config.screenshot_threshold_identical_different_window,
         quality=config.screenshot_quality,
-        max_dimension=config.screenshot_max_dimension
+        max_dimension=config.screenshot_max_dimension,
+        resource_monitor=resource_monitor
     )
     logging.info("Screenshot worker initialized")
     return worker
@@ -126,7 +128,7 @@ def initialize_activity_matcher(database, config):
     return matcher
 
 
-def initialize_tracker_loop(config, screenshot_worker, transition_detector, database):
+def initialize_tracker_loop(config, screenshot_worker, transition_detector, database, resource_monitor=None):
     """
     Initialize the tracker loop.
 
@@ -135,6 +137,7 @@ def initialize_tracker_loop(config, screenshot_worker, transition_detector, data
         screenshot_worker: ScreenshotWorker instance or None
         transition_detector: TransitionDetector instance or None
         database: Database instance for callbacks
+        resource_monitor: Optional ResourceMonitor instance for throttling
 
     Returns:
         TrackerLoop instance
@@ -148,6 +151,7 @@ def initialize_tracker_loop(config, screenshot_worker, transition_detector, data
         minimum_idle_duration=config.minimum_idle_duration_seconds,
         transition_detector=transition_detector,
         transition_callback=database.insert_transition if transition_detector else None,
-        prompt_enabled=config.transition_prompt_enabled
+        prompt_enabled=config.transition_prompt_enabled,
+        resource_monitor=resource_monitor
     )
     return tracker
