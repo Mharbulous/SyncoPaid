@@ -119,3 +119,23 @@ class TestDocketNumberExtraction:
     def test_no_docket_returns_none(self):
         from syncopaid.context_extraction import extract_docket_number
         assert extract_docket_number("General Legal Document") is None
+
+
+class TestLegalContextIntegration:
+    """Test legal context integration in main extract_context function."""
+
+    def test_canlii_citation_extracted(self):
+        result = extract_context("chrome.exe", "CanLII - 2024 BCSC 1234 - Google Chrome")
+        assert "2024 BCSC 1234" in result
+
+    def test_westlaw_case_name_extracted(self):
+        result = extract_context("chrome.exe", "Westlaw - Smith v. Jones - Edge")
+        assert "Smith v. Jones" in result
+
+    def test_docket_number_extracted(self):
+        result = extract_context("chrome.exe", "Case No. 2024-CV-12345 - Court Portal")
+        assert "2024-CV-12345" in result
+
+    def test_legal_desktop_app(self):
+        result = extract_context("westlaw.exe", "Research: Smith v. Jones - 2024 SCC 15")
+        assert result is not None

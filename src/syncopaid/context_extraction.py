@@ -13,7 +13,8 @@ LEGAL_RESEARCH_APPS = {
 
 LEGAL_RESEARCH_BROWSER_PATTERNS = [
     'westlaw', 'canlii', 'lexisnexis', 'lexis+',
-    'fastcase', 'casetext', 'courtlistener', 'justia'
+    'fastcase', 'casetext', 'courtlistener', 'justia',
+    'court'  # Generic court portals
 ]
 
 # Canadian neutral citation pattern: YYYY CourtCode Number
@@ -162,26 +163,67 @@ def extract_filepath_from_office(app: str, title: str) -> str:
 
     return None
 
+def extract_legal_context(app: str, title: str) -> str:
+    """
+    Extract legal research context from window title.
+
+    Combines multiple extraction strategies:
+    1. Canadian neutral citations (2024 BCSC 1234)
+    2. US case names (Smith v. Jones)
+    3. Docket/file numbers (2024-CV-12345)
+
+    Args:
+        app: Application executable name
+        title: Window title text
+
+    Returns:
+        Extracted legal context or None
+    """
+    if not is_legal_research_app(app, title):
+        return None
+
+    # Priority order: Citations > Case Names > Docket Numbers
+    citation = extract_canadian_citation(title)
+    if citation:
+        return citation
+
+    case_name = extract_case_name(title)
+    if case_name:
+        return case_name
+
+    docket = extract_docket_number(title)
+    if docket:
+        return docket
+
+    return None
+
+
 def extract_context(app: str, title: str) -> str:
     """
-    Extract contextual information from window title based on application type.
+    Extract contextual information from window title.
 
     Routes to appropriate extraction function:
+    - Legal research → Citation/case name/docket extraction
     - Browsers → URL extraction
     - Outlook → Email subject extraction
     - Office apps → File path extraction
 
     Args:
-        app: Application executable name (e.g., 'chrome.exe', 'OUTLOOK.EXE')
+        app: Application executable name
         title: Window title text
 
     Returns:
-        Extracted context string (URL, subject, or filepath), or None if nothing extracted
+        Extracted context string or None
     """
     if not app or not title:
         return None
 
     try:
+        # Try legal research extraction first (highest value)
+        legal = extract_legal_context(app, title)
+        if legal:
+            return legal
+
         # Try browser URL extraction
         url = extract_url_from_browser(app, title)
         if url:
@@ -200,7 +242,6 @@ def extract_context(app: str, title: str) -> str:
         return None
 
     except Exception as e:
-        # Log but don't crash - graceful degradation
         logging.debug(f"Context extraction failed for {app}: {e}")
         return None
 
