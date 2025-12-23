@@ -1,0 +1,96 @@
+"""
+Resource monitoring module for adaptive throttling.
+
+Tracks CPU%, memory, battery, and thread count to enable
+intelligent throttling when system resources are constrained.
+"""
+
+import logging
+import os
+import psutil
+
+logger = logging.getLogger(__name__)
+
+
+class ResourceMonitor:
+    """
+    Monitor system and process resources for adaptive throttling.
+
+    Tracks:
+    - Process CPU usage percentage
+    - Process memory usage in MB
+    - System battery percentage (if available)
+    - Thread count
+
+    Provides thresholds for triggering throttled behavior.
+    """
+
+    def __init__(
+        self,
+        cpu_threshold: float = 80.0,
+        memory_threshold_mb: int = 200,
+        battery_threshold: int = 20,
+        monitoring_interval_seconds: float = 60.0
+    ):
+        """
+        Initialize resource monitor.
+
+        Args:
+            cpu_threshold: CPU % above which to throttle (default: 80%)
+            memory_threshold_mb: Memory MB above which to clear cache (default: 200)
+            battery_threshold: Battery % below which to throttle (default: 20%)
+            monitoring_interval_seconds: How often to check resources (default: 60s)
+        """
+        self.cpu_threshold = cpu_threshold
+        self.memory_threshold_mb = memory_threshold_mb
+        self.battery_threshold = battery_threshold
+        self.monitoring_interval = monitoring_interval_seconds
+
+        # Get current process for self-monitoring
+        self._process = psutil.Process(os.getpid())
+
+        # Initialize CPU monitoring (first call returns 0, need to prime it)
+        try:
+            self._process.cpu_percent()
+        except Exception:
+            pass
+
+        logger.info(
+            f"ResourceMonitor initialized: cpu_threshold={cpu_threshold}%, "
+            f"memory_threshold={memory_threshold_mb}MB, battery_threshold={battery_threshold}%"
+        )
+
+    def get_current_metrics(self) -> dict:
+        """
+        Get current resource metrics.
+
+        Returns:
+            dict with keys: cpu_percent, memory_mb, battery_percent, thread_count
+        """
+        metrics = {
+            'cpu_percent': 0.0,
+            'memory_mb': 0.0,
+            'battery_percent': 100,  # Default to 100 if no battery
+            'thread_count': 0
+        }
+
+        try:
+            # Process CPU %
+            metrics['cpu_percent'] = self._process.cpu_percent()
+
+            # Process memory in MB
+            memory_info = self._process.memory_info()
+            metrics['memory_mb'] = memory_info.rss / (1024 * 1024)
+
+            # Thread count
+            metrics['thread_count'] = self._process.num_threads()
+
+            # Battery (may not be available on desktops)
+            battery = psutil.sensors_battery()
+            if battery:
+                metrics['battery_percent'] = battery.percent
+
+        except Exception as e:
+            logger.warning(f"Error getting resource metrics: {e}")
+
+        return metrics
