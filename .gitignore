@@ -8,6 +8,7 @@
 *.json
 !.claude/*.json
 !.claude/skills/*/references/*.json
+!ai_docs/*.json
 lawtime.db*
 exports/
 

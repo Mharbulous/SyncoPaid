@@ -1,0 +1,323 @@
+{
+  "name": "4. Execute Story",
+  "description": "Automated story execution pipeline with 7 semantically meaningful stages",
+  "file": ".github/workflows/execute-stories.yml",
+  "lines": 2292,
+  "triggers": {
+    "schedule": [
+      { "cron": "40 2 * * *", "description": "2:40 AM UTC" },
+      { "cron": "40 3 * * *", "description": "3:40 AM UTC" },
+      { "cron": "40 4 * * *", "description": "4:40 AM UTC" }
+    ],
+    "workflow_dispatch": true
+  },
+  "concurrency": {
+    "group": "daily-story-execution",
+    "cancel_in_progress": false
+  },
+  "permissions": ["contents:write", "issues:write", "pull-requests:write", "id-token:write"],
+
+  "pipeline": {
+    "flow": "setup-and-plan → validate-plan → verify-implementation → review-plan → decompose → execute → finalize",
+    "state_passing": {
+      "mechanism": "job outputs (simple strings)",
+      "source_of_truth": "plan document"
+    }
+  },
+
+  "jobs": {
+    "setup-and-plan": {
+      "purpose": "Find plan, validate dependencies, initialize state",
+      "runner": "ubuntu-latest",
+      "timeout_minutes": 10,
+      "depends_on": [],
+      "condition": "always runs",
+      "outputs": {
+        "plan_selected": "boolean - whether a plan was found",
+        "plan_path": "path to selected plan file",
+        "plan_filename": "filename of selected plan",
+        "plan_sequence": "hierarchical sequence number (e.g., 024A1)",
+        "story_id": "extracted story ID or 'none'",
+        "should_execute": "boolean - eligible for execution",
+        "skip_reason": "no_plans | needs_verification | deps_unmet",
+        "needs_verification": "boolean - requires implementation check",
+        "current_stage": "database stage of story"
+      },
+      "phases": {
+        "1_setup": {
+          "steps": ["1.1 Checkout repository"]
+        },
+        "2_plan_selection": {
+          "steps": [
+            "2.1 Find available plans",
+            "2.2 Select earliest plan (Python hierarchical sort)",
+            "2.3 Extract Story ID from plan"
+          ]
+        },
+        "3_validation": {
+          "steps": [
+            "3.1 Check if story already executed",
+            "3.2 Check story dependencies"
+          ]
+        },
+        "4_skip_conditions": {
+          "steps": [
+            "4.1 Move blocked plan to blocked folder (if deps unmet)",
+            "4.2 Determine execution eligibility"
+          ]
+        }
+      },
+      "line_range": [45, 339]
+    },
+
+    "validate-plan": {
+      "purpose": "Ensure plan has valid Story ID (match to database if missing)",
+      "runner": "ubuntu-latest",
+      "timeout_minutes": 15,
+      "depends_on": ["setup-and-plan"],
+      "condition": "plan_selected == 'true' AND story_id == 'none'",
+      "outputs": {
+        "story_id": "matched story ID or 'none'",
+        "validation_passed": "boolean",
+        "plan_blocked": "boolean - moved to blocked folder"
+      },
+      "claude_action": {
+        "model": "claude-sonnet-4-5-20250929",
+        "max_turns": 20,
+        "tools": ["Read", "Write", "Edit", "Glob", "Grep", "Bash(python:*)", "Bash(python3:*)", "Bash(sqlite3:*)"],
+        "task": "Match plan content to story_nodes database by comparing descriptions, keywords, success criteria"
+      },
+      "steps": [
+        "VP.1 Checkout repository",
+        "VP.1.5 Extract database schema",
+        "VP.2 Match plan to story in database (Claude)",
+        "VP.3 Read validation output",
+        "VP.4 Commit plan update if Story ID was added",
+        "VP.5 Move blocked plan if no Story ID found",
+        "VP.6 Upload validation result artifact"
+      ],
+      "artifacts": ["validate-result"],
+      "line_range": [343, 599]
+    },
+
+    "verify-implementation": {
+      "purpose": "Check if plan was actually implemented in codebase",
+      "runner": "ubuntu-latest",
+      "timeout_minutes": 15,
+      "depends_on": ["setup-and-plan", "validate-plan"],
+      "condition": "needs_verification == 'true' AND plan_blocked != 'true'",
+      "outputs": {
+        "verification_passed": "boolean",
+        "should_proceed_to_execute": "boolean - implementation missing",
+        "verification_incomplete": "boolean - hit max-turns limit"
+      },
+      "claude_action": {
+        "model": "claude-sonnet-4-5-20250929",
+        "max_turns": 30,
+        "tools": ["Read", "Glob", "Grep", "Bash(python:*)", "Bash(python3:*)", "Write"],
+        "task": "Verify top 3-5 key deliverables exist in codebase"
+      },
+      "steps": [
+        "V.1 Checkout repository",
+        "V.1.1 Clean up Claude installation locks",
+        "V.2 Verify implementation exists (Claude)",
+        "V.3 Read verification output",
+        "V.4 Archive plan if verification passed",
+        "V.5 Reset story stage if verification failed",
+        "V.6 Upload verification result artifact"
+      ],
+      "artifacts": ["verify-result"],
+      "line_range": [604, 843]
+    },
+
+    "review-plan": {
+      "purpose": "Critical review - validate plan is actionable",
+      "runner": "ubuntu-latest",
+      "timeout_minutes": 15,
+      "depends_on": ["setup-and-plan", "validate-plan", "verify-implementation"],
+      "condition": "plan_blocked != 'true' AND (should_execute == 'true' OR should_proceed_to_execute == 'true')",
+      "outputs": {
+        "outcome": "proceed | pause | proceed_with_review | verified",
+        "review_completed": "boolean"
+      },
+      "claude_action": {
+        "model": "claude-sonnet-4-5-20250929",
+        "max_turns": 25,
+        "tools": ["Read", "Write", "Edit", "Glob", "Grep", "Bash(python:*)", "Bash(python3:*)", "Bash(mkdir:*)"],
+        "task": "Quick check if deliverables exist, classify outcome"
+      },
+      "outcome_classification": {
+        "verified": "Core files/functions already exist",
+        "pause": "Security implications, breaking changes, missing critical info",
+        "proceed_with_review": "Minor style issues, document and proceed",
+        "proceed": "Plan is clear, work has NOT been done yet"
+      },
+      "steps": [
+        "1.0 Checkout repository",
+        "1.0.1 Pull latest changes",
+        "1.0.2 Clean up Claude installation locks",
+        "1.1 Review plan critically (Claude)",
+        "1.2 Read review output",
+        "1.3 Upload review result artifact"
+      ],
+      "artifacts": ["review-result"],
+      "line_range": [847, 971]
+    },
+
+    "decompose": {
+      "purpose": "Assess complexity, split into sub-plans if needed",
+      "runner": "ubuntu-latest",
+      "timeout_minutes": 20,
+      "depends_on": ["setup-and-plan", "validate-plan", "verify-implementation", "review-plan"],
+      "condition": "review_completed == 'true' AND outcome in ['proceed', 'proceed_with_review']",
+      "outputs": {
+        "complexity": "simple | medium | complex",
+        "execute_plan": "path to plan to execute",
+        "sub_plans_created": "comma-separated paths of new sub-plans"
+      },
+      "claude_action": {
+        "model": "claude-opus-4-5-20251101",
+        "max_turns": 25,
+        "tools": ["Read", "Write", "Edit", "Glob", "Grep", "Bash(python:*)", "Bash(python3:*)", "Bash(mkdir:*)", "Bash(mv:*)", "Bash(cp:*)"],
+        "task": "Count TDD tasks, assess complexity, split if >2 tasks"
+      },
+      "complexity_rules": {
+        "simple": "1-2 tasks → execute directly",
+        "complex": "3+ tasks → MUST decompose into sub-plans",
+        "auto_escalate": "GUI testing, image processing, system dependencies"
+      },
+      "hierarchical_naming": {
+        "level_0": "022_feature.md (base)",
+        "level_1": "022A_..., 022B_..., 022C_... (letters)",
+        "level_2": "022A1_..., 022A2_... (numbers)",
+        "level_3": "022A1a_..., 022A1b_... (lowercase)",
+        "level_4": "022A1a1_..., 022A1a2_... (numbers)"
+      },
+      "steps": [
+        "2.0 Checkout repository",
+        "2.0.1 Clean up Claude installation locks",
+        "2.1 Assess plan complexity (Claude Opus)",
+        "2.2 Read decompose output",
+        "2.3 Commit sub-plans if created",
+        "2.4 Upload decompose result artifact"
+      ],
+      "artifacts": ["decompose-result"],
+      "line_range": [975, 1262]
+    },
+
+    "execute": {
+      "purpose": "Follow plan's TDD steps directly",
+      "runner": "ubuntu-latest",
+      "timeout_minutes": 45,
+      "depends_on": ["setup-and-plan", "validate-plan", "verify-implementation", "review-plan", "decompose"],
+      "condition": "execute_plan != ''",
+      "outputs": {
+        "status": "completed | partial | failed",
+        "commits_made": "comma-separated commit SHAs",
+        "complexity_ok": "boolean - plan has ≤2 tasks",
+        "task_count": "number of TDD tasks in plan"
+      },
+      "claude_action": {
+        "model": "claude-sonnet-4-5-20250929",
+        "max_turns": 50,
+        "tools": ["Read", "Write", "Edit", "Glob", "Grep", "Bash(git:*)", "Bash(python:*)", "Bash(python3:*)", "Bash(pytest:*)", "Bash(pip:*)", "Bash(pip3:*)", "Bash(mkdir:*)", "Bash(source:*)", "Bash(cat:*)", "Bash(ls:*)", "Bash(rm:*)", "Bash(chmod:*)", "BashOutput", "TodoWrite"],
+        "task": "Execute TDD steps: RED → verify fail → GREEN → verify pass → COMMIT"
+      },
+      "tdd_discipline": [
+        "Follow plan's test code EXACTLY",
+        "Follow plan's implementation as guide",
+        "Commit after each task",
+        "Document any blockers"
+      ],
+      "steps": [
+        "3.0 Checkout repository",
+        "3.1 Pull latest changes",
+        "3.1.1 Clean up Claude installation locks",
+        "3.1.2 Verify plan file exists",
+        "3.1.3 Verify plan complexity is simple",
+        "3.1.5 Setup Python environment",
+        "3.2 Execute plan (Claude)",
+        "3.3 Push implementation commits",
+        "3.4 Read execute output",
+        "3.5 Upload execute result artifact"
+      ],
+      "artifacts": ["execute-result"],
+      "line_range": [1267, 1527]
+    },
+
+    "finalize": {
+      "purpose": "Archive, commit, push, report",
+      "runner": "ubuntu-latest",
+      "timeout_minutes": 10,
+      "depends_on": ["setup-and-plan", "validate-plan", "verify-implementation", "review-plan", "decompose", "execute"],
+      "condition": "always()",
+      "outputs": {},
+      "outcome_classification": {
+        "success": "Execution completed",
+        "verified": "Implementation already exists",
+        "blocked": "No Story ID found",
+        "needs_manual_review": "Verification incomplete or partial",
+        "partial": "Some tasks completed",
+        "paused": "Blocking issues found",
+        "failure": "Execution failed",
+        "skipped": "Already executed or deps unmet"
+      },
+      "steps": [
+        "4.0 Checkout repository",
+        "4.0.1 Pull latest changes",
+        "4.1 Determine final outcome",
+        "4.2 Archive executed plan",
+        "4.3 Update story status in database",
+        "4.4 Stage all changes",
+        "4.5 Commit changes",
+        "4.6 Push to remote",
+        "4.7 Generate execution summary",
+        "4.8 Report pipeline status",
+        "4.8.1 Download result artifacts",
+        "4.8.2 Parse result files for issue message",
+        "4.9 Post results to story issue"
+      ],
+      "database_updates": {
+        "success_no_review": { "stage": "verifying", "human_review": 0 },
+        "success_with_review": { "stage": "reviewing", "human_review": 1 },
+        "verified": { "stage": "implemented", "human_review": 0 }
+      },
+      "line_range": [1532, 2292]
+    }
+  },
+
+  "data_flow": {
+    "plan_files": {
+      "source": ".claude/data/plans/*.md",
+      "blocked": ".claude/data/plans/blocked/",
+      "decomposed": ".claude/data/plans/decomposed/",
+      "executed": ".claude/data/plans/executed/"
+    },
+    "result_files": {
+      "validate": ".claude/skills/story-execution/ci-validate-result.json",
+      "verify": ".claude/skills/story-execution/ci-verify-result.json",
+      "review": ".claude/skills/story-execution/ci-review-result.json",
+      "decompose": ".claude/skills/story-execution/ci-decompose-result.json",
+      "execute": ".claude/skills/story-execution/ci-execute-result.json"
+    },
+    "database": ".claude/data/story-tree.db"
+  },
+
+  "summary": {
+    "total_jobs": 7,
+    "total_claude_actions": 5,
+    "models_used": {
+      "claude-opus-4-5-20251101": ["decompose"],
+      "claude-sonnet-4-5-20250929": ["validate-plan", "verify-implementation", "review-plan", "execute"]
+    },
+    "key_decision_points": [
+      { "job": "setup-and-plan", "decision": "should_execute / skip_reason / needs_verification" },
+      { "job": "validate-plan", "decision": "plan_blocked (no matching story ID)" },
+      { "job": "verify-implementation", "decision": "should_proceed_to_execute (implementation missing)" },
+      { "job": "review-plan", "decision": "outcome (proceed/pause/verified)" },
+      { "job": "decompose", "decision": "complexity (simple/complex) → split if needed" },
+      { "job": "execute", "decision": "status (completed/partial/failed)" },
+      { "job": "finalize", "decision": "final outcome → archive/update DB/report" }
+    ]
+  }
+}
