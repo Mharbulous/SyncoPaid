@@ -2,6 +2,7 @@
 import sqlite3
 import tempfile
 from pathlib import Path
+from datetime import datetime, timedelta
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 from syncopaid.database import Database
@@ -241,6 +242,47 @@ def test_contradicting_correction_decreases_confidence():
         # New pattern for matter B should exist
         patterns_b = db.get_patterns_for_matter(matter_b)
         assert len(patterns_b) == 1
+
+
+def test_archive_stale_patterns():
+    """Test archiving patterns not used in 90 days."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "test.db"
+        db = Database(str(db_path))
+
+        # Create client and matter first (using direct SQL due to schema mismatch bug)
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO clients (display_name) VALUES (?)', ('Test Client',))
+        client_id = cursor.lastrowid
+        cursor.execute('INSERT INTO matters (client_id, display_name) VALUES (?, ?)', (client_id, 'Test matter'))
+        matter_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+
+        # Insert pattern with old last_used_at
+        db.insert_pattern(matter_id, app_pattern="old_app.exe")
+
+        # Manually set last_used_at to 100 days ago
+        conn = sqlite3.connect(db_path)
+        old_date = (datetime.now() - timedelta(days=100)).isoformat()
+        conn.execute("UPDATE categorization_patterns SET last_used_at = ?", (old_date,))
+        conn.commit()
+        conn.close()
+
+        # Run expiration
+        archived_count = db.archive_stale_patterns(days=90)
+
+        assert archived_count == 1
+
+        # Pattern should not appear in normal queries
+        patterns = db.get_patterns_for_matter(matter_id)
+        assert len(patterns) == 0
+
+        # But should appear if including archived
+        patterns = db.get_patterns_for_matter(matter_id, include_archived=True)
+        assert len(patterns) == 1
+        assert patterns[0]['is_archived'] == 1
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ suggestions. Each pattern maps activity attributes (app, URL, title) to a matter
 
 import logging
 from typing import List, Dict, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class PatternsDatabaseMixin:
@@ -279,6 +279,37 @@ class PatternsDatabaseMixin:
 
         # Now record the correct pattern (will create or reinforce)
         return self.record_correction(correct_matter_id, app, url, title)
+
+    def archive_stale_patterns(self, days: int = 90) -> int:
+        """
+        Archive patterns that haven't been used in the specified number of days.
+
+        Archived patterns are excluded from matching but retained for analysis.
+
+        Args:
+            days: Number of days of inactivity before archiving (default: 90)
+
+        Returns:
+            Number of patterns archived
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+
+            cursor.execute("""
+                UPDATE categorization_patterns
+                SET is_archived = 1
+                WHERE is_archived = 0
+                AND last_used_at < ?
+            """, (cutoff_date,))
+
+            archived = cursor.rowcount
+            conn.commit()
+
+            if archived > 0:
+                logging.info(f"Archived {archived} stale patterns (unused for {days}+ days)")
+
+            return archived
 
     @staticmethod
     def _dict_factory(cursor, row):
