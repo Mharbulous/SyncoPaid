@@ -48,7 +48,19 @@
       "lines": 64
     },
     "src/syncopaid/context_extraction.py": {
-      "lines": 346
+      "lines": 53
+    },
+    "src/syncopaid/context_extraction_browser.py": {
+      "lines": 33
+    },
+    "src/syncopaid/context_extraction_legal.py": {
+      "lines": 176
+    },
+    "src/syncopaid/context_extraction_office.py": {
+      "lines": 44
+    },
+    "src/syncopaid/context_extraction_outlook.py": {
+      "lines": 49
     },
     "src/syncopaid/database.py": {
       "lines": 139
@@ -316,6 +328,7 @@
     "src/syncopaid/__main__.py",
     "src/syncopaid/exporter.py",
     "src/syncopaid/main_app_class.py",
-    "src/syncopaid/database_patterns.py"
+    "src/syncopaid/database_patterns.py",
+    "src/syncopaid/context_extraction.py"
   ]
 }
