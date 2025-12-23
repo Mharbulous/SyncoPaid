@@ -42,3 +42,34 @@ def test_matters_table_exists(db_connection):
     assert 'display_name TEXT NOT NULL' in schema[0]
     assert 'FOREIGN KEY(client_id) REFERENCES clients(id)' in schema[0]
     assert 'UNIQUE(client_id, display_name)' in schema[0]
+
+
+def test_events_table_has_client_column(db_connection):
+    """Verify events table has client column after migration."""
+    cursor = db_connection.execute("PRAGMA table_info(events)")
+    columns = {row[1] for row in cursor.fetchall()}
+    assert 'client' in columns
+
+
+def test_events_table_has_matter_column(db_connection):
+    """Verify events table has matter column after migration."""
+    cursor = db_connection.execute("PRAGMA table_info(events)")
+    columns = {row[1] for row in cursor.fetchall()}
+    assert 'matter' in columns
+
+
+def test_events_client_matter_columns_nullable(db_connection):
+    """Verify client/matter columns allow NULL (user assigns later)."""
+    # Insert event without client/matter
+    cursor = db_connection.cursor()
+    cursor.execute("""
+        INSERT INTO events (title, app, timestamp, state)
+        VALUES ('Test', 'test.exe', datetime('now'), 'Active')
+    """)
+    db_connection.commit()
+
+    # Verify NULL values accepted
+    cursor.execute("SELECT client, matter FROM events WHERE title='Test'")
+    row = cursor.fetchone()
+    assert row[0] is None  # client is NULL
+    assert row[1] is None  # matter is NULL

@@ -122,6 +122,16 @@ class SchemaMixin:
             cursor.execute("ALTER TABLE events ADD COLUMN flagged_for_review INTEGER DEFAULT 0")
             logging.info("Database migration: Added flagged_for_review column to events table")
 
+        # Migration: Add client column for time assignment
+        if 'client' not in columns:
+            cursor.execute("ALTER TABLE events ADD COLUMN client TEXT")
+            logging.info("Database migration: Added client column to events table")
+
+        # Migration: Add matter column for time assignment
+        if 'matter' not in columns:
+            cursor.execute("ALTER TABLE events ADD COLUMN matter TEXT")
+            logging.info("Database migration: Added matter column to events table")
+
     def _create_indices(self, cursor):
         """
         Create database indices for query performance.
