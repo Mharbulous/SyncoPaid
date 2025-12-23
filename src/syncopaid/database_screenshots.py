@@ -151,3 +151,49 @@ class ScreenshotDatabaseMixin:
         """
         screenshots = self.get_screenshots(limit=1)
         return screenshots[0] if screenshots else None
+
+    def delete_screenshots_securely(self, screenshot_ids: List[int]) -> int:
+        """
+        Securely delete screenshots by ID, removing both database records and files.
+
+        Files are overwritten with zeros before deletion to prevent forensic recovery.
+
+        Args:
+            screenshot_ids: List of screenshot IDs to delete
+
+        Returns:
+            Number of screenshots deleted
+        """
+        from .secure_delete import secure_delete_file
+        from pathlib import Path
+
+        if not screenshot_ids:
+            return 0
+
+        deleted_count = 0
+
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # Get file paths before deletion
+            placeholders = ','.join('?' * len(screenshot_ids))
+            cursor.execute(
+                f"SELECT id, file_path FROM screenshots WHERE id IN ({placeholders})",
+                screenshot_ids
+            )
+            screenshots = cursor.fetchall()
+
+            # Securely delete each file
+            for row in screenshots:
+                file_path = Path(row['file_path'])
+                secure_delete_file(file_path)
+
+            # Delete database records
+            cursor.execute(
+                f"DELETE FROM screenshots WHERE id IN ({placeholders})",
+                screenshot_ids
+            )
+            deleted_count = cursor.rowcount
+
+        logging.info(f"Securely deleted {deleted_count} screenshots")
+        return deleted_count

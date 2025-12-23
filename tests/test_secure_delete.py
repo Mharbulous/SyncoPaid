@@ -67,3 +67,33 @@ def test_secure_file_delete(tmp_path):
 
     # Content should not be recoverable (check parent directory for remnants)
     # Note: This is a best-effort test; full forensic verification requires OS-level tools
+
+
+def test_delete_screenshots_securely(tmp_path):
+    """Verify screenshot deletion removes both database record and file."""
+    db_path = tmp_path / "test.db"
+    db = Database(str(db_path))
+
+    # Create test screenshot file
+    screenshot_dir = tmp_path / "screenshots" / "2025-12-21"
+    screenshot_dir.mkdir(parents=True)
+    screenshot_file = screenshot_dir / "test_screenshot.jpg"
+    screenshot_file.write_bytes(b"fake image content")
+
+    # Insert screenshot record
+    screenshot_id = db.insert_screenshot(
+        captured_at="2025-12-21T10:00:00",
+        file_path=str(screenshot_file),
+        window_app="test.exe",
+        window_title="Test Window"
+    )
+
+    # Delete screenshot securely
+    deleted = db.delete_screenshots_securely([screenshot_id])
+
+    assert deleted == 1
+    assert not screenshot_file.exists(), "Screenshot file should be deleted"
+
+    # Verify database record is gone
+    screenshots = db.get_screenshots()
+    assert len(screenshots) == 0
