@@ -94,3 +94,66 @@ class ResourceMonitor:
             logger.warning(f"Error getting resource metrics: {e}")
 
         return metrics
+
+    def should_throttle_polling(self) -> bool:
+        """
+        Check if window polling should be throttled (slowed down).
+
+        Throttle when system CPU > 80% to reduce impact on foreground apps.
+
+        Returns:
+            True if polling should be slowed from 1s to 5s
+        """
+        try:
+            # Use system CPU, not just our process
+            system_cpu = psutil.cpu_percent(interval=0)
+            return system_cpu > self.cpu_threshold
+        except Exception as e:
+            logger.warning(f"Error checking CPU for throttling: {e}")
+            return False
+
+    def should_skip_screenshot(self) -> bool:
+        """
+        Check if screenshots should be skipped.
+
+        Skip when:
+        - System CPU > 90% (screenshots are resource-intensive)
+        - Battery < 20% (save power)
+
+        Returns:
+            True if screenshots should be skipped
+        """
+        try:
+            # Check system CPU (higher threshold than polling)
+            system_cpu = psutil.cpu_percent(interval=0)
+            if system_cpu > 90:
+                logger.debug(f"Skipping screenshot: CPU at {system_cpu}%")
+                return True
+
+            # Check battery
+            battery = psutil.sensors_battery()
+            if battery and not battery.power_plugged and battery.percent < self.battery_threshold:
+                logger.debug(f"Skipping screenshot: Battery at {battery.percent}%")
+                return True
+
+            return False
+        except Exception as e:
+            logger.warning(f"Error checking screenshot skip conditions: {e}")
+            return False
+
+    def should_clear_cache(self) -> bool:
+        """
+        Check if screenshot cache should be cleared.
+
+        Clear when app memory usage exceeds threshold (default 200MB).
+
+        Returns:
+            True if cache should be cleared
+        """
+        try:
+            memory_info = self._process.memory_info()
+            memory_mb = memory_info.rss / (1024 * 1024)
+            return memory_mb > self.memory_threshold_mb
+        except Exception as e:
+            logger.warning(f"Error checking memory for cache clear: {e}")
+            return False
