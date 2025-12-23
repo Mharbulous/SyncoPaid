@@ -1,8 +1,12 @@
 name: 1. Build Story
 
-# Run at 4:40 AM PST (12:40 UTC) every day - after approve-stories
+# Run every 10 minutes from 8:40 PM to midnight PST (04:40-08:00 UTC)
 on:
-  # schedule disabled - manual trigger only
+  schedule:
+    # 8:40 PM - 8:50 PM PST (04:40-04:50 UTC)
+    - cron: '40,50 4 * * *'
+    # 9:00 PM - 11:50 PM PST (05:00-07:50 UTC)
+    - cron: '0,10,20,30,40,50 5-7 * * *'
   workflow_dispatch:
 
 concurrency:
