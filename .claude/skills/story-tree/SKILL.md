@@ -204,12 +204,130 @@ from story_db_common import (
     block_concept,              # Set hold_reason='blocked' with note
     defer_concept,              # Set hold_reason='pending' with note
     merge_concepts,             # Merge two stories into one
+    # Tree reorganization functions
+    validate_tree_structure,    # Find structural issues in tree
+    rename_story,               # Rename story and all descendants
+    rebuild_paths,              # Recompute paths for a node
+    rebuild_paths_recursive,    # Recompute paths for node and descendants
+    move_story,                 # Move story to new parent
+    get_next_child_id,          # Get next available child ID
+    get_expected_parent_id,     # Determine expected parent from ID format
 )
 ```
 
 **Location:** `.claude/skills/story-tree/utility/story_db_common.py`
 
 This ensures DRY principles - all story-related skills use the same database operations.
+
+## Tree Maintenance Commands
+
+Commands for detecting and fixing structural issues in the story tree.
+
+### Validate Structure
+
+On "check story structure", "validate story tree", or "find tree issues":
+
+1. Run `validate_tree_structure(conn)` to identify issues:
+   - **invalid_root_children**: Decimal IDs at root level (e.g., `8.6` should be `16`)
+   - **orphaned_nodes**: Stories missing from `story_paths` (invisible to tree)
+   - **missing_self_paths**: Stories without depth=0 self-reference
+   - **parent_mismatch**: Story ID prefix doesn't match actual parent
+   - **invalid_id_format**: Malformed IDs (non-numeric parts)
+
+2. Report findings with suggested fixes:
+```python
+python -c "
+import sys, os
+sys.path.insert(0, '.claude/skills/story-tree/utility')
+from story_db_common import get_connection, validate_tree_structure
+
+conn = get_connection()
+issues = validate_tree_structure(conn)
+for category, items in issues.items():
+    if items:
+        print(f'\n{category}:')
+        for item in items:
+            print(f'  - {item}')
+conn.close()
+"
+```
+
+### Move Story
+
+On "move story [ID] to [NEW_PARENT]" or "relocate story [ID] under [PARENT]":
+
+1. Validate move is logical:
+   - Story exists
+   - New parent exists
+   - Not circular (can't move to self or descendant)
+
+2. Call `move_story(conn, story_id, new_parent_id)`:
+   - Generates appropriate new ID (integer for root, decimal for others)
+   - Renames story and all descendants
+   - Rebuilds closure table paths
+
+3. Show before/after:
+```python
+python -c "
+import sys, os
+sys.path.insert(0, '.claude/skills/story-tree/utility')
+from story_db_common import get_connection, move_story
+
+conn = get_connection()
+try:
+    new_id = move_story(conn, 'OLD_ID', 'NEW_PARENT')
+    conn.commit()
+    print(f'Moved: OLD_ID -> {new_id}')
+except ValueError as e:
+    print(f'Error: {e}')
+conn.close()
+"
+```
+
+### Rebuild Paths
+
+On "rebuild story paths for [ID]" or "fix paths for [ID]":
+
+1. Call `rebuild_paths_recursive(conn, node_id)` to recompute closure table
+2. Useful for fixing corrupted path data after manual edits
+
+```python
+python -c "
+import sys, os
+sys.path.insert(0, '.claude/skills/story-tree/utility')
+from story_db_common import get_connection, rebuild_paths_recursive
+
+conn = get_connection()
+count = rebuild_paths_recursive(conn, 'STORY_ID')
+conn.commit()
+print(f'Rebuilt paths for {count} nodes')
+conn.close()
+"
+```
+
+### Rename Story
+
+On "rename story [OLD_ID] to [NEW_ID]":
+
+1. Call `rename_story(conn, old_id, new_id)` to rename with descendants
+2. Updates `story_nodes`, `story_paths`, `story_commits`, `vetting_decisions`
+
+```python
+python -c "
+import sys, os
+sys.path.insert(0, '.claude/skills/story-tree/utility')
+from story_db_common import get_connection, rename_story
+
+conn = get_connection()
+conn.execute('PRAGMA foreign_keys = OFF')  # Disable during bulk rename
+renames = rename_story(conn, 'OLD_ID', 'NEW_ID')
+conn.execute('PRAGMA foreign_keys = ON')
+conn.commit()
+for old, new in renames:
+    print(f'  {old} -> {new}')
+conn.close()
+"
+```
 
 ## References
 

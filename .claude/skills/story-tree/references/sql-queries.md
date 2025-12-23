@@ -180,3 +180,138 @@ GROUP BY stage ORDER BY
 | `^refactor[:(]` | refactor |
 | `(add\|implement\|create)` | feature |
 | `(fix\|bug\|issue)` | fix |
+
+## Tree Structure Validation Queries
+
+### Find Orphaned Nodes (missing from story_paths)
+```sql
+SELECT sn.id, sn.title
+FROM story_nodes sn
+WHERE sn.id != 'root'
+  AND NOT EXISTS (
+    SELECT 1 FROM story_paths sp WHERE sp.descendant_id = sn.id
+  );
+```
+
+### Find Missing Self-Paths (no depth=0 entry)
+```sql
+SELECT sn.id, sn.title
+FROM story_nodes sn
+WHERE sn.id != 'root'
+  AND NOT EXISTS (
+    SELECT 1 FROM story_paths sp
+    WHERE sp.ancestor_id = sn.id
+      AND sp.descendant_id = sn.id
+      AND sp.depth = 0
+  );
+```
+
+### Find Invalid Root Children (decimal IDs with root parent)
+```sql
+SELECT sn.id, sn.title
+FROM story_nodes sn
+JOIN story_paths sp ON sn.id = sp.descendant_id
+WHERE sp.ancestor_id = 'root'
+  AND sp.depth = 1
+  AND sn.id LIKE '%.%';
+```
+
+### Find Parent Mismatches (ID doesn't match parent path)
+```sql
+-- For decimal IDs: parent should be ID prefix before last dot
+SELECT sn.id, sn.title, sp.ancestor_id as actual_parent,
+       SUBSTR(sn.id, 1, LENGTH(sn.id) - LENGTH(SUBSTR(sn.id, INSTR(sn.id, '.')||1))) as expected_parent
+FROM story_nodes sn
+JOIN story_paths sp ON sn.id = sp.descendant_id
+WHERE sp.depth = 1
+  AND sn.id LIKE '%.%'
+  AND sp.ancestor_id != SUBSTR(sn.id, 1, LENGTH(sn.id) - LENGTH(sn.id) + INSTR(REVERSE(sn.id), '.') - 1);
+
+-- For integer IDs: parent should be 'root'
+SELECT sn.id, sn.title, sp.ancestor_id as actual_parent
+FROM story_nodes sn
+JOIN story_paths sp ON sn.id = sp.descendant_id
+WHERE sp.depth = 1
+  AND sn.id NOT LIKE '%.%'
+  AND sn.id GLOB '[0-9]*'
+  AND sp.ancestor_id != 'root';
+```
+
+### Find Invalid ID Formats (non-numeric parts)
+```sql
+-- This is tricky in pure SQL; use Python validation instead
+-- Python: all(p.isdigit() for p in id.split('.'))
+SELECT id, title FROM story_nodes
+WHERE id != 'root'
+  AND id NOT GLOB '[0-9]*'
+  AND id NOT GLOB '[0-9]*.[0-9]*'
+  AND id NOT GLOB '[0-9]*.[0-9]*.[0-9]*'
+  AND id NOT GLOB '[0-9]*.[0-9]*.[0-9]*.[0-9]*';
+```
+
+### Get Next Available Root Child ID
+```sql
+SELECT COALESCE(MAX(CAST(sn.id AS INTEGER)), 0) + 1 as next_id
+FROM story_nodes sn
+JOIN story_paths sp ON sn.id = sp.descendant_id
+WHERE sp.ancestor_id = 'root'
+  AND sp.depth = 1
+  AND sn.id GLOB '[0-9]*'
+  AND sn.id NOT LIKE '%.%';
+```
+
+### Get Next Available Child ID Under Parent
+```sql
+-- Replace :parent with actual parent ID
+SELECT :parent || '.' || (COALESCE(MAX(
+    CAST(SUBSTR(sp.descendant_id, LENGTH(:parent) + 2) AS INTEGER)
+), 0) + 1) as next_id
+FROM story_paths sp
+WHERE sp.ancestor_id = :parent
+  AND sp.depth = 1
+  AND sp.descendant_id LIKE :parent || '.%'
+  AND sp.descendant_id NOT LIKE :parent || '.%.%';
+```
+
+### Rebuild Paths for a Node (using parent's paths)
+```sql
+-- Step 1: Delete existing paths
+DELETE FROM story_paths WHERE descendant_id = :node_id;
+
+-- Step 2: Insert self-path
+INSERT INTO story_paths (ancestor_id, descendant_id, depth)
+VALUES (:node_id, :node_id, 0);
+
+-- Step 3: Copy parent's ancestors with depth+1
+-- (requires determining parent from ID format first)
+INSERT INTO story_paths (ancestor_id, descendant_id, depth)
+SELECT ancestor_id, :node_id, depth + 1
+FROM story_paths WHERE descendant_id = :parent_id;
+```
+
+### Find All Descendants of a Node
+```sql
+SELECT descendant_id, depth
+FROM story_paths
+WHERE ancestor_id = :node_id AND depth > 0
+ORDER BY depth ASC;
+```
+
+### Count Tree Structure Issues
+```sql
+SELECT
+  (SELECT COUNT(*) FROM story_nodes sn
+   WHERE sn.id != 'root'
+   AND NOT EXISTS (SELECT 1 FROM story_paths sp WHERE sp.descendant_id = sn.id)
+  ) as orphaned_count,
+  (SELECT COUNT(*) FROM story_nodes sn
+   JOIN story_paths sp ON sn.id = sp.descendant_id
+   WHERE sp.ancestor_id = 'root' AND sp.depth = 1 AND sn.id LIKE '%.%'
+  ) as invalid_root_children_count,
+  (SELECT COUNT(*) FROM story_nodes sn
+   WHERE sn.id != 'root'
+   AND NOT EXISTS (
+     SELECT 1 FROM story_paths sp
+     WHERE sp.ancestor_id = sn.id AND sp.descendant_id = sn.id AND sp.depth = 0
+   )
+  ) as missing_self_paths_count;
