@@ -19,6 +19,7 @@ from syncopaid.exporter import Exporter
 from syncopaid.tray import TrayIcon, sync_startup_registry
 from syncopaid.main_single_instance import release_single_instance
 from syncopaid.resource_monitor import ResourceMonitor
+from syncopaid.night_processor import NightProcessor
 from syncopaid.main_app_initialization import (
     initialize_screenshot_worker,
     initialize_action_screenshot_worker,
@@ -97,6 +98,20 @@ class SyncoPaidApp:
             self.resource_monitor
         )
 
+        # Initialize night processor (if enabled)
+        self.night_processor = None
+        if self.config.night_processing_enabled:
+            self.night_processor = NightProcessor(
+                start_hour=self.config.night_processing_start_hour,
+                end_hour=self.config.night_processing_end_hour,
+                idle_threshold_minutes=self.config.night_processing_idle_minutes,
+                batch_size=self.config.night_processing_batch_size,
+                get_idle_seconds=self._get_current_idle_seconds,
+                get_pending_count=self.database.get_pending_screenshot_count,
+                process_batch=self._process_screenshot_batch,
+                enabled=True
+            )
+
         # Tracking state
         self.tracking_thread: threading.Thread = None
         self.is_tracking = False
@@ -111,6 +126,20 @@ class SyncoPaidApp:
         )
 
         logging.info("SyncoPaid application initialized")
+
+    def _get_current_idle_seconds(self) -> float:
+        """Get current idle time for night processor."""
+        # Use tracker loop's idle tracker if available
+        if hasattr(self, 'tracker') and self.tracker:
+            return self.tracker.get_idle_seconds()
+        return 0.0
+
+    def _process_screenshot_batch(self, batch_size: int) -> int:
+        """Process a batch of screenshots for night processor."""
+        # Use screenshot analyzer if available
+        if hasattr(self, 'screenshot_analyzer') and self.screenshot_analyzer:
+            return self.screenshot_analyzer.process_batch(batch_size)
+        return 0
 
     def start_tracking(self):
         """Start the tracking loop in a background thread."""
@@ -143,6 +172,10 @@ class SyncoPaidApp:
         # Stop tracking
         if self.is_tracking:
             self.pause_tracking()
+
+        # Stop night processor
+        if self.night_processor:
+            self.night_processor.stop()
 
         # Shutdown screenshot worker
         if self.screenshot_worker:
@@ -197,6 +230,10 @@ class SyncoPaidApp:
         if self.config.start_tracking_on_launch:
             self.start_tracking()
             self.tray.update_icon_status(True)
+
+        # Start night processor
+        if self.night_processor:
+            self.night_processor.start()
 
         # Run system tray (this blocks until quit)
         self.tray.run()
