@@ -72,3 +72,27 @@ def test_analysis_result_roundtrip():
     assert restored.case_numbers == original.case_numbers
     assert restored.confidence == original.confidence
     assert restored.visible_text == original.visible_text
+
+
+def test_analysis_result_from_json_missing_fields():
+    """Test from_json handles missing optional fields."""
+    json_str = json.dumps({
+        'application': 'Word',
+        'confidence': 0.5
+    })
+
+    result = AnalysisResult.from_json(json_str)
+
+    assert result.application == 'Word'
+    assert result.document_name is None
+    assert result.case_numbers == []
+    assert result.confidence == 0.5
+
+
+def test_analysis_result_from_json_empty_object():
+    """Test from_json handles empty JSON object."""
+    result = AnalysisResult.from_json('{}')
+
+    assert result.application is None
+    assert result.confidence == 0.0
+    assert result.case_numbers == []
