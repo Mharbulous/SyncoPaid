@@ -2,6 +2,7 @@
 Import dialog for client/matter data.
 
 Provides UI for importing client and matter data from folder structures.
+Includes instructional panel showing expected folder structure.
 """
 
 import logging
@@ -12,6 +13,16 @@ from tkinter import ttk, messagebox, filedialog
 from syncopaid.main_ui_utilities import set_window_icon
 
 
+# ASCII folder tree diagram for instructional panel
+FOLDER_STRUCTURE_DIAGRAM = """📁 Your Root Folder  ← Select this folder
+    📁 0001 - Acme Corp
+        📁 001 - Annual Review
+        📁 002 - Contract Dispute
+    📁 0002 - Smith & Associates
+        📁 001 - Estate Planning
+        📁 002 - Merger Acquisition"""
+
+
 def show_import_dialog(database):
     """Show dialog for importing client/matter data from folder structure."""
 
@@ -20,48 +31,160 @@ def show_import_dialog(database):
 
         root = tk.Tk()
         root.title("Import Clients & Matters")
-        root.geometry("600x400")
+        root.geometry("650x520")
         root.attributes('-topmost', True)
         set_window_icon(root)
 
         # State
         import_result = None
 
-        # Folder selection frame
-        folder_frame = tk.Frame(root, pady=10, padx=10)
+        # ══════════════════════════════════════════════════════════════
+        # INSTRUCTIONAL PANEL - Expected Folder Structure
+        # ══════════════════════════════════════════════════════════════
+        instruction_frame = tk.Frame(root, padx=15, pady=10)
+        instruction_frame.pack(fill=tk.X)
+
+        # Heading
+        heading_label = tk.Label(
+            instruction_frame,
+            text="Expected Folder Structure",
+            font=('Segoe UI', 11, 'bold'),
+            anchor='w'
+        )
+        heading_label.pack(fill=tk.X)
+
+        # Helper text
+        helper_text = tk.Label(
+            instruction_frame,
+            text="Select a folder containing client subfolders. Each client folder "
+                 "should contain matter subfolders.",
+            font=('Segoe UI', 9),
+            fg='#555555',
+            anchor='w',
+            wraplength=600,
+            justify='left'
+        )
+        helper_text.pack(fill=tk.X, pady=(2, 8))
+
+        # Folder tree diagram in a bordered frame
+        diagram_frame = tk.Frame(
+            instruction_frame,
+            bg='#F5F5F5',
+            relief='solid',
+            borderwidth=1
+        )
+        diagram_frame.pack(fill=tk.X, pady=(0, 5))
+
+        diagram_label = tk.Label(
+            diagram_frame,
+            text=FOLDER_STRUCTURE_DIAGRAM,
+            font=('Consolas', 9),
+            bg='#F5F5F5',
+            anchor='w',
+            justify='left',
+            padx=10,
+            pady=8
+        )
+        diagram_label.pack(fill=tk.X)
+
+        # Format hint
+        format_hint = tk.Label(
+            instruction_frame,
+            text="Format: Client folders at level 1, Matter folders at level 2",
+            font=('Segoe UI', 8),
+            fg='#777777',
+            anchor='w'
+        )
+        format_hint.pack(fill=tk.X)
+
+        # Separator
+        separator = ttk.Separator(root, orient='horizontal')
+        separator.pack(fill=tk.X, padx=15, pady=8)
+
+        # ══════════════════════════════════════════════════════════════
+        # FOLDER SELECTION
+        # ══════════════════════════════════════════════════════════════
+        folder_frame = tk.Frame(root, padx=15, pady=5)
         folder_frame.pack(fill=tk.X)
 
-        tk.Label(folder_frame, text="Folder:").pack(side=tk.LEFT)
+        tk.Label(
+            folder_frame,
+            text="Root Folder:",
+            font=('Segoe UI', 9)
+        ).pack(side=tk.LEFT)
+
         folder_var = tk.StringVar()
-        folder_entry = tk.Entry(folder_frame, textvariable=folder_var, width=40)
-        folder_entry.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        folder_entry = tk.Entry(
+            folder_frame,
+            textvariable=folder_var,
+            width=45,
+            font=('Segoe UI', 9)
+        )
+        folder_entry.pack(side=tk.LEFT, padx=8, fill=tk.X, expand=True)
 
         def browse_folder():
             nonlocal import_result
-            path = filedialog.askdirectory(parent=root, title="Select Client Folder")
+            path = filedialog.askdirectory(
+                parent=root,
+                title="Select Root Folder Containing Client Folders"
+            )
             if path:
                 folder_var.set(path)
                 import_result = import_from_folder(path)
                 update_preview()
 
-        tk.Button(folder_frame, text="Browse...", command=browse_folder).pack(side=tk.LEFT)
+        browse_btn = tk.Button(
+            folder_frame,
+            text="Browse...",
+            command=browse_folder,
+            font=('Segoe UI', 9)
+        )
+        browse_btn.pack(side=tk.LEFT)
 
-        # Preview label
-        preview_label = tk.Label(root, text="Select a folder to preview", pady=5)
-        preview_label.pack()
+        # ══════════════════════════════════════════════════════════════
+        # PREVIEW SECTION
+        # ══════════════════════════════════════════════════════════════
+        preview_header = tk.Frame(root, padx=15, pady=(10, 5))
+        preview_header.pack(fill=tk.X)
+
+        preview_label = tk.Label(
+            preview_header,
+            text="Preview",
+            font=('Segoe UI', 10, 'bold'),
+            anchor='w'
+        )
+        preview_label.pack(side=tk.LEFT)
+
+        status_label = tk.Label(
+            preview_header,
+            text="No folder selected",
+            font=('Segoe UI', 9),
+            fg='#666666',
+            anchor='e'
+        )
+        status_label.pack(side=tk.RIGHT)
 
         # Preview frame with treeview
-        preview_frame = tk.Frame(root)
-        preview_frame.pack(fill=tk.BOTH, expand=True, padx=10)
+        preview_frame = tk.Frame(root, padx=15)
+        preview_frame.pack(fill=tk.BOTH, expand=True)
 
         columns = ('client', 'matter')
-        tree = ttk.Treeview(preview_frame, columns=columns, show='headings', height=10)
+        tree = ttk.Treeview(
+            preview_frame,
+            columns=columns,
+            show='headings',
+            height=8
+        )
         tree.heading('client', text='Client')
         tree.heading('matter', text='Matter')
-        tree.column('client', width=200)
-        tree.column('matter', width=300)
+        tree.column('client', width=220)
+        tree.column('matter', width=350)
 
-        scrollbar = ttk.Scrollbar(preview_frame, orient=tk.VERTICAL, command=tree.yview)
+        scrollbar = ttk.Scrollbar(
+            preview_frame,
+            orient=tk.VERTICAL,
+            command=tree.yview
+        )
         tree.configure(yscrollcommand=scrollbar.set)
         tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
@@ -71,38 +194,68 @@ def show_import_dialog(database):
                 tree.delete(item)
 
             if import_result:
-                preview_label.config(
-                    text=f"Found {import_result.stats['clients']} clients, "
-                         f"{import_result.stats['matters']} matters"
+                client_count = import_result.stats['clients']
+                matter_count = import_result.stats['matters']
+                status_label.config(
+                    text=f"Found {client_count} client{'s' if client_count != 1 else ''}, "
+                         f"{matter_count} matter{'s' if matter_count != 1 else ''}",
+                    fg='#228B22' if client_count > 0 else '#666666'
                 )
                 for m in import_result.matters:
                     tree.insert('', tk.END, values=(
                         m.client_display_name,
                         m.display_name
                     ))
+            else:
+                status_label.config(text="No folder selected", fg='#666666')
 
-        # Button frame
-        btn_frame = tk.Frame(root, pady=10, padx=10)
+        # ══════════════════════════════════════════════════════════════
+        # BUTTON FRAME
+        # ══════════════════════════════════════════════════════════════
+        btn_frame = tk.Frame(root, pady=12, padx=15)
         btn_frame.pack(fill=tk.X, side=tk.BOTTOM)
 
         def do_import():
             if not import_result or not import_result.clients:
-                messagebox.showwarning("No Data",
-                    "No clients found in selected folder.", parent=root)
+                messagebox.showwarning(
+                    "No Data",
+                    "No clients found in selected folder.\n\n"
+                    "Make sure you selected a folder that contains "
+                    "client subfolders.",
+                    parent=root
+                )
                 return
 
             try:
                 save_import_to_database(database, import_result)
-                messagebox.showinfo("Import Complete",
+                messagebox.showinfo(
+                    "Import Complete",
                     f"Imported {import_result.stats['clients']} clients and "
-                    f"{import_result.stats['matters']} matters.", parent=root)
+                    f"{import_result.stats['matters']} matters.",
+                    parent=root
+                )
                 root.destroy()
             except Exception as e:
                 logging.error(f"Import failed: {e}", exc_info=True)
                 messagebox.showerror("Import Failed", str(e), parent=root)
 
-        tk.Button(btn_frame, text="Cancel", command=root.destroy, width=10).pack(side=tk.RIGHT, padx=5)
-        tk.Button(btn_frame, text="Import", command=do_import, width=10).pack(side=tk.RIGHT, padx=5)
+        cancel_btn = tk.Button(
+            btn_frame,
+            text="Cancel",
+            command=root.destroy,
+            width=10,
+            font=('Segoe UI', 9)
+        )
+        cancel_btn.pack(side=tk.RIGHT, padx=5)
+
+        import_btn = tk.Button(
+            btn_frame,
+            text="Import",
+            command=do_import,
+            width=10,
+            font=('Segoe UI', 9)
+        )
+        import_btn.pack(side=tk.RIGHT, padx=5)
 
         root.mainloop()
 
