@@ -176,6 +176,23 @@ class SchemaMixin:
             ON screenshots(captured_at)
         """)
 
+    def _migrate_screenshots_table(self):
+        """Apply migrations to screenshots table for analysis support."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(screenshots)")
+            columns = [row[1] for row in cursor.fetchall()]
+
+            if 'analysis_data' not in columns:
+                cursor.execute("ALTER TABLE screenshots ADD COLUMN analysis_data TEXT")
+                logging.info("Migration: Added analysis_data column to screenshots")
+
+            if 'analysis_status' not in columns:
+                cursor.execute("ALTER TABLE screenshots ADD COLUMN analysis_status TEXT DEFAULT 'pending'")
+                logging.info("Migration: Added analysis_status column to screenshots")
+
+            conn.commit()
+
     def _create_transitions_table(self, cursor):
         """
         Create transitions table for tracking timing patterns.

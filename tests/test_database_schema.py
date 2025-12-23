@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 import sys
 import pytest
+import sqlite3
 
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 from syncopaid.database import Database
@@ -16,6 +17,21 @@ def db_connection():
         db = Database(str(db_path))
         with db._get_connection() as conn:
             yield conn
+
+
+@pytest.fixture
+def temp_db():
+    """Create a temporary database instance."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "test.db"
+        db = Database(str(db_path))
+        yield db
+
+
+@pytest.fixture
+def db_path(temp_db):
+    """Get the database path from temp_db."""
+    return temp_db.db_path
 
 
 def test_clients_table_exists(db_connection):
@@ -73,3 +89,24 @@ def test_events_client_matter_columns_nullable(db_connection):
     row = cursor.fetchone()
     assert row[0] is None  # client is NULL
     assert row[1] is None  # matter is NULL
+
+
+def test_migrate_screenshots_analysis_columns(db_path, temp_db):
+    """Test that analysis columns are added to screenshots table."""
+    # First verify columns don't exist
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(screenshots)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+    # Run migration
+    temp_db._migrate_screenshots_table()
+
+    # Verify columns now exist
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(screenshots)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+    assert 'analysis_data' in columns
+    assert 'analysis_status' in columns
