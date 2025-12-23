@@ -546,6 +546,27 @@ def show_timeline_window(database, date: Optional[str] = None):
 
         ttk.Button(control_frame, text="Refresh", command=refresh_timeline).pack(side=tk.LEFT, padx=(10, 0))
 
+        def export_image():
+            from tkinter import filedialog
+            filepath = filedialog.asksaveasfilename(
+                defaultextension='.png',
+                filetypes=[('PNG Image', '*.png')],
+                initialfilename=f'timeline_{current_date}.png'
+            )
+            if filepath:
+                export_timeline_image(
+                    current_blocks,
+                    current_date,
+                    filepath,
+                    width=1200,
+                    height=100,
+                    zoom_level=zoom_var.get()
+                )
+                from tkinter import messagebox
+                messagebox.showinfo("Export Complete", f"Timeline saved to:\n{filepath}")
+
+        ttk.Button(control_frame, text="Export Image", command=export_image).pack(side=tk.LEFT, padx=(10, 0))
+
         # Summary label
         summary_label = ttk.Label(control_frame, text="")
         summary_label.pack(side=tk.RIGHT)
