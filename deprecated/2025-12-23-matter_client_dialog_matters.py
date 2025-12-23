@@ -4,12 +4,108 @@ from tkinter import ttk, messagebox, filedialog
 from typing import Optional, Callable
 from syncopaid.database import Database
 from syncopaid.matter_client_csv import import_matters_csv, export_matters_csv
-from syncopaid.matter_client_dialog_matters_utils import (
-    format_keywords_for_display,
-    get_matters_with_keywords
-)
-from syncopaid.matter_client_dialog_tooltip import ToolTip
-from syncopaid.matter_client_dialog_edit import MatterEditDialog
+
+
+def format_keywords_for_display(
+    keywords: list,
+    max_display: int = 5
+) -> str:
+    """
+    Format keywords list for UI display.
+
+    Args:
+        keywords: List of keyword dicts with 'keyword' and 'confidence'
+        max_display: Maximum keywords to show before truncating
+
+    Returns:
+        Comma-separated string of keywords, with "..." if truncated
+    """
+    if not keywords:
+        return ""
+
+    # Sort by confidence (should already be sorted, but ensure)
+    sorted_kw = sorted(keywords, key=lambda k: k.get('confidence', 0), reverse=True)
+
+    # Take top N keywords
+    display_kw = [k['keyword'] for k in sorted_kw[:max_display]]
+
+    # Add ellipsis if truncated
+    if len(sorted_kw) > max_display:
+        display_kw.append("...")
+
+    return ", ".join(display_kw)
+
+
+def get_matters_with_keywords(db) -> list:
+    """
+    Get all matters with their AI-extracted keywords formatted for display.
+
+    Args:
+        db: Database instance
+
+    Returns:
+        List of matter dicts with added 'keywords_display' field
+    """
+    matters = db.get_matters(status='all')
+
+    for matter in matters:
+        keywords = db.get_matter_keywords(matter['id'])
+        matter['keywords_display'] = format_keywords_for_display(keywords)
+        matter['keywords_raw'] = keywords  # For tooltip/detail view
+
+    return matters
+
+
+class ToolTip:
+    """Simple tooltip for tkinter widgets."""
+
+    def __init__(self, widget, text_func):
+        """
+        Create tooltip that shows text from text_func on hover.
+
+        Args:
+            widget: Widget to attach tooltip to
+            text_func: Callable that returns tooltip text (receives event)
+        """
+        self.widget = widget
+        self.text_func = text_func
+        self.tip_window = None
+
+        widget.bind('<Enter>', self._show)
+        widget.bind('<Leave>', self._hide)
+        widget.bind('<Motion>', self._update_position)
+
+    def _show(self, event):
+        text = self.text_func(event)
+        if not text:
+            return
+
+        x = event.x_root + 10
+        y = event.y_root + 10
+
+        self.tip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+
+        label = tk.Label(
+            tw,
+            text=text,
+            background="#ffffe0",
+            relief=tk.SOLID,
+            borderwidth=1,
+            font=("TkDefaultFont", 9)
+        )
+        label.pack()
+
+    def _hide(self, event):
+        if self.tip_window:
+            self.tip_window.destroy()
+            self.tip_window = None
+
+    def _update_position(self, event):
+        if self.tip_window:
+            self._hide(event)
+            self._show(event)
 
 
 class MatterDialog:
@@ -176,3 +272,72 @@ class MatterDialog:
         if self.on_close:
             self.on_close()
         self.window.destroy()
+
+
+class MatterEditDialog:
+    """Dialog for adding/editing a single matter."""
+
+    def __init__(self, parent, db: Database, matter: Optional[dict] = None):
+        self.db = db
+        self.matter = matter
+
+        self.window = tk.Toplevel(parent)
+        self.window.title("Edit Matter" if matter else "Add Matter")
+        self.window.geometry("500x300")
+
+        form_frame = ttk.Frame(self.window, padding=20)
+        form_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Matter number
+        ttk.Label(form_frame, text="Matter Number:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        self.matter_number_var = tk.StringVar(value=matter['matter_number'] if matter else "")
+        ttk.Entry(form_frame, textvariable=self.matter_number_var, width=40).grid(row=0, column=1, pady=5)
+
+        # Client dropdown
+        ttk.Label(form_frame, text="Client:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        self.clients = db.get_clients()
+        client_names = ["(No Client)"] + [c['name'] for c in self.clients]
+        self.client_var = tk.StringVar(value="(No Client)")
+        if matter and matter.get('client_id'):
+            for c in self.clients:
+                if c['id'] == matter['client_id']:
+                    self.client_var.set(c['name'])
+        ttk.Combobox(form_frame, textvariable=self.client_var, values=client_names,
+                    state='readonly', width=38).grid(row=1, column=1, pady=5)
+
+        # Description
+        ttk.Label(form_frame, text="Description:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        self.description_var = tk.StringVar(value=matter['description'] if matter and matter['description'] else "")
+        ttk.Entry(form_frame, textvariable=self.description_var, width=40).grid(row=2, column=1, pady=5)
+
+        button_frame = ttk.Frame(self.window, padding=10)
+        button_frame.pack(fill=tk.X)
+        ttk.Button(button_frame, text="Save", command=self._save).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=self.window.destroy).pack(side=tk.RIGHT, padx=5)
+
+        self.window.transient(parent)
+        self.window.grab_set()
+
+    def _save(self):
+        matter_number = self.matter_number_var.get().strip()
+        if not matter_number:
+            return messagebox.showerror("Error", "Matter number is required.")
+
+        client_id = None
+        client_name = self.client_var.get()
+        if client_name != "(No Client)":
+            for c in self.clients:
+                if c['name'] == client_name:
+                    client_id = c['id']
+                    break
+
+        description = self.description_var.get().strip() or None
+
+        try:
+            if self.matter:
+                self.db.update_matter(self.matter['id'], matter_number, client_id, description)
+            else:
+                self.db.insert_matter(matter_number, client_id, description)
+            self.window.destroy()
+        except Exception as e:
+            messagebox.showerror("Error", str(e))

@@ -189,7 +189,16 @@
       "lines": 125
     },
     "src/syncopaid/matter_client_dialog_matters.py": {
-      "lines": 343
+      "lines": 178
+    },
+    "src/syncopaid/matter_client_dialog_matters_utils.py": {
+      "lines": 51
+    },
+    "src/syncopaid/matter_client_dialog_tooltip.py": {
+      "lines": 54
+    },
+    "src/syncopaid/matter_client_dialog_edit.py": {
+      "lines": 74
     },
     "src/syncopaid/prompt.py": {
       "lines": 72
@@ -329,6 +338,7 @@
     "src/syncopaid/exporter.py",
     "src/syncopaid/main_app_class.py",
     "src/syncopaid/database_patterns.py",
-    "src/syncopaid/context_extraction.py"
+    "src/syncopaid/context_extraction.py",
+    "src/syncopaid/matter_client_dialog_matters.py"
   ]
 }
