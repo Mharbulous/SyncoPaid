@@ -64,3 +64,22 @@ class TestLegalResearchDetection:
         from syncopaid.context_extraction import is_legal_research_app
         assert is_legal_research_app("notepad.exe") is False
         assert is_legal_research_app("chrome.exe", "YouTube - Funny Video") is False
+
+
+class TestCanadianCitationExtraction:
+    """Test Canadian case citation extraction."""
+
+    @pytest.mark.parametrize("title,expected", [
+        ("CanLII - 2024 BCSC 1234 - Google Chrome", "2024 BCSC 1234"),
+        ("Westlaw - 2023 SCC 15 - Smith v Jones", "2023 SCC 15"),
+        ("2022 ONCA 456 - Court of Appeal", "2022 ONCA 456"),
+        ("R v Smith, 2021 ABQB 789", "2021 ABQB 789"),
+        ("Decision - 2024 FC 100 - Federal Court", "2024 FC 100"),
+    ])
+    def test_neutral_citation_extraction(self, title, expected):
+        from syncopaid.context_extraction import extract_canadian_citation
+        assert extract_canadian_citation(title) == expected
+
+    def test_no_citation_returns_none(self):
+        from syncopaid.context_extraction import extract_canadian_citation
+        assert extract_canadian_citation("CanLII - Search Results") is None

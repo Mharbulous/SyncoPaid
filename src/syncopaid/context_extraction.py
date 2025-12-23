@@ -16,6 +16,14 @@ LEGAL_RESEARCH_BROWSER_PATTERNS = [
     'fastcase', 'casetext', 'courtlistener', 'justia'
 ]
 
+# Canadian neutral citation pattern: YYYY CourtCode Number
+# Examples: 2024 BCSC 1234, 2023 SCC 15, 2022 ONCA 456
+CANADIAN_CITATION_PATTERN = re.compile(
+    r'\b(20\d{2})\s+'  # Year (2000-2099)
+    r'([A-Z]{2,6})\s+'  # Court code (2-6 uppercase letters)
+    r'(\d{1,5})\b'       # Decision number
+)
+
 def extract_url_from_browser(app: str, title: str) -> str:
     """
     Extract URL from browser window title.
@@ -201,3 +209,25 @@ def is_legal_research_app(app: str, title: str = None) -> bool:
         return any(pattern in title_lower for pattern in LEGAL_RESEARCH_BROWSER_PATTERNS)
 
     return False
+
+def extract_canadian_citation(title: str) -> str:
+    """
+    Extract Canadian neutral citation from window title.
+
+    Examples: 2024 BCSC 1234, 2023 SCC 15, 2022 ONCA 456
+
+    Args:
+        title: Window title text
+
+    Returns:
+        Citation string (e.g., "2024 BCSC 1234") or None
+    """
+    if not title:
+        return None
+
+    match = CANADIAN_CITATION_PATTERN.search(title)
+    if match:
+        year, court, number = match.groups()
+        return f"{year} {court} {number}"
+
+    return None
