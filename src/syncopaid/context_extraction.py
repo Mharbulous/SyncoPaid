@@ -36,6 +36,13 @@ CASE_NAME_PATTERN = re.compile(
     r')\b'
 )
 
+# Docket/file number patterns
+DOCKET_PATTERN = re.compile(
+    r'(?:Case\s+No\.?|Docket:?|File\s+No\.?|Court\s+File\s+No\.?)\s*'
+    r'([A-Z0-9\-:]+)',
+    re.IGNORECASE
+)
+
 def extract_url_from_browser(app: str, title: str) -> str:
     """
     Extract URL from browser window title.
@@ -270,5 +277,29 @@ def extract_case_name(title: str) -> str:
         # Clean up trailing punctuation
         case_name = re.sub(r'[\s\-]+$', '', case_name)
         return case_name if len(case_name) > 5 else None
+
+    return None
+
+def extract_docket_number(title: str) -> str:
+    """
+    Extract court docket/file number from window title.
+
+    Examples: 2024-CV-12345, 1:24-cv-00123
+
+    Args:
+        title: Window title text
+
+    Returns:
+        Docket number string or None
+    """
+    if not title:
+        return None
+
+    match = DOCKET_PATTERN.search(title)
+    if match:
+        docket = match.group(1).strip()
+        # Must have at least one digit to be a valid docket
+        if re.search(r'\d', docket):
+            return docket
 
     return None

@@ -101,3 +101,21 @@ class TestUSCitationExtraction:
     def test_no_case_name_returns_none(self):
         from syncopaid.context_extraction import extract_case_name
         assert extract_case_name("Westlaw - Home Page") is None
+
+
+class TestDocketNumberExtraction:
+    """Test court docket/file number extraction."""
+
+    @pytest.mark.parametrize("title,expected", [
+        ("Case No. 2024-CV-12345", "2024-CV-12345"),
+        ("Docket: 1:24-cv-00123", "1:24-cv-00123"),
+        ("File No. CV-2024-001234", "CV-2024-001234"),
+        ("Court File No. SC-24-123456", "SC-24-123456"),
+    ])
+    def test_docket_extraction(self, title, expected):
+        from syncopaid.context_extraction import extract_docket_number
+        assert extract_docket_number(title) == expected
+
+    def test_no_docket_returns_none(self):
+        from syncopaid.context_extraction import extract_docket_number
+        assert extract_docket_number("General Legal Document") is None
