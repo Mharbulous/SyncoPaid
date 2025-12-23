@@ -156,3 +156,31 @@ def test_secure_delete_performance(tmp_path):
     elapsed_ms = (time.perf_counter() - start) * 1000
 
     assert elapsed_ms < 100, f"Deletion took {elapsed_ms:.2f}ms, should be under 100ms"
+
+
+def test_database_integrity_after_secure_delete(tmp_path):
+    """Verify database integrity is maintained after secure deletions."""
+    db_path = tmp_path / "test.db"
+    db = Database(str(db_path))
+
+    # Insert multiple events
+    events = [
+        ActivityEvent(
+            timestamp=f"2025-12-21T{10+i}:00:00",
+            duration_seconds=60.0,
+            app="test.exe",
+            title=f"Window {i}",
+            is_idle=False
+        )
+        for i in range(10)
+    ]
+    db.insert_events_batch(events)
+
+    # Delete some events
+    db.delete_events(start_date="2025-12-21", end_date="2025-12-21")
+
+    # Run integrity check
+    with db._get_connection() as conn:
+        cursor = conn.execute("PRAGMA integrity_check")
+        result = cursor.fetchone()[0]
+        assert result == "ok", f"Database integrity check failed: {result}"
