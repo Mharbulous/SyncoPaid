@@ -1,11 +1,13 @@
 ---
 name: story-arborist
-description: Analyze, diagnose, and reorganize story tree structure. Use when user says "check tree health", "find orphans", "move story", "rename story", "fix tree structure", "reparent stories", "validate tree", or when structural issues are suspected in story-tree.db. Focuses Claude on diagnosis while delegating mechanical operations to deterministic scripts.
+description: Analyze, diagnose, and reorganize story tree structure. Use when user says "check tree health", "find orphans", "move story", "rename story", "fix tree structure", "reparent stories", "validate tree", or when structural issues are suspected in story-tree.db. Focuses Claude on diagnosis while delegating mechanical operations to deterministic scripts. (project)
 ---
 
 # Story Arborist - Tree Structure Analysis and Reorganization
 
-Diagnose structural issues and reorganize story-tree.db nodes using deterministic scripts.
+Diagnose structural and semantic issues in story-tree.db using a two-phase approach:
+1. **Phase 1: Structural Health** — deterministic scripts check closure table integrity
+2. **Phase 2: Semantic Organization** — AI analysis of node hierarchy and grouping
 
 **Database:** `.claude/data/story-tree.db`
 **Scripts:** `.claude/skills/story-arborist/scripts/`
@@ -72,6 +74,87 @@ python .claude/skills/story-arborist/scripts/move_node.py 8.6 root
 ```bash
 python .claude/skills/story-arborist/scripts/validate_tree.py
 ```
+
+---
+
+## Phase 2: Semantic Organization Review
+
+After structural issues are resolved, analyze semantic organization. This phase requires AI judgment—scripts can only surface data; you must interpret it.
+
+### Semantic Health Indicators
+
+| Indicator | How to Check | Action |
+|-----------|--------------|--------|
+| **Leaf epics** | Depth-1 nodes with 0 children | Consider demoting to depth-2 under related epic |
+| **Feature fragmentation** | Related keywords spread across multiple parents | Consolidate under single epic |
+| **Granularity mismatch** | Title specificity inappropriate for depth | Move to appropriate depth |
+| **Overlapping features** | Similar titles/descriptions among siblings | Merge or clarify boundaries |
+| **Rejected clutter** | Rejected/archived nodes still at depth-1 | Archive (move under "Archive" epic) or delete |
+
+### Diagnostic Queries
+
+Run these queries against `.claude/data/story-tree.db` to surface semantic issues:
+
+#### Leaf Epics (depth-1 with no children)
+
+```sql
+SELECT n.id, n.title, n.stage, n.disposition
+FROM story_nodes n
+JOIN story_paths p ON p.descendant_id = n.id AND p.ancestor_id = 'root' AND p.depth = 1
+WHERE NOT EXISTS (
+    SELECT 1 FROM story_paths p2 WHERE p2.ancestor_id = n.id AND p2.depth = 1
+);
+```
+
+Nodes returned here are primary epics with no children—likely implementation details masquerading as epics.
+
+#### Depth-1 Distribution
+
+```sql
+SELECT n.id, n.title, n.stage, n.disposition,
+    (SELECT COUNT(*) FROM story_paths p2 WHERE p2.ancestor_id = n.id AND p2.depth > 0) as descendants
+FROM story_nodes n
+JOIN story_paths p ON p.descendant_id = n.id AND p.ancestor_id = 'root' AND p.depth = 1
+ORDER BY descendants;
+```
+
+Look for:
+- **0 descendants**: Leaf epics—should be demoted
+- **Uneven distribution**: Some epics may be absorbing too much or too little
+
+#### Rejected/Archived at Depth-1
+
+```sql
+SELECT n.id, n.title, n.disposition, n.stage
+FROM story_nodes n
+JOIN story_paths p ON p.descendant_id = n.id AND p.ancestor_id = 'root' AND p.depth = 1
+WHERE n.disposition IN ('rejected', 'archived') OR n.hold_reason IS NOT NULL;
+```
+
+These nodes clutter the primary epic list and should be moved to an archive area.
+
+### Epic vs Feature vs Task Guidelines
+
+| Level | Depth | Characteristics | Title Style |
+|-------|-------|-----------------|-------------|
+| **Epic** | 1 | Broad capability area, 3+ children, spans multiple features | Noun phrase ("User Authentication", "AI Integration") |
+| **Feature** | 2 | Specific functionality, may have sub-tasks | Describes what it does ("OAuth2 Provider Support", "Screenshot OCR") |
+| **Task** | 3+ | Implementation detail, typically leaf node | Actionable verb phrase ("Implement token refresh", "Add retry logic") |
+
+**Red flags:**
+- Epic with 0-1 children → probably a feature misclassified
+- Depth-1 title with implementation specifics → wrong granularity
+- Multiple depth-1 nodes with overlapping keywords → fragmentation
+
+### Semantic Analysis Workflow
+
+1. **Run diagnostic queries** to surface potential issues
+2. **Group by theme** — identify related nodes that might consolidate
+3. **Propose reorganization** — draft moves/merges with rationale
+4. **Validate with user** — semantic changes are subjective; get approval
+5. **Execute with scripts** — use `move_node.py`, `bulk_reparent.py`, etc.
+
+---
 
 ## Common Scenarios
 
