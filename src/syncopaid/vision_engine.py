@@ -7,7 +7,7 @@ without changing the analysis pipeline.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional, Type
 
 
 @dataclass
@@ -62,3 +62,41 @@ class VisionEngine(ABC):
             AnalysisResult with description, activity_type, confidence, raw_output
         """
         pass
+
+
+# Engine registry - maps engine names to their classes
+_registry: Dict[str, Type[VisionEngine]] = {}
+
+
+def register_engine(name: str, engine_class: Type[VisionEngine]) -> None:
+    """Register a vision engine class.
+
+    Args:
+        name: Unique identifier for the engine (e.g., 'moondream2')
+        engine_class: The VisionEngine subclass to register
+    """
+    _registry[name] = engine_class
+
+
+def get_registered_engines() -> Dict[str, Type[VisionEngine]]:
+    """Get all registered engine classes.
+
+    Returns:
+        Dict mapping engine names to their classes
+    """
+    return _registry.copy()
+
+
+def get_engine(name: str) -> Optional[VisionEngine]:
+    """Get an instantiated engine by name.
+
+    Args:
+        name: The registered engine name
+
+    Returns:
+        Instantiated engine or None if not found
+    """
+    engine_class = _registry.get(name)
+    if engine_class is None:
+        return None
+    return engine_class()
