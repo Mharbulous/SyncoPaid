@@ -114,7 +114,16 @@
       "lines": 85
     },
     "src/syncopaid/database_schema.py": {
-      "lines": 335
+      "lines": 64
+    },
+    "src/syncopaid/database_schema_events.py": {
+      "lines": 122
+    },
+    "src/syncopaid/database_schema_screenshots.py": {
+      "lines": 83
+    },
+    "src/syncopaid/database_schema_matters.py": {
+      "lines": 132
     },
     "src/syncopaid/database_screenshots.py": {
       "lines": 199
@@ -339,6 +348,7 @@
     "src/syncopaid/main_app_class.py",
     "src/syncopaid/database_patterns.py",
     "src/syncopaid/context_extraction.py",
-    "src/syncopaid/matter_client_dialog_matters.py"
+    "src/syncopaid/matter_client_dialog_matters.py",
+    "src/syncopaid/database_schema.py"
   ]
 }
