@@ -64,5 +64,30 @@ class ScreenshotReviewDialog:
         ttk.Button(button_frame, text="Close", command=self.window.destroy).pack(side=tk.RIGHT, padx=5)
 
     def _delete_selected(self):
-        """Delete selected screenshots."""
-        pass  # Will implement in next task
+        """Delete selected screenshots with confirmation."""
+        from tkinter import messagebox
+
+        # Get selected indices
+        selected_indices = self.listbox.curselection()
+        if not selected_indices:
+            messagebox.showinfo("No Selection", "Please select screenshots to delete.", parent=self.window)
+            return
+
+        # Get screenshot IDs for selected items
+        selected_ids = [self.screenshots[i]['id'] for i in selected_indices]
+
+        # Confirm deletion
+        count = len(selected_ids)
+        message = f"Permanently delete {count} screenshot{'s' if count > 1 else ''}?\n\nThis action cannot be undone."
+        if not messagebox.askyesno("Confirm Deletion", message, parent=self.window):
+            return
+
+        # Perform secure deletion
+        deleted = self.db.delete_screenshots_securely(selected_ids)
+
+        # Remove from listbox (in reverse order to preserve indices)
+        for i in reversed(selected_indices):
+            self.listbox.delete(i)
+            del self.screenshots[i]
+
+        messagebox.showinfo("Deleted", f"Securely deleted {deleted} screenshot{'s' if deleted != 1 else ''}.", parent=self.window)
