@@ -94,6 +94,11 @@ class Config:
         llm_provider: LLM provider to use - 'openai' or 'anthropic' (default: openai)
         llm_api_key: API key or environment variable name (default: empty string)
         billing_increment: Minutes per billing increment (default: 6 = 0.1 hour)
+        night_processing_enabled: Enable night processing mode (default: True)
+        night_processing_start_hour: Hour when night mode begins (default: 18)
+        night_processing_end_hour: Hour when night mode ends (default: 8)
+        night_processing_idle_minutes: Idle minutes required to trigger night processing (default: 30)
+        night_processing_batch_size: Number of activities to process per batch (default: 50)
     """
     poll_interval_seconds: float = 1.0
     idle_threshold_seconds: float = 180.0
@@ -142,6 +147,12 @@ class Config:
     resource_memory_threshold_mb: int = 200
     resource_battery_threshold: int = 20
     resource_monitoring_interval_seconds: int = 60
+    # Night processing settings
+    night_processing_enabled: bool = True
+    night_processing_start_hour: int = 18
+    night_processing_end_hour: int = 8
+    night_processing_idle_minutes: int = 30
+    night_processing_batch_size: int = 50
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary."""

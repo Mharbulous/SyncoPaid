@@ -54,4 +54,10 @@ DEFAULT_CONFIG = {
     "resource_memory_threshold_mb": 200,
     "resource_battery_threshold": 20,
     "resource_monitoring_interval_seconds": 60,
+    # Night processing settings
+    "night_processing_enabled": True,
+    "night_processing_start_hour": 18,  # 6 PM
+    "night_processing_end_hour": 8,     # 8 AM
+    "night_processing_idle_minutes": 30,
+    "night_processing_batch_size": 50,
 }
