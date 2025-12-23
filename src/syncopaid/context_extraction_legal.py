@@ -1,6 +1,6 @@
 """Legal research context extraction from window titles."""
 import re
-from context_extraction_browser import BROWSER_APPS
+from .context_extraction_browser import BROWSER_APPS
 
 # Legal research platforms (desktop apps and browser patterns)
 LEGAL_RESEARCH_APPS = {

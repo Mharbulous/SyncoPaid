@@ -153,6 +153,28 @@ from mymodule import function  # Match exact file case
 
 ---
 
+### 8. Absolute Imports for Sibling Modules
+
+**Issue:** Absolute imports for sibling modules within the syncopaid package fail in PyInstaller bundles because the module is not at the top-level namespace.
+
+**Pattern to avoid:**
+```python
+# Inside src/syncopaid/context_extraction.py
+from context_extraction_browser import extract_url_from_browser
+```
+
+**Correct approach:**
+```python
+# Use relative imports for sibling modules
+from .context_extraction_browser import extract_url_from_browser
+```
+
+**Why it fails:** When running from source with `python -m syncopaid`, Python can resolve sibling modules. But PyInstaller bundles modules into a namespace hierarchy where bare module names like `context_extraction_browser` aren't found at the top level—they exist under `syncopaid.context_extraction_browser`.
+
+**Related commit:** 2024964 - fix: use relative imports in context_extraction.py
+
+---
+
 ## Statistics
 
 From analysis of 185 commits:
