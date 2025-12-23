@@ -73,3 +73,16 @@ def test_get_statistics_returns_empty_when_no_samples():
     assert stats['samples_count'] == 0
     assert stats['peak_cpu'] == 0.0
     assert stats['peak_memory_mb'] == 0.0
+
+
+def test_get_idle_poll_interval():
+    """Test get_idle_poll_interval returns slower interval for extended idle."""
+    monitor = ResourceMonitor()
+
+    # Short idle - normal interval
+    short_idle_interval = monitor.get_idle_poll_interval(idle_seconds=60, base_interval=1.0)
+    assert short_idle_interval == 1.0
+
+    # Extended idle (>10 min) - slow interval
+    extended_idle_interval = monitor.get_idle_poll_interval(idle_seconds=700, base_interval=1.0)
+    assert extended_idle_interval == 10.0  # 10s for extended idle

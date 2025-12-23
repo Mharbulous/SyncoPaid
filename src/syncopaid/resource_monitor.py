@@ -220,3 +220,26 @@ class ResourceMonitor:
             'avg_memory_mb': self._total_memory_mb / self._samples_count,
             'samples_count': self._samples_count
         }
+
+    def get_idle_poll_interval(self, idle_seconds: float, base_interval: float = 1.0) -> float:
+        """
+        Get poll interval adjusted for idle time.
+
+        During extended idle (>10 minutes), reduce polling from 1s to 10s
+        to save resources when user is away.
+
+        Args:
+            idle_seconds: Current idle time in seconds
+            base_interval: Normal poll interval (default 1.0s)
+
+        Returns:
+            Adjusted poll interval in seconds
+        """
+        # Extended idle threshold: 10 minutes
+        EXTENDED_IDLE_THRESHOLD = 600  # 10 * 60 seconds
+        IDLE_POLL_INTERVAL = 10.0
+
+        if idle_seconds > EXTENDED_IDLE_THRESHOLD:
+            return IDLE_POLL_INTERVAL
+
+        return base_interval
