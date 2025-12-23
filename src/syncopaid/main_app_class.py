@@ -18,6 +18,7 @@ from syncopaid.database import Database
 from syncopaid.exporter import Exporter
 from syncopaid.tray import TrayIcon, sync_startup_registry
 from syncopaid.main_single_instance import release_single_instance
+from syncopaid.resource_monitor import ResourceMonitor
 from syncopaid.main_app_initialization import (
     initialize_screenshot_worker,
     initialize_action_screenshot_worker,
@@ -68,6 +69,15 @@ class SyncoPaidApp:
 
         # Initialize action screenshot worker (if enabled)
         self.action_screenshot_worker = initialize_action_screenshot_worker(self.config, self.database)
+
+        # Initialize resource monitor
+        self.resource_monitor = ResourceMonitor(
+            cpu_threshold=self.config.resource_cpu_threshold,
+            memory_threshold_mb=self.config.resource_memory_threshold_mb,
+            battery_threshold=self.config.resource_battery_threshold,
+            monitoring_interval_seconds=self.config.resource_monitoring_interval_seconds
+        )
+        logging.info("Resource monitor initialized")
 
         # Initialize archiver
         self.archiver = initialize_archiver()
@@ -140,6 +150,17 @@ class SyncoPaidApp:
         # Shutdown action screenshot worker
         if self.action_screenshot_worker:
             self.action_screenshot_worker.shutdown(wait=True, timeout=5.0)
+
+        # Log resource statistics
+        if self.resource_monitor:
+            stats = self.resource_monitor.get_statistics()
+            if stats['samples_count'] > 0:
+                logging.info(
+                    f"Resource stats - Peak CPU: {stats['peak_cpu']:.1f}%, "
+                    f"Avg CPU: {stats['avg_cpu']:.1f}%, "
+                    f"Peak Memory: {stats['peak_memory_mb']:.1f}MB, "
+                    f"Avg Memory: {stats['avg_memory_mb']:.1f}MB"
+                )
 
         # Show final statistics
         self.show_statistics()
