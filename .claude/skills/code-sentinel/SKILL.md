@@ -73,7 +73,7 @@ Read the problematic file(s) to understand:
 
 ### Step 3: Suggest Fix
 
-Based on the pattern and context, suggest an appropriate fix. Each pattern has known good solutions (see references/recurring-patterns.md).
+Based on the pattern and context, suggest an appropriate fix. Each pattern has known good solutions documented in the `anti-patterns/` directory. Read only the relevant file for the detected pattern.
 
 **Example patterns:**
 
@@ -84,6 +84,7 @@ Based on the pattern and context, suggest an appropriate fix. Each pattern has k
 | grep -c \|\| echo | Use \|\| true instead |
 | git pull without autostash | Add --autostash flag |
 | Missing hiddenimports | Add module to spec file |
+| Absolute sibling imports | Use relative imports (from .module) |
 
 ### Step 4: Apply Fix
 
@@ -230,6 +231,25 @@ a = Analysis(
 
 ---
 
+#### 6. Absolute Imports for Sibling Modules
+
+**Test:** `test_sibling_imports_use_relative_syntax`
+
+**Issue:** Absolute imports for sibling modules fail in PyInstaller bundles
+
+**Fix Example:**
+```python
+# Bad - inside src/syncopaid/context_extraction.py
+from context_extraction_browser import extract_url_from_browser
+
+# Good - use relative imports for sibling modules
+from .context_extraction_browser import extract_url_from_browser
+```
+
+**Commit:** 2024964
+
+---
+
 ## Advanced Usage
 
 ### Fix Specific Test
@@ -318,9 +338,30 @@ Fix one pattern at a time:
 
 ## Reference Materials
 
-For detailed patterns and examples, see:
+Anti-patterns are documented individually for efficient lookup:
 
-- **references/recurring-patterns.md** - All patterns with code examples and statistics
+```
+.claude/skills/code-sentinel/anti-patterns/
+├── 01-heredocs-in-github-actions.md
+├── 02-grep-exit-code-handling.md
+├── 03-git-operations-without-staging.md
+├── 04-non-deterministic-file-selection.md
+├── 05-fixed-window-geometry.md
+├── 06-pyinstaller-hidden-imports.md
+├── 07-path-case-sensitivity.md
+└── 08-absolute-imports-for-siblings.md
+```
+
+When a test fails, read only the relevant anti-pattern file for context-specific guidance.
+
+Each anti-pattern file contains:
+- **Category** - CI/Workflow or Application
+- **Issue** - What goes wrong
+- **Pattern to Avoid** - Code example of the problem
+- **Correct Approach** - Code example of the fix
+- **Detection** - How to find this pattern
+- **Test Reference** - Link to the test that catches this
+- **Related Commit** - Historical context
 
 ## Statistics
 
