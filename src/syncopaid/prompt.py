@@ -35,8 +35,12 @@ class TransitionPrompt:
         """
         self.root = tk.Tk()
         self.root.title("SyncoPaid - Time Categorization")
-        self.root.geometry("400x200")
         self.root.attributes('-topmost', True)
+
+        # Set minimum width, let height auto-size to fit content
+        self.root.minsize(400, 0)
+        # Prevent horizontal resizing but allow vertical auto-sizing
+        self.root.resizable(False, False)
 
         # Message
         msg = "Is now a good time to categorize your time?"
@@ -48,7 +52,7 @@ class TransitionPrompt:
 
         # Response buttons
         btn_frame = tk.Frame(self.root)
-        btn_frame.pack(pady=10)
+        btn_frame.pack(pady=(10, 20))  # Extra bottom padding for last button
 
         for key, text in self.RESPONSES.items():
             btn = tk.Button(
