@@ -88,3 +88,6 @@ logs/
 *.db.backup
 # Database backups
 .claude/data/*.backup-*
+
+# Generated priority lists (output of prioritize_stories.py)
+.claude/data/priority-lists/
