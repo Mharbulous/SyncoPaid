@@ -113,3 +113,41 @@ def test_show_screenshot_review_dialog_function():
         if dialog and dialog.window:
             dialog.window.destroy()
         root.destroy()
+
+
+def test_date_filter_refreshes_list():
+    """Test that changing date filter refreshes the screenshot list."""
+    from syncopaid.screenshot_review_dialog import ScreenshotReviewDialog
+    from datetime import datetime
+
+    mock_db = MagicMock()
+    mock_db.get_screenshots.return_value = [
+        {'id': 1, 'captured_at': '2025-12-23T10:00:00', 'file_path': '/path/1.jpg', 'window_title': 'Test1'},
+    ]
+
+    root = tk.Tk()
+    root.withdraw()
+
+    try:
+        dialog = ScreenshotReviewDialog(root, mock_db)
+        dialog.show()
+
+        # Initial call
+        assert mock_db.get_screenshots.call_count == 1
+
+        # Simulate date change and refresh - mock the get() to return our test date
+        dialog.date_var.get = MagicMock(return_value='2025-12-22')
+        dialog._refresh()
+
+        # Should have called get_screenshots again with date filter
+        assert mock_db.get_screenshots.call_count == 2
+        call_args = mock_db.get_screenshots.call_args
+        # Check that start_date and end_date parameters were passed
+        assert 'start_date' in call_args.kwargs
+        assert 'end_date' in call_args.kwargs
+        assert call_args.kwargs['start_date'] == '2025-12-22'
+        assert call_args.kwargs['end_date'] == '2025-12-22'
+    finally:
+        if dialog.window:
+            dialog.window.destroy()
+        root.destroy()

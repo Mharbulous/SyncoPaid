@@ -28,17 +28,29 @@ class ScreenshotReviewDialog:
 
     def show(self):
         """Show the screenshot review dialog."""
+        from datetime import datetime
+
         self.window = tk.Toplevel(self.parent)
         self.window.title("Review Screenshots")
         self.window.geometry("800x600")
         self.window.transient(self.parent)
 
-        # Load screenshots from database
-        self.screenshots = self.db.get_screenshots(limit=100)
-
         # Create main frame
         main_frame = ttk.Frame(self.window, padding=10)
         main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Date filter frame
+        filter_frame = ttk.Frame(main_frame)
+        filter_frame.pack(fill=tk.X, pady=(0, 10))
+
+        ttk.Label(filter_frame, text="Date:").pack(side=tk.LEFT, padx=(0, 5))
+        self.date_var = tk.StringVar(value=datetime.now().strftime('%Y-%m-%d'))
+        date_entry = ttk.Entry(filter_frame, textvariable=self.date_var, width=12)
+        date_entry.pack(side=tk.LEFT, padx=(0, 10))
+        date_entry.bind('<Return>', lambda e: self._refresh())
+
+        ttk.Button(filter_frame, text="Refresh", command=self._refresh).pack(side=tk.LEFT)
+        ttk.Button(filter_frame, text="All Dates", command=self._show_all).pack(side=tk.LEFT, padx=5)
 
         # Listbox for screenshots
         list_frame = ttk.Frame(main_frame)
@@ -51,17 +63,37 @@ class ScreenshotReviewDialog:
         self.listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Populate listbox
-        for screenshot in self.screenshots:
-            display_text = f"{screenshot['captured_at'][:19]} - {screenshot.get('window_title', 'Unknown')}"
-            self.listbox.insert(tk.END, display_text)
-
         # Button frame
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill=tk.X, pady=(10, 0))
 
         ttk.Button(button_frame, text="Delete Selected", command=self._delete_selected).pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Close", command=self.window.destroy).pack(side=tk.RIGHT, padx=5)
+
+        # Load initial data
+        self._refresh()
+
+    def _refresh(self):
+        """Refresh the screenshot list based on current date filter."""
+        date_filter = self.date_var.get().strip()
+        if date_filter:
+            self.screenshots = self.db.get_screenshots(start_date=date_filter, end_date=date_filter, limit=100)
+        else:
+            self.screenshots = self.db.get_screenshots(limit=100)
+
+        self._populate_listbox()
+
+    def _show_all(self):
+        """Show all screenshots without date filter."""
+        self.date_var.set('')
+        self._refresh()
+
+    def _populate_listbox(self):
+        """Populate the listbox with current screenshots."""
+        self.listbox.delete(0, tk.END)
+        for screenshot in self.screenshots:
+            display_text = f"{screenshot['captured_at'][:19]} - {screenshot.get('window_title', 'Unknown')}"
+            self.listbox.insert(tk.END, display_text)
 
     def _delete_selected(self):
         """Delete selected screenshots with confirmation."""
