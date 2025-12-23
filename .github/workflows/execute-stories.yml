@@ -1216,10 +1216,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Pull latest before staging to avoid conflicts
-          git fetch origin main
-          git rebase origin/main || git rebase --abort
+          # Stage new files first (decompose creates sub-plan files)
+          git add -A
 
+          # Pull latest with autostash to handle uncommitted changes
+          git pull --rebase --autostash origin main || true
+
+          # Re-stage in case autostash unstaged changes
           git add -A
 
           if ! git diff --cached --quiet; then
