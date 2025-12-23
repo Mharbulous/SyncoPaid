@@ -5,6 +5,7 @@ Patterns are created from user corrections when they change AI categorization
 suggestions. Each pattern maps activity attributes (app, URL, title) to a matter.
 """
 
+import json
 import logging
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
@@ -310,6 +311,68 @@ class PatternsDatabaseMixin:
                 logging.info(f"Archived {archived} stale patterns (unused for {days}+ days)")
 
             return archived
+
+    def get_all_patterns(self, include_archived: bool = False) -> List[Dict]:
+        """
+        Get all patterns across all matters.
+
+        Args:
+            include_archived: Whether to include archived patterns
+
+        Returns:
+            List of all pattern dictionaries with matter info
+        """
+        with self._get_connection() as conn:
+            conn.row_factory = self._dict_factory
+            cursor = conn.cursor()
+
+            archive_filter = "" if include_archived else "WHERE cp.is_archived = 0"
+
+            cursor.execute(f"""
+                SELECT cp.*, m.display_name as matter_description,
+                       c.display_name as client_name
+                FROM categorization_patterns cp
+                JOIN matters m ON cp.matter_id = m.id
+                LEFT JOIN clients c ON m.client_id = c.id
+                {archive_filter}
+                ORDER BY cp.confidence_score DESC, cp.match_count DESC
+            """)
+            return cursor.fetchall()
+
+    def export_patterns_json(self, include_archived: bool = False) -> str:
+        """
+        Export all patterns in JSON format for LLM context.
+
+        Format is optimized for including in AI prompts for categorization.
+        Privacy: This export is local-only, for user's external AI tools.
+
+        Args:
+            include_archived: Whether to include archived patterns
+
+        Returns:
+            JSON string with patterns data
+        """
+        patterns = self.get_all_patterns(include_archived)
+
+        # Format for LLM consumption
+        export_data = {
+            "export_date": datetime.now().isoformat(),
+            "pattern_count": len(patterns),
+            "patterns": [
+                {
+                    "matter_description": p['matter_description'],
+                    "client_name": p.get('client_name'),
+                    "app_pattern": p['app_pattern'],
+                    "url_pattern": p['url_pattern'],
+                    "title_pattern": p['title_pattern'],
+                    "confidence": p['confidence_score'],
+                    "match_count": p['match_count']
+                }
+                for p in patterns
+            ]
+        }
+
+        return json.dumps(export_data, indent=2)
 
     @staticmethod
     def _dict_factory(cursor, row):
