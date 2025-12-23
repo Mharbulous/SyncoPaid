@@ -1,115 +1,135 @@
 ---
 name: prioritize-story-nodes
-description: Use when user says "prioritize stories", "what should I work on next", "find next story", "review approved stories", "plan next feature" - reviews all approved story notes, analyzes dependencies, identifies blocked stories, prioritizes low-hanging fruit, creates implementation plan for the best candidate, and updates status to planned.
-disable-model-invocation: true
+description: Use when user says "prioritize stories", "what should I work on next", "find next story", "review approved stories", "plan next feature" - generates deterministic priority list via script, then semantically analyzes for missed dependencies and creates implementation plan for the best candidate.
 ---
 
 # Prioritize Story Nodes
 
-Analyze approved stories to select the best candidate for implementation.
+Analyze eligible stories to select the best candidate for implementation.
 
 **Database:** `.claude/data/story-tree.db`
 **Plans:** `.claude/data/plans/`
+**Priority Lists:** `.claude/data/priority-lists/`
 
-**Critical:** Use Python sqlite3 module, NOT sqlite3 CLI.
+## Phase 1: Generate Draft Priority List (Deterministic)
 
-## Workflow
+Run the prioritization script to generate an initial list:
 
-### Step 1: Fetch Approved Stories
-
-```python
-python -c "
-import sqlite3, json
-conn = sqlite3.connect('.claude/data/story-tree.db')
-conn.row_factory = sqlite3.Row
-stories = [dict(row) for row in conn.execute('''
-    SELECT s.id, s.title, s.description, s.notes, s.project_path,
-        (SELECT MIN(depth) FROM story_paths WHERE descendant_id = s.id) as node_depth,
-        (SELECT GROUP_CONCAT(ancestor_id) FROM story_paths
-         WHERE descendant_id = s.id AND depth > 0) as ancestors
-    FROM story_nodes s
-    WHERE s.stage = 'approved' AND s.hold_reason IS NULL AND s.disposition IS NULL
-    ORDER BY node_depth ASC
-''').fetchall()]
-print(json.dumps(stories, indent=2))
-conn.close()
-"
+```bash
+python3 .claude/scripts/prioritize_stories.py --format markdown
 ```
 
-### Step 2: Analyze Dependencies
+This script:
+- Filters out blocked, on-hold, and disposed stories
+- Calculates complexity scores based on keywords and content length
+- Extracts dependencies (story IDs) and prerequisites (technical requirements)
+- Outputs a sorted priority list to `.claude/data/priority-lists/`
 
-**Dependency indicators:**
-- Explicit mentions: Story IDs in description (e.g., "1.8.1", "after 1.2")
-- Keywords: "requires", "depends on", "after", "needs", "once X is done"
-- Technical prerequisites mentioned in acceptance criteria
+**Read the generated file** before proceeding to Phase 2.
 
-Mark blocked stories (sets hold_reason, preserves stage):
+## Phase 2: Semantic Dependency Analysis
+
+Review the draft priority list and **for each of the top 10 stories**:
+
+1. **Read the full story node** from the database (description, notes, success_criteria)
+2. **Semantically analyze** for dependencies the script may have missed:
+   - Does this story reference functionality from another story?
+   - Does success criteria imply another story must be complete first?
+   - Are there implicit technical prerequisites not captured?
+
+3. **If missed dependencies found**, update the story node:
+
 ```python
-python -c "
+python3 -c "
 import sqlite3
 conn = sqlite3.connect('.claude/data/story-tree.db')
 conn.execute('''
     UPDATE story_nodes
-    SET hold_reason = 'blocked', human_review = 1,
-        notes = COALESCE(notes || '\n', '') || 'Blocked by: [BLOCKER_ID] - [REASON]',
+    SET notes = COALESCE(notes || '\n', '') || '[Dependency discovered: STORY_ID - REASON]',
         updated_at = datetime('now')
-    WHERE id = '[STORY_ID]'
+    WHERE id = 'TARGET_STORY_ID'
 ''')
 conn.commit()
 conn.close()
+print('Updated story TARGET_STORY_ID with discovered dependency')
 "
 ```
 
-### Step 3: Score Non-Blocked Stories
+4. **If story should be blocked**, set hold_reason:
 
-| Factor | Weight | Scoring |
-|--------|--------|---------|
-| Acceptance criteria count | 30% | Fewer = higher score |
-| Description length | 20% | Shorter = higher score |
-| Node depth | 20% | Deeper = higher score |
-| Technical complexity | 30% | Fewer complex keywords = higher |
-
-**Complexity keywords** (lower score): "integration", "API", "database schema", "migration", "refactor", "architecture", "security", "authentication", "performance", "real-time", "async"
-
-**Simplicity keywords** (higher score): "add", "display", "show", "simple", "button", "field", "config", "setting", "update"
-
+```python
+python3 -c "
+import sqlite3
+conn = sqlite3.connect('.claude/data/story-tree.db')
+conn.execute('''
+    UPDATE story_nodes
+    SET hold_reason = 'blocked',
+        human_review = 1,
+        notes = COALESCE(notes || '\n', '') || '[Blocked by: BLOCKER_ID - REASON]',
+        updated_at = datetime('now')
+    WHERE id = 'TARGET_STORY_ID'
+''')
+conn.commit()
+conn.close()
+print('Blocked story TARGET_STORY_ID')
+"
 ```
-score = (10 - min(criteria_count, 10)) * 0.3
-      + (1000 - min(desc_length, 1000)) / 100 * 0.2
-      + min(depth, 5) * 0.2
-      + (10 - complexity_count + simplicity_count) * 0.3
-```
 
-### Step 4: Create Implementation Plan
+## Phase 3: Select Best Candidate
+
+After semantic analysis, select the **highest-priority unblocked story** considering:
+
+1. Stage priority: `ready` > `planned` > `approved`
+2. Lowest complexity score
+3. No unmet dependencies
+4. Deepest node depth (more specific = better scoped)
+
+## Phase 4: Create Implementation Plan
 
 **Filename:** `.claude/data/plans/YYYY-MM-DD-[story-id]-[slug].md`
 
-Include: Story Context, Overview, Prerequisites, Implementation Tasks (with file paths and code examples), Testing Plan, Rollback Plan, Notes.
+Plan must include:
+- Story Context (ID, title, ancestors)
+- Implementation Overview
+- Prerequisites checklist
+- Implementation Tasks (with file paths)
+- Testing Plan
+- Rollback considerations
 
-### Step 5: Update Stage
+## Phase 5: Update Stage
+
+After plan is created:
 
 ```python
-python -c "
+python3 -c "
 import sqlite3
 conn = sqlite3.connect('.claude/data/story-tree.db')
 conn.execute('''
     UPDATE story_nodes
     SET stage = 'planned',
-        notes = COALESCE(notes || '\n', '') || 'Plan created: .claude/data/plans/[FILENAME]',
+        notes = COALESCE(notes || '\n', '') || 'Plan: .claude/data/plans/PLAN_FILENAME',
         updated_at = datetime('now')
-    WHERE id = '[STORY_ID]'
+    WHERE id = 'STORY_ID'
 ''')
 conn.commit()
 conn.close()
+print('Story STORY_ID advanced to planned stage')
 "
 ```
 
-### Step 6: Output Report
+## Phase 6: Output Report
 
-Include: analyzed stories table, blocked stories with reasons, selected story with score breakdown and rationale, plan file location, next steps.
+Summarize:
+- Stories analyzed count
+- Dependencies discovered (list any updates made)
+- Selected story with rationale
+- Plan file location
+- Recommended next steps
 
 ## Key Rules
 
-- Plan file MUST exist before stage change to `planned`
-- Analyze ALL approved stories for dependencies first
-- Only ask for clarification if: multiple identical scores, ambiguous dependencies, or no approved stories exist
+- **ALWAYS** run the deterministic script first (Phase 1)
+- Plan file MUST exist before changing stage to `planned`
+- Only mark stories as blocked if dependencies are truly unmet
+- Document any dependency updates you make for transparency
+- Ask for clarification only if: multiple tied scores, ambiguous blocking, or no eligible stories
