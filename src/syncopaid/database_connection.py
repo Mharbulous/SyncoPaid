@@ -35,6 +35,7 @@ class ConnectionMixin:
         """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row  # Enable column access by name
+        conn.execute("PRAGMA secure_delete = ON")
         try:
             yield conn
             conn.commit()
