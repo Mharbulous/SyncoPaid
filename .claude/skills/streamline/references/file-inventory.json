@@ -180,7 +180,13 @@
       "lines": 74
     },
     "src/syncopaid/main_ui_import_dialog.py": {
-      "lines": 305
+      "lines": 107
+    },
+    "src/syncopaid/main_ui_import_dialog_db.py": {
+      "lines": 39
+    },
+    "src/syncopaid/main_ui_import_dialog_ui.py": {
+      "lines": 209
     },
     "src/syncopaid/main_ui_utilities.py": {
       "lines": 62
@@ -349,6 +355,7 @@
     "src/syncopaid/database_patterns.py",
     "src/syncopaid/context_extraction.py",
     "src/syncopaid/matter_client_dialog_matters.py",
-    "src/syncopaid/database_schema.py"
+    "src/syncopaid/database_schema.py",
+    "src/syncopaid/main_ui_import_dialog.py"
   ]
 }
