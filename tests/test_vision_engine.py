@@ -91,3 +91,28 @@ def test_get_nonexistent_engine_returns_none():
     _registry.clear()
 
     assert get_engine("nonexistent") is None
+
+
+def test_engine_default_config_schema():
+    """Base VisionEngine provides empty config schema."""
+    from syncopaid.vision_engine import VisionEngine
+
+    class MinimalEngine(VisionEngine):
+        @property
+        def name(self) -> str:
+            return "Minimal"
+
+        @property
+        def model_id(self) -> str:
+            return "test/minimal"
+
+        def is_available(self) -> bool:
+            return True
+
+        def analyze(self, image_path, prompt=None):
+            from syncopaid.vision_engine import AnalysisResult
+            return AnalysisResult("test", "test", 1.0, "test")
+
+    engine = MinimalEngine()
+    # Base class should provide default empty schema
+    assert engine.config_schema() == {}

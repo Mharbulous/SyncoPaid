@@ -63,6 +63,17 @@ class VisionEngine(ABC):
         """
         pass
 
+    def config_schema(self) -> dict:
+        """Return configuration schema for this engine.
+
+        Override in subclasses to define engine-specific settings.
+        Schema format: {"setting_name": {"type": "str|int|float|bool", "default": value, "options": [...]}}
+
+        Returns:
+            Dict defining configuration options, empty by default
+        """
+        return {}
+
 
 # Engine registry - maps engine names to their classes
 _registry: Dict[str, Type[VisionEngine]] = {}
