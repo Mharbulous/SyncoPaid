@@ -226,6 +226,60 @@ class PatternsDatabaseMixin:
                 logging.info(f"Created new pattern {pattern_id} for matter {matter_id}")
                 return pattern_id
 
+    def record_correction_with_contradiction(
+        self,
+        correct_matter_id: int,
+        app: Optional[str] = None,
+        url: Optional[str] = None,
+        title: Optional[str] = None
+    ) -> int:
+        """
+        Record a user correction that may contradict existing patterns.
+
+        This is the primary method for handling user corrections. It:
+        1. Finds any existing patterns that match these attributes
+        2. Decreases confidence of patterns pointing to OTHER matters
+        3. Creates/reinforces pattern for the correct matter
+
+        Args:
+            correct_matter_id: The matter user selected as correct
+            app: Application name of the activity
+            url: URL of the activity (if any)
+            title: Window title of the activity
+
+        Returns:
+            ID of the created or reinforced pattern
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            now = datetime.now().isoformat()
+
+            # Find existing patterns that match these attributes but point elsewhere
+            contradicting_patterns = []
+            if app:
+                cursor.execute("""
+                    SELECT id, confidence_score, correction_count
+                    FROM categorization_patterns
+                    WHERE app_pattern = ? AND matter_id != ? AND is_archived = 0
+                """, (app, correct_matter_id))
+                contradicting_patterns.extend(cursor.fetchall())
+
+            # Decrease confidence of contradicting patterns
+            for pattern_id, confidence, corrections in contradicting_patterns:
+                new_confidence = max(0.1, confidence - 0.1)  # Min 0.1
+                new_corrections = corrections + 1
+                cursor.execute("""
+                    UPDATE categorization_patterns
+                    SET confidence_score = ?, correction_count = ?, last_used_at = ?
+                    WHERE id = ?
+                """, (new_confidence, new_corrections, now, pattern_id))
+                logging.info(f"Decreased confidence of pattern {pattern_id} to {new_confidence:.2f}")
+
+            conn.commit()
+
+        # Now record the correct pattern (will create or reinforce)
+        return self.record_correction(correct_matter_id, app, url, title)
+
     @staticmethod
     def _dict_factory(cursor, row):
         """Convert SQLite row to dictionary."""
