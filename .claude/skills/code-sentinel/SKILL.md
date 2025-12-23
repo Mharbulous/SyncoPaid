@@ -1,210 +1,346 @@
 ---
 name: code-sentinel
-description: Check code for recurring issues before committing. Use when reviewing code changes, before git commits, during code review, or when implementing CI workflows, git operations, Tkinter UIs, or PyInstaller bundling. Detects patterns that have caused bugs in past commits including bash heredocs in YAML, grep exit codes, git operations without staging, fixed window geometry, and missing PyInstaller imports.
+description: Troubleshoot and fix failing code pattern tests. Use when tests/test_code_patterns.py fails, or when reviewing code changes that trigger recurring issue patterns. Automatically analyzes test failures, locates problematic code, suggests context-appropriate fixes, and verifies the solution works.
 ---
 
 # Code Sentinel
 
-Automated checker for recurring issues identified in the SyncoPaid codebase.
+Intelligent troubleshooter for recurring code pattern failures.
 
 ## Overview
 
-Code Sentinel helps prevent recurring bugs by checking code against patterns that have caused issues in previous commits. Based on analysis of 185 commits, it focuses on the most common failure modes:
-
-- **CI/Workflow Issues** (78% of recurring fixes)
-- **Application Issues** (22% of recurring fixes)
-
-## Quick Start
-
-Run all checks on the entire codebase:
-
-```bash
-python .claude/skills/code-sentinel/scripts/check_all.py
-```
-
-Or run individual checks on specific files (see Checks section below).
+Code Sentinel helps fix recurring bugs by:
+1. **Analyzing** failed test output from `test_code_patterns.py`
+2. **Locating** the problematic code and understanding context
+3. **Suggesting** appropriate fixes based on past solutions
+4. **Applying** fixes with user approval
+5. **Verifying** tests pass after fixes
 
 ## When to Use
 
-Use Code Sentinel before committing changes, especially when:
+Invoke this skill when:
 
-1. **Modifying GitHub Actions workflows** - Check for heredocs and git operations
-2. **Writing shell scripts** - Check for grep exit code handling
-3. **Creating Tkinter windows** - Check for fixed geometry
-4. **Refactoring Python modules** - Check PyInstaller hidden imports
-5. **Implementing file selection logic** - Check for deterministic sorting
+1. **Pre-commit tests fail** - `pytest tests/test_code_patterns.py` shows failures
+2. **CI build fails** - GitHub Actions reports code pattern violations
+3. **Code review** - Checking changes against known problematic patterns
+4. **Proactive fixing** - Addressing technical debt from old code
 
-## Checks
+## Quick Start
 
-### 1. Bash Heredocs in GitHub Actions YAML
-
-**Script:** `check_heredoc_yaml.py`
-
-**Usage:**
-```bash
-python .claude/skills/code-sentinel/scripts/check_heredoc_yaml.py .github/workflows/workflow.yml
-```
-
-**What it detects:** Heredoc syntax (`<<EOF`) inside YAML `run:` blocks, which fails due to indentation.
-
-**Fix:** Use string concatenation instead of heredocs.
-
-**Related commit:** d1394da
-
----
-
-### 2. Grep Exit Code Issues
-
-**Script:** `check_grep_exit_code.py`
-
-**Usage:**
-```bash
-python .claude/skills/code-sentinel/scripts/check_grep_exit_code.py script.sh
-```
-
-**What it detects:** `grep -c || echo "0"` pattern that creates duplicate output when count is 0.
-
-**Fix:** Use `|| true` instead of `|| echo "0"`.
-
-**Related commit:** 4115ba9
-
----
-
-### 3. Git Operations Without Staging
-
-**Script:** `check_git_operations.py`
-
-**Usage:**
-```bash
-python .claude/skills/code-sentinel/scripts/check_git_operations.py .github/workflows/workflow.yml
-```
-
-**What it detects:** `git pull` or `git rebase` without `--autostash` or preceding `git add`.
-
-**Fix:** Use `git pull --rebase --autostash` or stage files first.
-
-**Related commit:** 5dd2b28
-
----
-
-### 4. Fixed Window Geometry
-
-**Script:** `check_window_geometry.py`
-
-**Usage:**
-```bash
-python .claude/skills/code-sentinel/scripts/check_window_geometry.py src/syncopaid/ui.py
-```
-
-**What it detects:** Fixed Tkinter geometry like `.geometry("400x200")` that may cut off content.
-
-**Fix:** Use auto-sizing with `update_idletasks()` and set minimum width only.
-
-**Related commit:** 216fce0
-
----
-
-### 5. PyInstaller Hidden Imports
-
-**Script:** `check_pyinstaller_imports.py`
-
-**Usage:**
-```bash
-python .claude/skills/code-sentinel/scripts/check_pyinstaller_imports.py SyncoPaid.spec src/
-```
-
-**What it detects:** Modules imported in source code that may be missing from PyInstaller `hiddenimports` list, especially after refactoring.
-
-**Fix:** Add missing modules to `hiddenimports` in the .spec file.
-
-**Related commit:** 68be291
-
----
-
-## Workflow Integration
-
-### Before Committing
+When you see test failures like:
 
 ```bash
-# Run all checks
-python .claude/skills/code-sentinel/scripts/check_all.py
+$ pytest tests/test_code_patterns.py -v
 
-# If issues found, review and fix
-# Then commit
-git add .
-git commit -m "fix: address code-sentinel findings"
+FAILED tests/test_code_patterns.py::TestApplicationPatterns::test_no_fixed_window_geometry
 ```
 
-### In CI/CD Pipeline
+Simply invoke the skill:
 
-Add to GitHub Actions workflow:
+```
+/code-sentinel
+```
 
+Or provide specific context:
+
+```
+/code-sentinel - Fix the window geometry issue in settings_dialog.py
+```
+
+## Workflow
+
+### Step 1: Understand the Failure
+
+First, run the tests to see what failed:
+
+```bash
+pytest tests/test_code_patterns.py -v
+```
+
+Parse the output to identify:
+- Which test failed
+- What pattern was violated
+- Where in the code (file:line)
+- What the issue is
+
+### Step 2: Analyze Context
+
+Read the problematic file(s) to understand:
+- The intent of the code
+- Surrounding context
+- Why the pattern was used
+- What the code is trying to accomplish
+
+### Step 3: Suggest Fix
+
+Based on the pattern and context, suggest an appropriate fix. Each pattern has known good solutions (see references/recurring-patterns.md).
+
+**Example patterns:**
+
+| Pattern | Typical Fix |
+|---------|-------------|
+| Fixed window geometry | Replace with auto-sizing + minsize() |
+| Heredoc in YAML | Use string concatenation |
+| grep -c \|\| echo | Use \|\| true instead |
+| git pull without autostash | Add --autostash flag |
+| Missing hiddenimports | Add module to spec file |
+
+### Step 4: Apply Fix
+
+With user approval, apply the fix:
+- Use Edit tool to modify the problematic code
+- Follow the established pattern from past fixes
+- Maintain code style and formatting
+
+### Step 5: Verify
+
+Re-run the specific test to verify:
+
+```bash
+pytest tests/test_code_patterns.py::TestName::test_name -v
+```
+
+If it passes, success! If not, analyze the failure and iterate.
+
+### Step 6: Run Full Test Suite
+
+Once the specific test passes, run all pattern tests:
+
+```bash
+pytest tests/test_code_patterns.py -v
+```
+
+Ensure no other tests were broken by the fix.
+
+## Pattern Reference
+
+### CI/Workflow Patterns (78% of historical fixes)
+
+#### 1. Bash Heredocs in GitHub Actions
+
+**Test:** `test_no_heredocs_in_github_actions`
+
+**Issue:** Heredocs fail due to YAML indentation
+
+**Fix Example:**
 ```yaml
-- name: Run Code Sentinel checks
-  run: |
-    python .claude/skills/code-sentinel/scripts/check_all.py
+# Bad
+run: |
+  cat <<EOF > file.txt
+  content
+  EOF
+
+# Good
+run: |
+  CONTENT="line1"
+  CONTENT="${CONTENT}\nline2"
+  echo -e "$CONTENT" > file.txt
 ```
 
-### During Code Review
+**Commit:** d1394da
 
-Run targeted checks based on file types:
+---
+
+#### 2. Grep Exit Code Pattern
+
+**Test:** `test_no_grep_exit_code_echo_pattern`
+
+**Issue:** `grep -c || echo "0"` creates duplicate output when count is 0
+
+**Fix Example:**
+```bash
+# Bad
+count=$(grep -c pattern file || echo "0")
+
+# Good
+count=$(grep -c pattern file || true)
+```
+
+**Commit:** 4115ba9
+
+---
+
+#### 3. Git Operations Without Staging
+
+**Test:** `test_git_operations_with_staging`
+
+**Issue:** git pull/rebase fails with uncommitted changes
+
+**Fix Example:**
+```yaml
+# Bad
+- run: git pull origin main
+
+# Good - Option 1
+- run: git pull --rebase --autostash origin main
+
+# Good - Option 2
+- run: |
+    git add .
+    git pull --rebase origin main
+```
+
+**Commit:** 5dd2b28
+
+---
+
+### Application Patterns (22% of historical fixes)
+
+#### 4. Fixed Window Geometry
+
+**Test:** `test_no_fixed_window_geometry`
+
+**Issue:** Fixed geometry cuts off content when window needs more space
+
+**Fix Example:**
+```python
+# Bad
+window = tk.Toplevel()
+window.geometry("400x200")
+
+# Good
+window = tk.Toplevel()
+window.update_idletasks()  # Calculate natural size
+window.minsize(400, 0)     # Set minimum width only
+```
+
+**Commit:** 216fce0
+
+---
+
+#### 5. PyInstaller Hidden Imports
+
+**Test:** `test_pyinstaller_hidden_imports`
+
+**Issue:** Refactored modules aren't bundled unless explicitly listed
+
+**Fix Example:**
+```python
+# In *.spec file
+a = Analysis(
+    ...
+    hiddenimports=[
+        'syncopaid.existing_module',
+        'syncopaid.ui.new_dialog',  # Add after refactoring
+    ],
+)
+```
+
+**Commit:** 68be291
+
+---
+
+## Advanced Usage
+
+### Fix Specific Test
+
+When you know which test failed:
 
 ```bash
-# For workflow changes
-python .claude/skills/code-sentinel/scripts/check_heredoc_yaml.py .github/workflows/*.yml
+# Run specific test
+pytest tests/test_code_patterns.py::TestApplicationPatterns::test_no_fixed_window_geometry -v
 
-# For Python changes
-python .claude/skills/code-sentinel/scripts/check_window_geometry.py src/**/*.py
-python .claude/skills/code-sentinel/scripts/check_pyinstaller_imports.py *.spec src/
+# Then invoke skill with context
+/code-sentinel - Fix the window geometry test failure
 ```
 
-## Interpreting Results
+### Batch Fixing
 
-Each check script returns:
-- **Exit code 0:** No issues found
-- **Exit code 1:** Issues detected
+When multiple tests fail:
 
-When issues are found, the output includes:
-- Line number where issue occurs
-- Content of the problematic line
-- Explanation of why it's an issue
-- Suggested fix
-- Related commit ID for reference
+1. Run all tests and collect failures
+2. Prioritize by impact (CI/workflow > application)
+3. Fix one at a time, verifying each
+4. Re-run full suite after all fixes
 
-Example output:
+### Understanding Test Output
+
+Pytest output includes:
+- **File:line** - Location of problematic code
+- **Pattern** - What rule was violated
+- **Fix suggestion** - How to address it
+- **Commit reference** - Historical context
+
+Use this information to quickly locate and fix issues.
+
+## Integration with Development Workflow
+
+### Pre-commit Hook
+
+Add to `.git/hooks/pre-commit`:
+
+```bash
+#!/bin/bash
+pytest tests/test_code_patterns.py --tb=short
+if [ $? -ne 0 ]; then
+    echo "Code pattern tests failed. Run /code-sentinel to fix."
+    exit 1
+fi
 ```
-⚠️  Found 1 heredoc issue(s) in .github/workflows/ci.yml:
 
-  Line 42: Bash heredoc detected in YAML run block
-    Content: cat <<EOF > output.txt
-    Suggestion: Use string concatenation instead: VAR="value1"\nVAR="${VAR}value2"
-    Related commit: d1394da
+### CI/CD Pipeline
+
+Already integrated in `.github/workflows/` - tests run on every PR.
+
+### IDE Integration
+
+Run tests in watch mode while developing:
+
+```bash
+pytest-watch tests/test_code_patterns.py
 ```
 
-## Reference Material
+When failures appear, invoke `/code-sentinel` to fix them.
 
-For detailed examples and historical context, see:
+## Troubleshooting
 
-- **references/recurring-patterns.md** - Detailed patterns with code examples and statistics
+### "Can't locate the issue"
 
-## Limitations
+If the skill can't find the problematic code:
+1. Provide the full pytest output
+2. Specify the file and line number
+3. Show the relevant code snippet
 
-Code Sentinel checks for known patterns only. It does not:
-- Catch all possible bugs
-- Replace code review
-- Test functionality
-- Validate logic correctness
+### "Fix doesn't work"
 
-Always combine with:
-- Manual code review
-- Automated tests
-- Integration testing
-- Linter/formatter tools
+If the suggested fix doesn't pass tests:
+1. Check if there's additional context needed
+2. Review the commit history for that pattern
+3. Ensure the fix matches the specific use case
+
+### "Multiple patterns in same file"
+
+Fix one pattern at a time:
+1. Start with the first test failure
+2. Apply fix and verify
+3. Move to next failure
+4. This prevents conflicting changes
+
+## Reference Materials
+
+For detailed patterns and examples, see:
+
+- **references/recurring-patterns.md** - All patterns with code examples and statistics
 
 ## Statistics
 
-From analysis of 185 commits in the SyncoPaid repository:
-- 7 CI/workflow pattern fixes (78%)
-- 2-3 application pattern fixes (22%)
+From analysis of 185 commits:
+- **CI/workflow patterns:** 7 fixes (78%)
+- **Application patterns:** 2-3 fixes (22%)
 
-Most recurring issues are in the CI automation system rather than the application itself, which shows healthy development patterns with minimal recurring bugs in core functionality.
+Most issues are in CI automation, not the core application.
+
+## Limitations
+
+This skill:
+- ✅ Fixes known recurring patterns
+- ✅ Understands context and intent
+- ✅ Applies fixes based on past solutions
+- ❌ Cannot fix novel bugs not in the pattern library
+- ❌ Cannot validate business logic
+- ❌ Cannot replace comprehensive testing
+
+Always combine with:
+- Manual code review
+- Integration testing
+- User acceptance testing
