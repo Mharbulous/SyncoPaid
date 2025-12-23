@@ -7,32 +7,35 @@ Verify that the extracted CI slash commands preserve all logic from the original
 ## CONTEXT
 
 The execute-stories.yml workflow (2292 lines) contained 5 embedded Claude prompts that have been
-extracted into reusable slash commands. This verification ensures no logic was lost or changed.
+extracted and consolidated into 4 reusable slash commands. This verification ensures no logic was lost.
+
+**Changes made:**
+- `ci-validate-plan` renamed to `ci-identify-plan` (better reflects its purpose)
+- `ci-verify-implementation` merged into `ci-review-plan` (eliminated redundancy)
 
 ## FILES TO COMPARE
 
 ### Original Workflow (Source of Truth)
 `.claude/deprecated/execute-stories.yml`
 
-### Extracted Commands
-| Command | Lines in Original | Purpose |
-|---------|-------------------|---------|
-| `.claude/commands/ci-validate-plan.md` | 386-482 | Match plan to story database |
-| `.claude/commands/ci-verify-implementation.md` | 631-700 | Check if implementation exists |
-| `.claude/commands/ci-review-plan.md` | 880-939 | Critical review, decide outcome |
+### Extracted Commands (4 total)
+| Command | Original Lines | Purpose |
+|---------|----------------|---------|
+| `.claude/commands/ci-identify-plan.md` | 386-482 | Match plan to story database |
+| `.claude/commands/ci-review-plan.md` | 631-700 + 880-939 | Check implementation + critical review (merged) |
 | `.claude/commands/ci-decompose-plan.md` | 1002-1135 | Assess complexity, split plans |
 | `.claude/commands/ci-execute-plan.md` | 1378-1457 | Execute TDD steps |
 
 ## YOUR TASK
 
-For EACH of the 5 commands:
+For EACH of the 4 commands:
 
-1. **Read the original prompt** from the deprecated workflow file (use the line ranges above)
+1. **Read the original prompt(s)** from the deprecated workflow file
 2. **Read the extracted command** file
 3. **Compare systematically:**
    - Are all task steps preserved?
    - Are all rules/constraints included?
-   - Is the output JSON schema identical?
+   - Is the output JSON schema correct?
    - Are efficiency guidelines present?
    - Are any important details missing?
 
@@ -40,27 +43,20 @@ For EACH of the 5 commands:
 
 ## VERIFICATION CHECKLIST
 
-For each command, verify:
-
-### ci-validate-plan
+### ci-identify-plan (was ci-validate-plan)
 - [ ] Database schema documentation preserved
 - [ ] SQL query examples preserved
 - [ ] Confidence threshold (>80%) mentioned
 - [ ] Plan update instructions included
-- [ ] Output JSON schema matches
+- [ ] Output JSON schema matches (note: filename changed to ci-identify-result.json)
 
-### ci-verify-implementation
-- [ ] Efficiency guidelines preserved (parallel Glob/Grep)
-- [ ] 3-5 key deliverables focus mentioned
-- [ ] Verification criteria (PASS/PARTIAL/FAIL) documented
-- [ ] Recommendation values (archive/execute/manual_review) correct
-- [ ] "Write output early" emphasis preserved
-
-### ci-review-plan
+### ci-review-plan (merged with verify-implementation)
+- [ ] Deliverables checking from verify-implementation preserved
 - [ ] Outcome classification preserved (proceed/pause/proceed_with_review/verified)
-- [ ] Efficiency rules present
+- [ ] Efficiency rules present (parallel Glob/Grep)
 - [ ] Blocking vs deferrable issues distinction
-- [ ] Output JSON schema matches
+- [ ] "Write output early" emphasis preserved
+- [ ] Output JSON includes deliverables_checked array
 
 ### ci-decompose-plan
 - [ ] Complexity classification (simple: 1-2, complex: 3+) preserved
@@ -84,13 +80,17 @@ Create a verification report:
 # CI Command Extraction Verification Report
 
 ## Summary
-- Commands verified: 5/5
+- Commands verified: 4/4
 - Issues found: [count]
 - Status: [PASS/NEEDS_FIXES]
 
+## Changes from Original
+1. `ci-validate-plan` → `ci-identify-plan` (renamed for clarity)
+2. `ci-verify-implementation` merged into `ci-review-plan` (eliminated redundancy)
+
 ## Detailed Comparison
 
-### ci-validate-plan
+### ci-identify-plan
 | Aspect | Original | Extracted | Match |
 |--------|----------|-----------|-------|
 | Task steps | ✓ | ✓ | ✓ |
@@ -99,17 +99,7 @@ Create a verification report:
 
 **Issues:** [None / List of issues]
 
-### ci-verify-implementation
-[Same table format]
-
-### ci-review-plan
-[Same table format]
-
-### ci-decompose-plan
-[Same table format]
-
-### ci-execute-plan
-[Same table format]
+[Continue for each command...]
 
 ## Recommendations
 [Any suggested fixes or improvements]
@@ -122,4 +112,4 @@ Write this report to `.claude/data/ci-command-verification-report.md`
 - Be thorough - missing logic could break CI automation
 - Note any ADDITIONS in the commands (acceptable if they improve clarity)
 - Flag any REMOVALS or changes to logic (critical to fix)
-- The commands may have improved formatting - that's fine as long as logic is preserved
+- The merge of verify-implementation into review-plan is intentional - verify both sets of logic are present

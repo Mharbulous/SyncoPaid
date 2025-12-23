@@ -1,6 +1,6 @@
-# Validate Plan - Match to Story Database
+# Identify Plan - Match to Story Database
 
-Validate a plan document by finding its matching story in the database.
+Identify a plan's corresponding story by matching it to the story database.
 
 **Arguments:**
 - `$ARGUMENTS` - Path to the plan file (e.g., `.claude/data/plans/024_feature.md`)
@@ -76,7 +76,7 @@ Or if there's already a metadata table, add a row for Story ID.
 
 ## OUTPUT REQUIRED
 
-Write a JSON file to `.claude/skills/story-execution/ci-validate-result.json`:
+Write a JSON file to `.claude/skills/story-execution/ci-identify-result.json`:
 
 ```json
 {
