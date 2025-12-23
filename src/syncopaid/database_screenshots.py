@@ -197,3 +197,26 @@ class ScreenshotDatabaseMixin:
 
         logging.info(f"Securely deleted {deleted_count} screenshots")
         return deleted_count
+
+    def update_screenshot_analysis(
+        self,
+        screenshot_id: int,
+        analysis_data: Optional[str],
+        analysis_status: str = 'completed'
+    ) -> None:
+        """
+        Update screenshot with analysis results.
+
+        Args:
+            screenshot_id: ID of screenshot record
+            analysis_data: JSON string of analysis results (or None if failed)
+            analysis_status: 'pending', 'completed', or 'failed'
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE screenshots
+                SET analysis_data = ?, analysis_status = ?
+                WHERE id = ?
+            """, (analysis_data, analysis_status, screenshot_id))
+            conn.commit()
