@@ -1,9 +1,10 @@
 name: 3. Activate Story
 
-# Run at 3:40 AM PST (11:40 UTC) every day - after execute-stories
+# Run at 1:20 PM PST (21:20 UTC) every day
 # Two-step flow: UNBLOCK (check recorded blockers) → ACTIVATE (full dep check)
 on:
-  # schedule disabled - manual trigger only
+  schedule:
+    - cron: '20 21 * * *'  # 1:20 PM PST (21:20 UTC)
   workflow_dispatch:
 
 concurrency:
