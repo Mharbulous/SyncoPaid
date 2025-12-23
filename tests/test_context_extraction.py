@@ -34,3 +34,33 @@ class TestOfficeFilepathExtraction:
     def test_word_document(self):
         result = extract_filepath_from_office("WINWORD.EXE", "Smith-Contract.docx - Word")
         assert result == "Smith-Contract.docx"
+
+
+class TestLegalResearchDetection:
+    """Test legal research application detection."""
+
+    @pytest.mark.parametrize("app_name", [
+        "Westlaw.exe", "westlaw.exe", "WestlawNext.exe",
+        "LexisNexis.exe", "lexisnexis.exe",
+    ])
+    def test_legal_app_detection_desktop(self, app_name):
+        """Desktop apps should be detected."""
+        from syncopaid.context_extraction import is_legal_research_app
+        assert is_legal_research_app(app_name) is True
+
+    @pytest.mark.parametrize("title_pattern", [
+        "Westlaw - Search Results",
+        "CanLII - 2024 BCSC 1234",
+        "LexisNexis - Case Search",
+        "Fastcase - Smith v. Jones",
+        "Casetext - Legal Research",
+    ])
+    def test_legal_app_detection_browser(self, title_pattern):
+        """Browser tabs with legal sites should be detected."""
+        from syncopaid.context_extraction import is_legal_research_app
+        assert is_legal_research_app("chrome.exe", title_pattern) is True
+
+    def test_non_legal_app_not_detected(self):
+        from syncopaid.context_extraction import is_legal_research_app
+        assert is_legal_research_app("notepad.exe") is False
+        assert is_legal_research_app("chrome.exe", "YouTube - Funny Video") is False

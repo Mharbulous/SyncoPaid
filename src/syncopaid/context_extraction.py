@@ -5,6 +5,17 @@ import logging
 # Browser executable names (case-insensitive matching)
 BROWSER_APPS = {'chrome.exe', 'msedge.exe', 'firefox.exe', 'brave.exe', 'opera.exe'}
 
+# Legal research platforms (desktop apps and browser patterns)
+LEGAL_RESEARCH_APPS = {
+    'westlaw.exe', 'westlawnext.exe', 'lexisnexis.exe',
+    'fastcase.exe', 'casetext.exe'
+}
+
+LEGAL_RESEARCH_BROWSER_PATTERNS = [
+    'westlaw', 'canlii', 'lexisnexis', 'lexis+',
+    'fastcase', 'casetext', 'courtlistener', 'justia'
+]
+
 def extract_url_from_browser(app: str, title: str) -> str:
     """
     Extract URL from browser window title.
@@ -165,3 +176,28 @@ def extract_context(app: str, title: str) -> str:
         # Log but don't crash - graceful degradation
         logging.debug(f"Context extraction failed for {app}: {e}")
         return None
+
+def is_legal_research_app(app: str, title: str = None) -> bool:
+    """
+    Detect if window is a legal research application.
+
+    Args:
+        app: Application executable name
+        title: Window title (optional, for browser detection)
+
+    Returns:
+        True if legal research app/site, False otherwise
+    """
+    if not app:
+        return False
+
+    # Check desktop apps
+    if app.lower() in LEGAL_RESEARCH_APPS:
+        return True
+
+    # Check browser tabs for legal research sites
+    if app.lower() in BROWSER_APPS and title:
+        title_lower = title.lower()
+        return any(pattern in title_lower for pattern in LEGAL_RESEARCH_BROWSER_PATTERNS)
+
+    return False
