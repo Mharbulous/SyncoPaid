@@ -1,1 +1,1 @@
-C:/Users/Brahm/Git/StoryTree/claude/data/migrate_normalize_stage_hierarchy.py
+../../StoryTree/claude/data/migrate_normalize_stage_hierarchy.py

@@ -1,1 +1,1 @@
-C:/Users/Brahm/Git/StoryTree/claude/scripts/prioritize_stories.py
+../../StoryTree/claude/scripts/prioritize_stories.py

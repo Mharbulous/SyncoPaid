@@ -1,1 +1,1 @@
-C:/Users/Brahm/Git/StoryTree/claude/scripts/insert_story.py
+../../StoryTree/claude/scripts/insert_story.py

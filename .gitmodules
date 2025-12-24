@@ -1,0 +1,3 @@
+[submodule "StoryTree"]
+	path = StoryTree
+	url = https://github.com/Mharbulous/StoryTree.git

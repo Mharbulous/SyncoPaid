@@ -1,1 +1,1 @@
-C:/Users/Brahm/Git/StoryTree/claude/scripts/generate_vision_doc.py
+../../StoryTree/claude/scripts/generate_vision_doc.py

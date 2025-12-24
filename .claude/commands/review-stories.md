@@ -1,1 +1,1 @@
-C:/Users/Brahm/Git/StoryTree/claude/commands/review-stories.md
+../../StoryTree/claude/commands/review-stories.md

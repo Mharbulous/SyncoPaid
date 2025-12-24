@@ -1,1 +1,1 @@
-C:/Users/Brahm/Git/StoryTree/claude/commands/ci-review-plan.md
+../../StoryTree/claude/commands/ci-review-plan.md

@@ -1,1 +1,1 @@
-C:/Users/Brahm/Git/StoryTree/claude/scripts/story_workflow.py
+../../StoryTree/claude/scripts/story_workflow.py

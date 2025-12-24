@@ -1,1 +1,1 @@
-C:/Users/Brahm/Git/StoryTree/claude/data/init_story_tree.py
+../../StoryTree/claude/data/init_story_tree.py
