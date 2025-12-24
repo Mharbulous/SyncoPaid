@@ -1,0 +1,808 @@
+# AI Disambiguation with Screenshot Context - Implementation Plan
+
+> **TDD Required:** Each task (~2-5 min): Write test → verify RED → Write code → verify GREEN → Commit
+> **Zero Context:** This plan assumes the implementer knows nothing about the codebase.
+
+**Goal:** Add foundational infrastructure for AI-powered activity categorization with matter database and basic matching logic.
+**Approach:** Create matter/client database schema, implement rule-based keyword matching against activity data, add confidence scoring, and integrate with existing tracker flow.
+**Tech Stack:** SQLite (matter database), Python 3.11+, existing tracker.py/database.py modules
+
+---
+
+**Story ID:** 8.4 | **Created:** 2025-12-17 | **Status:** `planned`
+
+---
+
+## Story Context
+
+**Title:** AI Disambiguation with Screenshot Context
+
+**Description:** Enable intelligent, non-intrusive AI assistance for categorizing lawyer activities into billable matters. The AI learns to recognize activity patterns, detects natural breaks for prompting, shows relevant screenshots when clarification is needed, and learns from corrections to improve future categorization.
+
+**Epic Overview:**
+1. Learn to recognize activities that indicate transitions between matters
+2. Detect natural breaks (inbox browsing, idle periods, context switches)
+3. Prompt "Is now a good time to categorize your time?" at appropriate moments
+4. Show relevant screenshots when clarification is needed
+5. Learn from corrections to improve future categorization
+
+**Child Stories:**
+- 8.4.1: Activity-to-Matter Matching (concept)
+- 8.4.2: Transition Detection & Smart Prompts (planned)
+- 8.4.3: Interactive Review UI with Screenshots (not created)
+- 8.4.4: Learning from Corrections (not created)
+
+**Dependencies:**
+- 8.1 Matter/Client Database (planned) - implementing foundation in this plan
+- 8.2 Browser URL Extraction (planned) - future enhancement
+- 8.3 UI Automation (Outlook/Explorer context) (planned) - future enhancement
+
+## Prerequisites
+
+- [ ] venv activated: `venv\Scripts\activate`
+- [ ] Baseline tests pass: `python -m syncopaid.tracker` (runs for 30s)
+
+## TDD Tasks
+
+### Task 1: Add Matter Database Schema (~4 min)
+
+**Files:**
+- **Modify:** `src/syncopaid/database.py:66-143`
+
+**Context:** Create matters and clients tables to store law firm billing entities. Matters have matter_number (e.g., "1023.L213"), client_id, description, and keywords for matching. Clients have client_id, name, and optional notes.
+
+**Step 1 - RED:** Write failing test
+```python
+# test_matter_database.py (create new file in project root)
+"""Test matter/client database functionality."""
+import sqlite3
+import tempfile
+from pathlib import Path
+from src.syncopaid.database import Database
+
+
+def test_matter_schema_exists():
+    """Verify matters and clients tables are created."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "test.db"
+        db = Database(str(db_path))
+
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+
+            # Check matters table exists
+            cursor.execute("""
+                SELECT name FROM sqlite_master
+                WHERE type='table' AND name='matters'
+            """)
+            assert cursor.fetchone() is not None, "matters table should exist"
+
+            # Check clients table exists
+            cursor.execute("""
+                SELECT name FROM sqlite_master
+                WHERE type='table' AND name='clients'
+            """)
+            assert cursor.fetchone() is not None, "clients table should exist"
+
+            # Check matters table columns
+            cursor.execute("PRAGMA table_info(matters)")
+            columns = {row[1] for row in cursor.fetchall()}
+            required_cols = {'id', 'matter_number', 'client_id', 'description', 'keywords', 'created_at'}
+            assert required_cols.issubset(columns), f"matters table missing columns: {required_cols - columns}"
+
+
+if __name__ == "__main__":
+    test_matter_schema_exists()
+    print("✓ test_matter_schema_exists passed")
+```
+
+**Step 2 - Verify RED:**
+```bash
+python test_matter_database.py
+```
+Expected output: `AssertionError: matters table should exist`
+
+**Step 3 - GREEN:** Write minimal implementation
+```python
+# src/syncopaid/database.py (modify _init_schema method, around line 140)
+# Add after screenshots table creation (after line 140):
+
+            # Create clients table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS clients (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    client_id TEXT UNIQUE NOT NULL,
+                    name TEXT NOT NULL,
+                    notes TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # Create matters table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS matters (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    matter_number TEXT UNIQUE NOT NULL,
+                    client_id TEXT NOT NULL,
+                    description TEXT,
+                    keywords TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (client_id) REFERENCES clients(client_id)
+                )
+            """)
+
+            # Create indices for matter queries
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_matter_number
+                ON matters(matter_number)
+            """)
+
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_matter_client
+                ON matters(client_id)
+            """)
+```
+
+**Step 4 - Verify GREEN:**
+```bash
+python test_matter_database.py
+```
+Expected output: `✓ test_matter_schema_exists passed`
+
+**Step 5 - COMMIT:**
+```bash
+git add test_matter_database.py src/syncopaid/database.py && git commit -m "feat: add matter and client database schema
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 2: Add Matter CRUD Methods (~5 min)
+
+**Files:**
+- **Modify:** `src/syncopaid/database.py:400+` (add new methods at end of Database class)
+
+**Context:** Implement insert_matter(), get_matter(), and get_all_matters() methods to manage matter records. These enable adding matters to the database and retrieving them for matching.
+
+**Step 1 - RED:** Write failing test
+```python
+# test_matter_database.py (append to existing file)
+
+def test_insert_and_get_matter():
+    """Verify matter CRUD operations."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "test.db"
+        db = Database(str(db_path))
+
+        # Insert a client first
+        db.insert_client(
+            client_id="C001",
+            name="Acme Corp",
+            notes="Manufacturing client"
+        )
+
+        # Insert a matter
+        matter_id = db.insert_matter(
+            matter_number="1023.L213",
+            client_id="C001",
+            description="Patent infringement litigation",
+            keywords="patent,litigation,acme,manufacturing"
+        )
+        assert matter_id > 0, "insert_matter should return positive ID"
+
+        # Retrieve the matter
+        matter = db.get_matter("1023.L213")
+        assert matter is not None, "get_matter should return matter record"
+        assert matter['matter_number'] == "1023.L213"
+        assert matter['client_id'] == "C001"
+        assert matter['description'] == "Patent infringement litigation"
+        assert matter['keywords'] == "patent,litigation,acme,manufacturing"
+
+        # Get all matters
+        all_matters = db.get_all_matters()
+        assert len(all_matters) == 1, "get_all_matters should return 1 matter"
+
+
+if __name__ == "__main__":
+    test_matter_schema_exists()
+    test_insert_and_get_matter()
+    print("✓ All tests passed")
+```
+
+**Step 2 - Verify RED:**
+```bash
+python test_matter_database.py
+```
+Expected output: `AttributeError: 'Database' object has no attribute 'insert_client'`
+
+**Step 3 - GREEN:** Write minimal implementation
+```python
+# src/syncopaid/database.py (add at end of Database class, around line 400+)
+
+    def insert_client(self, client_id: str, name: str, notes: Optional[str] = None) -> int:
+        """
+        Insert a new client into the database.
+
+        Args:
+            client_id: Unique client identifier (e.g., "C001")
+            name: Client name
+            notes: Optional notes about the client
+
+        Returns:
+            Row ID of inserted client
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO clients (client_id, name, notes)
+                VALUES (?, ?, ?)
+            """, (client_id, name, notes))
+            return cursor.lastrowid
+
+    def insert_matter(self, matter_number: str, client_id: str,
+                     description: Optional[str] = None,
+                     keywords: Optional[str] = None) -> int:
+        """
+        Insert a new matter into the database.
+
+        Args:
+            matter_number: Unique matter identifier (e.g., "1023.L213")
+            client_id: Associated client ID
+            description: Matter description
+            keywords: Comma-separated keywords for matching
+
+        Returns:
+            Row ID of inserted matter
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO matters (matter_number, client_id, description, keywords)
+                VALUES (?, ?, ?, ?)
+            """, (matter_number, client_id, description, keywords))
+            return cursor.lastrowid
+
+    def get_matter(self, matter_number: str) -> Optional[Dict]:
+        """
+        Retrieve a matter by matter number.
+
+        Args:
+            matter_number: Matter identifier to look up
+
+        Returns:
+            Dictionary with matter fields, or None if not found
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, matter_number, client_id, description, keywords, created_at
+                FROM matters WHERE matter_number = ?
+            """, (matter_number,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_all_matters(self) -> List[Dict]:
+        """
+        Retrieve all matters from the database.
+
+        Returns:
+            List of matter dictionaries
+        """
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, matter_number, client_id, description, keywords, created_at
+                FROM matters ORDER BY matter_number
+            """)
+            return [dict(row) for row in cursor.fetchall()]
+```
+
+**Step 4 - Verify GREEN:**
+```bash
+python test_matter_database.py
+```
+Expected output: `✓ All tests passed`
+
+**Step 5 - COMMIT:**
+```bash
+git add test_matter_database.py src/syncopaid/database.py && git commit -m "feat: add matter CRUD operations
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 3: Create Matter Matcher Module (~5 min)
+
+**Files:**
+- **Create:** `src/syncopaid/matcher.py`
+
+**Context:** Create a new module with MatterMatcher class that implements rule-based keyword matching. Takes activity event (app, title, url) and matches against matter keywords, returning matter_number and confidence score (0-100).
+
+**Step 1 - RED:** Write failing test
+```python
+# test_matter_matcher.py (create new file in project root)
+"""Test matter matching functionality."""
+import tempfile
+from pathlib import Path
+from src.syncopaid.database import Database
+from src.syncopaid.matcher import MatterMatcher
+from src.syncopaid.tracker import ActivityEvent
+
+
+def test_matcher_keyword_matching():
+    """Verify keyword-based matter matching."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "test.db"
+        db = Database(str(db_path))
+
+        # Insert test data
+        db.insert_client("C001", "Acme Corp", None)
+        db.insert_matter("1023.L213", "C001", "Patent litigation", "patent,acme,litigation")
+
+        db.insert_client("C002", "Beta Inc", None)
+        db.insert_matter("2045.M100", "C002", "Contract review", "contract,beta,review")
+
+        # Create matcher
+        matcher = MatterMatcher(db)
+
+        # Test exact keyword match in title
+        event = ActivityEvent(
+            timestamp="2025-12-17T10:00:00",
+            duration_seconds=60.0,
+            app="WINWORD.EXE",
+            title="Patent Review - Acme Corp.docx"
+        )
+        match = matcher.match_activity(event)
+        assert match is not None, "Should find match for patent keywords"
+        assert match['matter_number'] == "1023.L213"
+        assert match['confidence'] >= 70, f"Confidence should be high for exact match, got {match['confidence']}"
+
+        # Test no match
+        event_no_match = ActivityEvent(
+            timestamp="2025-12-17T10:00:00",
+            duration_seconds=60.0,
+            app="EXCEL.EXE",
+            title="Budget Planning.xlsx"
+        )
+        match_none = matcher.match_activity(event_no_match)
+        assert match_none is None or match_none['confidence'] < 50, "Should not match unrelated activity"
+
+
+if __name__ == "__main__":
+    test_matcher_keyword_matching()
+    print("✓ test_matcher_keyword_matching passed")
+```
+
+**Step 2 - Verify RED:**
+```bash
+python test_matter_matcher.py
+```
+Expected output: `ModuleNotFoundError: No module named 'src.syncopaid.matcher'`
+
+**Step 3 - GREEN:** Write minimal implementation
+```python
+# src/syncopaid/matcher.py (create new file)
+"""
+Matter matching module for AI-powered activity categorization.
+
+Implements rule-based keyword matching against matter database.
+"""
+
+import logging
+from typing import Optional, Dict, List
+from .database import Database
+from .tracker import ActivityEvent
+
+
+class MatterMatcher:
+    """
+    Rule-based matcher for categorizing activities to matters.
+
+    Matches activity data (app, title, url) against matter keywords
+    and returns best match with confidence score.
+    """
+
+    def __init__(self, database: Database):
+        """
+        Initialize matcher with database connection.
+
+        Args:
+            database: Database instance for matter queries
+        """
+        self.database = database
+        self._matter_cache = None
+        logging.info("MatterMatcher initialized")
+
+    def _load_matters(self) -> List[Dict]:
+        """Load all matters from database (cached)."""
+        if self._matter_cache is None:
+            self._matter_cache = self.database.get_all_matters()
+        return self._matter_cache
+
+    def match_activity(self, event: ActivityEvent, threshold: float = 50.0) -> Optional[Dict]:
+        """
+        Match an activity event to a matter.
+
+        Args:
+            event: ActivityEvent to categorize
+            threshold: Minimum confidence score (0-100) to return match
+
+        Returns:
+            Dict with 'matter_number', 'confidence', 'matched_keywords'
+            or None if no match above threshold
+        """
+        matters = self._load_matters()
+
+        if not matters:
+            return None
+
+        # Prepare search text from activity
+        search_text = " ".join([
+            event.app or "",
+            event.title or "",
+            event.url or ""
+        ]).lower()
+
+        best_match = None
+        best_score = 0.0
+
+        for matter in matters:
+            keywords = (matter.get('keywords') or "").lower().split(",")
+            keywords = [k.strip() for k in keywords if k.strip()]
+
+            if not keywords:
+                continue
+
+            # Count keyword matches
+            matched = [kw for kw in keywords if kw in search_text]
+
+            if matched:
+                # Simple scoring: percentage of keywords matched
+                score = (len(matched) / len(keywords)) * 100.0
+
+                if score > best_score:
+                    best_score = score
+                    best_match = {
+                        'matter_number': matter['matter_number'],
+                        'confidence': round(score, 1),
+                        'matched_keywords': matched
+                    }
+
+        return best_match if best_match and best_score >= threshold else None
+
+    def refresh_cache(self):
+        """Reload matters cache from database."""
+        self._matter_cache = None
+```
+
+**Step 4 - Verify GREEN:**
+```bash
+python test_matter_matcher.py
+```
+Expected output: `✓ test_matcher_keyword_matching passed`
+
+**Step 5 - COMMIT:**
+```bash
+git add test_matter_matcher.py src/syncopaid/matcher.py && git commit -m "feat: add matter matcher with keyword matching
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 4: Integrate Matcher with Event Storage (~4 min)
+
+**Files:**
+- **Modify:** `src/syncopaid/database.py:144-170` (insert_event method)
+
+**Context:** Modify insert_event() to accept optional matter_number parameter and store it in the state field. This enables automatic categorization when events are recorded.
+
+**Step 1 - RED:** Write failing test
+```python
+# test_matter_integration.py (create new file in project root)
+"""Test matter integration with event storage."""
+import tempfile
+from pathlib import Path
+from src.syncopaid.database import Database
+from src.syncopaid.tracker import ActivityEvent
+
+
+def test_insert_event_with_matter():
+    """Verify events can be stored with matter categorization."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "test.db"
+        db = Database(str(db_path))
+
+        # Create event with matter
+        event = ActivityEvent(
+            timestamp="2025-12-17T10:00:00",
+            duration_seconds=120.0,
+            app="WINWORD.EXE",
+            title="Patent Review.docx",
+            end_time="2025-12-17T10:02:00"
+        )
+
+        # Insert with matter categorization
+        event_id = db.insert_event(event, matter_number="1023.L213")
+        assert event_id > 0, "insert_event should return positive ID"
+
+        # Retrieve and verify state field
+        events = db.query_events(
+            start_date="2025-12-17",
+            end_date="2025-12-17"
+        )
+        assert len(events) == 1, "Should retrieve 1 event"
+        assert events[0]['state'] == "1023.L213", f"State should be matter number, got {events[0]['state']}"
+
+
+if __name__ == "__main__":
+    test_insert_event_with_matter()
+    print("✓ test_insert_event_with_matter passed")
+```
+
+**Step 2 - Verify RED:**
+```bash
+python test_matter_integration.py
+```
+Expected output: `TypeError: insert_event() got an unexpected keyword argument 'matter_number'`
+
+**Step 3 - GREEN:** Write minimal implementation
+```python
+# src/syncopaid/database.py (modify insert_event method signature and implementation)
+# Find the insert_event method (around line 144) and modify:
+
+    def insert_event(self, event: ActivityEvent, matter_number: Optional[str] = None) -> int:
+        """
+        Insert a single activity event into the database.
+
+        Args:
+            event: ActivityEvent instance to insert
+            matter_number: Optional matter number for categorization (stored in state field)
+
+        Returns:
+            Row ID of inserted event
+        """
+        # Determine state value
+        state = matter_number if matter_number else event.state
+
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO events
+                (timestamp, duration_seconds, end_time, app, title, url, is_idle, state)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                event.timestamp,
+                event.duration_seconds,
+                event.end_time,
+                event.app,
+                event.title,
+                event.url,
+                1 if event.is_idle else 0,
+                state
+            ))
+
+            event_id = cursor.lastrowid
+            logging.debug(f"Inserted event {event_id}: {event.app} - {event.title}")
+            return event_id
+```
+
+**Step 4 - Verify GREEN:**
+```bash
+python test_matter_integration.py
+```
+Expected output: `✓ test_insert_event_with_matter passed`
+
+**Step 5 - COMMIT:**
+```bash
+git add test_matter_integration.py src/syncopaid/database.py && git commit -m "feat: integrate matter categorization with event storage
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 5: Add Sample Matter Data Script (~3 min)
+
+**Files:**
+- **Create:** `dev-tools/seed_matters.py`
+
+**Context:** Create utility script to populate database with sample matter/client data for testing. This enables manual testing of the matcher without requiring UI.
+
+**Step 1 - RED:** Write failing test
+```python
+# test_seed_matters.py (create new file in project root)
+"""Test matter seeding utility."""
+import tempfile
+import subprocess
+import sys
+from pathlib import Path
+from src.syncopaid.database import Database
+
+
+def test_seed_matters_script():
+    """Verify seed_matters.py populates database."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "test.db"
+
+        # Run seed script
+        result = subprocess.run([
+            sys.executable, "dev-tools/seed_matters.py", str(db_path)
+        ], capture_output=True, text=True)
+
+        assert result.returncode == 0, f"seed_matters.py failed: {result.stderr}"
+
+        # Verify data was inserted
+        db = Database(str(db_path))
+        matters = db.get_all_matters()
+        assert len(matters) >= 3, f"Should seed at least 3 matters, got {len(matters)}"
+
+        # Verify sample matter exists
+        matter = db.get_matter("1023.L213")
+        assert matter is not None, "Should find sample matter 1023.L213"
+
+
+if __name__ == "__main__":
+    test_seed_matters_script()
+    print("✓ test_seed_matters_script passed")
+```
+
+**Step 2 - Verify RED:**
+```bash
+python test_seed_matters.py
+```
+Expected output: `FileNotFoundError: [Errno 2] No such file or directory: 'dev-tools/seed_matters.py'`
+
+**Step 3 - GREEN:** Write minimal implementation
+```python
+# dev-tools/seed_matters.py (create new file)
+"""
+Seed matter database with sample data for testing.
+
+Usage:
+    python dev-tools/seed_matters.py [db_path]
+
+If db_path not provided, uses default SyncoPaid database location.
+"""
+
+import sys
+from pathlib import Path
+
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from syncopaid.database import Database
+from syncopaid.config import ConfigManager
+
+
+def seed_matters(db_path: str):
+    """Populate database with sample matters and clients."""
+    db = Database(db_path)
+
+    # Sample clients
+    clients = [
+        ("C001", "Acme Corporation", "Manufacturing client - patents and contracts"),
+        ("C002", "Beta Industries", "Tech startup - corporate and IP work"),
+        ("C003", "Gamma Holdings", "Real estate development firm"),
+    ]
+
+    # Sample matters
+    matters = [
+        ("1023.L213", "C001", "Patent infringement litigation", "patent,acme,litigation,infringement,manufacturing"),
+        ("1024.C100", "C001", "Supply contract review", "contract,acme,supply,review,manufacturing"),
+        ("2045.M100", "C002", "Trademark registration", "trademark,beta,registration,ip,tech"),
+        ("2046.C200", "C002", "Series A financing", "financing,beta,corporate,investment,startup"),
+        ("3012.R400", "C003", "Property acquisition", "property,gamma,acquisition,real estate,purchase"),
+    ]
+
+    print(f"Seeding database: {db_path}")
+
+    # Insert clients
+    for client_id, name, notes in clients:
+        try:
+            db.insert_client(client_id, name, notes)
+            print(f"  ✓ Client: {client_id} - {name}")
+        except Exception as e:
+            print(f"  ⚠ Client {client_id} already exists or error: {e}")
+
+    # Insert matters
+    for matter_num, client_id, desc, keywords in matters:
+        try:
+            db.insert_matter(matter_num, client_id, desc, keywords)
+            print(f"  ✓ Matter: {matter_num} - {desc}")
+        except Exception as e:
+            print(f"  ⚠ Matter {matter_num} already exists or error: {e}")
+
+    print(f"\n✓ Seeded {len(clients)} clients and {len(matters)} matters")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        db_path = sys.argv[1]
+    else:
+        # Use default SyncoPaid database
+        config = ConfigManager()
+        db_path = str(config.data_dir / "SyncoPaid.db")
+
+    seed_matters(db_path)
+```
+
+**Step 4 - Verify GREEN:**
+```bash
+python test_seed_matters.py
+```
+Expected output: `✓ test_seed_matters_script passed`
+
+**Step 5 - COMMIT:**
+```bash
+git add test_seed_matters.py dev-tools/seed_matters.py && git commit -m "feat: add matter database seeding utility
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
+```
+
+---
+
+## Final Verification
+
+Run after all tasks complete:
+```bash
+# Run all test files
+python test_matter_database.py
+python test_matter_matcher.py
+python test_matter_integration.py
+python test_seed_matters.py
+
+# Verify existing functionality still works
+python -m syncopaid.database
+python -m syncopaid.tracker
+
+# Seed the main database with sample data
+python dev-tools/seed_matters.py
+```
+
+Expected output: All tests pass, existing modules run without errors.
+
+## Rollback
+
+If issues arise: `git log --oneline -10` to find commits, then `git revert <hash>` for each commit in reverse order (most recent first).
+
+## Notes
+
+**What This Plan Delivers:**
+- Matter/client database schema (tables, indices, CRUD operations)
+- Rule-based keyword matcher with confidence scoring
+- Integration point for automatic categorization in event storage
+- Sample data seeding utility for testing
+
+**What's NOT In This Plan (future work):**
+- Automatic categorization during tracking (requires integration in __main__.py)
+- UI for managing matters/clients (requires new UI module)
+- Review UI for flagged low-confidence categorizations (child story 8.4.3)
+- Transition detection and smart prompts (child story 8.4.2 - already planned)
+- Learning from corrections (child story 8.4.4)
+- Browser URL extraction integration (dependency 8.2)
+- UI automation for Outlook/Explorer context (dependency 8.3)
+
+**Edge Cases:**
+- Multiple matters matching same keywords: current implementation returns highest-scoring match
+- No matters in database: matcher returns None (graceful degradation)
+- Empty keywords field: matter is skipped in matching logic
+- Matter numbers must be unique (enforced by UNIQUE constraint)
+
+**Future Enhancements:**
+- Replace rule-based matching with ML-based semantic matching
+- Add local LLM integration for context-aware categorization
+- Implement learning from user corrections (feedback loop)
+- Add confidence threshold configuration in config.json

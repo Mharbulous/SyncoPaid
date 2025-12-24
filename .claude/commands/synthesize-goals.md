@@ -1,1 +1,1 @@
-Invoke the `goal-synthesis` skill to generate/update goals and non-goals documentation from the story-tree database.
+C:/Users/Brahm/Git/StoryTree/claude/commands/synthesize-goals.md

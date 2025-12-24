@@ -1,0 +1,543 @@
+# Monthly Screenshot Archiving - Implementation Plan
+
+> **TDD Required:** Each task: Write test -> RED -> Write code -> GREEN -> Commit
+
+**Goal:** Automatically archive screenshots older than current month to compressed .zip files for efficient long-term storage.
+**Approach:** Create archiver module with monthly .zip compression, database path updates, and scheduled execution on app startup. Archive structure: `screenshots/archives/screenshots-YYYY-MM.zip` (no nested date folders per user feedback).
+**Tech Stack:** Python zipfile, sqlite3, pathlib, logging, datetime
+
+---
+
+**Story ID:** 2.9 | **Created:** 2025-12-17 | **Status:** `planned`
+
+---
+
+## Story Context
+
+**Title:** Monthly Screenshot Archiving
+
+**Description:** **As a** lawyer preserving evidence of work performed
+**I want** screenshots automatically archived to compressed monthly folders
+**So that** I maintain historical context while managing disk space efficiently
+
+**Acceptance Criteria:**
+- [ ] Automatically move screenshots older than current month to monthly archives (e.g., "2024-12/")
+- [ ] Compress monthly archives to .zip files (e.g., "screenshots-2024-12.zip")
+- [ ] Run archive process on application startup and monthly (configurable schedule)
+- [ ] Preserve original folder structure and filenames within archives
+- [ ] Update database file_path references to point to archived locations
+- [ ] Log archiving operations (files moved, compression ratio, errors)
+- [ ] Handle edge cases (partial months, missing folders, corrupted archives)
+
+**Notes:** Since the zip files will have a year and month in their name, perhaps we should just have one archives folder instead of multiple folders name 'YYYY-MM'.
+
+## Prerequisites
+
+- [ ] venv activated: `venv\Scripts\activate`
+- [ ] Baseline tests pass: `python -m pytest -v`
+
+## Files Affected
+
+| File | Change | Purpose |
+|------|--------|---------|
+| `src/syncopaid/archiver.py` | Create | Archiver module with screenshot compression logic |
+| `tests/test_archiver.py` | Create | Unit tests for archiver functionality |
+| `src/syncopaid/__main__.py:150-200` | Modify | Add archiver initialization and startup trigger |
+| `src/syncopaid/config.py:15-45` | Modify | Add archiver config (enabled, interval) |
+| `src/syncopaid/database.py:450-500` | Modify | Add method to update screenshot file_path in bulk |
+
+## TDD Tasks
+
+### Task 1: Create Archiver Module Structure
+
+**Files:** Test: `tests/test_archiver.py` | Impl: `src/syncopaid/archiver.py:1-100`
+
+**RED:** Test archiver initialization with valid screenshot directory.
+```python
+# tests/test_archiver.py
+import pytest
+from pathlib import Path
+from syncopaid.archiver import ScreenshotArchiver
+
+def test_archiver_initialization(tmp_path):
+    """Test archiver initializes with correct paths."""
+    screenshot_dir = tmp_path / "screenshots" / "periodic"
+    screenshot_dir.mkdir(parents=True)
+
+    archiver = ScreenshotArchiver(
+        screenshot_dir=screenshot_dir,
+        db_update_callback=lambda updates: None
+    )
+
+    assert archiver.screenshot_dir == screenshot_dir
+    assert archiver.archive_dir == screenshot_dir.parent / "archives"
+    assert archiver.archive_dir.exists()
+```
+Run: `pytest tests/test_archiver.py::test_archiver_initialization -v` -> Expect: FAILED
+
+**GREEN:** Implement ScreenshotArchiver class initialization.
+```python
+# src/syncopaid/archiver.py
+"""Screenshot archiving module for monthly compression."""
+import logging
+from pathlib import Path
+from typing import Callable, List, Dict
+
+class ScreenshotArchiver:
+    """Manages monthly archiving of screenshots to .zip files."""
+
+    def __init__(
+        self,
+        screenshot_dir: Path,
+        db_update_callback: Callable[[List[Dict]], None]
+    ):
+        """Initialize archiver.
+
+        Args:
+            screenshot_dir: Directory containing dated screenshot folders
+            db_update_callback: Function to update database file_path records
+        """
+        self.screenshot_dir = Path(screenshot_dir)
+        self.archive_dir = self.screenshot_dir.parent / "archives"
+        self.db_update_callback = db_update_callback
+
+        # Create archive directory
+        self.archive_dir.mkdir(parents=True, exist_ok=True)
+
+        logging.info(f"ScreenshotArchiver initialized: {self.screenshot_dir}")
+```
+Run: `pytest tests/test_archiver.py::test_archiver_initialization -v` -> Expect: PASSED
+
+**COMMIT:** `git add tests/test_archiver.py src/syncopaid/archiver.py && git commit -m "feat: add ScreenshotArchiver initialization"`
+
+---
+
+### Task 2: Identify Archivable Months
+
+**Files:** Test: `tests/test_archiver.py:20-50` | Impl: `src/syncopaid/archiver.py:30-80`
+
+**RED:** Test identifying date folders older than current month.
+```python
+# tests/test_archiver.py
+from datetime import date
+
+def test_get_archivable_months(tmp_path):
+    """Test identifying folders older than current month."""
+    screenshot_dir = tmp_path / "screenshots" / "periodic"
+    screenshot_dir.mkdir(parents=True)
+
+    # Create test date folders
+    (screenshot_dir / "2024-11-15").mkdir()
+    (screenshot_dir / "2024-12-20").mkdir()
+    (screenshot_dir / date.today().strftime('%Y-%m-%d')).mkdir()
+
+    archiver = ScreenshotArchiver(screenshot_dir, lambda x: None)
+    months = archiver.get_archivable_months()
+
+    # Should return months older than current month
+    assert len(months) >= 2
+    assert "2024-11" in months
+    assert "2024-12" in months
+    assert date.today().strftime('%Y-%m') not in months
+```
+Run: `pytest tests/test_archiver.py::test_get_archivable_months -v` -> Expect: FAILED
+
+**GREEN:** Implement method to scan and group date folders by month.
+```python
+# src/syncopaid/archiver.py (add to ScreenshotArchiver)
+from datetime import date
+from collections import defaultdict
+
+def get_archivable_months(self) -> List[str]:
+    """Get list of months (YYYY-MM) that can be archived.
+
+    Returns folders older than the current month.
+
+    Returns:
+        List of month strings in YYYY-MM format
+    """
+    current_month = date.today().strftime('%Y-%m')
+    months = set()
+
+    # Scan for date folders (YYYY-MM-DD format)
+    for item in self.screenshot_dir.iterdir():
+        if item.is_dir() and len(item.name) == 10:
+            # Extract YYYY-MM from YYYY-MM-DD
+            month = item.name[:7]
+            if month < current_month:
+                months.add(month)
+
+    return sorted(list(months))
+```
+Run: `pytest tests/test_archiver.py::test_get_archivable_months -v` -> Expect: PASSED
+
+**COMMIT:** `git add tests/test_archiver.py src/syncopaid/archiver.py && git commit -m "feat: add month identification logic"`
+
+---
+
+### Task 3: Archive Single Month to ZIP
+
+**Files:** Test: `tests/test_archiver.py:55-100` | Impl: `src/syncopaid/archiver.py:85-160`
+
+**RED:** Test compressing single month's screenshots to .zip file.
+```python
+# tests/test_archiver.py
+import zipfile
+
+def test_archive_month(tmp_path):
+    """Test archiving a single month to .zip file."""
+    screenshot_dir = tmp_path / "screenshots" / "periodic"
+    screenshot_dir.mkdir(parents=True)
+
+    # Create test screenshots
+    month_folder = screenshot_dir / "2024-11-15"
+    month_folder.mkdir()
+    (month_folder / "screenshot1.jpg").write_bytes(b"fake image 1")
+    (month_folder / "screenshot2.jpg").write_bytes(b"fake image 2")
+
+    updates = []
+    archiver = ScreenshotArchiver(screenshot_dir, lambda x: updates.extend(x))
+
+    result = archiver.archive_month("2024-11")
+
+    # Check .zip file created
+    zip_path = archiver.archive_dir / "screenshots-2024-11.zip"
+    assert zip_path.exists()
+    assert result['status'] == 'success'
+    assert result['files_archived'] == 2
+
+    # Verify .zip contents preserve folder structure
+    with zipfile.ZipFile(zip_path, 'r') as zf:
+        names = zf.namelist()
+        assert "2024-11-15/screenshot1.jpg" in names
+        assert "2024-11-15/screenshot2.jpg" in names
+
+    # Check original folder deleted
+    assert not month_folder.exists()
+
+    # Check database updates requested
+    assert len(updates) == 2
+    assert all('archive' in upd['new_path'] for upd in updates)
+```
+Run: `pytest tests/test_archiver.py::test_archive_month -v` -> Expect: FAILED
+
+**GREEN:** Implement month archiving with ZIP compression.
+```python
+# src/syncopaid/archiver.py (add to ScreenshotArchiver)
+import zipfile
+import shutil
+
+def archive_month(self, month: str) -> Dict:
+    """Archive all screenshots for a given month to .zip file.
+
+    Args:
+        month: Month in YYYY-MM format
+
+    Returns:
+        Dict with status, files_archived, zip_size, compression_ratio
+    """
+    zip_path = self.archive_dir / f"screenshots-{month}.zip"
+
+    # Collect all date folders for this month
+    date_folders = [
+        d for d in self.screenshot_dir.iterdir()
+        if d.is_dir() and d.name.startswith(month)
+    ]
+
+    if not date_folders:
+        return {'status': 'no_files', 'files_archived': 0}
+
+    # Track updates for database
+    db_updates = []
+    files_archived = 0
+    total_size = 0
+
+    try:
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for date_folder in date_folders:
+                for screenshot in date_folder.glob('*.jpg'):
+                    # Archive with relative path (preserves folder structure)
+                    arc_name = f"{date_folder.name}/{screenshot.name}"
+                    zf.write(screenshot, arcname=arc_name)
+
+                    # Track database update
+                    old_path = str(screenshot)
+                    new_path = f"{zip_path}!{arc_name}"  # ZIP path notation
+                    db_updates.append({'old_path': old_path, 'new_path': new_path})
+
+                    total_size += screenshot.stat().st_size
+                    files_archived += 1
+
+        # Delete original folders after successful compression
+        for date_folder in date_folders:
+            shutil.rmtree(date_folder)
+
+        # Update database
+        self.db_update_callback(db_updates)
+
+        zip_size = zip_path.stat().st_size
+        compression_ratio = zip_size / total_size if total_size > 0 else 0
+
+        logging.info(
+            f"Archived {files_archived} screenshots to {zip_path.name} "
+            f"(compression: {compression_ratio:.1%})"
+        )
+
+        return {
+            'status': 'success',
+            'files_archived': files_archived,
+            'zip_size': zip_size,
+            'compression_ratio': compression_ratio
+        }
+
+    except Exception as e:
+        logging.error(f"Failed to archive {month}: {e}")
+        return {'status': 'error', 'error': str(e)}
+```
+Run: `pytest tests/test_archiver.py::test_archive_month -v` -> Expect: PASSED
+
+**COMMIT:** `git add tests/test_archiver.py src/syncopaid/archiver.py && git commit -m "feat: implement monthly ZIP archiving"`
+
+---
+
+### Task 4: Database Bulk Update Method
+
+**Files:** Test: `tests/test_database.py:350-380` | Impl: `src/syncopaid/database.py:480-510`
+
+**RED:** Test bulk updating screenshot file_path records.
+```python
+# tests/test_database.py (add to existing tests)
+def test_update_screenshot_paths_bulk(tmp_db):
+    """Test bulk updating screenshot file paths for archiving."""
+    db = Database(tmp_db)
+
+    # Insert test screenshots
+    db.insert_screenshot("2024-11-15T10:00:00Z", "/screenshots/2024-11-15/img1.jpg", "app", "title")
+    db.insert_screenshot("2024-11-15T11:00:00Z", "/screenshots/2024-11-15/img2.jpg", "app", "title")
+
+    # Bulk update paths
+    updates = [
+        {'old_path': '/screenshots/2024-11-15/img1.jpg', 'new_path': '/archives/screenshots-2024-11.zip!2024-11-15/img1.jpg'},
+        {'old_path': '/screenshots/2024-11-15/img2.jpg', 'new_path': '/archives/screenshots-2024-11.zip!2024-11-15/img2.jpg'}
+    ]
+
+    count = db.update_screenshot_paths_bulk(updates)
+
+    assert count == 2
+
+    # Verify updates
+    with db._get_connection() as conn:
+        cursor = conn.execute("SELECT file_path FROM screenshots ORDER BY id")
+        paths = [row[0] for row in cursor.fetchall()]
+        assert all('archives' in p for p in paths)
+```
+Run: `pytest tests/test_database.py::test_update_screenshot_paths_bulk -v` -> Expect: FAILED
+
+**GREEN:** Add bulk update method to Database class.
+```python
+# src/syncopaid/database.py (add to Database class)
+def update_screenshot_paths_bulk(self, updates: List[Dict[str, str]]) -> int:
+    """Bulk update screenshot file_path records (for archiving).
+
+    Args:
+        updates: List of dicts with 'old_path' and 'new_path' keys
+
+    Returns:
+        Number of records updated
+    """
+    if not updates:
+        return 0
+
+    with self._get_connection() as conn:
+        cursor = conn.cursor()
+
+        for update in updates:
+            cursor.execute(
+                "UPDATE screenshots SET file_path = ? WHERE file_path = ?",
+                (update['new_path'], update['old_path'])
+            )
+
+        total_updated = sum(cursor.execute(
+            "SELECT changes()"
+        ).fetchone()[0] for _ in updates)
+
+        logging.info(f"Updated {total_updated} screenshot paths in database")
+        return total_updated
+```
+Run: `pytest tests/test_database.py::test_update_screenshot_paths_bulk -v` -> Expect: PASSED
+
+**COMMIT:** `git add tests/test_database.py src/syncopaid/database.py && git commit -m "feat: add bulk screenshot path updates"`
+
+---
+
+### Task 5: Run Archival Process
+
+**Files:** Test: `tests/test_archiver.py:105-140` | Impl: `src/syncopaid/archiver.py:165-200`
+
+**RED:** Test running full archival process for all old months.
+```python
+# tests/test_archiver.py
+def test_run_archival_process(tmp_path):
+    """Test running complete archival for all old months."""
+    screenshot_dir = tmp_path / "screenshots" / "periodic"
+    screenshot_dir.mkdir(parents=True)
+
+    # Create screenshots across multiple months
+    for month_day in ["2024-10-15", "2024-11-20", "2024-12-10"]:
+        folder = screenshot_dir / month_day
+        folder.mkdir()
+        (folder / "test.jpg").write_bytes(b"fake")
+
+    archiver = ScreenshotArchiver(screenshot_dir, lambda x: None)
+    results = archiver.run()
+
+    assert len(results) >= 2  # At least Oct and Nov
+    assert all(r['status'] == 'success' for r in results)
+
+    # Check archives created
+    assert (archiver.archive_dir / "screenshots-2024-10.zip").exists()
+    assert (archiver.archive_dir / "screenshots-2024-11.zip").exists()
+```
+Run: `pytest tests/test_archiver.py::test_run_archival_process -v` -> Expect: FAILED
+
+**GREEN:** Implement run method to archive all old months.
+```python
+# src/syncopaid/archiver.py (add to ScreenshotArchiver)
+def run(self) -> List[Dict]:
+    """Run archival process for all months older than current.
+
+    Returns:
+        List of results from archive_month() for each month
+    """
+    months = self.get_archivable_months()
+
+    if not months:
+        logging.info("No months to archive")
+        return []
+
+    logging.info(f"Archiving {len(months)} months: {', '.join(months)}")
+
+    results = []
+    for month in months:
+        result = self.archive_month(month)
+        result['month'] = month
+        results.append(result)
+
+    successes = sum(1 for r in results if r['status'] == 'success')
+    logging.info(f"Archival complete: {successes}/{len(results)} months archived")
+
+    return results
+```
+Run: `pytest tests/test_archiver.py::test_run_archival_process -v` -> Expect: PASSED
+
+**COMMIT:** `git add tests/test_archiver.py src/syncopaid/archiver.py && git commit -m "feat: implement full archival process"`
+
+---
+
+### Task 6: Add Configuration Options
+
+**Files:** Test: `tests/test_config.py:80-100` | Impl: `src/syncopaid/config.py:15-45`
+
+**RED:** Test archiver configuration defaults.
+```python
+# tests/test_config.py (add to existing tests)
+def test_archiver_config_defaults():
+    """Test archiver configuration has correct defaults."""
+    from syncopaid.config import DEFAULT_CONFIG
+
+    assert 'archiver_enabled' in DEFAULT_CONFIG
+    assert DEFAULT_CONFIG['archiver_enabled'] is True
+    assert 'archiver_run_on_startup' in DEFAULT_CONFIG
+    assert DEFAULT_CONFIG['archiver_run_on_startup'] is True
+```
+Run: `pytest tests/test_config.py::test_archiver_config_defaults -v` -> Expect: FAILED
+
+**GREEN:** Add archiver settings to DEFAULT_CONFIG.
+```python
+# src/syncopaid/config.py (modify DEFAULT_CONFIG dict)
+DEFAULT_CONFIG = {
+    # ... existing config ...
+    'archiver_enabled': True,
+    'archiver_run_on_startup': True,
+}
+```
+Run: `pytest tests/test_config.py::test_archiver_config_defaults -v` -> Expect: PASSED
+
+**COMMIT:** `git add tests/test_config.py src/syncopaid/config.py && git commit -m "feat: add archiver configuration defaults"`
+
+---
+
+### Task 7: Integrate Archiver into Main App
+
+**Files:** Test: `tests/test_main.py:50-80` | Impl: `src/syncopaid/__main__.py:150-200`
+
+**RED:** Test archiver runs on application startup.
+```python
+# tests/test_main.py (add integration test)
+from unittest.mock import Mock, patch
+
+def test_archiver_runs_on_startup(tmp_path):
+    """Test archiver executes on app startup when enabled."""
+    with patch('syncopaid.__main__.ScreenshotArchiver') as MockArchiver:
+        mock_archiver = Mock()
+        MockArchiver.return_value = mock_archiver
+
+        # Simulate app startup with archiver enabled
+        # (Implementation depends on app structure - adjust as needed)
+        from syncopaid.__main__ import SyncoPaidApp
+
+        app = SyncoPaidApp(config={'archiver_enabled': True, 'archiver_run_on_startup': True})
+
+        # Verify archiver.run() was called
+        mock_archiver.run.assert_called_once()
+```
+Run: `pytest tests/test_main.py::test_archiver_runs_on_startup -v` -> Expect: FAILED
+
+**GREEN:** Add archiver initialization and startup execution to SyncoPaidApp.
+```python
+# src/syncopaid/__main__.py (modify SyncoPaidApp.__init__)
+from .archiver import ScreenshotArchiver
+
+class SyncoPaidApp:
+    def __init__(self, config_manager: ConfigManager):
+        # ... existing initialization ...
+
+        # Initialize archiver
+        if self.config_manager.get('archiver_enabled', True):
+            self.archiver = ScreenshotArchiver(
+                screenshot_dir=get_screenshot_directory(),
+                db_update_callback=self.database.update_screenshot_paths_bulk
+            )
+
+            # Run on startup if configured
+            if self.config_manager.get('archiver_run_on_startup', True):
+                logging.info("Running screenshot archival on startup...")
+                self.archiver.run()
+        else:
+            self.archiver = None
+```
+Run: `pytest tests/test_main.py::test_archiver_runs_on_startup -v` -> Expect: PASSED
+
+**COMMIT:** `git add tests/test_main.py src/syncopaid/__main__.py && git commit -m "feat: integrate archiver into app startup"`
+
+---
+
+## Verification
+
+- [ ] All tests pass: `python -m pytest -v`
+- [ ] Module test: `python -m syncopaid.archiver` (if standalone test added)
+- [ ] Manual verification: Run app, check archives/ folder created with .zip files for old months
+
+## Notes
+
+**Edge Cases Handled:**
+- Empty months (no screenshots) - skip archiving
+- Current month - never archived
+- Corrupted archives - error logged, process continues with next month
+- Database update failures - logged but don't block archiving
+
+**Future Enhancements:**
+- Scheduled monthly archiving (background thread)
+- Archive extraction utility for viewing old screenshots
+- Configurable retention policy (delete archives after N years)
+- Progress reporting for large archives
