@@ -35,11 +35,13 @@ Generate test-driven implementation plans for approved stories.
 - Compact plan template (shorter explanations)
 - Skip execution handoff options
 - Structured summary output
+- **Linux paths:** `source venv/bin/activate`, forward slashes
 
 **Interactive Mode** (default):
 - Pause for confirmation at key decisions
 - Verbose plan template with full explanations
 - Present execution handoff options
+- **Windows paths:** `venv\Scripts\activate`, backslashes
 
 ## Workflow
 
@@ -402,7 +404,8 @@ Plan complete and saved to `.claude/data/plans/[filename]`.
 
 ## Prerequisites
 
-- [ ] venv activated: `venv\Scripts\activate`
+- [ ] venv activated: `source venv/bin/activate`
+- [ ] Module importable: `pip install -e .` (if not already installed)
 - [ ] Baseline tests pass: `python -m pytest -v`
 
 ## TDD Tasks
@@ -536,7 +539,7 @@ def function_name():
 ## Verification
 
 ```bash
-venv\Scripts\activate
+source venv/bin/activate
 
 # Test command 1
 [command]
