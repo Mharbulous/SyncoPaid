@@ -9,7 +9,7 @@ This document provides a detailed visualization of the `execute-stories.yml` wor
 The execute-stories workflow processes TDD plan documents through a 7-stage pipeline:
 
 1. **setup-and-plan**: Find plan, validate deps, initialize state
-2. **validate-plan**: Ensure plan has valid Story ID (match to database if missing)
+2. **identify-plan**: Ensure plan has valid Story ID (match to database if missing)
 3. **verify-implementation**: Check if plan already implemented (for reviewing/verifying stages)
 4. **review-plan**: Critical review, decide proceed/pause/verified
 5. **decompose**: Assess complexity, split if needed (Opus)
@@ -61,7 +61,7 @@ flowchart TD
     S7 -->|Yes| S9
     NEEDS_VERIFY --> S9
 
-    subgraph VALIDATE["2. validate-plan (15 min timeout)"]
+    subgraph VALIDATE["2. identify-plan (15 min timeout)"]
         VP1[Read plan document]
         VP2[Query database for<br/>matching stories]
         VP3{Match found<br/>>80% confidence?}
@@ -210,7 +210,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    A[setup-and-plan] --> B[validate-plan]
+    A[setup-and-plan] --> B[identify-plan]
     A --> C[verify-implementation]
     B --> C
     B --> D[review-plan]
@@ -242,7 +242,7 @@ stateDiagram-v2
     direction LR
 
     state "setup-and-plan" as SETUP
-    state "validate-plan" as VALIDATE
+    state "identify-plan" as IDENTIFY
     state "verify-implementation" as VERIFY
     state "review-plan" as REVIEW
     state "decompose" as DECOMPOSE
@@ -253,13 +253,13 @@ stateDiagram-v2
 
     SETUP --> IDLE: no plans
     SETUP --> BLOCKED: deps unmet
-    SETUP --> VALIDATE: no Story ID
+    SETUP --> IDENTIFY: no Story ID
     SETUP --> VERIFY: needs verification
     SETUP --> REVIEW: ready to execute
 
-    VALIDATE --> BLOCKED: no match
-    VALIDATE --> VERIFY: matched
-    VALIDATE --> REVIEW: matched
+    IDENTIFY --> BLOCKED: no match
+    IDENTIFY --> VERIFY: matched
+    IDENTIFY --> REVIEW: matched
 
     VERIFY --> VERIFIED: implementation exists
     VERIFY --> MANUAL_REVIEW: partial
@@ -295,7 +295,7 @@ stateDiagram-v2
 
 | Job | Model | Purpose |
 |-----|-------|---------|
-| validate-plan | Sonnet 4.5 | Match plan content to database |
+| identify-plan | Sonnet 4.5 | Match plan content to database |
 | verify-implementation | Sonnet 4.5 | Check if deliverables exist |
 | review-plan | Sonnet 4.5 | Review plan for issues |
 | decompose | **Opus 4.5** | Assess complexity, create sub-plans |
@@ -321,7 +321,7 @@ Each Claude-powered job writes a result JSON:
 
 | Job | Result File |
 |-----|-------------|
-| validate-plan | `ci-validate-result.json` |
+| identify-plan | `ci-identify-result.json` |
 | verify-implementation | `ci-verify-result.json` |
 | review-plan | `ci-review-result.json` |
 | decompose | `ci-decompose-result.json` |
