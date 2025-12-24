@@ -2,6 +2,12 @@
 
 For conversational sessions where a user requests story creation.
 
+## Related References
+
+- **Gap Analysis:** `gap-analysis.md` - Evidence-based story discovery
+- **ID Generation:** `id-generation.md` - ID format rules and assignment
+- **Validation:** `validation.md` - Pre-insertion quality checks
+
 ---
 
 ## Critical Rule
@@ -81,7 +87,20 @@ conn.close()
 "
 ```
 
-### A3: Generate Story
+### A3: Gap Analysis
+
+Apply gap analysis methodology (see `gap-analysis.md`):
+
+1. Match commits to parent scope using keyword similarity
+2. Identify gaps by type:
+   - **Functional**: Missing capability in parent scope
+   - **Pattern**: Commits exist without corresponding stories
+   - **User Journey**: Incomplete workflow
+   - **Technical**: Infrastructure gaps
+3. Apply goals-aware filtering if goals files exist
+4. Select highest-priority gap for story generation
+
+### A4: Generate Story
 
 Create story following template:
 ```markdown
@@ -97,7 +116,26 @@ Create story following template:
 **Related context:** [Evidence from commits or gaps]
 ```
 
-### A4: Proceed to Shared Steps
+**Requirements:**
+- Use specific role from goals or codebase context (not generic "user")
+- Cite evidence (commits or gap type)
+- 3-5 testable acceptance criteria
+
+### A5: Validate Story
+
+Apply validation checks (see `validation.md`):
+
+1. User story format complete (As a/I want/So that)
+2. Specific role (not generic "user")
+3. 3+ testable acceptance criteria
+4. Evidence cited in Related context
+5. Scope within parent description
+6. Correct ID format (see `id-generation.md`)
+7. Goals alignment (if goals files exist)
+
+**If validation fails:** Fix issues before proceeding.
+
+### A6: Proceed to Shared Steps
 
 Continue to **Insert → Vet → Classify → Complete** below.
 
@@ -137,6 +175,8 @@ Select the most appropriate parent based on story scope.
 
 ### B2: Determine Next ID
 
+Use ID generation rules (see `id-generation.md`):
+
 ```python
 python -c "
 import sqlite3
@@ -155,7 +195,22 @@ conn.close()
 "
 ```
 
-### B3: Proceed to Shared Steps
+### B3: Validate User Story
+
+Apply validation checks (see `validation.md`):
+
+> **Note:** User-provided stories still require validation.
+> The fact that a human wrote it does not exempt it from quality checks.
+
+1. User story format complete (As a/I want/So that)
+2. Specific role (not generic "user")
+3. 3+ testable acceptance criteria
+4. Evidence or context provided
+5. Correct ID format for parent
+
+**If validation fails:** Ask user to revise before proceeding.
+
+### B4: Proceed to Shared Steps
 
 Continue to **Insert → Vet → Classify → Complete** below.
 

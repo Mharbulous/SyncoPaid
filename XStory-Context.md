@@ -68,7 +68,7 @@ Stories are tracked using three orthogonal fields instead of a single status:
 
 **Core Skills**:
 - `story-tree` - Autonomous orchestrator, tree visualization
-- `story-writing` - Generate new story concepts (or polish existing)
+- `story-building` - Generate evidence-based stories with vetting
 - `story-vetting` - Detect duplicates, overlaps, conflicts
 - `story-planning` - Create TDD implementation plans
 - `story-execution` - Execute plans with RED-GREEN-COMMIT cycles
@@ -89,7 +89,7 @@ Stories are tracked using three orthogonal fields instead of a single status:
 User: "update story tree"
 → Analyze git commits since last checkpoint
 → Identify highest-priority under-capacity node
-→ Invoke story-writing for that node
+→ Invoke story-building for that node
 → Output report with tree visualization
 ```
 
@@ -139,7 +139,7 @@ User: "vet stories"
 │   │   ├── references/            # Schema, queries, rationales
 │   │   ├── scripts/tree-view.py   # Visualization
 │   │   └── utility/story_db_common.py  # Shared operations
-│   ├── story-writing/
+│   ├── story-building/
 │   ├── story-vetting/
 │   ├── story-planning/
 │   ├── story-execution/

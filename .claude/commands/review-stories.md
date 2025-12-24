@@ -145,4 +145,4 @@ git push
 ## Constraints
 
 - Review ONE story per invocation
-- If no concepts: suggest `/write-stories` or `story-writing` skill
+- If no concepts: suggest `/write-stories` or `story-building` skill
