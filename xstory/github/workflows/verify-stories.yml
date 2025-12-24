@@ -1,0 +1,290 @@
+name: Daily Story Verification
+
+# Run at 2:40 AM PST (10:40 UTC) every day - after ready-check in DRAIN phase
+# Verifies stories in 'verifying' stage and advances to 'implemented' if tests pass
+on:
+  # schedule disabled - manual trigger only
+  workflow_dispatch:
+
+concurrency:
+  group: daily-story-verification
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  verify-stories:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Full history for git operations
+
+      - name: Run Claude Code to verify stories
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          # GitHub token for repository operations (required for scheduled workflows)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Use OAuth token for Max subscription
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Show full output for debugging
+          show_full_output: true
+
+          # Direct prompt mode for scheduled automation (CI-optimized)
+          # Transition: verifying (no hold) → implemented (pass) or verifying (broken)
+          prompt: |
+            MODE: Daily Story Verification (CI - fully autonomous)
+
+            This workflow verifies that stories meet their acceptance criteria.
+            Stories in 'verifying' stage have been implemented and need verification before
+            being marked as 'implemented'.
+
+            ## Step 1: Find Stories Ready for Verification
+
+            Query verifying stories without holds:
+
+            ```python
+            python3 << 'QUERY_SCRIPT'
+            import sqlite3
+            import json
+
+            conn = sqlite3.connect('.claude/data/story-tree.db')
+            conn.row_factory = sqlite3.Row
+
+            # Find all verifying stories without holds
+            stories = conn.execute("""
+                SELECT id, title, description, notes, project_path
+                FROM story_nodes
+                WHERE stage = 'verifying'
+                  AND hold_reason IS NULL
+                  AND disposition IS NULL
+                ORDER BY updated_at ASC
+            """).fetchall()
+
+            print(f"Found {len(stories)} story(ies) ready for verification:")
+            for s in stories:
+                print(f"  - {s['id']}: {s['title'][:60]}...")
+
+            result = {
+                'count': len(stories),
+                'stories': [
+                    {
+                        'id': s['id'],
+                        'title': s['title'],
+                        'description': s['description'],
+                        'project_path': s['project_path'],
+                        'notes': s['notes']
+                    } for s in stories
+                ]
+            }
+            print(json.dumps(result, indent=2))
+            conn.close()
+            QUERY_SCRIPT
+            ```
+
+            If count is 0, output "✓ No stories ready for verification" and exit successfully.
+
+            ## Step 2: Verify Each Story Using story-verification Skill
+
+            For each story found, use the story-verification skill:
+
+            ```
+            Skill(skill="story-verification")
+            ```
+
+            The skill will:
+            1. Parse acceptance criteria from the story description
+            2. Search for test and code evidence for each criterion
+            3. Run related tests
+            4. Generate a verification report
+            5. Update story status based on results
+
+            ### Verification Decision Matrix
+
+            | Result | Action |
+            |--------|--------|
+            | All criteria PASS/SKIP | → `implemented` |
+            | Any criterion FAIL | → `verifying` with `hold_reason='broken'` |
+            | All PASS but UNTESTABLE | → `verifying` with `hold_reason='pending'` |
+
+            ## Step 3: Manual Verification (Fallback)
+
+            If the skill is unavailable, perform manual verification:
+
+            ### 3a. Parse Acceptance Criteria
+
+            ```bash
+            python .claude/skills/story-verification/parse_criteria.py <story_id>
+            ```
+
+            ### 3b. Find Evidence for Each Criterion
+
+            ```bash
+            # Search for test evidence
+            python .claude/skills/story-verification/find_evidence.py test "<criterion_text>" [project_path]
+
+            # Search for code evidence
+            python .claude/skills/story-verification/find_evidence.py code "<criterion_text>" [project_path]
+            ```
+
+            ### 3c. Run Related Tests
+
+            ```bash
+            python -m pytest <test_file> -v --tb=short 2>&1 || true
+            ```
+
+            ### 3d. Update Status
+
+            ```bash
+            # If all pass
+            python .claude/skills/story-verification/update_status.py <story_id> implemented "All acceptance criteria verified"
+
+            # If any fail
+            python .claude/skills/story-verification/update_status.py <story_id> verifying "Criteria X failed: <reason>"
+            ```
+
+            ## Step 4: Direct Database Update (Alternative)
+
+            If helper scripts fail, use direct SQL:
+
+            ```python
+            python3 << 'UPDATE_SCRIPT'
+            import sqlite3
+            import json
+            from datetime import datetime
+
+            conn = sqlite3.connect('.claude/data/story-tree.db')
+            conn.row_factory = sqlite3.Row
+
+            # Claude fills in VERIFICATION_RESULTS based on analysis
+            # Format: [{"id": "1.2.3", "decision": "PASS|FAIL", "reason": "..."}]
+            VERIFICATION_RESULTS = []  # Claude replaces this with actual results
+
+            passed = []
+            failed = []
+
+            for result in VERIFICATION_RESULTS:
+                story_id = result['id']
+                decision = result['decision']
+                reason = result.get('reason', '')
+
+                if decision == 'PASS':
+                    # Transition to implemented
+                    conn.execute("""
+                        UPDATE story_nodes
+                        SET stage = 'implemented',
+                            notes = COALESCE(notes || char(10), '') ||
+                                    'VERIFIED: ' || ? || ' ' || datetime('now'),
+                            updated_at = datetime('now')
+                        WHERE id = ?
+                    """, (reason, story_id))
+                    passed.append({'id': story_id, 'reason': reason})
+                else:
+                    # Mark as broken
+                    conn.execute("""
+                        UPDATE story_nodes
+                        SET hold_reason = 'broken',
+                            notes = COALESCE(notes || char(10), '') ||
+                                    'VERIFICATION FAILED: ' || ? || ' ' || datetime('now'),
+                            updated_at = datetime('now')
+                        WHERE id = ?
+                    """, (reason, story_id))
+                    failed.append({'id': story_id, 'reason': reason})
+
+            conn.commit()
+
+            print("=== Story Verification Complete ===")
+            print(f"Passed: {len(passed)} story(ies) → implemented")
+            print(f"Failed: {len(failed)} story(ies) → broken")
+            print("")
+            if passed:
+                print("Verified stories:")
+                for p in passed:
+                    print(f"  ✓ {p['id']}: {p['reason'][:60]}...")
+            if failed:
+                print("Failed verification:")
+                for f in failed:
+                    print(f"  ✗ {f['id']}: {f['reason'][:60]}...")
+
+            print(json.dumps({'passed': passed, 'failed': failed}, indent=2))
+            conn.close()
+            UPDATE_SCRIPT
+            ```
+
+            **IMPORTANT**: Replace the `VERIFICATION_RESULTS = []` line with actual results
+            based on your analysis. Example:
+            ```python
+            VERIFICATION_RESULTS = [
+                {"id": "1.3.6", "decision": "PASS", "reason": "All 5 acceptance criteria verified with tests"},
+                {"id": "1.5.6", "decision": "FAIL", "reason": "Criterion 3 failed: no validation for invalid config"}
+            ]
+            ```
+
+            ## Step 5: Git Operations
+
+            After verifying stories:
+            ```bash
+            git checkout main && git pull origin main
+            git add -A
+            git diff --cached --quiet || git commit -m "ci: verify stories $(date -u +'%Y-%m-%d')"
+            git push origin main
+            ```
+
+            **CRITICAL**: Push changes before exiting.
+
+            ## Constraints
+            - Process all eligible verifying stories in one run
+            - 45-minute timeout (verification requires running tests)
+            - Be thorough - verification is the last quality gate before 'implemented'
+            - Document specific criteria results in the notes
+
+          # Tool permissions for file operations, database access, git, and testing
+          claude_args: |
+            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pytest:*),Bash(npm:*),Bash(pip:*),BashOutput,Skill,SlashCommand,TodoWrite"
+            --model claude-sonnet-4-5-20250929
+            --max-turns 50
+
+      - name: Report Token Usage
+        if: always()
+        run: |
+          echo "## Token Usage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          EXEC_FILE="${{ steps.claude.outputs.execution_file }}"
+          if [ -f "$EXEC_FILE" ]; then
+            # Determine file format (JSONL vs JSON array) and extract data
+            if jq -e 'type == "array"' "$EXEC_FILE" > /dev/null 2>&1; then
+              # JSON array format
+              INPUT_TOKENS=$(jq '[.[] | select(.message?.usage?) | .message.usage.input_tokens // 0] | add // 0' "$EXEC_FILE")
+              OUTPUT_TOKENS=$(jq '[.[] | select(.message?.usage?) | .message.usage.output_tokens // 0] | add // 0' "$EXEC_FILE")
+              TOTAL_COST=$(jq '[.[] | select(.type == "result")] | last | .total_cost_usd // .cost_usd // "N/A"' "$EXEC_FILE" | tr -d '"')
+            else
+              # JSONL format
+              INPUT_TOKENS=$(grep -o '"input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              OUTPUT_TOKENS=$(grep -o '"output_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              RESULT=$(grep '"type":"result"' "$EXEC_FILE" | tail -1)
+              TOTAL_COST=$(echo "$RESULT" | jq -r '.total_cost_usd // .cost_usd // "N/A"' 2>/dev/null || echo "N/A")
+            fi
+
+            # Validate we got numeric values
+            if ! [[ "$INPUT_TOKENS" =~ ^[0-9]+$ ]]; then INPUT_TOKENS=0; fi
+            if ! [[ "$OUTPUT_TOKENS" =~ ^[0-9]+$ ]]; then OUTPUT_TOKENS=0; fi
+
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Input Tokens | $INPUT_TOKENS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Output Tokens | $OUTPUT_TOKENS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Total Cost | \$$TOTAL_COST |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Execution file not found" >> $GITHUB_STEP_SUMMARY
+          fi

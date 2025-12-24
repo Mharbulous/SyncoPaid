@@ -1,0 +1,369 @@
+name: Post Story Results
+description: Create or update GitHub issue for story tracking with execution results
+
+inputs:
+  story_id:
+    description: Story ID to post results for
+    required: true
+  plan_filename:
+    description: Name of the plan file
+    required: true
+  execute_plan:
+    description: Path to executed plan
+    required: false
+    default: ''
+  complexity:
+    description: Plan complexity assessment
+    required: false
+    default: ''
+  outcome:
+    description: Final execution outcome
+    required: true
+  outcome_reason:
+    description: Reason for outcome
+    required: false
+    default: ''
+  needs_review:
+    description: Whether review is needed
+    required: false
+    default: 'false'
+  skip_reason:
+    description: Reason for skipping execution
+    required: false
+    default: ''
+  max_turns_exhausted:
+    description: Whether max turns was exhausted
+    required: false
+    default: 'false'
+  review_outcome:
+    description: Review step outcome
+    required: false
+    default: ''
+  execute_status:
+    description: Execute step status
+    required: false
+    default: ''
+  tasks_completed:
+    description: Number of tasks completed
+    required: false
+    default: '0'
+  tasks_total:
+    description: Total number of tasks
+    required: false
+    default: '0'
+  commits_list:
+    description: Comma-separated list of commits
+    required: false
+    default: ''
+  files_changed:
+    description: List of files changed
+    required: false
+    default: ''
+  blocking_issues:
+    description: Blocking issues from review
+    required: false
+    default: ''
+  review_notes:
+    description: Notes from plan review
+    required: false
+    default: ''
+  error_summary:
+    description: Summary of errors
+    required: false
+    default: ''
+  db_path:
+    description: Path to story-tree.db
+    required: false
+    default: '.claude/data/story-tree.db'
+  github_server_url:
+    description: GitHub server URL
+    required: true
+  github_repository:
+    description: GitHub repository
+    required: true
+  github_run_id:
+    description: GitHub run ID
+    required: true
+  github_token:
+    description: GitHub token for API calls
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Post results to story issue
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+      run: |
+        STORY_ID="${{ inputs.story_id }}"
+
+        if [ -z "$STORY_ID" ] || [ "$STORY_ID" = "none" ]; then
+          echo "No Story ID available, skipping issue posting"
+          exit 0
+        fi
+
+        EXECUTE_PLAN="${{ inputs.execute_plan }}"
+        PLAN_FILENAME="${{ inputs.plan_filename }}"
+        if [ -z "$PLAN_FILENAME" ]; then
+          PLAN_FILENAME=$(basename "$EXECUTE_PLAN" 2>/dev/null || echo "unknown")
+        fi
+        COMPLEXITY="${{ inputs.complexity }}"
+        if [ -z "$COMPLEXITY" ]; then
+          COMPLEXITY="(verified - skipped)"
+        fi
+        DB_PATH="${{ inputs.db_path }}"
+
+        # Fetch story metadata from database
+        TITLE=""
+        DESCRIPTION=""
+        USER_STORY=""
+        SUCCESS_CRITERIA=""
+        if [ -f "$DB_PATH" ]; then
+          IFS='|' read -r TITLE DESCRIPTION USER_STORY SUCCESS_CRITERIA <<< "$(python3 << PYEOF
+        import sqlite3
+
+        conn = sqlite3.connect("$DB_PATH")
+        r = conn.execute('''
+            SELECT title, description, story, success_criteria
+            FROM story_nodes WHERE id = ?
+        ''', ("$STORY_ID",)).fetchone()
+        conn.close()
+
+        if r:
+            title = (r[0] or '').replace('|', '/')
+            desc = (r[1] or '').replace('|', '/').replace('\n', ' ')[:500]
+            story = (r[2] or '').replace('|', '/').replace('\n', ' ')
+            criteria = (r[3] or '').replace('|', '/')
+            print(f"{title}|{desc}|{story}|{criteria}")
+        else:
+            print("|||")
+        PYEOF
+          )"
+        fi
+        TITLE="${TITLE:-Story $STORY_ID}"
+
+        # Determine parent story for linking
+        PARENT_ID=""
+        if [[ "$STORY_ID" =~ \. ]]; then
+          PARENT_ID="${STORY_ID%.*}"
+        fi
+
+        PARENT_ISSUE_REF=""
+        if [ -n "$PARENT_ID" ]; then
+          PARENT_TITLE=""
+          if [ -f "$DB_PATH" ]; then
+            PARENT_TITLE=$(python3 -c "import sqlite3; c=sqlite3.connect('$DB_PATH'); r=c.execute('SELECT title FROM story_nodes WHERE id=?',('$PARENT_ID',)).fetchone(); print(r[0] if r else '')" 2>/dev/null)
+          fi
+          if [ -n "$PARENT_TITLE" ]; then
+            PARENT_ISSUE_TITLE="$PARENT_ID - $PARENT_TITLE"
+            PARENT_ISSUE_NUM=$(gh issue list --state all --search "\"$PARENT_ISSUE_TITLE\" in:title" --json number,title --jq ".[] | select(.title == \"$PARENT_ISSUE_TITLE\") | .number" | head -1)
+            if [ -n "$PARENT_ISSUE_NUM" ]; then
+              PARENT_ISSUE_REF="#$PARENT_ISSUE_NUM"
+            else
+              PARENT_ISSUE_REF="$PARENT_ID - $PARENT_TITLE"
+            fi
+          fi
+        fi
+
+        ISSUE_TITLE="$STORY_ID - $TITLE"
+
+        # Find or create issue
+        ISSUE_NUM=$(gh issue list --state all --search "\"$ISSUE_TITLE\" in:title" --json number,title --jq ".[] | select(.title == \"$ISSUE_TITLE\") | .number" | head -1)
+
+        RUN_URL="${{ inputs.github_server_url }}/${{ inputs.github_repository }}/actions/runs/${{ inputs.github_run_id }}"
+
+        if [ -z "$ISSUE_NUM" ]; then
+          # Create new issue with rich context
+          INITIAL_BODY="# $TITLE
+
+        **Story ID:** $STORY_ID"
+
+          if [ -n "$PARENT_ISSUE_REF" ]; then
+            INITIAL_BODY="$INITIAL_BODY
+        **Parent Story:** $PARENT_ISSUE_REF"
+          fi
+
+          INITIAL_BODY="$INITIAL_BODY
+        **Plan:** \`$PLAN_FILENAME\`
+
+        ---
+
+        ## Description
+        ${DESCRIPTION:-_No description available_}"
+
+          if [ -n "$USER_STORY" ]; then
+            INITIAL_BODY="$INITIAL_BODY
+
+        ## User Story
+        > $USER_STORY"
+          fi
+
+          if [ -n "$SUCCESS_CRITERIA" ]; then
+            FORMATTED_CRITERIA=$(echo "$SUCCESS_CRITERIA" | sed 's/\\n/\n/g')
+            INITIAL_BODY="$INITIAL_BODY
+
+        ## Success Criteria
+        $FORMATTED_CRITERIA"
+          fi
+
+          INITIAL_BODY="$INITIAL_BODY
+
+        ---
+        *Created by [execute-stories workflow]($RUN_URL)*"
+
+          ISSUE_NUM=$(gh issue create --title "$ISSUE_TITLE" --body "$INITIAL_BODY" --label "story-tracking" 2>/dev/null | grep -oP 'issues/\K[0-9]+' || \
+                      gh issue create --title "$ISSUE_TITLE" --body "$INITIAL_BODY" | grep -oP 'issues/\K[0-9]+' || echo "")
+          echo "Created new issue #$ISSUE_NUM with rich context"
+        fi
+
+        if [ -z "$ISSUE_NUM" ]; then
+          echo "Could not find/create issue"
+          exit 0
+        fi
+
+        # Build status text
+        OUTCOME="${{ inputs.outcome }}"
+        REASON="${{ inputs.outcome_reason }}"
+        case "$OUTCOME" in
+          success)
+            if [ "${{ inputs.needs_review }}" = "true" ]; then
+              STATUS="✅ Success (review required)"
+            else
+              STATUS="✅ Success"
+            fi
+            ;;
+          verified)
+            STATUS="✅ Verified (already implemented - plan archived)"
+            ;;
+          blocked)
+            STATUS="🚫 Blocked (no matching Story ID found)"
+            ;;
+          partial)
+            STATUS="⚠️ Partial (review required)"
+            ;;
+          paused)
+            STATUS="⏸️ Paused (blocking issues)"
+            ;;
+          failure)
+            MAX_TURNS_EXHAUSTED="${{ inputs.max_turns_exhausted }}"
+            if [ "$MAX_TURNS_EXHAUSTED" = "likely" ]; then
+              STATUS="❌ Failed (max-turns exhausted)"
+            else
+              STATUS="❌ Failed"
+            fi
+            ;;
+          skipped)
+            SKIP_REASON="${{ inputs.skip_reason }}"
+            case "$SKIP_REASON" in
+              deps_unmet) STATUS="🚧 Blocked (unmet dependencies)" ;;
+              *) STATUS="⏭️ Skipped ($SKIP_REASON)" ;;
+            esac
+            ;;
+          *)
+            STATUS="⚠️ $OUTCOME"
+            ;;
+        esac
+
+        # Build comment body
+        TASKS_COMPLETED="${{ inputs.tasks_completed }}"
+        TASKS_TOTAL="${{ inputs.tasks_total }}"
+        COMMITS_LIST="${{ inputs.commits_list }}"
+        FILES_CHANGED="${{ inputs.files_changed }}"
+        BLOCKING_ISSUES="${{ inputs.blocking_issues }}"
+        REVIEW_NOTES="${{ inputs.review_notes }}"
+        ERROR_SUMMARY="${{ inputs.error_summary }}"
+        REVIEW_OUTCOME="${{ inputs.review_outcome }}"
+        EXECUTE_STATUS="${{ inputs.execute_status }}"
+
+        BODY="## $STATUS
+
+        **Plan:** \`$PLAN_FILENAME\`
+        **Complexity:** $COMPLEXITY"
+
+        if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "partial" ]; then
+          if [ "$TASKS_TOTAL" != "0" ] && [ -n "$TASKS_TOTAL" ]; then
+            BODY="$BODY
+        **Tasks:** $TASKS_COMPLETED/$TASKS_TOTAL completed"
+          fi
+
+          if [ -n "$COMMITS_LIST" ]; then
+            COMMITS_FORMATTED=$(echo "$COMMITS_LIST" | sed 's/,/`, `/g')
+            BODY="$BODY
+        **Commits:** \`$COMMITS_FORMATTED\`"
+          fi
+
+          if [ -n "$FILES_CHANGED" ]; then
+            BODY="$BODY
+        **Files:** $FILES_CHANGED"
+          fi
+        fi
+
+        if [ "$OUTCOME" = "failure" ] || [ "$OUTCOME" = "partial" ]; then
+          BODY="$BODY
+
+        ### Failure Details"
+
+          MAX_TURNS_EXHAUSTED="${{ inputs.max_turns_exhausted }}"
+          if [ "$MAX_TURNS_EXHAUSTED" = "likely" ]; then
+            BODY="$BODY
+        **Cause:** 🔄 Execution stopped (max-turns limit 25 reached)
+
+        The job was stopped due to excessive turns. This typically indicates the plan got stuck.
+
+        **Next steps:**
+        - Examine the execute job logs to find why the job got stuck
+        - Review the plan for issues (e.g., platform incompatibility, missing dependencies)
+        - Check artifacts: \`execute-result\`, \`review-result\`
+        - Check result files: \`.claude/skills/story-execution/ci-*.json\`"
+          elif [ "$REVIEW_OUTCOME" = "pause" ]; then
+            BODY="$BODY
+        **Failed at:** Review (blocking issues found)"
+          elif [ -z "$EXECUTE_STATUS" ] || [ "$EXECUTE_STATUS" = "failed" ]; then
+            BODY="$BODY
+        **Failed at:** Execute"
+          fi
+
+          if [ -n "$ERROR_SUMMARY" ]; then
+            BODY="$BODY
+        **Error:** $ERROR_SUMMARY"
+          fi
+
+          if [ "$TASKS_TOTAL" != "0" ] && [ -n "$TASKS_TOTAL" ]; then
+            BODY="$BODY
+        **Progress:** $TASKS_COMPLETED/$TASKS_TOTAL tasks completed before failure"
+          fi
+        fi
+
+        if [ "$OUTCOME" = "paused" ] && [ -n "$BLOCKING_ISSUES" ]; then
+          BODY="$BODY
+
+        ### Blocking Issues
+        $BLOCKING_ISSUES"
+        fi
+
+        if [ -n "$REVIEW_NOTES" ] && [ "$OUTCOME" != "success" ]; then
+          BODY="$BODY
+
+        ### Review Notes
+        $REVIEW_NOTES"
+        fi
+
+        if [ "$OUTCOME" != "success" ] && [ "$OUTCOME" != "verified" ] && [ "$OUTCOME" != "skipped" ]; then
+          BODY="$BODY
+
+        ### Debug Info
+        - **Artifacts:** \`execute-result\`, \`review-result\` (download from [workflow run]($RUN_URL))
+        - **Result files:** \`.claude/skills/story-execution/ci-*.json\`"
+        fi
+
+        BODY="$BODY
+
+        ---
+        **Time:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')
+        **Run:** [View Details]($RUN_URL)
+
+        *Posted by [execute-stories workflow]($RUN_URL)*"
+
+        echo "$BODY" | gh issue comment "$ISSUE_NUM" --body-file -
+        echo "Posted to issue #$ISSUE_NUM"

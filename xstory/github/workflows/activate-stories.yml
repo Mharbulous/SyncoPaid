@@ -1,0 +1,464 @@
+name: 3. Activate Story
+
+# Run hourly from 2:20 PM to 8:20 PM PST (22:20 UTC to 04:20 UTC next day)
+# Two-step flow: UNBLOCK (check recorded blockers) → ACTIVATE (full dep check)
+on:
+  schedule:
+    - cron: '20 22 * * *'  # 2:20 PM PST
+    - cron: '20 23 * * *'  # 3:20 PM PST
+    - cron: '20 0 * * *'   # 4:20 PM PST
+    - cron: '20 1 * * *'   # 5:20 PM PST
+    - cron: '20 2 * * *'   # 6:20 PM PST
+    - cron: '20 3 * * *'   # 7:20 PM PST
+    - cron: '20 4 * * *'   # 8:20 PM PST
+  workflow_dispatch:
+
+concurrency:
+  group: daily-story-activation
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  activate-stories:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Full history for git operations
+
+      - name: Run Claude Code to activate stories
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          # GitHub token for repository operations (required for scheduled workflows)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Use OAuth token for Max subscription
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Show full output for debugging
+          show_full_output: true
+
+          # Direct prompt mode for scheduled automation (CI-optimized)
+          # Two-step flow per orchestrator-workflow-complete.md spec
+          prompt: |
+            MODE: Daily Story Activation (CI - fully autonomous)
+
+            This workflow implements the two-step activate-stories flow:
+            - Step 4a: UNBLOCK - Check if recorded blockers are resolved
+            - Step 4b: ACTIVATE - Full dependency check for unblocked stories
+
+            ## Step 1: UNBLOCK - Check Recorded Blockers
+
+            First, find all planned stories with recorded blockers (hold_reason LIKE 'blocked:%'):
+
+            ```python
+            python3 << 'UNBLOCK_SCRIPT'
+            import sqlite3
+            import json
+            from datetime import datetime
+
+            conn = sqlite3.connect('.claude/data/story-tree.db')
+            conn.row_factory = sqlite3.Row
+
+            # Find all planned stories with recorded blockers
+            blocked_stories = conn.execute("""
+                SELECT id, title, hold_reason
+                FROM story_nodes
+                WHERE stage = 'planned'
+                  AND hold_reason LIKE 'blocked:%'
+                  AND disposition IS NULL
+            """).fetchall()
+
+            unblocked = []
+            still_blocked = []
+
+            for story in blocked_stories:
+                # Parse blocker IDs from hold_reason (format: 'blocked:1.2.1,1.3.4')
+                blocker_ids_str = story['hold_reason'][8:]  # Remove 'blocked:' prefix
+                blocker_ids = [bid.strip() for bid in blocker_ids_str.split(',') if bid.strip()]
+
+                # Check if ALL blockers are resolved (implemented, ready, released, or disposed)
+                placeholders = ','.join(['?' for _ in blocker_ids])
+                unresolved = conn.execute(f"""
+                    SELECT id, stage FROM story_nodes
+                    WHERE id IN ({placeholders})
+                      AND disposition IS NULL
+                      AND stage NOT IN ('implemented', 'ready', 'released')
+                """, blocker_ids).fetchall()
+
+                if len(unresolved) == 0:
+                    # All blockers resolved - clear hold_reason
+                    conn.execute("""
+                        UPDATE story_nodes
+                        SET hold_reason = NULL,
+                            notes = COALESCE(notes || char(10), '') ||
+                                    'UNBLOCKED: Recorded blockers [' || ? || '] resolved. ' ||
+                                    datetime('now'),
+                            updated_at = datetime('now')
+                        WHERE id = ?
+                    """, (blocker_ids_str, story['id']))
+                    unblocked.append({'id': story['id'], 'title': story['title'], 'blockers': blocker_ids})
+                else:
+                    still_blocked.append({
+                        'id': story['id'],
+                        'title': story['title'],
+                        'blockers': blocker_ids,
+                        'unresolved': [{'id': u['id'], 'stage': u['stage']} for u in unresolved]
+                    })
+
+            conn.commit()
+            print(json.dumps({'unblocked': unblocked, 'still_blocked': still_blocked}, indent=2))
+            conn.close()
+            UNBLOCK_SCRIPT
+            ```
+
+            ## Step 2: ACTIVATE - Full Dependency Check
+
+            Now process all planned stories without hold_reason (including freshly unblocked):
+
+            ```python
+            python3 << 'ACTIVATE_SCRIPT'
+            import sqlite3
+            import re
+            import json
+
+            conn = sqlite3.connect('.claude/data/story-tree.db')
+            conn.row_factory = sqlite3.Row
+
+            # Get all planned stories without holds, ordered by updated_at
+            planned = conn.execute("""
+                SELECT id, title, description, notes FROM story_nodes
+                WHERE stage = 'planned'
+                  AND hold_reason IS NULL
+                  AND disposition IS NULL
+                ORDER BY updated_at ASC
+            """).fetchall()
+
+            print(f"Found {len(planned)} planned stories without holds")
+
+            IMPLEMENTED_STAGES = ('implemented', 'ready', 'released')
+            PLANNED_OR_LATER = ('planned', 'active', 'reviewing', 'verifying', 'implemented', 'ready', 'released')
+
+            results = []
+            for story in planned:
+                story_id = story['id']
+                text = (story['description'] or '') + ' ' + (story['notes'] or '')
+
+                # Extract dependency IDs (patterns: 1.2, 1.3.1, etc., or explicit 'depends on X')
+                dep_pattern = r'(?:depends on|requires|after|needs)\s+(\d+(?:\.\d+)*)|(?<!\d)(\d+\.\d+(?:\.\d+)*)(?!\d)'
+                deps = set()
+                for match in re.finditer(dep_pattern, text, re.IGNORECASE):
+                    dep_id = match.group(1) or match.group(2)
+                    if dep_id and dep_id != story_id:
+                        deps.add(dep_id)
+
+                # Check dependency stories are implemented
+                blocker_ids = []
+                for dep_id in deps:
+                    dep = conn.execute(
+                        'SELECT id, title, stage FROM story_nodes WHERE id = ? AND disposition IS NULL',
+                        (dep_id,)
+                    ).fetchone()
+                    if dep and dep['stage'] not in IMPLEMENTED_STAGES:
+                        blocker_ids.append(dep_id)
+
+                # Check all children are at least planned
+                children = conn.execute("""
+                    SELECT s.id, s.title, s.stage FROM story_nodes s
+                    JOIN story_paths p ON s.id = p.descendant_id
+                    WHERE p.ancestor_id = ? AND p.depth = 1
+                      AND s.disposition IS NULL
+                """, (story_id,)).fetchall()
+
+                for child in children:
+                    if child['stage'] not in PLANNED_OR_LATER:
+                        blocker_ids.append(child['id'])
+
+                ready = len(blocker_ids) == 0
+                results.append({
+                    'id': story_id,
+                    'title': story['title'],
+                    'ready': ready,
+                    'blocker_ids': blocker_ids
+                })
+
+            print(json.dumps(results, indent=2))
+            conn.close()
+            ACTIVATE_SCRIPT
+            ```
+
+            ## Step 3: Cycle Detection and Apply Transitions
+
+            For each story in the results, check for cycles before blocking:
+
+            ```python
+            python3 << 'APPLY_SCRIPT'
+            import sqlite3
+            import json
+            import sys
+
+            # Read results from previous step (passed as argument or re-query)
+            conn = sqlite3.connect('.claude/data/story-tree.db')
+            conn.row_factory = sqlite3.Row
+
+            # Re-query to get current state
+            planned = conn.execute("""
+                SELECT id, title, description, notes FROM story_nodes
+                WHERE stage = 'planned'
+                  AND hold_reason IS NULL
+                  AND disposition IS NULL
+                ORDER BY updated_at ASC
+            """).fetchall()
+
+            import re
+            IMPLEMENTED_STAGES = ('implemented', 'ready', 'released')
+            PLANNED_OR_LATER = ('planned', 'active', 'reviewing', 'verifying', 'implemented', 'ready', 'released')
+
+            activated = []
+            blocked = []
+            cycles_resolved = []
+
+            def get_block_chain(story_id, visited=None):
+                """Walk the block chain from a story, return all stories in chain."""
+                if visited is None:
+                    visited = set()
+                if story_id in visited:
+                    return visited
+                visited.add(story_id)
+
+                row = conn.execute("""
+                    SELECT hold_reason FROM story_nodes
+                    WHERE id = ? AND hold_reason LIKE 'blocked:%'
+                """, (story_id,)).fetchone()
+
+                if row:
+                    blocker_ids_str = row['hold_reason'][8:]
+                    for bid in blocker_ids_str.split(','):
+                        bid = bid.strip()
+                        if bid:
+                            get_block_chain(bid, visited)
+                return visited
+
+            for story in planned:
+                story_id = story['id']
+                text = (story['description'] or '') + ' ' + (story['notes'] or '')
+
+                # Extract dependencies
+                dep_pattern = r'(?:depends on|requires|after|needs)\s+(\d+(?:\.\d+)*)|(?<!\d)(\d+\.\d+(?:\.\d+)*)(?!\d)'
+                deps = set()
+                for match in re.finditer(dep_pattern, text, re.IGNORECASE):
+                    dep_id = match.group(1) or match.group(2)
+                    if dep_id and dep_id != story_id:
+                        deps.add(dep_id)
+
+                # Check dependencies
+                blocker_ids = []
+                for dep_id in deps:
+                    dep = conn.execute(
+                        'SELECT id, stage FROM story_nodes WHERE id = ? AND disposition IS NULL',
+                        (dep_id,)
+                    ).fetchone()
+                    if dep and dep['stage'] not in IMPLEMENTED_STAGES:
+                        blocker_ids.append(dep_id)
+
+                # Check children
+                children = conn.execute("""
+                    SELECT s.id, s.stage FROM story_nodes s
+                    JOIN story_paths p ON s.id = p.descendant_id
+                    WHERE p.ancestor_id = ? AND p.depth = 1
+                      AND s.disposition IS NULL
+                """, (story_id,)).fetchall()
+
+                for child in children:
+                    if child['stage'] not in PLANNED_OR_LATER:
+                        blocker_ids.append(child['id'])
+
+                if len(blocker_ids) == 0:
+                    # ACTIVATE - all deps met
+                    conn.execute("""
+                        UPDATE story_nodes
+                        SET stage = 'active',
+                            hold_reason = NULL,
+                            notes = COALESCE(notes || char(10), '') ||
+                                    'ACTIVATED: All dependencies met. ' || datetime('now'),
+                            updated_at = datetime('now')
+                        WHERE id = ?
+                    """, (story_id,))
+                    activated.append({'id': story_id, 'title': story['title']})
+                else:
+                    # Check for cycles before blocking
+                    cycle_found = False
+                    cycle_chain = []
+
+                    for blocker_id in blocker_ids:
+                        chain = get_block_chain(blocker_id)
+                        if story_id in chain:
+                            cycle_found = True
+                            cycle_chain = list(chain)
+                            break
+
+                    if cycle_found:
+                        # Resolve cycle: clear stale blocks in chain
+                        for chain_id in cycle_chain:
+                            if chain_id != story_id:
+                                conn.execute("""
+                                    UPDATE story_nodes
+                                    SET hold_reason = NULL,
+                                        notes = COALESCE(notes || char(10), '') ||
+                                                'CYCLE RESOLVED: Block cleared - newer analysis found reverse dependency. ' ||
+                                                datetime('now'),
+                                        updated_at = datetime('now')
+                                    WHERE id = ? AND hold_reason LIKE 'blocked:%'
+                                """, (chain_id,))
+                        cycles_resolved.append({
+                            'story_id': story_id,
+                            'chain': cycle_chain
+                        })
+
+                    # BLOCK with specific blocker IDs
+                    blocker_ids_str = ','.join(blocker_ids)
+                    conn.execute("""
+                        UPDATE story_nodes
+                        SET hold_reason = 'blocked:' || ?,
+                            notes = COALESCE(notes || char(10), '') ||
+                                    'BLOCKED: Waiting on [' || ? || ']. ' || datetime('now'),
+                            updated_at = datetime('now')
+                        WHERE id = ?
+                    """, (blocker_ids_str, blocker_ids_str, story_id))
+                    blocked.append({
+                        'id': story_id,
+                        'title': story['title'],
+                        'blockers': blocker_ids
+                    })
+
+            conn.commit()
+            print(json.dumps({
+                'activated': activated,
+                'blocked': blocked,
+                'cycles_resolved': cycles_resolved
+            }, indent=2))
+            conn.close()
+            APPLY_SCRIPT
+            ```
+
+            ## Step 4: Git Operations
+
+            After processing all stories:
+            ```bash
+            git checkout main && git pull origin main
+            git add -A
+            git diff --cached --quiet || git commit -m "ci: activate stories $(date -u +'%Y-%m-%d')"
+            git push origin main
+            ```
+
+            ## Step 5: Summary Output
+
+            Output a summary like:
+            ```
+            === Story Activation Complete ===
+            Unblocked (from UNBLOCK step): [count]
+            Activated: [count]
+            Blocked: [count]
+            Cycles Resolved: [count]
+
+            Unblocked stories (blockers resolved):
+            - [ID]: [title]
+
+            Activated stories:
+            - [ID]: [title]
+
+            Blocked stories:
+            - [ID]: [title] - blocked:[blocker_ids]
+            ```
+
+            **CRITICAL**: Push changes before exiting.
+
+            ## Constraints
+            - Process all planned stories in one run
+            - 30-minute timeout
+
+          # Tool permissions for file operations, database access, and git
+          claude_args: |
+            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pip:*),BashOutput,Skill,SlashCommand,TodoWrite"
+            --model claude-sonnet-4-5-20250929
+            --max-turns 50
+
+      - name: Report Token Usage
+        if: always()
+        run: |
+          echo "## Token Usage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          EXEC_FILE="${{ steps.claude.outputs.execution_file }}"
+          if [ -f "$EXEC_FILE" ]; then
+            # Debug: Show file format
+            echo "::debug::Execution file size: $(wc -c < "$EXEC_FILE") bytes"
+
+            # Determine file format (JSONL vs JSON array) and extract data
+            # Try to parse as JSON array first, fall back to JSONL
+            if jq -e 'type == "array"' "$EXEC_FILE" > /dev/null 2>&1; then
+              # JSON array format - sum usage from all messages with message.usage
+              INPUT_TOKENS=$(jq '[.[] | select(.message?.usage?) | .message.usage.input_tokens // 0] | add // 0' "$EXEC_FILE")
+              OUTPUT_TOKENS=$(jq '[.[] | select(.message?.usage?) | .message.usage.output_tokens // 0] | add // 0' "$EXEC_FILE")
+              CACHE_CREATION=$(jq '[.[] | select(.message?.usage?) | .message.usage.cache_creation_input_tokens // 0] | add // 0' "$EXEC_FILE")
+              CACHE_READ=$(jq '[.[] | select(.message?.usage?) | .message.usage.cache_read_input_tokens // 0] | add // 0' "$EXEC_FILE")
+              # Get cost and duration from result entry
+              TOTAL_COST=$(jq '[.[] | select(.type == "result")] | last | .total_cost_usd // .cost_usd // "N/A"' "$EXEC_FILE" | tr -d '"')
+              DURATION_MS=$(jq '[.[] | select(.type == "result")] | last | .duration_ms // "N/A"' "$EXEC_FILE" | tr -d '"')
+            else
+              # JSONL format - use grep + jq
+              INPUT_TOKENS=$(grep -o '"input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              OUTPUT_TOKENS=$(grep -o '"output_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              CACHE_CREATION=$(grep -o '"cache_creation_input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              CACHE_READ=$(grep -o '"cache_read_input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              RESULT=$(grep '"type":"result"' "$EXEC_FILE" | tail -1)
+              if [ -n "$RESULT" ]; then
+                TOTAL_COST=$(echo "$RESULT" | jq -r '.total_cost_usd // .cost_usd // "N/A"')
+                DURATION_MS=$(echo "$RESULT" | jq -r '.duration_ms // "N/A"')
+              else
+                TOTAL_COST="N/A"
+                DURATION_MS="N/A"
+              fi
+            fi
+
+            # Validate we got numeric values
+            if ! [[ "$INPUT_TOKENS" =~ ^[0-9]+$ ]]; then INPUT_TOKENS=0; fi
+            if ! [[ "$OUTPUT_TOKENS" =~ ^[0-9]+$ ]]; then OUTPUT_TOKENS=0; fi
+            if ! [[ "$CACHE_CREATION" =~ ^[0-9]+$ ]]; then CACHE_CREATION=0; fi
+            if ! [[ "$CACHE_READ" =~ ^[0-9]+$ ]]; then CACHE_READ=0; fi
+
+            # Calculate total tokens
+            if [ "$INPUT_TOKENS" -gt 0 ] || [ "$OUTPUT_TOKENS" -gt 0 ]; then
+              TOTAL_TOKENS=$((INPUT_TOKENS + OUTPUT_TOKENS))
+            else
+              TOTAL_TOKENS="N/A"
+            fi
+
+            # Format duration in seconds
+            if [[ "$DURATION_MS" =~ ^[0-9]+$ ]]; then
+              DURATION_S=$(echo "scale=1; $DURATION_MS / 1000" | bc)
+            else
+              DURATION_S="N/A"
+            fi
+
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Input Tokens | $INPUT_TOKENS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Output Tokens | $OUTPUT_TOKENS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Cache Creation Tokens | $CACHE_CREATION |" >> $GITHUB_STEP_SUMMARY
+            echo "| Cache Read Tokens | $CACHE_READ |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Total Tokens** | **$TOTAL_TOKENS** |" >> $GITHUB_STEP_SUMMARY
+            echo "| Total Cost | \$$TOTAL_COST |" >> $GITHUB_STEP_SUMMARY
+            echo "| Duration | ${DURATION_S}s |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Execution file not found: $EXEC_FILE" >> $GITHUB_STEP_SUMMARY
+          fi

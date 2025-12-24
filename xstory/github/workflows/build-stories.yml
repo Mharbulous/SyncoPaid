@@ -1,0 +1,112 @@
+name: 1. Build Story
+
+# Run every 10 minutes from 8:40 PM to midnight PST (04:40-08:00 UTC)
+on:
+  schedule:
+    # 8:40 PM - 8:50 PM PST (04:40-04:50 UTC)
+    - cron: '40,50 4 * * *'
+    # 9:00 PM - 11:50 PM PST (05:00-07:50 UTC)
+    - cron: '0,10,20,30,40,50 5-7 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: daily-story-building
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  build-stories:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Full history for git operations
+
+      - name: Run Claude Code to build stories
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          # GitHub token for repository operations (required for scheduled workflows)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Use OAuth token for Max subscription
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Show full output for debugging
+          show_full_output: true
+
+          # Direct prompt mode for scheduled automation (CI-optimized)
+          prompt: |
+            MODE: Daily Story Building (CI - fully autonomous)
+
+            Use the story-building skill to generate and vet a story in one pass:
+            ```
+            Skill(skill="story-building")
+            ```
+
+            The skill will:
+            - Check for stories needing polish first
+            - Find a target node with capacity
+            - Generate a story, vet for duplicates, retry if needed (max 10 attempts)
+            - Exit with success or "Failed to think of any new story ideas"
+
+            After the skill completes, commit and push:
+            ```bash
+            git checkout main && git pull origin main
+            git add -A
+            git diff --cached --quiet || git commit -m "stories: auto-build $(date -u +'%Y-%m-%d')"
+            git push origin main
+            ```
+
+            **CRITICAL**: Push changes before exiting.
+
+            Constraints: 30-minute timeout.
+
+          # Tool permissions for file operations, database access, and git
+          claude_args: |
+            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pip:*),BashOutput,Skill,SlashCommand,TodoWrite"
+            --model claude-sonnet-4-5-20250929
+            --max-turns 75
+
+      - name: Report Token Usage
+        if: always()
+        run: |
+          echo "## Token Usage Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          EXEC_FILE="${{ steps.claude.outputs.execution_file }}"
+          if [ -f "$EXEC_FILE" ]; then
+            # Determine file format (JSONL vs JSON array) and extract data
+            if jq -e 'type == "array"' "$EXEC_FILE" > /dev/null 2>&1; then
+              # JSON array format
+              INPUT_TOKENS=$(jq '[.[] | select(.message?.usage?) | .message.usage.input_tokens // 0] | add // 0' "$EXEC_FILE")
+              OUTPUT_TOKENS=$(jq '[.[] | select(.message?.usage?) | .message.usage.output_tokens // 0] | add // 0' "$EXEC_FILE")
+              TOTAL_COST=$(jq '[.[] | select(.type == "result")] | last | .total_cost_usd // .cost_usd // "N/A"' "$EXEC_FILE" | tr -d '"')
+            else
+              # JSONL format
+              INPUT_TOKENS=$(grep -o '"input_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              OUTPUT_TOKENS=$(grep -o '"output_tokens":[0-9]*' "$EXEC_FILE" | cut -d: -f2 | awk '{s+=$1} END {print s+0}')
+              RESULT=$(grep '"type":"result"' "$EXEC_FILE" | tail -1)
+              TOTAL_COST=$(echo "$RESULT" | jq -r '.total_cost_usd // .cost_usd // "N/A"' 2>/dev/null || echo "N/A")
+            fi
+
+            # Validate we got numeric values
+            if ! [[ "$INPUT_TOKENS" =~ ^[0-9]+$ ]]; then INPUT_TOKENS=0; fi
+            if ! [[ "$OUTPUT_TOKENS" =~ ^[0-9]+$ ]]; then OUTPUT_TOKENS=0; fi
+
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Input Tokens | $INPUT_TOKENS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Output Tokens | $OUTPUT_TOKENS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Total Cost | \$$TOTAL_COST |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Execution file not found" >> $GITHUB_STEP_SUMMARY
+          fi

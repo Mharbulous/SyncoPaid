@@ -1,0 +1,9 @@
+# Xstory Dependencies
+# Note: tkinter and sqlite3 are part of Python stdlib
+
+# PySide6 (Qt for Python) - LGPL v3 license
+# Required for v1.2+ (QTreeWidget-based UI)
+PySide6>=6.6.0
+
+# For building standalone executables
+pyinstaller>=6.0
