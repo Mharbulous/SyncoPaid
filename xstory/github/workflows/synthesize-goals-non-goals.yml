@@ -1,0 +1,72 @@
+name: Daily Visualization Update
+
+# Run at 5:00 AM PST (13:00 UTC) every day
+on:
+  schedule:
+    - cron: '0 13 * * *'
+  workflow_dispatch:  # Manual trigger for testing
+
+concurrency:
+  group: daily-visualization
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  visualize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    name: Update vision documentation
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Full history for git operations
+
+      - name: Run Claude Code to generate visualization
+        uses: anthropics/claude-code-action@v1
+        with:
+          # GitHub token for repository operations (required for scheduled workflows)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Use OAuth token for Max subscription
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Show full output for debugging
+          show_full_output: true
+
+          # Direct prompt mode for scheduled automation
+          prompt: |
+            MODE: Daily Visualization Update (autonomous)
+
+            Execute /visualize to generate vision docs from story-tree database.
+
+            YOLO mode behaviors:
+            - No approval steps - complete autonomously
+            - Skip TodoWrite - steps are predictable
+            - Commit with: "docs: auto-update visualization YYYY-MM-DD"
+            - Push to main
+
+            Git workflow: git checkout main && git pull && [run /visualize] && git add -A && git commit && git push
+
+            If no story data exists, exit without commits.
+
+          # Tool permissions for file operations, database access, and git
+          claude_args: |
+            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pip:*),BashOutput,Skill,SlashCommand,TodoWrite"
+            --model claude-sonnet-4-5-20250929
+            --max-turns 30
+
+      - name: Workflow summary
+        run: |
+          echo "## Daily Visualization Update" >> $GITHUB_STEP_SUMMARY
+          echo "**Schedule**: 5:00 AM PST daily (1:00 PM UTC)" >> $GITHUB_STEP_SUMMARY
+          echo "**Command**: \`/visualize\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Last run**: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This workflow automatically runs the \`/visualize\` slash command to generate vision documentation based on approved story nodes." >> $GITHUB_STEP_SUMMARY

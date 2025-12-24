@@ -1,0 +1,101 @@
+name: 2. Plan Story
+
+# Run every 10 minutes from 2:00 PM to 8:30 PM PST (skip :20 - activate-stories runs then)
+on:
+  schedule:
+    # 2:00 PM - 3:50 PM PST (22:00-23:50 UTC)
+    - cron: '0,10,30,40,50 22-23 * * *'
+    # 4:00 PM - 7:50 PM PST (00:00-03:50 UTC)
+    - cron: '0,10,30,40,50 0-3 * * *'
+    # 8:00 PM - 8:30 PM PST (04:00-04:30 UTC)
+    - cron: '0,10,30 4 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: daily-story-planning
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  plan-story:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Full history for git operations
+
+      - name: Run Claude Code to plan stories
+        uses: anthropics/claude-code-action@v1
+        with:
+          # GitHub token for repository operations (required for scheduled workflows)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+          # Use OAuth token for Max subscription
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          # Show full output for debugging
+          show_full_output: true
+
+          # Direct prompt mode for scheduled automation (CI-optimized)
+          prompt: |
+            MODE: Daily Story Planning (CI - fully autonomous)
+
+            ## Step 1: Early Exit Check
+
+            First, check if there are approved stories:
+            ```python
+            python -c "
+            import sqlite3
+            conn = sqlite3.connect('.claude/data/story-tree.db')
+            count = conn.execute('SELECT COUNT(*) FROM story_nodes WHERE stage=\"approved\" AND hold_reason IS NULL AND disposition IS NULL').fetchone()[0]
+            print(f'Approved stories: {count}')
+            conn.close()
+            "
+            ```
+
+            If count is 0, output "✓ No approved stories available for planning" and exit successfully.
+
+            ## Step 2: Plan Story (if approved stories exist)
+
+            Use the story-planning skill (CI mode auto-detected):
+            ```
+            Skill(skill="story-planning")
+            ```
+
+            Follow the skill workflow to:
+            - Query and prioritize approved stories
+            - Create compact TDD plan in .claude/data/plans/
+            - Update story status to 'planned'
+
+            ## Step 3: Git Operations
+
+            After creating the plan, get the planned story ID and commit:
+            ```bash
+            git checkout main && git pull origin main
+            git add -A
+            # Get the story ID that was just planned (most recently updated 'planned' story)
+            PLANNED_ID=$(python3 -c "import sqlite3; conn = sqlite3.connect('.claude/data/story-tree.db'); row = conn.execute(\"SELECT id FROM story_nodes WHERE stage='planned' ORDER BY updated_at DESC LIMIT 1\").fetchone(); print(row[0] if row else 'unknown')")
+            git commit -m "planning: create implementation plan for story $PLANNED_ID"
+            git push origin main
+            ```
+
+            **CRITICAL**: Push changes before exiting.
+
+            ## Constraints
+            - Plan only 1 story per run
+            - 30-minute timeout
+
+          # Tool permissions for file operations, database access, and git
+          # Using Opus 4.5 for planning - higher quality plans lead to better execution
+          claude_args: |
+            --allowedTools "Task,Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(sqlite3:*),Bash(pip:*),BashOutput,Skill,SlashCommand,TodoWrite"
+            --model claude-opus-4-5-20251101
+            --max-turns 50

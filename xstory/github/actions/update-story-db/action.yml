@@ -1,0 +1,70 @@
+name: Update Story Database
+description: Update story status in SQLite database after execution
+
+inputs:
+  story_id:
+    description: The Story ID to update
+    required: true
+  outcome:
+    description: Execution outcome (success, partial, verified)
+    required: true
+  needs_review:
+    description: Whether human review is required
+    required: false
+    default: 'false'
+  db_path:
+    description: Path to story-tree.db
+    required: false
+    default: '.claude/data/story-tree.db'
+
+runs:
+  using: composite
+  steps:
+    - name: Update story status
+      shell: bash
+      run: |
+        STORY_ID="${{ inputs.story_id }}"
+        OUTCOME="${{ inputs.outcome }}"
+        NEEDS_REVIEW="${{ inputs.needs_review }}"
+        DB_PATH="${{ inputs.db_path }}"
+
+        if [ -z "$STORY_ID" ] || [ "$STORY_ID" = "none" ]; then
+          echo "No Story ID available, skipping database update"
+          exit 0
+        fi
+
+        if [ ! -f "$DB_PATH" ]; then
+          echo "Database not found at $DB_PATH, skipping status update"
+          exit 0
+        fi
+
+        # Determine stage and note based on outcome
+        if [ "$OUTCOME" = "verified" ]; then
+          STAGE="implemented"
+          NOTE="CI verified: implementation already exists"
+          REVIEW_FLAG=0
+        elif [ "$NEEDS_REVIEW" = "true" ]; then
+          STAGE="reviewing"
+          NOTE="CI execution $OUTCOME (review required)"
+          REVIEW_FLAG=1
+        else
+          STAGE="verifying"
+          NOTE="CI execution complete"
+          REVIEW_FLAG=0
+        fi
+
+        python3 << PYEOF
+        import sqlite3
+        conn = sqlite3.connect("$DB_PATH")
+        conn.execute('''
+            UPDATE story_nodes
+            SET stage = '$STAGE',
+                human_review = $REVIEW_FLAG,
+                notes = COALESCE(notes || char(10), '') || '$NOTE: ' || datetime('now'),
+                updated_at = datetime('now')
+            WHERE id = ?
+        ''', ("$STORY_ID",))
+        conn.commit()
+        print(f"✓ Updated story $STORY_ID → $STAGE")
+        conn.close()
+        PYEOF

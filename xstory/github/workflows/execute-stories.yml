@@ -1,0 +1,1225 @@
+name: 4. Execute Story
+
+on:
+  schedule:
+    - cron: '40 2 * * *'  # 2:40 AM UTC
+    - cron: '40 3 * * *'  # 3:40 AM UTC
+    - cron: '40 4 * * *'  # 4:40 AM UTC
+  workflow_dispatch:
+
+concurrency:
+  group: daily-story-execution
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PIPELINE VISUALIZATION
+# ══════════════════════════════════════════════════════════════════════════════
+# This workflow uses 6 semantically meaningful stages:
+#
+#   setup-and-plan → identify-plan → review-plan → decompose → execute → finalize
+#
+# Each stage has a clear purpose:
+# - setup-and-plan: Find plan, validate deps, initialize state
+# - identify-plan: Ensure plan has valid Story ID (match to database if missing)
+# - review-plan: Critical review + verify implementation, decide proceed/pause/verified
+# - decompose: Assess complexity, split if needed (Opus)
+# - execute: Follow plan's TDD steps directly (Sonnet)
+# - finalize: Archive, commit, report
+#
+# Note: verify-implementation was merged into review-plan via ci-review-plan command
+# ══════════════════════════════════════════════════════════════════════════════
+
+jobs:
+  # ════════════════════════════════════════════════════════════════════════════
+  # SETUP-AND-PLAN: Find plan, validate dependencies, initialize state
+  # ════════════════════════════════════════════════════════════════════════════
+  setup-and-plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      plan_selected: ${{ steps.select-plan.outputs.selected }}
+      plan_path: ${{ steps.select-plan.outputs.path }}
+      plan_filename: ${{ steps.select-plan.outputs.filename }}
+      plan_sequence: ${{ steps.select-plan.outputs.sequence }}
+      story_id: ${{ steps.extract-story.outputs.story_id }}
+      should_execute: ${{ steps.determine.outputs.should_execute }}
+      skip_reason: ${{ steps.determine.outputs.skip_reason }}
+      current_stage: ${{ steps.check-executed.outputs.current_stage }}
+
+    steps:
+      # ── PHASE 1: SETUP ──
+      - name: "1.1 Checkout repository"
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # ── PHASE 2: PLAN SELECTION ──
+      - name: "2.1 Find available plans"
+        id: find-plans
+        run: |
+          echo "## Plan Discovery" >> $GITHUB_STEP_SUMMARY
+
+          PLANS_DIR=".claude/data/plans"
+          if [ ! -d "$PLANS_DIR" ]; then
+            echo "plans_found=0" >> $GITHUB_OUTPUT
+            echo "❌ Plans directory not found: $PLANS_DIR" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          PLAN_COUNT=$(find "$PLANS_DIR" -maxdepth 1 -name "*.md" -type f | wc -l)
+          echo "plans_found=$PLAN_COUNT" >> $GITHUB_OUTPUT
+          echo "Found **$PLAN_COUNT** plan files in $PLANS_DIR" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$PLAN_COUNT" -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Plan File | Sequence |" >> $GITHUB_STEP_SUMMARY
+            echo "|-----------|----------|" >> $GITHUB_STEP_SUMMARY
+            for f in $(ls -1 "$PLANS_DIR"/*.md 2>/dev/null | head -10); do
+              FNAME=$(basename "$f")
+              SEQ=$(echo "$FNAME" | grep -oP '^\d{3}([A-Z](\d+([a-z](\d+)?)?)?)?' || echo "?")
+              echo "| $FNAME | $SEQ |" >> $GITHUB_STEP_SUMMARY
+            done
+          fi
+
+      - name: "2.2 Select earliest plan"
+        id: select-plan
+        if: steps.find-plans.outputs.plans_found != '0'
+        run: |
+          python3 << 'PYEOF'
+          import os, re
+
+          plans_dir = '.claude/data/plans'
+          pattern = re.compile(r'^(\d{3})([A-Z])?(\d+)?([a-z])?(\d+)?_(.+)\.md$')
+
+          def parse_hierarchy(filename):
+              """Parse hierarchical prefix into sortable tuple."""
+              m = pattern.match(filename)
+              if not m:
+                  return None
+              seq = int(m.group(1))
+              letter = m.group(2) or ''
+              num1 = int(m.group(3)) if m.group(3) else 0
+              lower = m.group(4) or ''
+              num2 = int(m.group(5)) if m.group(5) else 0
+              prefix = str(seq) + letter + (str(num1) if num1 else '') + lower + (str(num2) if num2 else '')
+              return {
+                  'sort_key': (seq, letter, num1, lower, num2),
+                  'prefix': prefix
+              }
+
+          plans = []
+          for f in os.listdir(plans_dir):
+              path = os.path.join(plans_dir, f)
+              if os.path.isfile(path) and f.endswith('.md'):
+                  parsed = parse_hierarchy(f)
+                  if parsed:
+                      plans.append({
+                          'filename': f,
+                          'path': path,
+                          'sort_key': parsed['sort_key'],
+                          'prefix': parsed['prefix'],
+                      })
+
+          plans.sort(key=lambda x: (x['sort_key'], x['filename']))
+
+          if plans:
+              selected = plans[0]
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+                  out.write(f"selected=true\n")
+                  out.write(f"filename={selected['filename']}\n")
+                  out.write(f"path={selected['path']}\n")
+                  out.write(f"sequence={selected['prefix']}\n")
+              print(f"Selected: {selected['filename']}")
+          else:
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+                  out.write("selected=false\n")
+              print("No valid plan files found")
+          PYEOF
+
+      - name: "2.3 Extract Story ID from plan"
+        id: extract-story
+        if: steps.select-plan.outputs.selected == 'true'
+        run: |
+          PLAN_PATH="${{ steps.select-plan.outputs.path }}"
+
+          STORY_ID=$(grep -oP 'Story ID[:\s]*\K\d+(\.\d+)*' "$PLAN_PATH" | head -1)
+
+          if [ -z "$STORY_ID" ]; then
+            STORY_ID=$(grep -oP '\*\*Story ID:\*\*\s*\K\d+(\.\d+)*' "$PLAN_PATH" | head -1)
+          fi
+
+          echo "story_id=${STORY_ID:-none}" >> $GITHUB_OUTPUT
+          echo "Story ID: ${STORY_ID:-'(not found)'}"
+
+      # ── PHASE 3: VALIDATION ──
+      - name: "3.1 Check if story already executed"
+        id: check-executed
+        if: steps.select-plan.outputs.selected == 'true' && steps.extract-story.outputs.story_id != 'none'
+        run: |
+          STORY_ID="${{ steps.extract-story.outputs.story_id }}"
+          DB_PATH=".claude/data/story-tree.db"
+
+          if [ ! -f "$DB_PATH" ]; then
+            echo "already_executed=false" >> $GITHUB_OUTPUT
+            echo "Database not found, assuming not executed"
+            exit 0
+          fi
+
+          STAGE=$(python3 -c "
+          import sqlite3
+          conn = sqlite3.connect('$DB_PATH')
+          r = conn.execute('SELECT stage FROM story_nodes WHERE id = ?', ('$STORY_ID',)).fetchone()
+          print(r[0] if r else 'unknown')
+          conn.close()
+          ")
+
+          echo "Current stage: $STAGE"
+
+          case "$STAGE" in
+            reviewing|verifying|implemented|ready|polish|released)
+              echo "already_executed=true" >> $GITHUB_OUTPUT
+              echo "current_stage=$STAGE" >> $GITHUB_OUTPUT
+              echo "⚠️ Story $STORY_ID already at stage: $STAGE"
+              ;;
+            *)
+              echo "already_executed=false" >> $GITHUB_OUTPUT
+              echo "current_stage=$STAGE" >> $GITHUB_OUTPUT
+              echo "✓ Story $STORY_ID ready for execution (stage: $STAGE)"
+              ;;
+          esac
+
+      - name: "3.2 Check story dependencies"
+        id: check-deps
+        if: steps.select-plan.outputs.selected == 'true' && steps.check-executed.outputs.already_executed != 'true'
+        run: |
+          STORY_ID="${{ steps.extract-story.outputs.story_id }}"
+          PLAN_PATH="${{ steps.select-plan.outputs.path }}"
+          DB_PATH=".claude/data/story-tree.db"
+
+          if [ "$STORY_ID" = "none" ] || [ ! -f "$DB_PATH" ]; then
+            echo "deps_met=true" >> $GITHUB_OUTPUT
+            echo "No Story ID or database, skipping dependency check"
+            exit 0
+          fi
+
+          python3 << PYEOF
+          import sqlite3, re, os
+
+          story_id = "$STORY_ID"
+          db_path = "$DB_PATH"
+          plan_path = "$PLAN_PATH"
+
+          conn = sqlite3.connect(db_path)
+
+          result = conn.execute('SELECT description, notes FROM story_nodes WHERE id = ?', (story_id,)).fetchone()
+          if not result:
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write("deps_met=true\n")
+              print("Story not in database, proceeding")
+              exit(0)
+
+          text = (result[0] or '') + ' ' + (result[1] or '')
+
+          with open(plan_path, 'r') as f:
+              text += ' ' + f.read()
+
+          dep_pattern = r'(?:depends on|requires|after|blocked by)\s+(\d+(?:\.\d+)*)'
+          deps = set(re.findall(dep_pattern, text, re.IGNORECASE))
+          deps.discard(story_id)
+
+          if not deps:
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write("deps_met=true\n")
+              print("No dependencies found")
+              exit(0)
+
+          IMPLEMENTED = ('implemented', 'ready', 'polish', 'released')
+          unmet = []
+          for dep_id in deps:
+              r = conn.execute('SELECT stage FROM story_nodes WHERE id = ? AND disposition IS NULL', (dep_id,)).fetchone()
+              if r and r[0] not in IMPLEMENTED:
+                  unmet.append(f"{dep_id} ({r[0]})")
+
+          conn.close()
+
+          if unmet:
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write("deps_met=false\n")
+                  f.write(f"unmet_deps={', '.join(unmet)}\n")
+              print(f"❌ Unmet dependencies: {', '.join(unmet)}")
+          else:
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write("deps_met=true\n")
+              print("✓ All dependencies met")
+          PYEOF
+
+      # ── PHASE 4: HANDLE SKIP CONDITIONS ──
+      - name: "4.1 Move blocked plan to blocked folder"
+        if: steps.check-deps.outputs.deps_met == 'false'
+        run: |
+          PLAN_PATH="${{ steps.select-plan.outputs.path }}"
+          FILENAME="${{ steps.select-plan.outputs.filename }}"
+          BLOCKED_DIR=".claude/data/plans/blocked"
+          UNMET="${{ steps.check-deps.outputs.unmet_deps }}"
+
+          git fetch origin main
+          git rebase origin/main || git rebase --abort
+
+          mkdir -p "$BLOCKED_DIR"
+          mv "$PLAN_PATH" "$BLOCKED_DIR/"
+          echo "Moved blocked plan: $FILENAME → $BLOCKED_DIR/"
+          echo "Unmet dependencies: $UNMET"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "ci: move blocked plan $FILENAME (deps: $UNMET)"
+
+          for attempt in 1 2 3 4; do
+            if git push origin main; then
+              echo "✓ Push successful"
+              exit 0
+            else
+              echo "Push failed (attempt $attempt), pulling and retrying..."
+              git pull --rebase origin main || true
+              sleep $((2 ** attempt))
+            fi
+          done
+          echo "❌ Push failed after 4 attempts"
+          exit 1
+
+      # ── DETERMINE IF EXECUTION SHOULD PROCEED ──
+      - name: "4.2 Determine execution eligibility"
+        id: determine
+        run: |
+          SELECTED="${{ steps.select-plan.outputs.selected }}"
+          ALREADY_EXECUTED="${{ steps.check-executed.outputs.already_executed }}"
+          CURRENT_STAGE="${{ steps.check-executed.outputs.current_stage }}"
+          DEPS_MET="${{ steps.check-deps.outputs.deps_met }}"
+
+          if [ "$SELECTED" != "true" ]; then
+            echo "should_execute=false" >> $GITHUB_OUTPUT
+            echo "skip_reason=no_plans" >> $GITHUB_OUTPUT
+          elif [ "$ALREADY_EXECUTED" = "true" ]; then
+            # Story stage indicates execution but plan still exists - needs review
+            echo "should_execute=true" >> $GITHUB_OUTPUT
+            echo "skip_reason=" >> $GITHUB_OUTPUT
+            echo "⚠️ Plan exists but story at stage '$CURRENT_STAGE' - review will verify"
+          elif [ "$DEPS_MET" = "false" ]; then
+            echo "should_execute=false" >> $GITHUB_OUTPUT
+            echo "skip_reason=deps_unmet" >> $GITHUB_OUTPUT
+          else
+            echo "should_execute=true" >> $GITHUB_OUTPUT
+            echo "skip_reason=" >> $GITHUB_OUTPUT
+          fi
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # IDENTIFY-PLAN: Ensure plan has valid Story ID (match to database if missing)
+  # ════════════════════════════════════════════════════════════════════════════
+  identify-plan:
+    needs: setup-and-plan
+    if: needs.setup-and-plan.outputs.plan_selected == 'true' && needs.setup-and-plan.outputs.story_id == 'none'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      story_id: ${{ steps.identify-output.outputs.story_id }}
+      validation_passed: ${{ steps.identify-output.outputs.validation_passed }}
+      plan_blocked: ${{ steps.identify-output.outputs.plan_blocked }}
+
+    steps:
+      - name: "IP.1 Checkout repository"
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: "IP.2 Match plan to story in database"
+        id: identify
+        uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: /ci-identify-plan ${{ needs.setup-and-plan.outputs.plan_path }}
+          claude_args: |
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(python:*),Bash(python3:*),Bash(sqlite3:*)"
+            --model claude-sonnet-4-5-20250929
+            --max-turns 20
+
+      - name: "IP.3 Read identification output"
+        id: identify-output
+        if: always()
+        run: |
+          RESULT_FILE=".claude/skills/story-execution/ci-identify-result.json"
+
+          if [ -f "$RESULT_FILE" ]; then
+            PASSED=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(str(d.get('validation_passed', False)).lower())")
+            STORY_ID=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('story_id') or 'none')")
+            PLAN_UPDATED=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(str(d.get('plan_updated', False)).lower())")
+
+            echo "validation_passed=$PASSED" >> $GITHUB_OUTPUT
+            echo "story_id=$STORY_ID" >> $GITHUB_OUTPUT
+
+            if [ "$PASSED" = "true" ]; then
+              echo "plan_blocked=false" >> $GITHUB_OUTPUT
+              echo "✓ Identification passed - Story ID: $STORY_ID"
+            else
+              echo "plan_blocked=true" >> $GITHUB_OUTPUT
+              echo "⚠️ Identification failed - plan will be blocked"
+            fi
+
+            echo "## Plan Identification" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Passed | $PASSED |" >> $GITHUB_STEP_SUMMARY
+            echo "| Story ID | $STORY_ID |" >> $GITHUB_STEP_SUMMARY
+            echo "| Plan Updated | $PLAN_UPDATED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "validation_passed=false" >> $GITHUB_OUTPUT
+            echo "story_id=none" >> $GITHUB_OUTPUT
+            echo "plan_blocked=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Identification result file not found"
+          fi
+
+      - name: "IP.4 Commit plan update if Story ID was added"
+        if: steps.identify-output.outputs.validation_passed == 'true'
+        run: |
+          git fetch origin main
+          git rebase origin/main || git rebase --abort
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+
+          if ! git diff --cached --quiet; then
+            PLAN_FILENAME="${{ needs.setup-and-plan.outputs.plan_filename }}"
+            STORY_ID="${{ steps.identify-output.outputs.story_id }}"
+
+            git commit -m "ci: add Story ID $STORY_ID to plan $PLAN_FILENAME
+
+            Matched plan to story via content analysis"
+
+            for attempt in 1 2 3 4; do
+              if git push origin main; then
+                echo "✓ Pushed plan update with Story ID"
+                exit 0
+              else
+                echo "Push failed (attempt $attempt), pulling and retrying..."
+                git pull --rebase origin main || true
+                sleep $((2 ** attempt))
+              fi
+            done
+            echo "❌ Push failed after 4 attempts"
+            exit 1
+          else
+            echo "No changes to commit (Story ID may have already been present)"
+          fi
+
+      - name: "IP.5 Move blocked plan if no Story ID found"
+        if: steps.identify-output.outputs.plan_blocked == 'true'
+        run: |
+          PLAN_PATH="${{ needs.setup-and-plan.outputs.plan_path }}"
+          FILENAME="${{ needs.setup-and-plan.outputs.plan_filename }}"
+          BLOCKED_DIR=".claude/data/plans/blocked"
+
+          git fetch origin main
+          git rebase origin/main || git rebase --abort
+
+          mkdir -p "$BLOCKED_DIR"
+          mv "$PLAN_PATH" "$BLOCKED_DIR/"
+          echo "Moved plan without Story ID: $FILENAME → $BLOCKED_DIR/"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "ci: block plan $FILENAME (no matching Story ID found)
+
+          Plan moved to blocked folder - requires manual Story ID assignment"
+
+          for attempt in 1 2 3 4; do
+            if git push origin main; then
+              echo "✓ Push successful"
+              exit 0
+            else
+              echo "Push failed (attempt $attempt), pulling and retrying..."
+              git pull --rebase origin main || true
+              sleep $((2 ** attempt))
+            fi
+          done
+          echo "❌ Push failed after 4 attempts"
+          exit 1
+
+      - name: "IP.6 Upload identification result"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: identify-result
+          path: .claude/skills/story-execution/ci-identify-result.json
+          retention-days: 1
+          if-no-files-found: ignore
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # REVIEW-PLAN: Critical review + verify implementation, decide outcome
+  # ════════════════════════════════════════════════════════════════════════════
+  review-plan:
+    needs: [setup-and-plan, identify-plan]
+    if: |
+      always() &&
+      needs.identify-plan.outputs.plan_blocked != 'true' &&
+      needs.setup-and-plan.outputs.should_execute == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      outcome: ${{ steps.review-output.outputs.outcome }}
+      review_completed: ${{ steps.review-output.outputs.review_completed }}
+
+    steps:
+      - name: "RP.1 Checkout repository"
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: "RP.2 Pull latest changes"
+        run: |
+          git pull origin main --rebase || true
+
+      - name: "RP.3 Clean up Claude installation locks"
+        run: |
+          rm -rf /tmp/claude-* 2>/dev/null || true
+          rm -rf ~/.claude-install* 2>/dev/null || true
+          rm -rf ~/.npm/_locks/* 2>/dev/null || true
+          pkill -f "claude" 2>/dev/null || true
+          echo "✓ Cleaned up potential installation locks"
+
+      - name: "RP.4 Review plan critically"
+        id: review
+        uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: /ci-review-plan ${{ needs.setup-and-plan.outputs.plan_path }}
+          claude_args: |
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(python:*),Bash(python3:*),Bash(mkdir:*)"
+            --model claude-sonnet-4-5-20250929
+            --max-turns 25
+
+      - name: "RP.5 Read review output"
+        id: review-output
+        if: always()
+        run: |
+          RESULT_FILE=".claude/skills/story-execution/ci-review-result.json"
+          if [ -f "$RESULT_FILE" ]; then
+            OUTCOME=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('outcome','unknown'))")
+            if [ "$OUTCOME" = "proceed" ] || [ "$OUTCOME" = "proceed_with_review" ] || [ "$OUTCOME" = "pause" ] || [ "$OUTCOME" = "verified" ]; then
+              echo "outcome=$OUTCOME" >> $GITHUB_OUTPUT
+              echo "review_completed=true" >> $GITHUB_OUTPUT
+              echo "Review outcome: $OUTCOME"
+            else
+              echo "outcome=failed" >> $GITHUB_OUTPUT
+              echo "review_completed=false" >> $GITHUB_OUTPUT
+              echo "Review not completed - outcome: $OUTCOME"
+            fi
+          else
+            echo "outcome=failed" >> $GITHUB_OUTPUT
+            echo "review_completed=false" >> $GITHUB_OUTPUT
+            echo "Result file not found"
+          fi
+
+      - name: "RP.6 Archive plan if already implemented"
+        if: steps.review-output.outputs.outcome == 'verified'
+        run: |
+          PLAN_PATH="${{ needs.setup-and-plan.outputs.plan_path }}"
+          FILENAME="${{ needs.setup-and-plan.outputs.plan_filename }}"
+          ARCHIVE_DIR=".claude/data/plans/executed"
+
+          git fetch origin main
+          git rebase origin/main || git rebase --abort
+
+          mkdir -p "$ARCHIVE_DIR"
+          mv "$PLAN_PATH" "$ARCHIVE_DIR/"
+          echo "✓ Implementation verified - archived plan: $FILENAME → $ARCHIVE_DIR/"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "ci: archive verified plan $FILENAME
+
+          Story: ${{ needs.identify-plan.outputs.story_id || needs.setup-and-plan.outputs.story_id }}
+          Verification: Implementation confirmed in codebase"
+
+          for attempt in 1 2 3 4; do
+            if git push origin main; then
+              echo "✓ Push successful"
+              exit 0
+            else
+              echo "Push failed (attempt $attempt), pulling and retrying..."
+              git pull --rebase origin main || true
+              sleep $((2 ** attempt))
+            fi
+          done
+          echo "❌ Push failed after 4 attempts"
+          exit 1
+
+      - name: "RP.7 Upload review result"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: review-result
+          path: .claude/skills/story-execution/ci-review-result.json
+          retention-days: 1
+          if-no-files-found: ignore
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # DECOMPOSE: Assess complexity, split into sub-plans if needed (Opus)
+  # ════════════════════════════════════════════════════════════════════════════
+  decompose:
+    needs: [setup-and-plan, identify-plan, review-plan]
+    if: |
+      always() &&
+      needs.review-plan.outputs.review_completed == 'true' &&
+      (needs.review-plan.outputs.outcome == 'proceed' || needs.review-plan.outputs.outcome == 'proceed_with_review')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      complexity: ${{ steps.decompose-output.outputs.complexity }}
+      execute_plan: ${{ steps.decompose-output.outputs.execute_plan }}
+      sub_plans_created: ${{ steps.decompose-output.outputs.sub_plans_created }}
+
+    steps:
+      - name: "DC.1 Checkout repository"
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: "DC.2 Clean up Claude installation locks"
+        run: |
+          rm -rf /tmp/claude-* 2>/dev/null || true
+          rm -rf ~/.claude-install* 2>/dev/null || true
+          rm -rf ~/.npm/_locks/* 2>/dev/null || true
+          pkill -f "claude" 2>/dev/null || true
+          echo "✓ Cleaned up potential installation locks"
+
+      - name: "DC.3 Assess plan complexity"
+        id: decompose
+        uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: /ci-decompose-plan ${{ needs.setup-and-plan.outputs.plan_path }}
+          claude_args: |
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(python:*),Bash(python3:*),Bash(mkdir:*),Bash(mv:*),Bash(cp:*),Bash(ls:*)"
+            --model claude-opus-4-5-20251101
+            --max-turns 25
+
+      - name: "DC.4 Read decompose output"
+        id: decompose-output
+        if: always()
+        run: |
+          RESULT_FILE=".claude/skills/story-execution/ci-decompose-result.json"
+          PLAN_PATH="${{ needs.setup-and-plan.outputs.plan_path }}"
+
+          if [ -f "$RESULT_FILE" ]; then
+            COMPLEXITY=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('complexity','unknown'))")
+            EXECUTE_PLAN=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('execute_plan',''))")
+            SUB_PLANS=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(','.join(d.get('sub_plans_created',[])))")
+
+            echo "Complexity: $COMPLEXITY"
+
+            # Validate that the execute_plan file actually exists
+            FINAL_PLAN="${EXECUTE_PLAN:-$PLAN_PATH}"
+            if [ -n "$EXECUTE_PLAN" ] && [ ! -f "$EXECUTE_PLAN" ]; then
+              echo "⚠️ WARNING: Decompose generated non-existent plan path: $EXECUTE_PLAN"
+              echo ""
+              echo "Available plans in .claude/data/plans/:"
+              ls -1 .claude/data/plans/*.md 2>/dev/null || echo "(none)"
+              echo ""
+
+              PLAN_BASENAME=$(basename "$EXECUTE_PLAN" .md)
+              PLAN_SEQ=$(echo "$PLAN_BASENAME" | grep -oP '^\d{3}([A-Z](\d+[a-z]?)?)?' || echo "")
+
+              if [ -n "$PLAN_SEQ" ]; then
+                echo "Looking for plans with sequence: $PLAN_SEQ"
+                MATCHING_PLAN=$(ls -1 .claude/data/plans/${PLAN_SEQ}*.md 2>/dev/null | head -1)
+                if [ -n "$MATCHING_PLAN" ] && [ -f "$MATCHING_PLAN" ]; then
+                  echo "✓ Found matching plan: $MATCHING_PLAN"
+                  FINAL_PLAN="$MATCHING_PLAN"
+                fi
+              fi
+
+              if [ ! -f "$FINAL_PLAN" ]; then
+                if [ -f "$PLAN_PATH" ]; then
+                  echo "Falling back to original plan: $PLAN_PATH"
+                  FINAL_PLAN="$PLAN_PATH"
+                else
+                  echo "❌ ERROR: No valid plan found!"
+                  EARLIEST=$(ls -1 .claude/data/plans/*.md 2>/dev/null | head -1)
+                  if [ -n "$EARLIEST" ]; then
+                    echo "✓ Re-selecting earliest plan: $EARLIEST"
+                    FINAL_PLAN="$EARLIEST"
+                  else
+                    echo "decompose_failed=true" >> $GITHUB_OUTPUT
+                    exit 1
+                  fi
+                fi
+              fi
+            fi
+
+            echo "complexity=$COMPLEXITY" >> $GITHUB_OUTPUT
+            echo "execute_plan=$FINAL_PLAN" >> $GITHUB_OUTPUT
+            echo "sub_plans_created=$SUB_PLANS" >> $GITHUB_OUTPUT
+            echo "decompose_failed=false" >> $GITHUB_OUTPUT
+
+            echo "Execute plan: $FINAL_PLAN"
+            if [ -n "$SUB_PLANS" ]; then
+              echo "Sub-plans created: $SUB_PLANS"
+            fi
+          else
+            echo "complexity=unknown" >> $GITHUB_OUTPUT
+            echo "execute_plan=$PLAN_PATH" >> $GITHUB_OUTPUT
+            echo "sub_plans_created=" >> $GITHUB_OUTPUT
+            echo "decompose_failed=false" >> $GITHUB_OUTPUT
+            echo "No decompose result, using original plan: $PLAN_PATH"
+          fi
+
+      - name: "DC.5 Commit sub-plans if created"
+        if: steps.decompose-output.outputs.sub_plans_created != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          git pull --rebase --autostash origin main || true
+          git add -A
+
+          if ! git diff --cached --quiet; then
+            STORY_ID="${{ needs.setup-and-plan.outputs.story_id }}"
+            git commit -m "ci: decompose plan into sub-plans
+
+            Story: $STORY_ID
+            Complexity: ${{ steps.decompose-output.outputs.complexity }}
+            Sub-plans: ${{ steps.decompose-output.outputs.sub_plans_created }}"
+
+            for attempt in 1 2 3 4; do
+              if git push origin main; then
+                echo "✓ Committed and pushed sub-plans"
+                exit 0
+              else
+                echo "Push failed (attempt $attempt), pulling and retrying..."
+                git pull --rebase origin main || true
+                sleep $((2 ** attempt))
+              fi
+            done
+            echo "❌ Push failed after 4 attempts"
+            exit 1
+          else
+            echo "No changes to commit"
+          fi
+
+      - name: "DC.6 Upload decompose result"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: decompose-result
+          path: .claude/skills/story-execution/ci-decompose-result.json
+          retention-days: 1
+          if-no-files-found: ignore
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # EXECUTE: Follow plan's TDD steps directly (Sonnet)
+  # ════════════════════════════════════════════════════════════════════════════
+  execute:
+    needs: [setup-and-plan, identify-plan, review-plan, decompose]
+    if: |
+      always() &&
+      needs.decompose.outputs.execute_plan != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      status: ${{ steps.execute-output.outputs.status }}
+      commits_made: ${{ steps.execute-output.outputs.commits_made }}
+      complexity_ok: ${{ steps.verify-complexity.outputs.complexity_ok }}
+      task_count: ${{ steps.verify-complexity.outputs.task_count }}
+      max_turns_exhausted: ${{ steps.execute-output.outputs.max_turns_exhausted }}
+      turns_used: ${{ steps.execute-output.outputs.turns_used }}
+
+    steps:
+      - name: "EX.1 Checkout repository"
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: "EX.2 Pull latest changes"
+        run: |
+          git pull origin main --rebase || true
+
+      - name: "EX.3 Clean up Claude installation locks"
+        run: |
+          rm -rf /tmp/claude-* 2>/dev/null || true
+          rm -rf ~/.claude-install* 2>/dev/null || true
+          rm -rf ~/.npm/_locks/* 2>/dev/null || true
+          pkill -f "claude" 2>/dev/null || true
+          echo "✓ Cleaned up potential installation locks"
+
+      - name: "EX.4 Verify plan file exists"
+        id: verify-plan
+        run: |
+          PLAN_PATH="${{ needs.decompose.outputs.execute_plan }}"
+          echo "Checking plan file: $PLAN_PATH"
+
+          if [ -z "$PLAN_PATH" ]; then
+            echo "❌ No plan path provided by decompose job"
+            echo "plan_exists=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          if [ ! -f "$PLAN_PATH" ]; then
+            echo "❌ Plan file does not exist: $PLAN_PATH"
+            echo ""
+            echo "Available plans in .claude/data/plans/:"
+            ls -la .claude/data/plans/*.md 2>/dev/null || echo "(none)"
+            echo ""
+            echo "plan_exists=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          echo "✓ Plan file verified: $PLAN_PATH"
+          echo "plan_exists=true" >> $GITHUB_OUTPUT
+
+      - name: "EX.5 Verify plan complexity is simple"
+        id: verify-complexity
+        run: |
+          PLAN_PATH="${{ needs.decompose.outputs.execute_plan }}"
+
+          TASK_COUNT=$(grep -cE '^###\s+(Task|TDD Task|Step)\s+[0-9]+|^###\s+[0-9]+\.' "$PLAN_PATH" 2>/dev/null || true)
+          TASK_COUNT=${TASK_COUNT:-0}
+
+          echo "Plan: $PLAN_PATH"
+          echo "Task count: $TASK_COUNT"
+
+          if [ "$TASK_COUNT" -gt 2 ]; then
+            echo ""
+            echo "⚠️ WARNING: Plan has $TASK_COUNT tasks (max 2 for execution)"
+            echo "This plan should have been decomposed further."
+            echo ""
+            echo "## ⚠️ Plan Too Complex" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Plan \`$(basename $PLAN_PATH)\` has **$TASK_COUNT tasks** but max is 2." >> $GITHUB_STEP_SUMMARY
+
+            echo "complexity_ok=false" >> $GITHUB_OUTPUT
+            echo "task_count=$TASK_COUNT" >> $GITHUB_OUTPUT
+            echo "Proceeding with execution despite complexity warning..."
+          else
+            echo "✓ Plan complexity OK: $TASK_COUNT tasks"
+            echo "complexity_ok=true" >> $GITHUB_OUTPUT
+            echo "task_count=$TASK_COUNT" >> $GITHUB_OUTPUT
+          fi
+
+      - name: "EX.6 Setup Python environment"
+        run: |
+          echo "Setting up Python environment..."
+          python3 --version
+          python3 -m pip install --upgrade pip
+          python3 -m pip install pytest
+          python3 -m pytest --version
+          echo "✓ Python environment ready with pytest"
+
+      - name: "EX.7 Execute plan"
+        id: execute
+        uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: /ci-execute-plan ${{ needs.decompose.outputs.execute_plan }}
+          claude_args: |
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(git:*),Bash(python:*),Bash(python3:*),Bash(pytest:*),Bash(pip:*),Bash(pip3:*),Bash(mkdir:*),Bash(source:*),Bash(cat:*),Bash(ls:*),Bash(rm:*),Bash(chmod:*),BashOutput,TodoWrite"
+            --model claude-sonnet-4-5-20250929
+            --max-turns 25
+
+      - name: "EX.8 Push implementation commits"
+        if: always()
+        run: |
+          git fetch origin main
+          COMMITS_AHEAD=$(git rev-list origin/main..HEAD --count 2>/dev/null || echo "0")
+
+          if [ "$COMMITS_AHEAD" -gt 0 ]; then
+            echo "Found $COMMITS_AHEAD commits to push"
+
+            for attempt in 1 2 3 4; do
+              if git push origin main; then
+                echo "✓ Pushed $COMMITS_AHEAD implementation commits"
+                exit 0
+              else
+                echo "Push failed (attempt $attempt), pulling and retrying..."
+                git pull --rebase origin main || true
+                sleep $((2 ** attempt))
+              fi
+            done
+            echo "❌ Push failed after 4 attempts"
+            exit 1
+          else
+            echo "No commits to push"
+          fi
+
+      - name: "EX.9 Read execute output"
+        id: execute-output
+        if: always()
+        run: |
+          RESULT_FILE=".claude/skills/story-execution/ci-execute-result.json"
+          EXECUTE_OUTCOME="${{ steps.execute.outcome }}"
+          MAX_TURNS_LIMIT=25
+
+          echo "Execute step outcome: $EXECUTE_OUTCOME"
+
+          # Initialize max-turns detection variables
+          MAX_TURNS_EXHAUSTED="false"
+          TURNS_USED=""
+
+          # Check for max-turns exhaustion indicators
+          # The claude-code-action may output JSON with subtype: "error_max_turns"
+          # or the process may exit with code 143 (SIGTERM) when turns are exhausted
+
+          if [ "$EXECUTE_OUTCOME" = "failure" ] || [ "$EXECUTE_OUTCOME" = "cancelled" ]; then
+            echo "⚠️ Execute step did not complete successfully (outcome: $EXECUTE_OUTCOME)"
+
+            # Check if result file exists but is incomplete (partial execution)
+            if [ -f "$RESULT_FILE" ]; then
+              RESULT_STATUS=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('status','unknown'))" 2>/dev/null || echo "unknown")
+              TASKS_COMPLETED=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('tasks_completed',0))" 2>/dev/null || echo "0")
+              TASKS_TOTAL=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('tasks_total',0))" 2>/dev/null || echo "0")
+
+              if [ "$RESULT_STATUS" = "partial" ] || [ "$TASKS_COMPLETED" -lt "$TASKS_TOTAL" ]; then
+                echo "📊 Partial execution detected: $TASKS_COMPLETED/$TASKS_TOTAL tasks"
+                echo ""
+                echo "🔄 This may indicate max-turns ($MAX_TURNS_LIMIT) was exhausted before completion."
+                MAX_TURNS_EXHAUSTED="likely"
+                TURNS_USED="$MAX_TURNS_LIMIT (limit)"
+              fi
+            else
+              # No result file at all - strong indicator of early termination
+              echo ""
+              echo "❌ No result file found - execution terminated early"
+              echo ""
+              echo "🔄 **LIKELY CAUSE: Max-turns limit ($MAX_TURNS_LIMIT) exhausted**"
+              echo "   Claude Code stops when max-turns is reached, potentially before"
+              echo "   writing the result file."
+              echo ""
+              echo "💡 Examine the execute job logs and plan to understand why the job got stuck."
+              echo "   Check artifacts (execute-result, review-result) and result files."
+              MAX_TURNS_EXHAUSTED="likely"
+              TURNS_USED="$MAX_TURNS_LIMIT (limit)"
+
+              # Add annotation for visibility
+              echo "::warning title=Execution Stopped (Max-Turns)::Execute job was stopped after reaching max-turns limit ($MAX_TURNS_LIMIT). Examine logs and plan to find root cause."
+            fi
+          fi
+
+          # Output max-turns detection results
+          echo "max_turns_exhausted=$MAX_TURNS_EXHAUSTED" >> $GITHUB_OUTPUT
+          echo "turns_used=$TURNS_USED" >> $GITHUB_OUTPUT
+
+          # Process result file if it exists
+          if [ -f "$RESULT_FILE" ]; then
+            STATUS=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('status','unknown'))")
+            COMMITS=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(','.join(d.get('commits',[])))")
+            COMPLETED=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('tasks_completed',0))")
+            TOTAL=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('tasks_total',0))")
+
+            echo "status=$STATUS" >> $GITHUB_OUTPUT
+            echo "commits_made=$COMMITS" >> $GITHUB_OUTPUT
+
+            echo "Status: $STATUS"
+            echo "Tasks: $COMPLETED/$TOTAL"
+            echo "Commits: $COMMITS"
+
+            # Add summary for max-turns cases
+            if [ "$MAX_TURNS_EXHAUSTED" = "likely" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "## ⚠️ Max-Turns Likely Exhausted" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "The execute job terminated with partial progress." >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+              echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+              echo "| Max-Turns Limit | $MAX_TURNS_LIMIT |" >> $GITHUB_STEP_SUMMARY
+              echo "| Tasks Completed | $COMPLETED / $TOTAL |" >> $GITHUB_STEP_SUMMARY
+              echo "| Status | $STATUS |" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Recommendation:** Examine the execute job logs and plan to understand why the job got stuck. Check artifacts and result files for details." >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            UNCOMMITTED=$(git status --porcelain | wc -l)
+            NEW_COMMITS=$(git log origin/main..HEAD --oneline 2>/dev/null | wc -l)
+
+            if [ "$NEW_COMMITS" -gt 0 ] || [ "$UNCOMMITTED" -gt 0 ]; then
+              echo "status=partial" >> $GITHUB_OUTPUT
+              echo "commits_made=" >> $GITHUB_OUTPUT
+              echo "No result file, but found $NEW_COMMITS new commits and $UNCOMMITTED uncommitted changes"
+            else
+              echo "status=failed" >> $GITHUB_OUTPUT
+              echo "commits_made=" >> $GITHUB_OUTPUT
+              echo "No result file and no changes detected"
+            fi
+
+            # Add summary for no-result-file case
+            if [ "$MAX_TURNS_EXHAUSTED" = "likely" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "## ❌ Execution Stopped (Max-Turns)" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Cause:** Execution stopped after max-turns limit ($MAX_TURNS_LIMIT) was reached" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "The execute job was stopped before Claude could write its result file." >> $GITHUB_STEP_SUMMARY
+              echo "Examine the logs and plan to understand why the job got stuck." >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Progress detected:**" >> $GITHUB_STEP_SUMMARY
+              echo "- New commits: $NEW_COMMITS" >> $GITHUB_STEP_SUMMARY
+              echo "- Uncommitted changes: $UNCOMMITTED files" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Artifacts:** Check \`execute-result\`, \`review-result\` artifacts and \`.claude/skills/story-execution/ci-*.json\` files" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+
+      - name: "EX.10 Upload execute result"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: execute-result
+          path: .claude/skills/story-execution/ci-execute-result.json
+          retention-days: 1
+          if-no-files-found: ignore
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # FINALIZE: Archive, commit, push, report
+  # ════════════════════════════════════════════════════════════════════════════
+  finalize:
+    needs: [setup-and-plan, identify-plan, review-plan, decompose, execute]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: "FN.1 Checkout repository"
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: "FN.2 Pull latest changes"
+        run: |
+          git pull origin main --rebase || true
+
+      - name: "FN.3 Determine final outcome"
+        id: outcome
+        run: |
+          SHOULD_EXECUTE="${{ needs.setup-and-plan.outputs.should_execute }}"
+          SKIP_REASON="${{ needs.setup-and-plan.outputs.skip_reason }}"
+          PLAN_BLOCKED="${{ needs.identify-plan.outputs.plan_blocked }}"
+
+          # Handle identify-plan blocking the plan (no Story ID found)
+          if [ "$PLAN_BLOCKED" = "true" ]; then
+            echo "outcome=blocked" >> $GITHUB_OUTPUT
+            echo "reason=no_story_id" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # If setup determined we shouldn't execute
+          if [ "$SHOULD_EXECUTE" != "true" ]; then
+            echo "outcome=skipped" >> $GITHUB_OUTPUT
+            echo "reason=$SKIP_REASON" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          REVIEW_COMPLETED="${{ needs.review-plan.outputs.review_completed }}"
+          if [ "$REVIEW_COMPLETED" != "true" ]; then
+            echo "outcome=failure" >> $GITHUB_OUTPUT
+            echo "reason=review_failed" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          REVIEW_OUTCOME="${{ needs.review-plan.outputs.outcome }}"
+
+          # Handle review returning "verified" (already implemented)
+          if [ "$REVIEW_OUTCOME" = "verified" ]; then
+            echo "outcome=verified" >> $GITHUB_OUTPUT
+            echo "reason=already_implemented" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [ "$REVIEW_OUTCOME" = "pause" ]; then
+            echo "outcome=paused" >> $GITHUB_OUTPUT
+            echo "reason=blocking_issues" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          EXECUTE_STATUS="${{ needs.execute.outputs.status }}"
+          case "$EXECUTE_STATUS" in
+            completed)
+              if [ "$REVIEW_OUTCOME" = "proceed_with_review" ]; then
+                echo "outcome=success" >> $GITHUB_OUTPUT
+                echo "needs_review=true" >> $GITHUB_OUTPUT
+              else
+                echo "outcome=success" >> $GITHUB_OUTPUT
+                echo "needs_review=false" >> $GITHUB_OUTPUT
+              fi
+              ;;
+            partial)
+              echo "outcome=partial" >> $GITHUB_OUTPUT
+              echo "needs_review=true" >> $GITHUB_OUTPUT
+              ;;
+            failed|"")
+              echo "outcome=failure" >> $GITHUB_OUTPUT
+              echo "reason=execution_failed" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "outcome=unknown" >> $GITHUB_OUTPUT
+              echo "reason=unknown_status" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: "FN.4 Archive executed plan"
+        if: steps.outcome.outputs.outcome == 'success'
+        run: |
+          EXECUTE_PLAN="${{ needs.decompose.outputs.execute_plan }}"
+          if [ -z "$EXECUTE_PLAN" ]; then
+            EXECUTE_PLAN="${{ needs.setup-and-plan.outputs.plan_path }}"
+          fi
+          ARCHIVE_DIR=".claude/data/plans/executed"
+
+          if [ -f "$EXECUTE_PLAN" ]; then
+            mkdir -p "$ARCHIVE_DIR"
+            mv "$EXECUTE_PLAN" "$ARCHIVE_DIR/"
+            echo "✓ Archived: $EXECUTE_PLAN → $ARCHIVE_DIR/"
+          else
+            echo "Plan already archived or moved"
+          fi
+
+      - name: "FN.5 Update story status in database"
+        if: |
+          (steps.outcome.outputs.outcome == 'success' ||
+           steps.outcome.outputs.outcome == 'partial' ||
+           steps.outcome.outputs.outcome == 'verified') &&
+          (needs.identify-plan.outputs.story_id != 'none' || needs.setup-and-plan.outputs.story_id != 'none')
+        uses: ./.github/actions/update-story-db
+        with:
+          story_id: ${{ needs.identify-plan.outputs.story_id != 'none' && needs.identify-plan.outputs.story_id || needs.setup-and-plan.outputs.story_id }}
+          outcome: ${{ steps.outcome.outputs.outcome }}
+          needs_review: ${{ steps.outcome.outputs.needs_review }}
+
+      - name: "FN.6 Stage all changes"
+        if: steps.outcome.outputs.outcome == 'success' || steps.outcome.outputs.outcome == 'partial' || steps.outcome.outputs.outcome == 'verified'
+        id: stage
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes to commit"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changes staged for commit:"
+            git diff --cached --stat
+          fi
+
+      - name: "FN.7 Commit changes"
+        if: steps.stage.outputs.has_changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          EXECUTE_PLAN="${{ needs.decompose.outputs.execute_plan }}"
+          STORY_ID="${{ needs.setup-and-plan.outputs.story_id }}"
+          PLAN_FILENAME=$(basename "$EXECUTE_PLAN")
+
+          git commit -m "ci: execute plan $PLAN_FILENAME
+
+          Story: $STORY_ID"
+
+          echo "✓ Committed changes"
+
+      - name: "FN.8 Push to remote"
+        if: steps.stage.outputs.has_changes == 'true'
+        run: |
+          for attempt in 1 2 3 4; do
+            if git push origin main; then
+              echo "✓ Push successful"
+              exit 0
+            else
+              echo "Push failed (attempt $attempt), pulling and retrying..."
+              git pull --rebase origin main || true
+              sleep $((2 ** attempt))
+            fi
+          done
+          echo "❌ Push failed after 4 attempts"
+          exit 1
+
+      # ── REPORTING ──
+      - name: "FN.9 Generate execution summary"
+        if: always()
+        uses: ./.github/actions/generate-summary
+        with:
+          plan_selected: ${{ needs.setup-and-plan.outputs.plan_selected }}
+          plan_filename: ${{ needs.setup-and-plan.outputs.plan_filename }}
+          plan_sequence: ${{ needs.setup-and-plan.outputs.plan_sequence }}
+          story_id: ${{ needs.setup-and-plan.outputs.story_id }}
+          identified_story_id: ${{ needs.identify-plan.outputs.story_id }}
+          complexity: ${{ needs.decompose.outputs.complexity }}
+          outcome: ${{ steps.outcome.outputs.outcome }}
+          outcome_reason: ${{ steps.outcome.outputs.reason }}
+          needs_review: ${{ steps.outcome.outputs.needs_review }}
+          skip_reason: ${{ needs.setup-and-plan.outputs.skip_reason }}
+          max_turns_exhausted: ${{ needs.execute.outputs.max_turns_exhausted }}
+          review_outcome: ${{ needs.review-plan.outputs.outcome }}
+          execute_status: ${{ needs.execute.outputs.status }}
+          plan_blocked: ${{ needs.identify-plan.outputs.plan_blocked }}
+
+      - name: "FN.11 Download result artifacts"
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/artifacts
+          merge-multiple: true
+        continue-on-error: true
+
+      - name: "FN.12 Parse result files for issue message"
+        id: parse-results
+        if: always()
+        uses: ./.github/actions/parse-results
+        with:
+          artifacts_path: /tmp/artifacts
+
+      - name: "FN.13 Post results to story issue"
+        if: |
+          always() &&
+          needs.setup-and-plan.outputs.plan_selected == 'true' &&
+          (needs.setup-and-plan.outputs.story_id != 'none' && needs.setup-and-plan.outputs.story_id != '' ||
+           needs.identify-plan.outputs.story_id != 'none' && needs.identify-plan.outputs.story_id != '')
+        uses: ./.github/actions/post-story-results
+        with:
+          story_id: ${{ needs.identify-plan.outputs.story_id != 'none' && needs.identify-plan.outputs.story_id || needs.setup-and-plan.outputs.story_id }}
+          plan_filename: ${{ needs.setup-and-plan.outputs.plan_filename }}
+          execute_plan: ${{ needs.decompose.outputs.execute_plan || needs.setup-and-plan.outputs.plan_path }}
+          complexity: ${{ needs.decompose.outputs.complexity }}
+          outcome: ${{ steps.outcome.outputs.outcome }}
+          outcome_reason: ${{ steps.outcome.outputs.reason }}
+          needs_review: ${{ steps.outcome.outputs.needs_review }}
+          skip_reason: ${{ needs.setup-and-plan.outputs.skip_reason }}
+          max_turns_exhausted: ${{ needs.execute.outputs.max_turns_exhausted }}
+          review_outcome: ${{ needs.review-plan.outputs.outcome }}
+          execute_status: ${{ needs.execute.outputs.status }}
+          tasks_completed: ${{ steps.parse-results.outputs.tasks_completed }}
+          tasks_total: ${{ steps.parse-results.outputs.tasks_total }}
+          commits_list: ${{ steps.parse-results.outputs.commits_list }}
+          files_changed: ${{ steps.parse-results.outputs.files_changed }}
+          blocking_issues: ${{ steps.parse-results.outputs.blocking_issues }}
+          review_notes: ${{ steps.parse-results.outputs.review_notes }}
+          error_summary: ${{ steps.parse-results.outputs.error_summary }}
+          github_server_url: ${{ github.server_url }}
+          github_repository: ${{ github.repository }}
+          github_run_id: ${{ github.run_id }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
