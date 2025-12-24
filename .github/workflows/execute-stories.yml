@@ -747,6 +747,8 @@ jobs:
       commits_made: ${{ steps.execute-output.outputs.commits_made }}
       complexity_ok: ${{ steps.verify-complexity.outputs.complexity_ok }}
       task_count: ${{ steps.verify-complexity.outputs.task_count }}
+      max_turns_exhausted: ${{ steps.execute-output.outputs.max_turns_exhausted }}
+      turns_used: ${{ steps.execute-output.outputs.turns_used }}
 
     steps:
       - name: "EX.1 Checkout repository"
@@ -872,7 +874,59 @@ jobs:
         if: always()
         run: |
           RESULT_FILE=".claude/skills/story-execution/ci-execute-result.json"
+          EXECUTE_OUTCOME="${{ steps.execute.outcome }}"
+          MAX_TURNS_LIMIT=50
 
+          echo "Execute step outcome: $EXECUTE_OUTCOME"
+
+          # Initialize max-turns detection variables
+          MAX_TURNS_EXHAUSTED="false"
+          TURNS_USED=""
+
+          # Check for max-turns exhaustion indicators
+          # The claude-code-action may output JSON with subtype: "error_max_turns"
+          # or the process may exit with code 143 (SIGTERM) when turns are exhausted
+
+          if [ "$EXECUTE_OUTCOME" = "failure" ] || [ "$EXECUTE_OUTCOME" = "cancelled" ]; then
+            echo "⚠️ Execute step did not complete successfully (outcome: $EXECUTE_OUTCOME)"
+
+            # Check if result file exists but is incomplete (partial execution)
+            if [ -f "$RESULT_FILE" ]; then
+              RESULT_STATUS=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('status','unknown'))" 2>/dev/null || echo "unknown")
+              TASKS_COMPLETED=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('tasks_completed',0))" 2>/dev/null || echo "0")
+              TASKS_TOTAL=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('tasks_total',0))" 2>/dev/null || echo "0")
+
+              if [ "$RESULT_STATUS" = "partial" ] || [ "$TASKS_COMPLETED" -lt "$TASKS_TOTAL" ]; then
+                echo "📊 Partial execution detected: $TASKS_COMPLETED/$TASKS_TOTAL tasks"
+                echo ""
+                echo "🔄 This may indicate max-turns ($MAX_TURNS_LIMIT) was exhausted before completion."
+                MAX_TURNS_EXHAUSTED="likely"
+                TURNS_USED="$MAX_TURNS_LIMIT (limit)"
+              fi
+            else
+              # No result file at all - strong indicator of early termination
+              echo ""
+              echo "❌ No result file found - execution terminated early"
+              echo ""
+              echo "🔄 **LIKELY CAUSE: Max-turns limit ($MAX_TURNS_LIMIT) exhausted**"
+              echo "   Claude Code stops when max-turns is reached, potentially before"
+              echo "   writing the result file."
+              echo ""
+              echo "💡 Consider increasing --max-turns in the workflow if TDD tasks"
+              echo "   require more iterations."
+              MAX_TURNS_EXHAUSTED="likely"
+              TURNS_USED="$MAX_TURNS_LIMIT (limit)"
+
+              # Add annotation for visibility
+              echo "::warning title=Max-Turns Likely Exhausted::Execute job terminated without result file. This typically indicates the max-turns limit ($MAX_TURNS_LIMIT) was reached before task completion."
+            fi
+          fi
+
+          # Output max-turns detection results
+          echo "max_turns_exhausted=$MAX_TURNS_EXHAUSTED" >> $GITHUB_OUTPUT
+          echo "turns_used=$TURNS_USED" >> $GITHUB_OUTPUT
+
+          # Process result file if it exists
           if [ -f "$RESULT_FILE" ]; then
             STATUS=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(d.get('status','unknown'))")
             COMMITS=$(python3 -c "import json; d=json.load(open('$RESULT_FILE')); print(','.join(d.get('commits',[])))")
@@ -885,6 +939,22 @@ jobs:
             echo "Status: $STATUS"
             echo "Tasks: $COMPLETED/$TOTAL"
             echo "Commits: $COMMITS"
+
+            # Add summary for max-turns cases
+            if [ "$MAX_TURNS_EXHAUSTED" = "likely" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "## ⚠️ Max-Turns Likely Exhausted" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "The execute job terminated with partial progress." >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+              echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+              echo "| Max-Turns Limit | $MAX_TURNS_LIMIT |" >> $GITHUB_STEP_SUMMARY
+              echo "| Tasks Completed | $COMPLETED / $TOTAL |" >> $GITHUB_STEP_SUMMARY
+              echo "| Status | $STATUS |" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Recommendation:** Increase \`--max-turns\` in the execute job or decompose the plan into smaller sub-plans." >> $GITHUB_STEP_SUMMARY
+            fi
           else
             UNCOMMITTED=$(git status --porcelain | wc -l)
             NEW_COMMITS=$(git log origin/main..HEAD --oneline 2>/dev/null | wc -l)
@@ -897,6 +967,24 @@ jobs:
               echo "status=failed" >> $GITHUB_OUTPUT
               echo "commits_made=" >> $GITHUB_OUTPUT
               echo "No result file and no changes detected"
+            fi
+
+            # Add summary for no-result-file case
+            if [ "$MAX_TURNS_EXHAUSTED" = "likely" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "## ❌ Execution Terminated Early" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Most Likely Cause:** Max-turns limit ($MAX_TURNS_LIMIT) exhausted" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "The execute job was terminated before Claude could write its result file." >> $GITHUB_STEP_SUMMARY
+              echo "This typically happens when TDD tasks require more iterations than the" >> $GITHUB_STEP_SUMMARY
+              echo "configured \`--max-turns\` limit allows." >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Progress detected:**" >> $GITHUB_STEP_SUMMARY
+              echo "- New commits: $NEW_COMMITS" >> $GITHUB_STEP_SUMMARY
+              echo "- Uncommitted changes: $UNCOMMITTED files" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Recommendation:** Increase \`--max-turns\` from $MAX_TURNS_LIMIT to 75 or 100." >> $GITHUB_STEP_SUMMARY
             fi
           fi
 
@@ -1131,6 +1219,12 @@ jobs:
             echo "| Story ID | ${{ needs.setup-and-plan.outputs.story_id }} |" >> $GITHUB_STEP_SUMMARY
             echo "| Complexity | ${{ needs.decompose.outputs.complexity }} |" >> $GITHUB_STEP_SUMMARY
 
+            # Add max-turns information if exhausted
+            MAX_TURNS_EXHAUSTED="${{ needs.execute.outputs.max_turns_exhausted }}"
+            if [ "$MAX_TURNS_EXHAUSTED" = "likely" ]; then
+              echo "| Max-Turns | ⚠️ **EXHAUSTED** (limit: 50) |" >> $GITHUB_STEP_SUMMARY
+            fi
+
             OUTCOME="${{ steps.outcome.outputs.outcome }}"
             case "$OUTCOME" in
               success)
@@ -1154,7 +1248,11 @@ jobs:
                 ;;
               failure)
                 echo "| Outcome | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
-                echo "| Reason | ${{ steps.outcome.outputs.reason }} |" >> $GITHUB_STEP_SUMMARY
+                if [ "$MAX_TURNS_EXHAUSTED" = "likely" ]; then
+                  echo "| Reason | 🔄 Max-turns exhausted (limit: 50) |" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "| Reason | ${{ steps.outcome.outputs.reason }} |" >> $GITHUB_STEP_SUMMARY
+                fi
                 ;;
               skipped)
                 SKIP_REASON="${{ needs.setup-and-plan.outputs.skip_reason }}"
@@ -1215,8 +1313,13 @@ jobs:
           fi
 
           EXECUTE="${{ needs.execute.outputs.status }}"
+          MAX_TURNS_EXHAUSTED="${{ needs.execute.outputs.max_turns_exhausted }}"
           if [ -n "$EXECUTE" ]; then
-            echo "| execute | $EXECUTE |" >> $GITHUB_STEP_SUMMARY
+            if [ "$MAX_TURNS_EXHAUSTED" = "likely" ]; then
+              echo "| execute | $EXECUTE ⚠️ (max-turns exhausted) |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| execute | $EXECUTE |" >> $GITHUB_STEP_SUMMARY
+            fi
           else
             echo "| execute | ⏭️ skipped |" >> $GITHUB_STEP_SUMMARY
           fi
@@ -1458,7 +1561,12 @@ jobs:
               STATUS="⏸️ Paused (blocking issues)"
               ;;
             failure)
-              STATUS="❌ Failed"
+              MAX_TURNS_EXHAUSTED="${{ needs.execute.outputs.max_turns_exhausted }}"
+              if [ "$MAX_TURNS_EXHAUSTED" = "likely" ]; then
+                STATUS="❌ Failed (max-turns exhausted)"
+              else
+                STATUS="❌ Failed"
+              fi
               ;;
             skipped)
               SKIP_REASON="${{ needs.setup-and-plan.outputs.skip_reason }}"
@@ -1513,7 +1621,17 @@ jobs:
 
           ### Failure Details"
 
-            if [ "$REVIEW_OUTCOME" = "pause" ]; then
+            # Check for max-turns exhaustion
+            MAX_TURNS_EXHAUSTED="${{ needs.execute.outputs.max_turns_exhausted }}"
+            if [ "$MAX_TURNS_EXHAUSTED" = "likely" ]; then
+              BODY="$BODY
+          **Cause:** 🔄 Max-turns limit (50) exhausted
+
+          The TDD execution required more iterations than the configured limit.
+          Consider:
+          - Increasing \`--max-turns\` from 50 to 75 or 100
+          - Decomposing the plan into smaller sub-plans"
+            elif [ "$REVIEW_OUTCOME" = "pause" ]; then
               BODY="$BODY
           **Failed at:** Review (blocking issues found)"
             elif [ -z "$EXECUTE_STATUS" ] || [ "$EXECUTE_STATUS" = "failed" ]; then
