@@ -1,5 +1,5 @@
 {
-  "lastScanned": "2025-12-23",
+  "lastScanned": "2025-12-24",
   "sourceRoot": "src/syncopaid",
   "fileExtensions": [
     ".py"
@@ -23,6 +23,9 @@
     "src/syncopaid/archiver.py": {
       "lines": 159
     },
+    "src/syncopaid/batch_analysis_progress.py": {
+      "lines": 44
+    },
     "src/syncopaid/billing.py": {
       "lines": 139
     },
@@ -39,10 +42,10 @@
       "lines": 211
     },
     "src/syncopaid/config_dataclass.py": {
-      "lines": 165
+      "lines": 181
     },
     "src/syncopaid/config_defaults.py": {
-      "lines": 57
+      "lines": 66
     },
     "src/syncopaid/config_paths.py": {
       "lines": 64
@@ -114,7 +117,7 @@
       "lines": 85
     },
     "src/syncopaid/database_schema.py": {
-      "lines": 64
+      "lines": 65
     },
     "src/syncopaid/database_schema_events.py": {
       "lines": 122
@@ -123,10 +126,10 @@
       "lines": 83
     },
     "src/syncopaid/database_schema_matters.py": {
-      "lines": 132
+      "lines": 176
     },
     "src/syncopaid/database_screenshots.py": {
-      "lines": 199
+      "lines": 258
     },
     "src/syncopaid/database_statistics.py": {
       "lines": 122
@@ -153,7 +156,7 @@
       "lines": 131
     },
     "src/syncopaid/main_app_class.py": {
-      "lines": 202
+      "lines": 239
     },
     "src/syncopaid/main_app_display.py": {
       "lines": 70
@@ -192,7 +195,7 @@
       "lines": 62
     },
     "src/syncopaid/main_ui_windows.py": {
-      "lines": 285
+      "lines": 292
     },
     "src/syncopaid/matter_client_csv.py": {
       "lines": 45
@@ -215,6 +218,9 @@
     "src/syncopaid/matter_client_dialog_edit.py": {
       "lines": 74
     },
+    "src/syncopaid/night_processor.py": {
+      "lines": 112
+    },
     "src/syncopaid/prompt.py": {
       "lines": 72
     },
@@ -227,6 +233,9 @@
     "src/syncopaid/screenshot.py": {
       "lines": 273
     },
+    "src/syncopaid/screenshot_analyzer.py": {
+      "lines": 121
+    },
     "src/syncopaid/screenshot_capture.py": {
       "lines": 204
     },
@@ -235,6 +244,9 @@
     },
     "src/syncopaid/screenshot_persistence.py": {
       "lines": 105
+    },
+    "src/syncopaid/screenshot_review_dialog.py": {
+      "lines": 141
     },
     "src/syncopaid/screenshot_worker_actions.py": {
       "lines": 108
@@ -337,6 +349,9 @@
     },
     "src/syncopaid/url_extractor.py": {
       "lines": 64
+    },
+    "src/syncopaid/vision_engine.py": {
+      "lines": 131
     }
   },
   "exceptions": [],
