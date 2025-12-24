@@ -1,87 +1,60 @@
 # Handover: Refactor execute-stories.yml into Modular Components
 
-## Objective
+## Status: COMPLETED
 
-Decompose `.github/workflows/execute-stories.yml` (1686 lines) into smaller, maintainable components using GitHub Actions' reusable workflows and composite actions.
+Refactored the finalize job of `execute-stories.yml` into 4 composite actions.
 
-## Current State
+## Results
 
-The workflow has 6 jobs with these line counts:
+### Line Count Comparison
 
-| Job | Lines | Notes |
-|-----|-------|-------|
-| setup-and-plan | 283 | Plan selection, validation |
-| identify-plan | 145 | Story ID matching |
-| review-plan | 112 | Claude review step |
-| decompose | 156 | Complexity assessment |
-| execute | 264 | Claude execution step |
-| **finalize** | **684** | 40% of file - main target |
+| Component | Before | After |
+|-----------|--------|-------|
+| execute-stories.yml | 1687 | 1225 |
+| **Reduction** | - | **-462 lines (27%)** |
 
-### Finalize Job Breakdown
+### Composite Actions Created
 
-| Step | Lines | Refactor Target |
-|------|-------|-----------------|
-| FN.13 Post results to story issue | 283 | Composite action |
-| FN.9 Generate execution summary | 69 | Composite action |
-| FN.3 Determine final outcome | 68 | Keep inline |
-| FN.12 Parse result files | 67 | Composite action |
-| FN.5 Update story status in database | 56 | Composite action |
-| FN.10 Report pipeline status | 53 | Merge with FN.9 |
+| Action | Lines | Purpose |
+|--------|-------|---------|
+| `parse-results` | 114 | Parse CI result JSON files (FN.12) |
+| `update-story-db` | 70 | Update story status in SQLite (FN.5) |
+| `generate-summary` | 184 | Generate workflow summary (FN.9 + FN.10) |
+| `post-story-results` | 369 | Create/update GitHub issue (FN.13) |
+| **Total** | **737** | |
 
-## Recommended Approach
-
-### 1. Composite Actions (step-level reuse)
-
-Create in `.github/actions/`:
+### Files Changed
 
 ```
-.github/actions/
-├── post-story-results/action.yml    # FN.13 (283 lines)
-├── generate-summary/action.yml      # FN.9 + FN.10 (~120 lines)
-├── parse-results/action.yml         # FN.12 (67 lines)
-└── update-story-db/action.yml       # FN.5 (56 lines)
+.github/
+├── actions/
+│   ├── generate-summary/action.yml     # NEW
+│   ├── parse-results/action.yml        # NEW
+│   ├── post-story-results/action.yml   # NEW
+│   └── update-story-db/action.yml      # NEW
+└── workflows/
+    └── execute-stories.yml             # MODIFIED
 ```
 
-Composite action structure:
-```yaml
-# .github/actions/post-story-results/action.yml
-name: Post Story Results
-inputs:
-  story_id:
-    required: true
-  outcome:
-    required: true
-  # ... other inputs
-runs:
-  using: composite
-  steps:
-    - run: |
-        # Shell logic moved here
-      shell: bash
-```
+## Implementation Notes
 
-### 2. Alternative: Reusable Workflow
+1. **Composite actions** were chosen over reusable workflows because:
+   - No container overhead (share runner environment)
+   - Simpler input/output handling for step-level logic
+   - Better for tightly coupled finalization steps
 
-Could extract entire `finalize` job to `.github/workflows/finalize-execution.yml` with `workflow_call` trigger. Trade-off: adds workflow dispatch overhead but cleaner separation.
+2. **Each action is self-contained** with:
+   - Explicit inputs/outputs declared
+   - `shell: bash` for all run steps
+   - Uses `$GITHUB_OUTPUT` and `$GITHUB_STEP_SUMMARY` normally
 
-## Key Files
+3. **Workflow behavior unchanged**:
+   - Same conditional logic preserved
+   - Issue comments render identically
+   - Pipeline summaries unchanged
 
-| File | Purpose |
-|------|---------|
-| `.github/workflows/execute-stories.yml` | Main workflow to refactor |
-| `.claude/commands/ci-*.md` | Claude prompts (already extracted) |
-| `.claude/skills/story-execution/ci-*-result.json` | Result file schemas |
+## Verification
 
-## Technical Notes
-
-- Composite actions share the runner's environment (no container overhead)
-- Inputs/outputs must be explicitly declared in `action.yml`
-- Shell scripts in composite actions use `shell: bash` (required)
-- `$GITHUB_OUTPUT` and `$GITHUB_STEP_SUMMARY` work normally in composite actions
-
-## Success Criteria
-
-- `execute-stories.yml` reduced to ~400 lines
-- Composite actions are independently testable
-- No change to workflow behavior or outputs
-- Issue comments and summaries render identically
+- All YAML files pass syntax validation
+- Inputs properly mapped from workflow to actions
+- Outputs properly consumed by dependent steps

@@ -1,0 +1,114 @@
+name: Parse Result Files
+description: Parse CI result JSON files and extract data for issue comments
+
+inputs:
+  artifacts_path:
+    description: Path to downloaded artifacts
+    required: false
+    default: '/tmp/artifacts'
+
+outputs:
+  tasks_completed:
+    description: Number of tasks completed
+    value: ${{ steps.parse.outputs.tasks_completed }}
+  tasks_total:
+    description: Total number of tasks
+    value: ${{ steps.parse.outputs.tasks_total }}
+  commits_list:
+    description: Comma-separated list of commit hashes
+    value: ${{ steps.parse.outputs.commits_list }}
+  blocking_issues:
+    description: List of blocking issues from review
+    value: ${{ steps.parse.outputs.blocking_issues }}
+  review_notes:
+    description: Notes from plan review
+    value: ${{ steps.parse.outputs.review_notes }}
+  files_changed:
+    description: List of files changed
+    value: ${{ steps.parse.outputs.files_changed }}
+  error_summary:
+    description: Summary of any errors
+    value: ${{ steps.parse.outputs.error_summary }}
+
+runs:
+  using: composite
+  steps:
+    - name: Parse result files
+      id: parse
+      shell: bash
+      run: |
+        # Initialize all outputs with defaults
+        echo "tasks_completed=0" >> $GITHUB_OUTPUT
+        echo "tasks_total=0" >> $GITHUB_OUTPUT
+        echo "commits_list=" >> $GITHUB_OUTPUT
+        echo "blocking_issues=" >> $GITHUB_OUTPUT
+        echo "review_notes=" >> $GITHUB_OUTPUT
+        echo "files_changed=" >> $GITHUB_OUTPUT
+        echo "error_summary=" >> $GITHUB_OUTPUT
+
+        ARTIFACTS_PATH="${{ inputs.artifacts_path }}"
+
+        # Parse execute result
+        EXEC_RESULT="$ARTIFACTS_PATH/ci-execute-result.json"
+        if [ -f "$EXEC_RESULT" ]; then
+          echo "Found execute result file"
+          python3 << 'PYEOF'
+        import json, os
+
+        artifacts_path = os.environ.get('ARTIFACTS_PATH', '/tmp/artifacts')
+        result_file = f"{artifacts_path}/ci-execute-result.json"
+
+        with open(result_file) as f:
+            data = json.load(f)
+
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+            out.write(f"tasks_completed={data.get('tasks_completed', 0)}\n")
+            out.write(f"tasks_total={data.get('tasks_total', 0)}\n")
+
+            commits = data.get('commits', [])
+            if commits:
+                short_commits = [c[:7] if len(c) > 7 else c for c in commits]
+                out.write(f"commits_list={','.join(short_commits)}\n")
+
+            files = data.get('files_modified', []) or data.get('files_changed', [])
+            if files:
+                display_files = files[:5]
+                if len(files) > 5:
+                    display_files.append(f"... and {len(files) - 5} more")
+                out.write(f"files_changed={' | '.join(display_files)}\n")
+
+            error = data.get('error') or data.get('failure_reason') or data.get('notes', '')
+            if error and data.get('status') != 'completed':
+                error_short = str(error)[:200]
+                out.write(f"error_summary={error_short}\n")
+        PYEOF
+        fi
+
+        # Parse review result
+        REVIEW_RESULT="$ARTIFACTS_PATH/ci-review-result.json"
+        if [ -f "$REVIEW_RESULT" ]; then
+          echo "Found review result file"
+          python3 << 'PYEOF'
+        import json, os
+
+        artifacts_path = os.environ.get('ARTIFACTS_PATH', '/tmp/artifacts')
+        result_file = f"{artifacts_path}/ci-review-result.json"
+
+        with open(result_file) as f:
+            data = json.load(f)
+
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+            blocking = data.get('blocking_issues', [])
+            if blocking:
+                issues_text = ' • '.join(str(i) for i in blocking[:3])
+                out.write(f"blocking_issues={issues_text}\n")
+
+            notes = data.get('notes', '')
+            if notes:
+                out.write(f"review_notes={notes[:150]}\n")
+        PYEOF
+        fi
+
+        echo "Result parsing complete"
+      env:
+        ARTIFACTS_PATH: ${{ inputs.artifacts_path }}
