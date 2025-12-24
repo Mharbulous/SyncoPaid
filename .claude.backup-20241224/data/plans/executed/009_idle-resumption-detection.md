@@ -1,0 +1,821 @@
+# Idle Resumption Detection and Smart Prompt Trigger - Implementation Plan
+
+> **TDD Required:** Each task (~2-5 min): Write test → verify RED → Write code → verify GREEN → Commit
+> **Zero Context:** This plan assumes the implementer knows nothing about the codebase.
+
+**Goal:** Automatically detect when user resumes work after idle period to trigger categorization prompts at natural transitions.
+**Approach:** Extend TrackerLoop to track idle state transitions (idle→active), emit IdleResumptionEvent when user returns after significant idle period (>3 min), configurable threshold.
+**Tech Stack:** Python stdlib (dataclasses, datetime), existing tracker.py infrastructure, pytest for testing
+
+---
+
+**Story ID:** 1.2.1 | **Created:** 2025-12-18 | **Stage:** `planned`
+
+---
+
+## Story Context
+
+**Title:** Idle Resumption Detection and Smart Prompt Trigger
+
+**Description:** As a lawyer who takes breaks and returns to work, I want the system to detect when I resume working after being idle, so that I'm prompted to categorize the time I just completed at a natural transition point.
+
+**Acceptance Criteria:**
+- [ ] Detect idle→active transitions when idle_seconds drops below idle_threshold after being above it
+- [ ] Track last_idle_resumption_time timestamp to prevent duplicate detections
+- [ ] Only trigger if idle period was significant (>3 minutes) to avoid false triggers from brief pauses
+- [ ] Emit IdleResumptionEvent with idle_duration, resumption_timestamp for downstream handlers
+- [ ] Integration point for Smart Time Categorization Prompt (story 4.8) to consume events
+- [ ] Log resumption events for debugging ("User resumed after 15.2 minutes idle")
+- [ ] Configurable minimum idle duration threshold (default: 180s) to qualify as "resumption"
+
+## Prerequisites
+
+- [ ] venv activated: `venv\Scripts\activate`
+- [ ] Baseline tests pass: `python -m pytest -v` (currently no tests exist - this task creates first test suite)
+
+## TDD Tasks
+
+### Task 1: Create IdleResumptionEvent dataclass (~3 min)
+
+**Files:**
+- **Create:** `tests/test_idle_resumption.py`
+- **Modify:** `src/syncopaid/tracker.py:118` (add after ActivityEvent dataclass)
+
+**Context:** Define the event structure that will be emitted when idle→active transitions occur. This establishes the data contract for downstream consumers (story 4.8 Smart Prompt).
+
+**Step 1 - RED:** Write failing test
+```python
+# tests/test_idle_resumption.py
+"""Tests for idle resumption detection functionality."""
+
+import pytest
+from datetime import datetime, timezone
+from syncopaid.tracker import IdleResumptionEvent
+
+
+def test_idle_resumption_event_creation():
+    """Verify IdleResumptionEvent can be instantiated with required fields."""
+    resumption_time = datetime(2025, 12, 18, 10, 30, 0, tzinfo=timezone.utc)
+    event = IdleResumptionEvent(
+        resumption_timestamp=resumption_time.isoformat(),
+        idle_duration=900.0  # 15 minutes
+    )
+
+    assert event.resumption_timestamp == "2025-12-18T10:30:00+00:00"
+    assert event.idle_duration == 900.0
+
+
+def test_idle_resumption_event_to_dict():
+    """Verify IdleResumptionEvent can be converted to dictionary."""
+    resumption_time = datetime(2025, 12, 18, 10, 30, 0, tzinfo=timezone.utc)
+    event = IdleResumptionEvent(
+        resumption_timestamp=resumption_time.isoformat(),
+        idle_duration=900.0
+    )
+
+    data = event.to_dict()
+    assert data['resumption_timestamp'] == "2025-12-18T10:30:00+00:00"
+    assert data['idle_duration'] == 900.0
+```
+
+**Step 2 - Verify RED:**
+```bash
+python -m pytest tests/test_idle_resumption.py::test_idle_resumption_event_creation -v
+python -m pytest tests/test_idle_resumption.py::test_idle_resumption_event_to_dict -v
+```
+Expected output: `FAILED` - ImportError: cannot import name 'IdleResumptionEvent' from 'syncopaid.tracker'
+
+**Step 3 - GREEN:** Write minimal implementation
+```python
+# src/syncopaid/tracker.py (after line 117, before line 118)
+
+@dataclass
+class IdleResumptionEvent:
+    """
+    Event emitted when user resumes work after significant idle period.
+
+    This event signals a natural transition point for prompting time categorization.
+    Only emitted when idle period exceeds minimum_idle_duration threshold (default 180s).
+
+    Fields:
+        resumption_timestamp: ISO8601 timestamp when user became active again
+        idle_duration: Duration of idle period in seconds
+    """
+    resumption_timestamp: str  # ISO8601 format: "2025-12-18T10:30:00+00:00"
+    idle_duration: float  # Seconds user was idle
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON export or event handling."""
+        return asdict(self)
+```
+
+**Step 4 - Verify GREEN:**
+```bash
+python -m pytest tests/test_idle_resumption.py::test_idle_resumption_event_creation -v
+python -m pytest tests/test_idle_resumption.py::test_idle_resumption_event_to_dict -v
+```
+Expected output: Both tests `PASSED`
+
+**Step 5 - COMMIT:**
+```bash
+git add tests/test_idle_resumption.py src/syncopaid/tracker.py && git commit -m "feat: add IdleResumptionEvent dataclass for idle→active transitions"
+```
+
+---
+
+### Task 2: Add minimum_idle_duration configuration (~3 min)
+
+**Files:**
+- **Modify:** `src/syncopaid/config.py:36` (add to DEFAULT_CONFIG dict before closing brace)
+- **Modify:** `src/syncopaid/config.py:70` (add to Config dataclass attributes)
+- **Modify:** `tests/test_idle_resumption.py` (add config test)
+
+**Context:** Make the minimum idle duration threshold configurable so users can adjust sensitivity. Default 180s (3 minutes) matches acceptance criteria.
+
+**Step 1 - RED:** Write failing test
+```python
+# tests/test_idle_resumption.py (add to end of file)
+
+def test_config_has_minimum_idle_duration():
+    """Verify config includes minimum_idle_duration setting."""
+    from syncopaid.config import DEFAULT_CONFIG, Config
+
+    assert 'minimum_idle_duration_seconds' in DEFAULT_CONFIG
+    assert DEFAULT_CONFIG['minimum_idle_duration_seconds'] == 180
+
+    # Verify Config dataclass accepts it
+    config = Config(minimum_idle_duration_seconds=300)
+    assert config.minimum_idle_duration_seconds == 300
+```
+
+**Step 2 - Verify RED:**
+```bash
+python -m pytest tests/test_idle_resumption.py::test_config_has_minimum_idle_duration -v
+```
+Expected output: `FAILED` - KeyError: 'minimum_idle_duration_seconds'
+
+**Step 3 - GREEN:** Write minimal implementation
+```python
+# src/syncopaid/config.py (line 36, add before closing brace of DEFAULT_CONFIG)
+    "action_screenshot_max_dimension": 1920,
+    "minimum_idle_duration_seconds": 180  # Add this line
+}
+
+
+# src/syncopaid/config.py (around line 70, add to Config dataclass)
+@dataclass
+class Config:
+    """
+    Application configuration settings.
+
+    Attributes:
+        poll_interval_seconds: How often to check the active window (default: 0)
+        idle_threshold_seconds: Seconds before marking as idle (default: 180)
+        merge_threshold_seconds: Max gap to merge identical windows (default: 2.0)
+        database_path: Path to SQLite database file (default: auto-detected)
+        start_on_boot: Auto-start with Windows
+        start_tracking_on_launch: Begin tracking immediately
+        screenshot_enabled: Enable periodic screenshots
+        screenshot_interval_seconds: Seconds between screenshot attempts
+        screenshot_threshold_identical: Similarity threshold for identical content
+        screenshot_threshold_significant: Similarity threshold for significant changes
+        screenshot_threshold_identical_same_window: Similarity for same window
+        screenshot_threshold_identical_different_window: Similarity for different windows
+        screenshot_quality: JPEG quality (1-100)
+        screenshot_max_dimension: Max screenshot dimension
+        action_screenshot_enabled: Enable action-triggered screenshots
+        action_screenshot_throttle_seconds: Throttle interval for action screenshots
+        action_screenshot_quality: JPEG quality for action screenshots
+        action_screenshot_max_dimension: Max dimension for action screenshots
+        minimum_idle_duration_seconds: Minimum idle duration to trigger resumption event (default: 180)
+    """
+    poll_interval_seconds: float = 0
+    idle_threshold_seconds: float = 180
+    merge_threshold_seconds: float = 2.0
+    database_path: Optional[str] = None
+    start_on_boot: bool = False
+    start_tracking_on_launch: bool = True
+    screenshot_enabled: bool = True
+    screenshot_interval_seconds: float = 10
+    screenshot_threshold_identical: float = 0.92
+    screenshot_threshold_significant: float = 0.70
+    screenshot_threshold_identical_same_window: float = 0.90
+    screenshot_threshold_identical_different_window: float = 0.99
+    screenshot_quality: int = 65
+    screenshot_max_dimension: int = 1920
+    action_screenshot_enabled: bool = True
+    action_screenshot_throttle_seconds: float = 0.5
+    action_screenshot_quality: int = 65
+    action_screenshot_max_dimension: int = 1920
+    minimum_idle_duration_seconds: float = 180  # Add this line
+```
+
+**Step 4 - Verify GREEN:**
+```bash
+python -m pytest tests/test_idle_resumption.py::test_config_has_minimum_idle_duration -v
+```
+Expected output: `PASSED`
+
+**Step 5 - COMMIT:**
+```bash
+git add src/syncopaid/config.py tests/test_idle_resumption.py && git commit -m "feat: add minimum_idle_duration_seconds config for resumption detection"
+```
+
+---
+
+### Task 3: Add idle state tracking to TrackerLoop.__init__ (~2 min)
+
+**Files:**
+- **Modify:** `src/syncopaid/tracker.py:223-244` (TrackerLoop.__init__ method)
+- **Modify:** `tests/test_idle_resumption.py` (add init test)
+
+**Context:** TrackerLoop needs to remember previous idle state and last resumption time to detect idle→active transitions without duplicates.
+
+**Step 1 - RED:** Write failing test
+```python
+# tests/test_idle_resumption.py (add to end of file)
+
+def test_tracker_loop_init_idle_resumption_state():
+    """Verify TrackerLoop initializes idle resumption tracking state."""
+    from syncopaid.tracker import TrackerLoop
+
+    tracker = TrackerLoop(
+        poll_interval=0,
+        idle_threshold=180.0,
+        minimum_idle_duration=180.0
+    )
+
+    assert hasattr(tracker, 'was_idle')
+    assert tracker.was_idle is False
+    assert hasattr(tracker, 'last_idle_resumption_time')
+    assert tracker.last_idle_resumption_time is None
+    assert hasattr(tracker, 'minimum_idle_duration')
+    assert tracker.minimum_idle_duration == 180.0
+```
+
+**Step 2 - Verify RED:**
+```bash
+python -m pytest tests/test_idle_resumption.py::test_tracker_loop_init_idle_resumption_state -v
+```
+Expected output: `FAILED` - TypeError: TrackerLoop.__init__() got an unexpected keyword argument 'minimum_idle_duration'
+
+**Step 3 - GREEN:** Write minimal implementation
+```python
+# src/syncopaid/tracker.py (modify __init__ signature and body, lines 223-255)
+
+    def __init__(
+        self,
+        poll_interval: float = 0,
+        idle_threshold: float = 180.0,
+        merge_threshold: float = 2.0,
+        screenshot_worker=None,
+        screenshot_interval: float = 10.0,
+        minimum_idle_duration: float = 180.0  # Add this parameter
+    ):
+        self.poll_interval = poll_interval
+        self.idle_threshold = idle_threshold
+        self.merge_threshold = merge_threshold
+        self.screenshot_worker = screenshot_worker
+        self.screenshot_interval = screenshot_interval
+        self.minimum_idle_duration = minimum_idle_duration  # Add this line
+
+        # State tracking for event merging
+        self.current_event: Optional[Dict] = None
+        self.event_start_time: Optional[datetime] = None
+
+        # Idle resumption tracking - Add these 2 lines
+        self.was_idle: bool = False
+        self.last_idle_resumption_time: Optional[datetime] = None
+
+        # Screenshot timing
+        self.last_screenshot_time: float = 0
+
+        self.running = False
+
+        # Statistics
+        self.total_events = 0
+        self.merged_events = 0
+
+        logging.info(
+            f"TrackerLoop initialized: "
+            f"poll={poll_interval}s, idle_threshold={idle_threshold}s, "
+            f"merge_threshold={merge_threshold}s, "
+            f"minimum_idle_duration={minimum_idle_duration}s, "  # Add to log
+            f"screenshot_enabled={screenshot_worker is not None}"
+        )
+```
+
+**Step 4 - Verify GREEN:**
+```bash
+python -m pytest tests/test_idle_resumption.py::test_tracker_loop_init_idle_resumption_state -v
+```
+Expected output: `PASSED`
+
+**Step 5 - COMMIT:**
+```bash
+git add src/syncopaid/tracker.py tests/test_idle_resumption.py && git commit -m "feat: add idle resumption state tracking to TrackerLoop.__init__"
+```
+
+---
+
+### Task 4: Implement idle→active transition detection logic (~4 min)
+
+**Files:**
+- **Modify:** `src/syncopaid/tracker.py:270-317` (TrackerLoop.start method main loop)
+- **Modify:** `tests/test_idle_resumption.py` (add integration test)
+
+**Context:** Core detection logic - after getting is_idle status, check if was_idle=True and is_idle=False (transition), verify idle duration exceeded minimum, emit IdleResumptionEvent, update state. This happens in main tracking loop before state change check.
+
+**Step 1 - RED:** Write failing test
+```python
+# tests/test_idle_resumption.py (add to end of file)
+
+def test_detect_idle_to_active_transition():
+    """Verify idle→active transition emits IdleResumptionEvent."""
+    from syncopaid.tracker import TrackerLoop, IdleResumptionEvent
+    from unittest.mock import patch, MagicMock
+    from datetime import datetime, timezone
+
+    tracker = TrackerLoop(
+        poll_interval=0.1,  # Fast polling for test
+        idle_threshold=5.0,  # 5 second idle threshold
+        minimum_idle_duration=3.0  # 3 second minimum
+    )
+
+    # Mock get_active_window to return consistent window
+    mock_window = {'app': 'TestApp.exe', 'title': 'Test Window', 'pid': 1234}
+
+    # Simulate idle_seconds sequence: idle (10s) → active (0s)
+    idle_sequence = [10.0, 0.0]  # idle → active transition
+    idle_iter = iter(idle_sequence)
+
+    events = []
+    with patch('syncopaid.tracker.get_active_window', return_value=mock_window):
+        with patch('syncopaid.tracker.get_idle_seconds', side_effect=lambda: next(idle_iter)):
+            gen = tracker.start()
+            # First poll: idle (10s > 5s threshold) - sets was_idle=True
+            try:
+                event = next(gen)
+                events.append(event)
+            except StopIteration:
+                pass
+
+            # Second poll: active (0s < 5s threshold) - triggers resumption
+            try:
+                event = next(gen)
+                events.append(event)
+            except StopIteration:
+                pass
+
+            tracker.stop()
+
+    # Should have emitted IdleResumptionEvent
+    resumption_events = [e for e in events if isinstance(e, IdleResumptionEvent)]
+    assert len(resumption_events) == 1
+    assert resumption_events[0].idle_duration == 10.0
+```
+
+**Step 2 - Verify RED:**
+```bash
+python -m pytest tests/test_idle_resumption.py::test_detect_idle_to_active_transition -v
+```
+Expected output: `FAILED` - AssertionError: assert 0 == 1 (no IdleResumptionEvent emitted)
+
+**Step 3 - GREEN:** Write minimal implementation
+```python
+# src/syncopaid/tracker.py (modify start() method main loop, after line 275)
+# Find the section after "is_idle = idle_seconds >= self.idle_threshold" (line 275)
+# Add detection logic before "# Create state dict for comparison" (line 277)
+
+        while self.running:
+            try:
+                # Get current state
+                window = get_active_window()
+                idle_seconds = get_idle_seconds()
+                is_idle = idle_seconds >= self.idle_threshold
+
+                # ===== ADD THIS BLOCK (idle resumption detection) =====
+                # Detect idle→active transition for resumption events
+                if self.was_idle and not is_idle:
+                    # User just resumed after idle period
+                    if idle_seconds < self.idle_threshold and self.last_idle_resumption_time:
+                        # Calculate how long they were idle
+                        # (Use tracked idle_seconds from when they were last idle)
+                        pass  # We need to track peak idle_seconds - see next task
+                    elif idle_seconds < self.idle_threshold:
+                        # First time detecting resumption or peak tracking available
+                        # For now, we can't accurately get idle_duration, need to track it
+                        # Emit event only if we have enough information
+                        if hasattr(self, '_peak_idle_seconds') and self._peak_idle_seconds >= self.minimum_idle_duration:
+                            resumption_event = IdleResumptionEvent(
+                                resumption_timestamp=datetime.now(timezone.utc).isoformat(),
+                                idle_duration=self._peak_idle_seconds
+                            )
+                            logging.info(f"User resumed after {self._peak_idle_seconds:.1f} seconds idle")
+                            self.last_idle_resumption_time = datetime.now(timezone.utc)
+                            yield resumption_event
+                            self._peak_idle_seconds = 0.0
+
+                # Track idle state for next iteration
+                if is_idle and not self.was_idle:
+                    # Just became idle - start tracking peak
+                    self._peak_idle_seconds = idle_seconds
+                elif is_idle:
+                    # Still idle - update peak
+                    self._peak_idle_seconds = max(getattr(self, '_peak_idle_seconds', 0.0), idle_seconds)
+
+                self.was_idle = is_idle
+                # ===== END ADDED BLOCK =====
+
+                # Create state dict for comparison
+                state = {
+                    'app': window['app'],
+```
+
+**Step 4 - Verify GREEN:**
+```bash
+python -m pytest tests/test_idle_resumption.py::test_detect_idle_to_active_transition -v
+```
+Expected output: `PASSED`
+
+**Step 5 - COMMIT:**
+```bash
+git add src/syncopaid/tracker.py tests/test_idle_resumption.py && git commit -m "feat: implement idle→active transition detection with IdleResumptionEvent emission"
+```
+
+---
+
+### Task 5: Add duplicate prevention with debouncing (~3 min)
+
+**Files:**
+- **Modify:** `src/syncopaid/tracker.py:275-320` (enhance resumption detection)
+- **Modify:** `tests/test_idle_resumption.py` (add duplicate test)
+
+**Context:** Prevent emitting multiple IdleResumptionEvents for same idle period. Check last_idle_resumption_time and only emit if enough time passed (e.g., 60 seconds) or if new idle period occurred.
+
+**Step 1 - RED:** Write failing test
+```python
+# tests/test_idle_resumption.py (add to end of file)
+
+def test_duplicate_resumption_prevention():
+    """Verify duplicate IdleResumptionEvents are not emitted for same idle period."""
+    from syncopaid.tracker import TrackerLoop, IdleResumptionEvent
+    from unittest.mock import patch
+
+    tracker = TrackerLoop(
+        poll_interval=0.1,
+        idle_threshold=5.0,
+        minimum_idle_duration=3.0
+    )
+
+    mock_window = {'app': 'TestApp.exe', 'title': 'Test Window', 'pid': 1234}
+
+    # Simulate: idle (10s) → active (0s) → active (0s) → active (0s)
+    # Should only emit ONE resumption event
+    idle_sequence = [10.0, 0.0, 0.0, 0.0, 0.0]
+    idle_iter = iter(idle_sequence)
+
+    events = []
+    with patch('syncopaid.tracker.get_active_window', return_value=mock_window):
+        with patch('syncopaid.tracker.get_idle_seconds', side_effect=lambda: next(idle_iter, 0.0)):
+            gen = tracker.start()
+            for _ in range(5):
+                try:
+                    event = next(gen)
+                    events.append(event)
+                except StopIteration:
+                    break
+            tracker.stop()
+
+    resumption_events = [e for e in events if isinstance(e, IdleResumptionEvent)]
+    assert len(resumption_events) == 1, f"Expected 1 resumption event, got {len(resumption_events)}"
+```
+
+**Step 2 - Verify RED:**
+```bash
+python -m pytest tests/test_idle_resumption.py::test_duplicate_resumption_prevention -v
+```
+Expected output: `FAILED` - AssertionError: Expected 1 resumption event, got 2 (or more)
+
+**Step 3 - GREEN:** Write minimal implementation
+```python
+# src/syncopaid/tracker.py (modify resumption detection block added in Task 4)
+# Replace the resumption detection block with enhanced version:
+
+                # Detect idle→active transition for resumption events
+                if self.was_idle and not is_idle:
+                    # User just resumed after idle period
+                    if hasattr(self, '_peak_idle_seconds') and self._peak_idle_seconds >= self.minimum_idle_duration:
+                        # Check if enough time passed since last resumption (prevent duplicates)
+                        should_emit = True
+                        if self.last_idle_resumption_time:
+                            time_since_last = (datetime.now(timezone.utc) - self.last_idle_resumption_time).total_seconds()
+                            # Only emit if at least 60 seconds passed since last resumption
+                            # This prevents rapid fire events from flaky idle detection
+                            if time_since_last < 60.0:
+                                should_emit = False
+                                logging.debug(f"Suppressing duplicate resumption event (last: {time_since_last:.1f}s ago)")
+
+                        if should_emit:
+                            resumption_event = IdleResumptionEvent(
+                                resumption_timestamp=datetime.now(timezone.utc).isoformat(),
+                                idle_duration=self._peak_idle_seconds
+                            )
+                            logging.info(f"User resumed after {self._peak_idle_seconds:.1f} seconds idle")
+                            self.last_idle_resumption_time = datetime.now(timezone.utc)
+                            yield resumption_event
+
+                        # Always reset peak after processing transition
+                        self._peak_idle_seconds = 0.0
+```
+
+**Step 4 - Verify GREEN:**
+```bash
+python -m pytest tests/test_idle_resumption.py::test_duplicate_resumption_prevention -v
+```
+Expected output: `PASSED`
+
+**Step 5 - COMMIT:**
+```bash
+git add src/syncopaid/tracker.py tests/test_idle_resumption.py && git commit -m "feat: add duplicate resumption event prevention with 60s debounce"
+```
+
+---
+
+### Task 6: Wire minimum_idle_duration from config to TrackerLoop (~3 min)
+
+**Files:**
+- **Modify:** `src/syncopaid/__main__.py` (TrackerLoop instantiation)
+- **Modify:** `tests/test_idle_resumption.py` (add integration test)
+
+**Context:** Connect config.minimum_idle_duration_seconds to TrackerLoop constructor so user configuration takes effect. Find where TrackerLoop is instantiated in main app and pass the config value.
+
+**Step 1 - RED:** Write failing test
+```python
+# tests/test_idle_resumption.py (add to end of file)
+
+def test_config_integration_with_tracker():
+    """Verify config.minimum_idle_duration_seconds is passed to TrackerLoop."""
+    from syncopaid.config import Config
+    from syncopaid.tracker import TrackerLoop
+
+    # Create config with custom minimum_idle_duration
+    config = Config(minimum_idle_duration_seconds=300)
+
+    # TrackerLoop should accept and store this value
+    tracker = TrackerLoop(
+        poll_interval=config.poll_interval_seconds,
+        idle_threshold=config.idle_threshold_seconds,
+        merge_threshold=config.merge_threshold_seconds,
+        minimum_idle_duration=config.minimum_idle_duration_seconds
+    )
+
+    assert tracker.minimum_idle_duration == 300
+```
+
+**Step 2 - Verify RED:**
+```bash
+python -m pytest tests/test_idle_resumption.py::test_config_integration_with_tracker -v
+```
+Expected output: `PASSED` (this test should actually pass - it's testing integration exists)
+
+If test passes, verify actual wiring in __main__.py:
+
+```bash
+python -c "
+import sys
+sys.path.insert(0, 'src')
+from syncopaid.config import ConfigManager
+from syncopaid.tracker import TrackerLoop
+
+config_mgr = ConfigManager()
+config = config_mgr.get_config()
+
+# This should work without errors
+tracker = TrackerLoop(
+    poll_interval=config.poll_interval_seconds,
+    idle_threshold=config.idle_threshold_seconds,
+    minimum_idle_duration=config.minimum_idle_duration_seconds
+)
+print(f'✓ Config wiring works: minimum_idle_duration={tracker.minimum_idle_duration}')
+"
+```
+
+Expected output: Should work without AttributeError
+
+**Step 3 - GREEN:** Write minimal implementation
+
+Find TrackerLoop instantiation in src/syncopaid/__main__.py and add minimum_idle_duration parameter:
+
+```python
+# src/syncopaid/__main__.py
+# Find the line where TrackerLoop is created (search for "TrackerLoop(")
+# Add minimum_idle_duration parameter to the constructor call
+
+# BEFORE:
+tracker_loop = TrackerLoop(
+    poll_interval=config.poll_interval_seconds,
+    idle_threshold=config.idle_threshold_seconds,
+    merge_threshold=config.merge_threshold_seconds,
+    screenshot_worker=screenshot_worker,
+    screenshot_interval=config.screenshot_interval_seconds
+)
+
+# AFTER:
+tracker_loop = TrackerLoop(
+    poll_interval=config.poll_interval_seconds,
+    idle_threshold=config.idle_threshold_seconds,
+    merge_threshold=config.merge_threshold_seconds,
+    screenshot_worker=screenshot_worker,
+    screenshot_interval=config.screenshot_interval_seconds,
+    minimum_idle_duration=config.minimum_idle_duration_seconds  # Add this line
+)
+```
+
+**Step 4 - Verify GREEN:**
+```bash
+python -c "
+import sys
+sys.path.insert(0, 'src')
+from syncopaid.config import ConfigManager
+from syncopaid.tracker import TrackerLoop
+
+config_mgr = ConfigManager()
+config = config_mgr.get_config()
+
+tracker = TrackerLoop(
+    poll_interval=config.poll_interval_seconds,
+    idle_threshold=config.idle_threshold_seconds,
+    minimum_idle_duration=config.minimum_idle_duration_seconds
+)
+print(f'✓ Config wiring works: minimum_idle_duration={tracker.minimum_idle_duration}')
+"
+```
+Expected output: `✓ Config wiring works: minimum_idle_duration=180.0`
+
+**Step 5 - COMMIT:**
+```bash
+git add src/syncopaid/__main__.py tests/test_idle_resumption.py && git commit -m "feat: wire minimum_idle_duration config to TrackerLoop instantiation"
+```
+
+---
+
+### Task 7: Add comprehensive logging for resumption events (~2 min)
+
+**Files:**
+- **Modify:** `src/syncopaid/tracker.py:275-320` (enhance logging in resumption detection)
+- **Modify:** `tests/test_idle_resumption.py` (add logging test)
+
+**Context:** Add detailed logging for debugging idle resumption detection - log when idle starts, peak idle time, when resumption occurs, and when events are suppressed.
+
+**Step 1 - RED:** Write failing test
+```python
+# tests/test_idle_resumption.py (add to end of file)
+
+def test_resumption_logging():
+    """Verify resumption detection logs appropriate messages."""
+    from syncopaid.tracker import TrackerLoop
+    from unittest.mock import patch
+    import logging
+
+    # Capture log messages
+    log_messages = []
+
+    class LogCapture(logging.Handler):
+        def emit(self, record):
+            log_messages.append(record.getMessage())
+
+    handler = LogCapture()
+    handler.setLevel(logging.INFO)
+    logger = logging.getLogger('syncopaid.tracker')
+    logger.addHandler(handler)
+
+    tracker = TrackerLoop(
+        poll_interval=0.1,
+        idle_threshold=5.0,
+        minimum_idle_duration=3.0
+    )
+
+    mock_window = {'app': 'TestApp.exe', 'title': 'Test', 'pid': 1234}
+    idle_sequence = [10.0, 0.0]
+    idle_iter = iter(idle_sequence)
+
+    with patch('syncopaid.tracker.get_active_window', return_value=mock_window):
+        with patch('syncopaid.tracker.get_idle_seconds', side_effect=lambda: next(idle_iter, 0.0)):
+            gen = tracker.start()
+            try:
+                next(gen)
+                next(gen)
+            except StopIteration:
+                pass
+            tracker.stop()
+
+    logger.removeHandler(handler)
+
+    # Should have logged resumption with duration
+    resumption_logs = [msg for msg in log_messages if 'resumed after' in msg and 'seconds idle' in msg]
+    assert len(resumption_logs) >= 1, f"Expected resumption log, got: {log_messages}"
+```
+
+**Step 2 - Verify RED:**
+```bash
+python -m pytest tests/test_idle_resumption.py::test_resumption_logging -v
+```
+Expected output: `PASSED` (logging already added in Task 4, but verify format matches acceptance criteria)
+
+Check if log format matches "User resumed after 15.2 minutes idle":
+
+```bash
+python -m pytest tests/test_idle_resumption.py::test_resumption_logging -v -s
+```
+
+If format doesn't match human-readable minutes format from acceptance criteria, test should catch it.
+
+**Step 3 - GREEN:** Enhance logging implementation
+```python
+# src/syncopaid/tracker.py (modify logging in resumption detection block)
+# Find the logging.info line in resumption detection, enhance to match acceptance criteria format:
+
+                        if should_emit:
+                            resumption_event = IdleResumptionEvent(
+                                resumption_timestamp=datetime.now(timezone.utc).isoformat(),
+                                idle_duration=self._peak_idle_seconds
+                            )
+                            # Format duration in minutes for human readability
+                            idle_minutes = self._peak_idle_seconds / 60.0
+                            logging.info(f"User resumed after {idle_minutes:.1f} minutes idle")
+                            self.last_idle_resumption_time = datetime.now(timezone.utc)
+                            yield resumption_event
+```
+
+Also add debug logging for idle state changes:
+
+```python
+# In the idle state tracking section:
+                # Track idle state for next iteration
+                if is_idle and not self.was_idle:
+                    # Just became idle - start tracking peak
+                    self._peak_idle_seconds = idle_seconds
+                    logging.debug(f"User went idle (idle_seconds={idle_seconds:.1f}s)")
+                elif is_idle:
+                    # Still idle - update peak
+                    self._peak_idle_seconds = max(getattr(self, '_peak_idle_seconds', 0.0), idle_seconds)
+```
+
+**Step 4 - Verify GREEN:**
+```bash
+python -m pytest tests/test_idle_resumption.py::test_resumption_logging -v
+```
+Expected output: `PASSED`
+
+**Step 5 - COMMIT:**
+```bash
+git add src/syncopaid/tracker.py tests/test_idle_resumption.py && git commit -m "feat: add comprehensive logging for idle resumption with human-readable format"
+```
+
+---
+
+## Final Verification
+
+Run after all tasks complete:
+```bash
+python -m pytest tests/test_idle_resumption.py -v    # All new tests pass
+python -m syncopaid.tracker                            # Module runs without error (30s test)
+```
+
+Expected output:
+- All 8 tests in test_idle_resumption.py pass
+- tracker.py runs for 30 seconds without errors
+- Logs show tracking activity with idle state transitions
+
+## Rollback
+
+If issues arise: `git log --oneline -10` to find commits, then `git revert <hash>` for problematic commits
+
+## Notes
+
+**Edge Cases Handled:**
+- Brief idle spikes (<minimum_idle_duration) don't trigger events
+- Rapid idle→active→idle cycles prevented by 60s debounce
+- Peak idle tracking ensures accurate duration even with fluctuating idle_seconds
+
+**Integration Point:**
+Story 4.8 (Smart Time Categorization Prompt) will consume IdleResumptionEvents by:
+1. Registering a handler in main app to capture yielded IdleResumptionEvents
+2. Displaying prompt when event received: "You were away for X minutes. Categorize your recent time?"
+3. Presenting categorization UI at natural break point
+
+**Future Considerations:**
+- Configurable debounce window (currently hardcoded 60s)
+- Event persistence to database for analytics
+- Multiple event types for different transition patterns (idle→active, active→idle, window switch after idle)
+
+**Testing Strategy:**
+- Unit tests use mocked get_idle_seconds() for deterministic behavior
+- Integration test verifies config flows through to TrackerLoop
+- Manual testing: Run tracker.py, go idle >3min, resume work, check logs for "User resumed after X minutes idle"
+
+**Known Limitations:**
+- On Linux/Mac, idle detection returns mock values (0s or 200s) - resumption detection works but durations inaccurate
+- Windows-only GetLastInputInfo API provides accurate idle time
+- No persistence of resumption events (emit-only, downstream must handle)
