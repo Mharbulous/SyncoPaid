@@ -76,7 +76,11 @@ Or if there's already a metadata table, add a row for Story ID.
 
 ## OUTPUT REQUIRED
 
+**⚠️ CRITICAL: The output filename MUST be EXACTLY as specified below. Do NOT use "validate" - use "identify".**
+
 Write a JSON file to `.claude/skills/story-execution/ci-identify-result.json`:
+
+**FILENAME: `ci-identify-result.json`** (NOT ci-validate-result.json)
 
 ```json
 {
