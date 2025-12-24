@@ -2,9 +2,18 @@ name: 4. Execute Story
 
 on:
   schedule:
-    - cron: '40 2 * * *'  # 2:40 AM UTC
-    - cron: '40 3 * * *'  # 3:40 AM UTC
-    - cron: '40 4 * * *'  # 4:40 AM UTC
+    # Temporary schedule: every 10 minutes from 20:10 UTC Dec 24 to 02:00 UTC Dec 25 (6 hours)
+    - cron: '10,20,30,40,50 20 24 12 *'  # Dec 24, 20:10-20:50 UTC
+    - cron: '0,10,20,30,40,50 21 24 12 *'  # Dec 24, 21:00-21:50 UTC
+    - cron: '0,10,20,30,40,50 22 24 12 *'  # Dec 24, 22:00-22:50 UTC
+    - cron: '0,10,20,30,40,50 23 24 12 *'  # Dec 24, 23:00-23:50 UTC
+    - cron: '0,10,20,30,40,50 0 25 12 *'   # Dec 25, 00:00-00:50 UTC
+    - cron: '0,10,20,30,40,50 1 25 12 *'   # Dec 25, 01:00-01:50 UTC
+    - cron: '0 2 25 12 *'                  # Dec 25, 02:00 UTC (final run)
+    # Original schedule (commented out during burst run):
+    # - cron: '40 2 * * *'  # 2:40 AM UTC
+    # - cron: '40 3 * * *'  # 3:40 AM UTC
+    # - cron: '40 4 * * *'  # 4:40 AM UTC
   workflow_dispatch:
 
 concurrency:
