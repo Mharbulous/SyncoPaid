@@ -85,8 +85,8 @@ DISPOSITION_VALUES = {'rejected', 'infeasible', 'duplicative', 'legacy', 'deprec
 # Ordered lists for UI display (urgency order for hold reasons)
 STAGE_ORDER = ['concept', 'approved', 'planned', 'active',
                'reviewing', 'verifying', 'implemented', 'ready', 'released']
-HOLD_REASON_ORDER = ['broken', 'conflict', 'blocked', 'pending', 'paused', 'polish', 'queued', 'wishlist']
-DISPOSITION_ORDER = ['infeasible', 'rejected', 'duplicative', 'deprecated', 'legacy', 'archived']
+HOLD_REASON_ORDER = ['no hold', 'broken', 'conflict', 'blocked', 'pending', 'paused', 'polish', 'queued', 'wishlist']
+DISPOSITION_ORDER = ['live', 'infeasible', 'rejected', 'duplicative', 'deprecated', 'legacy', 'archived']
 
 # Hold reason icons for visual indication in tree view
 HOLD_ICONS = {
@@ -2307,25 +2307,51 @@ class XstoryExplorer(QMainWindow):
         return ancestors
 
     def _apply_filters(self):
-        """Apply status filters and color the tree."""
-        visible_statuses = {s for s, cb in self.status_checkboxes.items() if cb.isChecked()}
+        """Apply status filters and color the tree.
+
+        Filter logic: A node is visible if it matches ALL THREE filter categories (AND logic).
+        Within each category, the node matches if its field matches ANY checked option (OR logic).
+        - Stage: node.stage must be in checked stages
+        - Hold Status: node.hold_reason must be in checked holds, OR 'no hold' checked and no hold_reason
+        - Disposition: node.disposition must be in checked dispositions, OR 'live' checked and no disposition
+        """
+        # Collect checked statuses by category
+        checked_stages = {s for s in STAGE_ORDER
+                          if s in self.status_checkboxes and self.status_checkboxes[s].isChecked()}
+        checked_holds = {s for s in HOLD_REASON_ORDER
+                         if s in self.status_checkboxes and self.status_checkboxes[s].isChecked()}
+        checked_disps = {s for s in DISPOSITION_ORDER
+                         if s in self.status_checkboxes and self.status_checkboxes[s].isChecked()}
 
         # Special filter flags
-        show_no_hold = 'no hold' in visible_statuses
-        show_live = 'live' in visible_statuses
+        show_no_hold = 'no hold' in checked_holds
+        show_live = 'live' in checked_disps
 
         def node_matches_filter(node):
-            """Check if node matches the current filters."""
-            # Check effective status
-            if node.status in visible_statuses:
-                return True
-            # 'no hold' matches nodes with no hold_reason
-            if show_no_hold and not node.hold_reason:
-                return True
-            # 'live' matches nodes with no disposition
-            if show_live and not node.disposition:
-                return True
-            return False
+            """Check if node matches the current filters (AND logic across categories)."""
+            # Stage check: node.stage must be in checked stages
+            if node.stage not in checked_stages:
+                return False
+
+            # Hold Status check: node.hold_reason in checked holds, OR 'no hold' if no hold_reason
+            hold_ok = False
+            if node.hold_reason and node.hold_reason in checked_holds:
+                hold_ok = True
+            elif show_no_hold and not node.hold_reason:
+                hold_ok = True
+            if not hold_ok:
+                return False
+
+            # Disposition check: node.disposition in checked dispositions, OR 'live' if no disposition
+            disp_ok = False
+            if node.disposition and node.disposition in checked_disps:
+                disp_ok = True
+            elif show_live and not node.disposition:
+                disp_ok = True
+            if not disp_ok:
+                return False
+
+            return True
 
         # Step 1: Find all nodes that directly match the filter
         matching_nodes = {node_id for node_id, node in self.nodes.items()
