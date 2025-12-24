@@ -25,7 +25,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0  # Full history for git operations
+          fetch-depth: 0
+          submodules: recursive  # Full history for git operations
 
       - name: Run Claude Code to review stories
         id: claude
