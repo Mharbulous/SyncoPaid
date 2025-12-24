@@ -4,7 +4,7 @@ Generate new user story concepts or refine existing stories needing rework.
 
 $Arguments
 
-- **With arguments**: Pass directly to `story-writing` skill
+- **With arguments**: Pass directly to `story-building` skill
 - **Without arguments**: Auto-discover capacity nodes + refine stories
 
 ## Default Behavior (No Arguments)
@@ -66,7 +66,7 @@ conn.close()
 
 ### New Story Generation
 
-If `capacity_nodes` found, invoke `story-writing` skill for 1 story.
+If `capacity_nodes` found, invoke `story-building` skill for 1 story.
 
 ### Polish Stories
 

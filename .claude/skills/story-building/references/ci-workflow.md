@@ -14,6 +14,12 @@ Called by `.github/workflows/build-stories.yml` or similar automation.
 - Max 10 generation attempts enforced
 - Clear exit codes required
 
+## Related References
+
+- **Gap Analysis:** `gap-analysis.md` - Evidence-based story discovery
+- **ID Generation:** `id-generation.md` - ID format rules and assignment
+- **Validation:** `validation.md` - Pre-insertion quality checks
+
 ---
 
 ## Workflow Steps
@@ -86,18 +92,42 @@ conn.close()
 "
 ```
 
-### Steps 3-5: Generate-Vet Loop
+### Step 2d: Gap Analysis
+
+Apply gap analysis methodology (see `gap-analysis.md`):
+
+1. Match commits to parent scope
+2. Identify gaps by type (Functional, Pattern, User Journey, Technical)
+3. Apply goals-aware filtering if goals files exist
+4. Select highest-priority gap for story generation
+
+---
+
+### Steps 3-6: Generate-Validate-Vet Loop
 
 Initialize: `attempt = 0`, `avoided_topics = []`
 
 #### Loop (max 10 attempts):
 
 **Step 3: Generate Story**
+- Apply gap analysis to identify story topic
 - Fit parent scope
 - Avoid topics in `avoided_topics`
 - User story format with 3-5 acceptance criteria
+- Use specific role from goals or codebase context
+- Cite evidence (commits or gap type)
 
-**Step 4: Insert Story**
+**Step 4: Validate Story** (see `validation.md`)
+- Check user story format (As a/I want/So that)
+- Verify 3+ testable acceptance criteria
+- Confirm evidence is cited
+- Validate scope fits within parent
+- Generate correct ID format (see `id-generation.md`)
+- Check goals alignment if goals files exist
+
+**If validation fails:** Fix issues and re-validate before proceeding.
+
+**Step 5: Insert Story**
 ```python
 python -c "
 import sqlite3
@@ -116,7 +146,7 @@ conn.close()
 "
 ```
 
-**Step 5: Vet Story**
+**Step 6: Vet Story**
 ```bash
 python .claude/skills/story-vetting/candidate_detector.py --story-id NEW_ID
 ```

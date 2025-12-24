@@ -44,9 +44,9 @@ conn.close()
 
 ## Autonomous Operation
 
-**On "update story tree":** Run Steps 1-7 without permission, invoke story-writing for priority target, output report. Ask clarification ONLY for: over-capacity, multiple equal priorities, or ambiguous git history.
+**On "update story tree":** Run Steps 1-7 without permission, invoke story-building for priority target, output report. Ask clarification ONLY for: over-capacity, multiple equal priorities, or ambiguous git history.
 
-**On "generate stories":** Delegate to story-writing skill.
+**On "generate stories":** Delegate to story-building skill.
 
 **Auto-update:** On ANY invocation, if `lastUpdated` metadata >3 days old, run full update first.
 
@@ -110,7 +110,7 @@ LIMIT 1;
 
 ### Step 4: Generate Stories
 
-Invoke `story-writing` skill for priority target node. New stories get `stage: 'concept'` (unless user explicitly requested `approved`).
+Invoke `story-building` skill for priority target node. New stories get `stage: 'concept'` (unless user explicitly requested `approved`).
 
 ### Step 5: Update Metadata
 
@@ -237,4 +237,4 @@ python .claude/skills/story-arborist/scripts/fix_orphans.py   # Fix orphaned nod
 - `references/sql-queries.md` - Query patterns
 - `references/rationales.md` - Design decisions
 - `utility/story_db_common.py` - Shared database utilities
-- `.claude/skills/story-writing/SKILL.md` - Story generation
+- `.claude/skills/story-building/SKILL.md` - Story generation and vetting

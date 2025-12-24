@@ -17,7 +17,7 @@ python .claude/scripts/insert_story.py --update-commit "<newest_commit>"
 
 ## Interactive Mode
 
-Launch Xstory GUI then invoke the `story-writing` skill:
+Launch Xstory GUI then invoke the `story-building` skill:
 ```bash
 venv\Scripts\activate && python dev-tools\xstory\xstory.py
 ```
