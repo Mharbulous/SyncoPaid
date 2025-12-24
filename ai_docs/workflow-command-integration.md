@@ -80,7 +80,7 @@ claude "/ci-execute-plan .claude/data/plans/024A_first-step.md"
 |---------|---------|------------|
 | `/ci-review-plan` | Critical review, decide outcome | Sonnet |
 | `/ci-decompose-plan` | Assess complexity, split if needed | Opus |
-| `/ci-validate-plan` | Match plan to database (TODO) | Sonnet |
+| `/ci-identify-plan` | Match plan to database | Sonnet |
 | `/ci-verify-implementation` | Check if implemented (TODO) | Sonnet |
 | `/ci-execute-plan` | Follow TDD steps (TODO) | Sonnet |
 
