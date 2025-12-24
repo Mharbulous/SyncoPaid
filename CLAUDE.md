@@ -4,14 +4,26 @@
 
 - **IMPORTANT**: Do not build fallbacks to avoid problematic code; it only hides code rot.
 - **ALWAYS**: Identify root causes before attempting to fix or avoid problems.
-- **YOU MUST** activate virtual environment before running commands: `venv\Scripts\activate`
-- **ALWAYS** use native Windows path format with backslashes (`\`) for file operations
 - **NEVER** modify SQLite database directly
+
+## Development Environments
+
+Development occurs in **two environments**:
+
+| Environment | OS | Virtual Env | Path Format |
+|-------------|-----|-------------|-------------|
+| Local IDE | Windows 11 | `venv\Scripts\activate` | Backslashes (`\`) |
+| Remote Sandbox / CI | Linux | `source venv/bin/activate` | Forward slashes (`/`) |
+
+**Detect environment:** Check for `CI=true` env var or Linux platform.
+
+**When writing plans or scripts:** Use platform-appropriate commands, or provide both variants.
 
 ## Project Summary
 
-**SyncoPaid** is a Windows 11 desktop app that runs in background tracking window activies. Data stored in local SQLite. Exports JSON for LLM billing categorization.
+**SyncoPaid** is a Windows 11 desktop app that runs in background tracking window activities. Data stored in local SQLite. Exports JSON for LLM billing categorization.
 
+**Target Platform**: Windows 11 (deployment)
 **User Data Path**: `C:\Users\Brahm\AppData\Local\SyncoPaid\`
 
 ## Commands
