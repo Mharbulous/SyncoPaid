@@ -281,7 +281,7 @@ def defer_concept(
     """
     conn.execute('''
         UPDATE story_nodes
-        SET hold_reason = 'refine', human_review = 1,
+        SET hold_reason = 'pending', human_review = 1,
             notes = COALESCE(notes || char(10), '') || 'Scope overlap detected with story-node IDs: ' || ?
         WHERE id = ?
     ''', (conflicting_id, concept_id))
