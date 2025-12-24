@@ -1106,55 +1106,11 @@ jobs:
            steps.outcome.outputs.outcome == 'partial' ||
            steps.outcome.outputs.outcome == 'verified') &&
           (needs.identify-plan.outputs.story_id != 'none' || needs.setup-and-plan.outputs.story_id != 'none')
-        run: |
-          STORY_ID="${{ needs.identify-plan.outputs.story_id }}"
-          if [ -z "$STORY_ID" ] || [ "$STORY_ID" = "none" ]; then
-            STORY_ID="${{ needs.setup-and-plan.outputs.story_id }}"
-          fi
-
-          if [ -z "$STORY_ID" ] || [ "$STORY_ID" = "none" ]; then
-            echo "No Story ID available, skipping database update"
-            exit 0
-          fi
-
-          DB_PATH=".claude/data/story-tree.db"
-          NEEDS_REVIEW="${{ steps.outcome.outputs.needs_review }}"
-          OUTCOME="${{ steps.outcome.outputs.outcome }}"
-
-          if [ ! -f "$DB_PATH" ]; then
-            echo "Database not found, skipping status update"
-            exit 0
-          fi
-
-          if [ "$OUTCOME" = "verified" ]; then
-            STAGE="implemented"
-            NOTE="CI verified: implementation already exists"
-            REVIEW_FLAG=0
-          elif [ "$NEEDS_REVIEW" = "true" ]; then
-            STAGE="reviewing"
-            NOTE="CI execution $OUTCOME (review required)"
-            REVIEW_FLAG=1
-          else
-            STAGE="verifying"
-            NOTE="CI execution complete"
-            REVIEW_FLAG=0
-          fi
-
-          python3 << PYEOF
-          import sqlite3
-          conn = sqlite3.connect("$DB_PATH")
-          conn.execute('''
-              UPDATE story_nodes
-              SET stage = '$STAGE',
-                  human_review = $REVIEW_FLAG,
-                  notes = COALESCE(notes || char(10), '') || '$NOTE: ' || datetime('now'),
-                  updated_at = datetime('now')
-              WHERE id = ?
-          ''', ("$STORY_ID",))
-          conn.commit()
-          print(f"✓ Updated story $STORY_ID → $STAGE")
-          conn.close()
-          PYEOF
+        uses: ./.github/actions/update-story-db
+        with:
+          story_id: ${{ needs.identify-plan.outputs.story_id != 'none' && needs.identify-plan.outputs.story_id || needs.setup-and-plan.outputs.story_id }}
+          outcome: ${{ steps.outcome.outputs.outcome }}
+          needs_review: ${{ steps.outcome.outputs.needs_review }}
 
       - name: "FN.6 Stage all changes"
         if: steps.outcome.outputs.outcome == 'success' || steps.outcome.outputs.outcome == 'partial' || steps.outcome.outputs.outcome == 'verified'
@@ -1205,125 +1161,22 @@ jobs:
       # ── REPORTING ──
       - name: "FN.9 Generate execution summary"
         if: always()
-        run: |
-          echo "## Execution Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          PLAN_SELECTED="${{ needs.setup-and-plan.outputs.plan_selected }}"
-          if [ "$PLAN_SELECTED" = "true" ]; then
-            echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
-            echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Plan | \`${{ needs.setup-and-plan.outputs.plan_filename }}\` |" >> $GITHUB_STEP_SUMMARY
-            echo "| Sequence | ${{ needs.setup-and-plan.outputs.plan_sequence }} |" >> $GITHUB_STEP_SUMMARY
-            echo "| Story ID | ${{ needs.setup-and-plan.outputs.story_id }} |" >> $GITHUB_STEP_SUMMARY
-            echo "| Complexity | ${{ needs.decompose.outputs.complexity }} |" >> $GITHUB_STEP_SUMMARY
-
-            # Add max-turns information if exhausted
-            MAX_TURNS_EXHAUSTED="${{ needs.execute.outputs.max_turns_exhausted }}"
-            if [ "$MAX_TURNS_EXHAUSTED" = "likely" ]; then
-              echo "| Max-Turns | ⚠️ **EXHAUSTED** (limit: 25) - check logs |" >> $GITHUB_STEP_SUMMARY
-            fi
-
-            OUTCOME="${{ steps.outcome.outputs.outcome }}"
-            case "$OUTCOME" in
-              success)
-                if [ "${{ steps.outcome.outputs.needs_review }}" = "true" ]; then
-                  echo "| Outcome | ✅ Success (review required) |" >> $GITHUB_STEP_SUMMARY
-                else
-                  echo "| Outcome | ✅ Success |" >> $GITHUB_STEP_SUMMARY
-                fi
-                ;;
-              verified)
-                echo "| Outcome | ✅ Verified (already implemented) |" >> $GITHUB_STEP_SUMMARY
-                ;;
-              blocked)
-                echo "| Outcome | 🚫 Blocked (no Story ID found) |" >> $GITHUB_STEP_SUMMARY
-                ;;
-              partial)
-                echo "| Outcome | ⚠️ Partial (review required) |" >> $GITHUB_STEP_SUMMARY
-                ;;
-              paused)
-                echo "| Outcome | ⏸️ Paused (blocking issues) |" >> $GITHUB_STEP_SUMMARY
-                ;;
-              failure)
-                echo "| Outcome | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
-                if [ "$MAX_TURNS_EXHAUSTED" = "likely" ]; then
-                  echo "| Reason | 🔄 Max-turns exhausted (limit: 25) - examine logs for root cause |" >> $GITHUB_STEP_SUMMARY
-                else
-                  echo "| Reason | ${{ steps.outcome.outputs.reason }} |" >> $GITHUB_STEP_SUMMARY
-                fi
-                ;;
-              skipped)
-                SKIP_REASON="${{ needs.setup-and-plan.outputs.skip_reason }}"
-                case "$SKIP_REASON" in
-                  deps_unmet)
-                    echo "| Outcome | 🚧 Blocked (unmet deps) |" >> $GITHUB_STEP_SUMMARY
-                    ;;
-                  *)
-                    echo "| Outcome | ⏭️ Skipped ($SKIP_REASON) |" >> $GITHUB_STEP_SUMMARY
-                    ;;
-                esac
-                ;;
-              *)
-                echo "| Outcome | ⚠️ Unknown |" >> $GITHUB_STEP_SUMMARY
-                ;;
-            esac
-          else
-            echo "No plan files available for execution." >> $GITHUB_STEP_SUMMARY
-          fi
-
-      - name: "FN.10 Report pipeline status"
-        if: always() && needs.setup-and-plan.outputs.plan_selected == 'true'
-        run: |
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Pipeline Stages" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| setup-and-plan | ✅ |" >> $GITHUB_STEP_SUMMARY
-
-          STORY_ID="${{ needs.setup-and-plan.outputs.story_id }}"
-          if [ "$STORY_ID" = "none" ]; then
-            PLAN_BLOCKED="${{ needs.identify-plan.outputs.plan_blocked }}"
-            IDENTIFIED_STORY_ID="${{ needs.identify-plan.outputs.story_id }}"
-            if [ "$PLAN_BLOCKED" = "true" ]; then
-              echo "| identify-plan | 🚫 blocked (no match) |" >> $GITHUB_STEP_SUMMARY
-            elif [ -n "$IDENTIFIED_STORY_ID" ] && [ "$IDENTIFIED_STORY_ID" != "none" ]; then
-              echo "| identify-plan | ✅ matched ($IDENTIFIED_STORY_ID) |" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "| identify-plan | ⏭️ skipped |" >> $GITHUB_STEP_SUMMARY
-            fi
-          else
-            echo "| identify-plan | ⏭️ skipped (has ID) |" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          REVIEW="${{ needs.review-plan.outputs.outcome }}"
-          if [ -n "$REVIEW" ]; then
-            echo "| review-plan | $REVIEW |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "| review-plan | ⏭️ skipped |" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          COMPLEXITY="${{ needs.decompose.outputs.complexity }}"
-          if [ -n "$COMPLEXITY" ]; then
-            echo "| decompose | $COMPLEXITY |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "| decompose | ⏭️ skipped |" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          EXECUTE="${{ needs.execute.outputs.status }}"
-          MAX_TURNS_EXHAUSTED="${{ needs.execute.outputs.max_turns_exhausted }}"
-          if [ -n "$EXECUTE" ]; then
-            if [ "$MAX_TURNS_EXHAUSTED" = "likely" ]; then
-              echo "| execute | $EXECUTE ⚠️ (max-turns exhausted) |" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "| execute | $EXECUTE |" >> $GITHUB_STEP_SUMMARY
-            fi
-          else
-            echo "| execute | ⏭️ skipped |" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          echo "| finalize | ${{ steps.outcome.outputs.outcome }} |" >> $GITHUB_STEP_SUMMARY
+        uses: ./.github/actions/generate-summary
+        with:
+          plan_selected: ${{ needs.setup-and-plan.outputs.plan_selected }}
+          plan_filename: ${{ needs.setup-and-plan.outputs.plan_filename }}
+          plan_sequence: ${{ needs.setup-and-plan.outputs.plan_sequence }}
+          story_id: ${{ needs.setup-and-plan.outputs.story_id }}
+          identified_story_id: ${{ needs.identify-plan.outputs.story_id }}
+          complexity: ${{ needs.decompose.outputs.complexity }}
+          outcome: ${{ steps.outcome.outputs.outcome }}
+          outcome_reason: ${{ steps.outcome.outputs.reason }}
+          needs_review: ${{ steps.outcome.outputs.needs_review }}
+          skip_reason: ${{ needs.setup-and-plan.outputs.skip_reason }}
+          max_turns_exhausted: ${{ needs.execute.outputs.max_turns_exhausted }}
+          review_outcome: ${{ needs.review-plan.outputs.outcome }}
+          execute_status: ${{ needs.execute.outputs.status }}
+          plan_blocked: ${{ needs.identify-plan.outputs.plan_blocked }}
 
       - name: "FN.11 Download result artifacts"
         if: always()
@@ -1336,69 +1189,9 @@ jobs:
       - name: "FN.12 Parse result files for issue message"
         id: parse-results
         if: always()
-        run: |
-          echo "tasks_completed=0" >> $GITHUB_OUTPUT
-          echo "tasks_total=0" >> $GITHUB_OUTPUT
-          echo "commits_list=" >> $GITHUB_OUTPUT
-          echo "blocking_issues=" >> $GITHUB_OUTPUT
-          echo "review_notes=" >> $GITHUB_OUTPUT
-          echo "files_changed=" >> $GITHUB_OUTPUT
-          echo "error_summary=" >> $GITHUB_OUTPUT
-
-          EXEC_RESULT="/tmp/artifacts/ci-execute-result.json"
-          if [ -f "$EXEC_RESULT" ]; then
-            echo "Found execute result file"
-            python3 << 'PYEOF'
-          import json, os
-
-          with open("/tmp/artifacts/ci-execute-result.json") as f:
-              data = json.load(f)
-
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
-              out.write(f"tasks_completed={data.get('tasks_completed', 0)}\n")
-              out.write(f"tasks_total={data.get('tasks_total', 0)}\n")
-
-              commits = data.get('commits', [])
-              if commits:
-                  short_commits = [c[:7] if len(c) > 7 else c for c in commits]
-                  out.write(f"commits_list={','.join(short_commits)}\n")
-
-              files = data.get('files_modified', []) or data.get('files_changed', [])
-              if files:
-                  display_files = files[:5]
-                  if len(files) > 5:
-                      display_files.append(f"... and {len(files) - 5} more")
-                  out.write(f"files_changed={' | '.join(display_files)}\n")
-
-              error = data.get('error') or data.get('failure_reason') or data.get('notes', '')
-              if error and data.get('status') != 'completed':
-                  error_short = str(error)[:200]
-                  out.write(f"error_summary={error_short}\n")
-          PYEOF
-          fi
-
-          REVIEW_RESULT="/tmp/artifacts/ci-review-result.json"
-          if [ -f "$REVIEW_RESULT" ]; then
-            echo "Found review result file"
-            python3 << 'PYEOF'
-          import json, os
-
-          with open("/tmp/artifacts/ci-review-result.json") as f:
-              data = json.load(f)
-
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
-              blocking = data.get('blocking_issues', [])
-              if blocking:
-                  issues_text = ' • '.join(str(i) for i in blocking[:3])
-                  out.write(f"blocking_issues={issues_text}\n")
-
-              notes = data.get('notes', '')
-              if notes:
-                  out.write(f"review_notes={notes[:150]}\n")
-          PYEOF
-          fi
-
-          echo "Result parsing complete"
+        uses: ./.github/actions/parse-results
+        with:
+          artifacts_path: /tmp/artifacts
 
       - name: "FN.13 Post results to story issue"
         if: |
@@ -1406,281 +1199,27 @@ jobs:
           needs.setup-and-plan.outputs.plan_selected == 'true' &&
           (needs.setup-and-plan.outputs.story_id != 'none' && needs.setup-and-plan.outputs.story_id != '' ||
            needs.identify-plan.outputs.story_id != 'none' && needs.identify-plan.outputs.story_id != '')
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          STORY_ID="${{ needs.identify-plan.outputs.story_id }}"
-          if [ -z "$STORY_ID" ] || [ "$STORY_ID" = "none" ]; then
-            STORY_ID="${{ needs.setup-and-plan.outputs.story_id }}"
-          fi
-
-          if [ -z "$STORY_ID" ] || [ "$STORY_ID" = "none" ]; then
-            echo "No Story ID available, skipping issue posting"
-            exit 0
-          fi
-
-          EXECUTE_PLAN="${{ needs.decompose.outputs.execute_plan }}"
-          if [ -z "$EXECUTE_PLAN" ]; then
-            EXECUTE_PLAN="${{ needs.setup-and-plan.outputs.plan_path }}"
-          fi
-          PLAN_FILENAME="${{ needs.setup-and-plan.outputs.plan_filename }}"
-          if [ -z "$PLAN_FILENAME" ]; then
-            PLAN_FILENAME=$(basename "$EXECUTE_PLAN" 2>/dev/null || echo "unknown")
-          fi
-          COMPLEXITY="${{ needs.decompose.outputs.complexity }}"
-          if [ -z "$COMPLEXITY" ]; then
-            COMPLEXITY="(verified - skipped)"
-          fi
-          DB_PATH=".claude/data/story-tree.db"
-
-          TITLE=""
-          DESCRIPTION=""
-          USER_STORY=""
-          SUCCESS_CRITERIA=""
-          if [ -f "$DB_PATH" ]; then
-            IFS='|' read -r TITLE DESCRIPTION USER_STORY SUCCESS_CRITERIA <<< "$(python3 << PYEOF
-          import sqlite3
-
-          conn = sqlite3.connect("$DB_PATH")
-          r = conn.execute('''
-              SELECT title, description, story, success_criteria
-              FROM story_nodes WHERE id = ?
-          ''', ("$STORY_ID",)).fetchone()
-          conn.close()
-
-          if r:
-              title = (r[0] or '').replace('|', '/')
-              desc = (r[1] or '').replace('|', '/').replace('\n', ' ')[:500]
-              story = (r[2] or '').replace('|', '/').replace('\n', ' ')
-              criteria = (r[3] or '').replace('|', '/')
-              print(f"{title}|{desc}|{story}|{criteria}")
-          else:
-              print("|||")
-          PYEOF
-            )"
-          fi
-          TITLE="${TITLE:-Story $STORY_ID}"
-
-          PARENT_ID=""
-          if [[ "$STORY_ID" =~ \. ]]; then
-            PARENT_ID="${STORY_ID%.*}"
-          fi
-
-          PARENT_ISSUE_REF=""
-          if [ -n "$PARENT_ID" ]; then
-            PARENT_TITLE=""
-            if [ -f "$DB_PATH" ]; then
-              PARENT_TITLE=$(python3 -c "import sqlite3; c=sqlite3.connect('$DB_PATH'); r=c.execute('SELECT title FROM story_nodes WHERE id=?',('$PARENT_ID',)).fetchone(); print(r[0] if r else '')" 2>/dev/null)
-            fi
-            if [ -n "$PARENT_TITLE" ]; then
-              PARENT_ISSUE_TITLE="$PARENT_ID - $PARENT_TITLE"
-              PARENT_ISSUE_NUM=$(gh issue list --state all --search "\"$PARENT_ISSUE_TITLE\" in:title" --json number,title --jq ".[] | select(.title == \"$PARENT_ISSUE_TITLE\") | .number" | head -1)
-              if [ -n "$PARENT_ISSUE_NUM" ]; then
-                PARENT_ISSUE_REF="#$PARENT_ISSUE_NUM"
-              else
-                PARENT_ISSUE_REF="$PARENT_ID - $PARENT_TITLE"
-              fi
-            fi
-          fi
-
-          ISSUE_TITLE="$STORY_ID - $TITLE"
-
-          ISSUE_NUM=$(gh issue list --state all --search "\"$ISSUE_TITLE\" in:title" --json number,title --jq ".[] | select(.title == \"$ISSUE_TITLE\") | .number" | head -1)
-
-          if [ -z "$ISSUE_NUM" ]; then
-            RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-            INITIAL_BODY="# $TITLE
-
-          **Story ID:** $STORY_ID"
-
-            if [ -n "$PARENT_ISSUE_REF" ]; then
-              INITIAL_BODY="$INITIAL_BODY
-          **Parent Story:** $PARENT_ISSUE_REF"
-            fi
-
-            INITIAL_BODY="$INITIAL_BODY
-          **Plan:** \`$PLAN_FILENAME\`
-
-          ---
-
-          ## Description
-          ${DESCRIPTION:-_No description available_}"
-
-            if [ -n "$USER_STORY" ]; then
-              INITIAL_BODY="$INITIAL_BODY
-
-          ## User Story
-          > $USER_STORY"
-            fi
-
-            if [ -n "$SUCCESS_CRITERIA" ]; then
-              FORMATTED_CRITERIA=$(echo "$SUCCESS_CRITERIA" | sed 's/\\n/\n/g')
-              INITIAL_BODY="$INITIAL_BODY
-
-          ## Success Criteria
-          $FORMATTED_CRITERIA"
-            fi
-
-            INITIAL_BODY="$INITIAL_BODY
-
-          ---
-          *Created by [execute-stories workflow]($RUN_URL)*"
-
-            ISSUE_NUM=$(gh issue create --title "$ISSUE_TITLE" --body "$INITIAL_BODY" --label "story-tracking" 2>/dev/null | grep -oP 'issues/\K[0-9]+' || \
-                        gh issue create --title "$ISSUE_TITLE" --body "$INITIAL_BODY" | grep -oP 'issues/\K[0-9]+' || echo "")
-            echo "Created new issue #$ISSUE_NUM with rich context"
-          fi
-
-          if [ -z "$ISSUE_NUM" ]; then
-            echo "Could not find/create issue"
-            exit 0
-          fi
-
-          OUTCOME="${{ steps.outcome.outputs.outcome }}"
-          REASON="${{ steps.outcome.outputs.reason }}"
-          case "$OUTCOME" in
-            success)
-              if [ "${{ steps.outcome.outputs.needs_review }}" = "true" ]; then
-                STATUS="✅ Success (review required)"
-              else
-                STATUS="✅ Success"
-              fi
-              ;;
-            verified)
-              STATUS="✅ Verified (already implemented - plan archived)"
-              ;;
-            blocked)
-              STATUS="🚫 Blocked (no matching Story ID found)"
-              ;;
-            partial)
-              STATUS="⚠️ Partial (review required)"
-              ;;
-            paused)
-              STATUS="⏸️ Paused (blocking issues)"
-              ;;
-            failure)
-              MAX_TURNS_EXHAUSTED="${{ needs.execute.outputs.max_turns_exhausted }}"
-              if [ "$MAX_TURNS_EXHAUSTED" = "likely" ]; then
-                STATUS="❌ Failed (max-turns exhausted)"
-              else
-                STATUS="❌ Failed"
-              fi
-              ;;
-            skipped)
-              SKIP_REASON="${{ needs.setup-and-plan.outputs.skip_reason }}"
-              case "$SKIP_REASON" in
-                deps_unmet) STATUS="🚧 Blocked (unmet dependencies)" ;;
-                *) STATUS="⏭️ Skipped ($SKIP_REASON)" ;;
-              esac
-              ;;
-            *)
-              STATUS="⚠️ $OUTCOME"
-              ;;
-          esac
-
-          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-          TASKS_COMPLETED="${{ steps.parse-results.outputs.tasks_completed }}"
-          TASKS_TOTAL="${{ steps.parse-results.outputs.tasks_total }}"
-          COMMITS_LIST="${{ steps.parse-results.outputs.commits_list }}"
-          FILES_CHANGED="${{ steps.parse-results.outputs.files_changed }}"
-          BLOCKING_ISSUES="${{ steps.parse-results.outputs.blocking_issues }}"
-          REVIEW_NOTES="${{ steps.parse-results.outputs.review_notes }}"
-          ERROR_SUMMARY="${{ steps.parse-results.outputs.error_summary }}"
-
-          REVIEW_OUTCOME="${{ needs.review-plan.outputs.outcome }}"
-          EXECUTE_STATUS="${{ needs.execute.outputs.status }}"
-
-          BODY="## $STATUS
-
-          **Plan:** \`$PLAN_FILENAME\`
-          **Complexity:** $COMPLEXITY"
-
-          if [ "$OUTCOME" = "success" ] || [ "$OUTCOME" = "partial" ]; then
-            if [ "$TASKS_TOTAL" != "0" ] && [ -n "$TASKS_TOTAL" ]; then
-              BODY="$BODY
-          **Tasks:** $TASKS_COMPLETED/$TASKS_TOTAL completed"
-            fi
-
-            if [ -n "$COMMITS_LIST" ]; then
-              COMMITS_FORMATTED=$(echo "$COMMITS_LIST" | sed 's/,/`, `/g')
-              BODY="$BODY
-          **Commits:** \`$COMMITS_FORMATTED\`"
-            fi
-
-            if [ -n "$FILES_CHANGED" ]; then
-              BODY="$BODY
-          **Files:** $FILES_CHANGED"
-            fi
-          fi
-
-          if [ "$OUTCOME" = "failure" ] || [ "$OUTCOME" = "partial" ]; then
-            BODY="$BODY
-
-          ### Failure Details"
-
-            # Check for max-turns exhaustion
-            MAX_TURNS_EXHAUSTED="${{ needs.execute.outputs.max_turns_exhausted }}"
-            if [ "$MAX_TURNS_EXHAUSTED" = "likely" ]; then
-              BODY="$BODY
-          **Cause:** 🔄 Execution stopped (max-turns limit 25 reached)
-
-          The job was stopped due to excessive turns. This typically indicates the plan got stuck.
-
-          **Next steps:**
-          - Examine the execute job logs to find why the job got stuck
-          - Review the plan for issues (e.g., platform incompatibility, missing dependencies)
-          - Check artifacts: \`execute-result\`, \`review-result\`
-          - Check result files: \`.claude/skills/story-execution/ci-*.json\`"
-            elif [ "$REVIEW_OUTCOME" = "pause" ]; then
-              BODY="$BODY
-          **Failed at:** Review (blocking issues found)"
-            elif [ -z "$EXECUTE_STATUS" ] || [ "$EXECUTE_STATUS" = "failed" ]; then
-              BODY="$BODY
-          **Failed at:** Execute"
-            fi
-
-            if [ -n "$ERROR_SUMMARY" ]; then
-              BODY="$BODY
-          **Error:** $ERROR_SUMMARY"
-            fi
-
-            if [ "$TASKS_TOTAL" != "0" ] && [ -n "$TASKS_TOTAL" ]; then
-              BODY="$BODY
-          **Progress:** $TASKS_COMPLETED/$TASKS_TOTAL tasks completed before failure"
-            fi
-          fi
-
-          if [ "$OUTCOME" = "paused" ] && [ -n "$BLOCKING_ISSUES" ]; then
-            BODY="$BODY
-
-          ### Blocking Issues
-          $BLOCKING_ISSUES"
-          fi
-
-          if [ -n "$REVIEW_NOTES" ] && [ "$OUTCOME" != "success" ]; then
-            BODY="$BODY
-
-          ### Review Notes
-          $REVIEW_NOTES"
-          fi
-
-          if [ "$OUTCOME" != "success" ] && [ "$OUTCOME" != "verified" ] && [ "$OUTCOME" != "skipped" ]; then
-            BODY="$BODY
-
-          ### Debug Info
-          - **Artifacts:** \`execute-result\`, \`review-result\` (download from [workflow run]($RUN_URL))
-          - **Result files:** \`.claude/skills/story-execution/ci-*.json\`"
-          fi
-
-          BODY="$BODY
-
-          ---
-          **Time:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')
-          **Run:** [View Details]($RUN_URL)
-
-          *Posted by [execute-stories workflow]($RUN_URL)*"
-
-          echo "$BODY" | gh issue comment "$ISSUE_NUM" --body-file -
-          echo "Posted to issue #$ISSUE_NUM"
+        uses: ./.github/actions/post-story-results
+        with:
+          story_id: ${{ needs.identify-plan.outputs.story_id != 'none' && needs.identify-plan.outputs.story_id || needs.setup-and-plan.outputs.story_id }}
+          plan_filename: ${{ needs.setup-and-plan.outputs.plan_filename }}
+          execute_plan: ${{ needs.decompose.outputs.execute_plan || needs.setup-and-plan.outputs.plan_path }}
+          complexity: ${{ needs.decompose.outputs.complexity }}
+          outcome: ${{ steps.outcome.outputs.outcome }}
+          outcome_reason: ${{ steps.outcome.outputs.reason }}
+          needs_review: ${{ steps.outcome.outputs.needs_review }}
+          skip_reason: ${{ needs.setup-and-plan.outputs.skip_reason }}
+          max_turns_exhausted: ${{ needs.execute.outputs.max_turns_exhausted }}
+          review_outcome: ${{ needs.review-plan.outputs.outcome }}
+          execute_status: ${{ needs.execute.outputs.status }}
+          tasks_completed: ${{ steps.parse-results.outputs.tasks_completed }}
+          tasks_total: ${{ steps.parse-results.outputs.tasks_total }}
+          commits_list: ${{ steps.parse-results.outputs.commits_list }}
+          files_changed: ${{ steps.parse-results.outputs.files_changed }}
+          blocking_issues: ${{ steps.parse-results.outputs.blocking_issues }}
+          review_notes: ${{ steps.parse-results.outputs.review_notes }}
+          error_summary: ${{ steps.parse-results.outputs.error_summary }}
+          github_server_url: ${{ github.server_url }}
+          github_repository: ${{ github.repository }}
+          github_run_id: ${{ github.run_id }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
