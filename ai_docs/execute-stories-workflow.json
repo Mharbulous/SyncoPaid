@@ -18,7 +18,7 @@
   "permissions": ["contents:write", "issues:write", "pull-requests:write", "id-token:write"],
 
   "pipeline": {
-    "flow": "setup-and-plan → validate-plan → verify-implementation → review-plan → decompose → execute → finalize",
+    "flow": "setup-and-plan → identify-plan → verify-implementation → review-plan → decompose → execute → finalize",
     "state_passing": {
       "mechanism": "job outputs (simple strings)",
       "source_of_truth": "plan document"
@@ -70,7 +70,7 @@
       "line_range": [45, 339]
     },
 
-    "validate-plan": {
+    "identify-plan": {
       "purpose": "Ensure plan has valid Story ID (match to database if missing)",
       "runner": "ubuntu-latest",
       "timeout_minutes": 15,
@@ -88,15 +88,14 @@
         "task": "Match plan content to story_nodes database by comparing descriptions, keywords, success criteria"
       },
       "steps": [
-        "VP.1 Checkout repository",
-        "VP.1.5 Extract database schema",
-        "VP.2 Match plan to story in database (Claude)",
-        "VP.3 Read validation output",
-        "VP.4 Commit plan update if Story ID was added",
-        "VP.5 Move blocked plan if no Story ID found",
-        "VP.6 Upload validation result artifact"
+        "IP.1 Checkout repository",
+        "IP.2 Match plan to story in database (Claude)",
+        "IP.3 Read identification output",
+        "IP.4 Commit plan update if Story ID was added",
+        "IP.5 Move blocked plan if no Story ID found",
+        "IP.6 Upload identification result artifact"
       ],
-      "artifacts": ["validate-result"],
+      "artifacts": ["identify-result"],
       "line_range": [343, 599]
     },
 
@@ -104,7 +103,7 @@
       "purpose": "Check if plan was actually implemented in codebase",
       "runner": "ubuntu-latest",
       "timeout_minutes": 15,
-      "depends_on": ["setup-and-plan", "validate-plan"],
+      "depends_on": ["setup-and-plan", "identify-plan"],
       "condition": "needs_verification == 'true' AND plan_blocked != 'true'",
       "outputs": {
         "verification_passed": "boolean",
@@ -134,7 +133,7 @@
       "purpose": "Critical review - validate plan is actionable",
       "runner": "ubuntu-latest",
       "timeout_minutes": 15,
-      "depends_on": ["setup-and-plan", "validate-plan", "verify-implementation"],
+      "depends_on": ["setup-and-plan", "identify-plan", "verify-implementation"],
       "condition": "plan_blocked != 'true' AND (should_execute == 'true' OR should_proceed_to_execute == 'true')",
       "outputs": {
         "outcome": "proceed | pause | proceed_with_review | verified",
@@ -168,7 +167,7 @@
       "purpose": "Assess complexity, split into sub-plans if needed",
       "runner": "ubuntu-latest",
       "timeout_minutes": 20,
-      "depends_on": ["setup-and-plan", "validate-plan", "verify-implementation", "review-plan"],
+      "depends_on": ["setup-and-plan", "identify-plan", "verify-implementation", "review-plan"],
       "condition": "review_completed == 'true' AND outcome in ['proceed', 'proceed_with_review']",
       "outputs": {
         "complexity": "simple | medium | complex",
@@ -209,7 +208,7 @@
       "purpose": "Follow plan's TDD steps directly",
       "runner": "ubuntu-latest",
       "timeout_minutes": 45,
-      "depends_on": ["setup-and-plan", "validate-plan", "verify-implementation", "review-plan", "decompose"],
+      "depends_on": ["setup-and-plan", "identify-plan", "verify-implementation", "review-plan", "decompose"],
       "condition": "execute_plan != ''",
       "outputs": {
         "status": "completed | partial | failed",
@@ -249,7 +248,7 @@
       "purpose": "Archive, commit, push, report",
       "runner": "ubuntu-latest",
       "timeout_minutes": 10,
-      "depends_on": ["setup-and-plan", "validate-plan", "verify-implementation", "review-plan", "decompose", "execute"],
+      "depends_on": ["setup-and-plan", "identify-plan", "verify-implementation", "review-plan", "decompose", "execute"],
       "condition": "always()",
       "outputs": {},
       "outcome_classification": {
@@ -294,7 +293,7 @@
       "executed": ".claude/data/plans/executed/"
     },
     "result_files": {
-      "validate": ".claude/skills/story-execution/ci-validate-result.json",
+      "identify": ".claude/skills/story-execution/ci-identify-result.json",
       "verify": ".claude/skills/story-execution/ci-verify-result.json",
       "review": ".claude/skills/story-execution/ci-review-result.json",
       "decompose": ".claude/skills/story-execution/ci-decompose-result.json",
@@ -308,11 +307,11 @@
     "total_claude_actions": 5,
     "models_used": {
       "claude-opus-4-5-20251101": ["decompose"],
-      "claude-sonnet-4-5-20250929": ["validate-plan", "verify-implementation", "review-plan", "execute"]
+      "claude-sonnet-4-5-20250929": ["identify-plan", "verify-implementation", "review-plan", "execute"]
     },
     "key_decision_points": [
       { "job": "setup-and-plan", "decision": "should_execute / skip_reason / needs_verification" },
-      { "job": "validate-plan", "decision": "plan_blocked (no matching story ID)" },
+      { "job": "identify-plan", "decision": "plan_blocked (no matching story ID)" },
       { "job": "verify-implementation", "decision": "should_proceed_to_execute (implementation missing)" },
       { "job": "review-plan", "decision": "outcome (proceed/pause/verified)" },
       { "job": "decompose", "decision": "complexity (simple/complex) → split if needed" },

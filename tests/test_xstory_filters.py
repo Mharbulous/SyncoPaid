@@ -1,6 +1,11 @@
 """Tests for xstory filter functionality.
 
-Tests the three-column filter system with special 'no hold' and 'live' filters.
+Tests the three-column filter system with proper field-based filtering:
+- Stage filters check node.stage
+- Hold Status filters check node.hold_reason (with 'no hold' for None)
+- Disposition filters check node.disposition (with 'live' for None)
+
+Filter logic: AND between categories, OR within each category.
 """
 
 import pytest
@@ -8,11 +13,18 @@ from dataclasses import dataclass
 from typing import Optional, Set
 
 
-# Constants mirrored from xstory.py (lines 64-68)
+# Constants mirrored from xstory.py
 STAGE_ORDER = ['concept', 'approved', 'planned', 'active', 'reviewing',
                'verifying', 'implemented', 'ready', 'released']
-HOLD_REASON_ORDER = ['no hold', 'queued', 'pending', 'paused', 'blocked', 'broken', 'polish', 'wishlist']
-DISPOSITION_ORDER = ['live', 'rejected', 'infeasible', 'legacy', 'deprecated', 'archived']
+HOLD_REASON_ORDER = ['no hold', 'broken', 'conflict', 'blocked', 'pending',
+                     'paused', 'polish', 'queued', 'wishlist']
+DISPOSITION_ORDER = ['live', 'infeasible', 'rejected', 'duplicative',
+                     'deprecated', 'legacy', 'archived']
+
+# Sets for category membership
+STAGE_SET = set(STAGE_ORDER)
+HOLD_REASON_SET = set(HOLD_REASON_ORDER)
+DISPOSITION_SET = set(DISPOSITION_ORDER)
 
 
 @dataclass
@@ -25,21 +37,40 @@ class StoryNode:
     disposition: Optional[str] = None
 
 
-def node_matches_filter(node: StoryNode, visible_statuses: Set[str]) -> bool:
-    """Check if node matches filters. Mirrors xstory.py:1309-1320 logic."""
-    show_no_hold = 'no hold' in visible_statuses
-    show_live = 'live' in visible_statuses
+def node_matches_filter(node: StoryNode,
+                        checked_stages: Set[str],
+                        checked_holds: Set[str],
+                        checked_disps: Set[str]) -> bool:
+    """Check if node matches filters (AND logic across categories).
 
-    # Check effective status
-    if node.status in visible_statuses:
-        return True
-    # 'no hold' matches nodes with no hold_reason
-    if show_no_hold and not node.hold_reason:
-        return True
-    # 'live' matches nodes with no disposition
-    if show_live and not node.disposition:
-        return True
-    return False
+    Mirrors xstory.py:2330-2354 logic.
+    """
+    show_no_hold = 'no hold' in checked_holds
+    show_live = 'live' in checked_disps
+
+    # Stage check: node.stage must be in checked stages
+    if node.stage not in checked_stages:
+        return False
+
+    # Hold Status check: node.hold_reason in checked holds, OR 'no hold' if no hold_reason
+    hold_ok = False
+    if node.hold_reason and node.hold_reason in checked_holds:
+        hold_ok = True
+    elif show_no_hold and not node.hold_reason:
+        hold_ok = True
+    if not hold_ok:
+        return False
+
+    # Disposition check: node.disposition in checked dispositions, OR 'live' if no disposition
+    disp_ok = False
+    if node.disposition and node.disposition in checked_disps:
+        disp_ok = True
+    elif show_live and not node.disposition:
+        disp_ok = True
+    if not disp_ok:
+        return False
+
+    return True
 
 
 # --- Test Fixtures ---
@@ -48,7 +79,7 @@ def node_matches_filter(node: StoryNode, visible_statuses: Set[str]) -> bool:
 def sample_nodes():
     """Create sample nodes covering various field combinations."""
     return [
-        # Nodes without hold_reason or disposition (should match 'no hold' AND 'live')
+        # Nodes without hold_reason or disposition (match 'no hold' AND 'live')
         StoryNode(id='1', status='implemented', stage='implemented'),
         StoryNode(id='2', status='active', stage='active'),
         StoryNode(id='3', status='concept', stage='concept'),
@@ -70,37 +101,87 @@ def sample_nodes():
     ]
 
 
+@pytest.fixture
+def all_stages():
+    """All stages checked."""
+    return set(STAGE_ORDER)
+
+
+@pytest.fixture
+def all_holds():
+    """All hold statuses checked."""
+    return set(HOLD_REASON_ORDER)
+
+
+@pytest.fixture
+def all_disps():
+    """All dispositions checked."""
+    return set(DISPOSITION_ORDER)
+
+
+# --- Stage Filter Tests ---
+
+class TestStageFilters:
+    """Tests for Stage column filtering."""
+
+    def test_stage_filters_by_stage_field(self, all_holds, all_disps):
+        """Stage filter should check node.stage, not effective status."""
+        # Node with stage='approved' but hold_reason='blocked' (effective status='blocked')
+        node = StoryNode(id='x', status='blocked', stage='approved', hold_reason='blocked')
+
+        # Should match when 'approved' stage is checked
+        assert node_matches_filter(node, {'approved'}, all_holds, all_disps)
+
+        # Should NOT match when only 'blocked' is in stages (blocked is not a stage!)
+        assert not node_matches_filter(node, {'concept'}, all_holds, all_disps)
+
+    def test_stage_none_hides_all(self, sample_nodes, all_holds, all_disps):
+        """With no stages checked, nothing should match."""
+        matching = [n for n in sample_nodes
+                    if node_matches_filter(n, set(), all_holds, all_disps)]
+        assert len(matching) == 0
+
+    def test_stage_specific_filter(self, sample_nodes, all_holds, all_disps):
+        """Filter by specific stage should only show nodes with that stage."""
+        matching = [n for n in sample_nodes
+                    if node_matches_filter(n, {'active'}, all_holds, all_disps)]
+
+        # Nodes 2, 5, 10 have stage='active'
+        assert len(matching) == 3
+        assert all(n.stage == 'active' for n in matching)
+
+
 # --- 'no hold' Filter Tests ---
 
 class TestNoHoldFilter:
     """Tests for the 'no hold' special filter."""
 
-    def test_no_hold_matches_nodes_without_hold_reason(self, sample_nodes):
+    def test_no_hold_matches_nodes_without_hold_reason(self, sample_nodes, all_stages, all_disps):
         """'no hold' filter should match nodes where hold_reason is None/empty."""
         visible = {'no hold'}
 
-        matching = [n for n in sample_nodes if node_matches_filter(n, visible)]
+        matching = [n for n in sample_nodes
+                    if node_matches_filter(n, all_stages, visible, all_disps)]
 
         # Should match nodes 1, 2, 3, 7, 9 (no hold_reason)
-        # Note: node 8 has hold_reason='wishlist' so it does NOT match
         assert len(matching) == 5
         assert all(not n.hold_reason for n in matching)
 
-    def test_no_hold_excludes_nodes_with_hold_reason(self, sample_nodes):
+    def test_no_hold_excludes_nodes_with_hold_reason(self, sample_nodes, all_stages, all_disps):
         """'no hold' filter should NOT match nodes with hold_reason set."""
         visible = {'no hold'}
 
         nodes_with_hold = [n for n in sample_nodes if n.hold_reason]
 
         for node in nodes_with_hold:
-            assert not node_matches_filter(node, visible)
+            assert not node_matches_filter(node, all_stages, visible, all_disps)
 
-    def test_no_hold_with_empty_string_hold_reason(self):
+    def test_no_hold_with_empty_string_hold_reason(self, all_stages, all_disps):
         """'no hold' should match nodes with empty string hold_reason."""
         node = StoryNode(id='x', status='active', stage='active', hold_reason='')
         visible = {'no hold'}
 
-        assert node_matches_filter(node, visible)
+        assert node_matches_filter(node, all_stages, visible, all_disps)
 
 
 # --- 'live' Filter Tests ---
@@ -108,114 +189,76 @@ class TestNoHoldFilter:
 class TestLiveFilter:
     """Tests for the 'live' special filter."""
 
-    def test_live_matches_nodes_without_disposition(self, sample_nodes):
+    def test_live_matches_nodes_without_disposition(self, sample_nodes, all_stages, all_holds):
         """'live' filter should match nodes where disposition is None/empty."""
         visible = {'live'}
 
-        matching = [n for n in sample_nodes if node_matches_filter(n, visible)]
+        matching = [n for n in sample_nodes
+                    if node_matches_filter(n, all_stages, all_holds, visible)]
 
         # Should match nodes 1, 2, 3, 4, 5, 6, 8 (no disposition)
-        # Note: node 8 has hold_reason='wishlist' but NO disposition, so it matches
         assert len(matching) == 7
         assert all(not n.disposition for n in matching)
 
-    def test_live_excludes_nodes_with_disposition(self, sample_nodes):
+    def test_live_excludes_nodes_with_disposition(self, sample_nodes, all_stages, all_holds):
         """'live' filter should NOT match nodes with disposition set."""
         visible = {'live'}
 
         nodes_with_disp = [n for n in sample_nodes if n.disposition]
 
         for node in nodes_with_disp:
-            assert not node_matches_filter(node, visible)
+            assert not node_matches_filter(node, all_stages, all_holds, visible)
 
-    def test_live_with_empty_string_disposition(self):
+    def test_live_with_empty_string_disposition(self, all_stages, all_holds):
         """'live' should match nodes with empty string disposition."""
         node = StoryNode(id='x', status='active', stage='active', disposition='')
         visible = {'live'}
 
-        assert node_matches_filter(node, visible)
+        assert node_matches_filter(node, all_stages, all_holds, visible)
 
 
 # --- Combined Filter Tests ---
 
 class TestCombinedFilters:
-    """Tests for filter combinations."""
+    """Tests for filter combinations across categories."""
 
-    def test_no_hold_and_live_uses_or_logic(self, sample_nodes):
-        """Combined 'no hold' + 'live' should match if EITHER condition is true."""
-        visible = {'no hold', 'live'}
+    def test_and_logic_between_categories(self, all_stages, all_holds, all_disps):
+        """Node must match ALL THREE categories to be visible."""
+        node = StoryNode(id='x', status='blocked', stage='planned',
+                         hold_reason='blocked', disposition=None)
 
-        matching = [n for n in sample_nodes if node_matches_filter(n, visible)]
+        # Matches when all three categories pass
+        assert node_matches_filter(node, {'planned'}, {'blocked'}, {'live'})
 
-        # Should match all nodes except #10 (has both hold_reason AND disposition)
-        # Wait, let's think: node 10 has hold_reason='blocked' AND disposition='rejected'
-        # 'no hold' requires no hold_reason -> False for node 10
-        # 'live' requires no disposition -> False for node 10
-        # So node 10 should NOT match
-        assert len(matching) == 9
-        assert sample_nodes[9] not in matching  # Node 10
+        # Fails when stage doesn't match
+        assert not node_matches_filter(node, {'active'}, {'blocked'}, {'live'})
 
-    def test_status_filter_with_no_hold(self, sample_nodes):
-        """Status filter + 'no hold' should use OR logic."""
-        visible = {'blocked', 'no hold'}
+        # Fails when hold doesn't match
+        assert not node_matches_filter(node, {'planned'}, {'paused'}, {'live'})
 
-        matching = [n for n in sample_nodes if node_matches_filter(n, visible)]
+        # Fails when disposition doesn't match (needs 'live' for None disposition)
+        assert not node_matches_filter(node, {'planned'}, {'blocked'}, {'rejected'})
 
-        # 'blocked' matches node 4 (status='blocked')
-        # 'no hold' matches nodes 1, 2, 3, 7, 8, 9
-        # Total: 7 unique nodes (node 4 doesn't have no hold_reason but matches 'blocked')
-        blocked_nodes = [n for n in sample_nodes if n.status == 'blocked']
-        no_hold_nodes = [n for n in sample_nodes if not n.hold_reason]
-        expected = set(n.id for n in blocked_nodes) | set(n.id for n in no_hold_nodes)
+    def test_or_logic_within_categories(self, all_holds, all_disps):
+        """Within each category, matching ANY checked option is sufficient."""
+        node = StoryNode(id='x', status='active', stage='active')
 
-        assert len(matching) == len(expected)
+        # Matches when stage is in the checked set (along with others)
+        assert node_matches_filter(node, {'concept', 'active', 'released'}, all_holds, all_disps)
 
-    def test_status_filter_with_live(self, sample_nodes):
-        """Status filter + 'live' should use OR logic."""
-        visible = {'rejected', 'live'}
+    def test_complex_node_with_all_fields(self, all_stages, all_holds, all_disps):
+        """Node with hold_reason AND disposition should match correct categories."""
+        node = StoryNode(id='x', status='rejected', stage='active',
+                         hold_reason='blocked', disposition='rejected')
 
-        matching = [n for n in sample_nodes if node_matches_filter(n, visible)]
+        # Should match stage='active', hold='blocked', disp='rejected'
+        assert node_matches_filter(node, {'active'}, {'blocked'}, {'rejected'})
 
-        # 'rejected' matches nodes 7, 10 (status='rejected')
-        # 'live' matches nodes 1, 2, 3, 4, 5, 6 (no disposition)
-        # Total: 8 unique nodes
-        rejected_nodes = [n for n in sample_nodes if n.status == 'rejected']
-        live_nodes = [n for n in sample_nodes if not n.disposition]
-        expected = set(n.id for n in rejected_nodes) | set(n.id for n in live_nodes)
+        # Should NOT match 'no hold' (has hold_reason)
+        assert not node_matches_filter(node, {'active'}, {'no hold'}, {'rejected'})
 
-        assert len(matching) == len(expected)
-
-
-# --- Regular Status Filter Tests ---
-
-class TestRegularStatusFilters:
-    """Tests for standard status filtering (non-special filters)."""
-
-    def test_single_status_filter(self, sample_nodes):
-        """Single status filter should match only nodes with that effective status."""
-        visible = {'implemented'}
-
-        matching = [n for n in sample_nodes if node_matches_filter(n, visible)]
-
-        assert len(matching) == 1
-        assert matching[0].status == 'implemented'
-
-    def test_multiple_status_filters(self, sample_nodes):
-        """Multiple status filters should match nodes with any of those statuses."""
-        visible = {'implemented', 'active', 'concept'}
-
-        matching = [n for n in sample_nodes if node_matches_filter(n, visible)]
-
-        assert len(matching) == 3
-        assert all(n.status in visible for n in matching)
-
-    def test_empty_filter_matches_nothing(self, sample_nodes):
-        """Empty filter set should match no nodes."""
-        visible = set()
-
-        matching = [n for n in sample_nodes if node_matches_filter(n, visible)]
-
-        assert len(matching) == 0
+        # Should NOT match 'live' (has disposition)
+        assert not node_matches_filter(node, {'active'}, {'blocked'}, {'live'})
 
 
 # --- Edge Cases ---
@@ -227,27 +270,25 @@ class TestEdgeCases:
         """Node with all optional fields None should match 'no hold' and 'live'."""
         node = StoryNode(id='x', status='concept', stage='concept')
 
-        assert node_matches_filter(node, {'no hold'})
-        assert node_matches_filter(node, {'live'})
-        assert node_matches_filter(node, {'no hold', 'live'})
+        assert node_matches_filter(node, {'concept'}, {'no hold'}, {'live'})
 
-    def test_effective_status_priority(self):
-        """Effective status should be COALESCE(disposition, hold_reason, stage)."""
-        # Node with disposition takes priority
-        node1 = StoryNode(id='1', status='rejected', stage='active',
-                          hold_reason='blocked', disposition='rejected')
-        assert node_matches_filter(node1, {'rejected'})
-        assert not node_matches_filter(node1, {'blocked'})
-        assert not node_matches_filter(node1, {'active'})
+    def test_empty_filters_match_nothing(self, sample_nodes):
+        """Empty filters in any category should match nothing."""
+        matching = [n for n in sample_nodes
+                    if node_matches_filter(n, set(), set(), set())]
+        assert len(matching) == 0
 
-        # Node with hold_reason (no disposition)
-        node2 = StoryNode(id='2', status='blocked', stage='active', hold_reason='blocked')
-        assert node_matches_filter(node2, {'blocked'})
-        assert not node_matches_filter(node2, {'active'})
+    def test_stage_independent_of_effective_status(self):
+        """Stage filter should be independent of effective status."""
+        # Effective status is 'rejected' but stage is 'active'
+        node = StoryNode(id='x', status='rejected', stage='active',
+                         hold_reason='blocked', disposition='rejected')
 
-        # Node with only stage
-        node3 = StoryNode(id='3', status='active', stage='active')
-        assert node_matches_filter(node3, {'active'})
+        # Filter by stage='active' should match (not by effective status 'rejected')
+        assert node_matches_filter(node, {'active'}, {'blocked'}, {'rejected'})
+
+        # Filter by stage='rejected' should NOT match (rejected is a disposition, not a stage)
+        assert not node_matches_filter(node, {'rejected'}, {'blocked'}, {'rejected'})
 
 
 # --- Constants Validation ---
@@ -270,3 +311,9 @@ class TestConstants:
     def test_live_is_first_disposition(self):
         """'live' should be first in DISPOSITION_ORDER for UI display."""
         assert DISPOSITION_ORDER[0] == 'live'
+
+    def test_stage_order_complete(self):
+        """STAGE_ORDER should have all workflow stages."""
+        expected = {'concept', 'approved', 'planned', 'active', 'reviewing',
+                    'verifying', 'implemented', 'ready', 'released'}
+        assert set(STAGE_ORDER) == expected
