@@ -81,7 +81,7 @@ jobs:
           body: |
             This PR syncs GitHub workflows from the `.StoryTree` submodule.
 
-            **Trigger:** `${{ github.event_name }}`${{ github.event_name == 'repository_dispatch' && format(' (StoryTree commit: {0})', github.event.client_payload.ref) || '' }}
+            **Trigger:** `${{ github.event_name }}`
 
             GitHub requires workflow files to be actual files (not symlinks), so this
             automated sync ensures your workflows stay up-to-date with StoryTree.
