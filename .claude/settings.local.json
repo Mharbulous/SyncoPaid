@@ -42,7 +42,8 @@
       "Skill(superpowers:systematic-debugging)",
       "WebSearch",
       "Bash(findstr:*)",
-      "Skill(superpowers:writing-skills)"
+      "Skill(superpowers:writing-skills)",
+      "Bash(tree:*)"
     ]
   }
 }
