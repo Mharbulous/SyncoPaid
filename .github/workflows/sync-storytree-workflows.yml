@@ -1,0 +1,72 @@
+# Sync StoryTree Workflows
+#
+# This workflow automatically syncs GitHub workflows from the .StoryTree submodule
+# to the project's .github/ directory when the submodule is updated.
+#
+# GitHub doesn't follow symlinks for workflows, so they must be copied.
+# This automation ensures workflows stay in sync without manual intervention.
+
+name: Sync StoryTree Workflows
+
+on:
+  push:
+    paths:
+      - '.gitmodules'
+      - '.StoryTree'
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Sync workflows from StoryTree
+        run: |
+          # Copy workflows and actions from submodule
+          cp -r .StoryTree/github/workflows/* .github/workflows/
+          cp -r .StoryTree/github/actions/* .github/actions/
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet .github/; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No workflow changes detected"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Workflow changes detected:"
+            git diff --name-only .github/
+          fi
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: "chore: sync workflows from StoryTree submodule"
+          title: "Sync StoryTree workflows"
+          body: |
+            This PR syncs GitHub workflows from the `.StoryTree` submodule.
+
+            GitHub requires workflow files to be actual files (not symlinks), so this
+            automated sync ensures your workflows stay up-to-date with StoryTree.
+
+            **Changed files:**
+            ```
+            $(git diff --name-only .github/)
+            ```
+
+            ---
+            *This PR was automatically created by the `sync-storytree-workflows` action.*
+          branch: chore/sync-storytree-workflows
+          delete-branch: true
