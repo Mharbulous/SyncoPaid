@@ -21,6 +21,9 @@ class TransitionHandler:
     # Minimum seconds between transition prompts
     PROMPT_COOLDOWN = 600  # 10 minutes
 
+    # Don't show popup if user has been idle for this long
+    IDLE_THRESHOLD_SECONDS = 60  # 1 minute
+
     def __init__(
         self,
         transition_detector=None,
@@ -41,6 +44,10 @@ class TransitionHandler:
         self.prev_window_state = None
         self._last_prompt_time = 0  # Cooldown tracking
 
+        # Deferred popup tracking
+        self._deferred_popup = None  # (state, transition_type) if popup is waiting
+        self._was_idle = False  # Track if user was idle in previous check
+
         if transition_detector:
             logging.info(f"TransitionHandler initialized with prompts {'enabled' if prompt_enabled else 'disabled'}")
 
@@ -52,6 +59,17 @@ class TransitionHandler:
             state: Current window state dict
             idle_seconds: Current idle time in seconds
         """
+        # Check for user returning from idle - show deferred popup
+        is_currently_idle = idle_seconds >= self.IDLE_THRESHOLD_SECONDS
+        user_just_returned = self._was_idle and not is_currently_idle
+        self._was_idle = is_currently_idle
+
+        if user_just_returned and self._deferred_popup:
+            deferred_state, deferred_type = self._deferred_popup
+            self._deferred_popup = None
+            logging.info(f"User returned from idle, showing deferred popup: {deferred_type}")
+            self._try_show_popup(deferred_state, deferred_type)
+
         if not self.transition_detector:
             return
 
@@ -89,10 +107,9 @@ class TransitionHandler:
             logging.debug(f"Skipping prompt due to cooldown")
             return
 
-        # Show prompt if enabled (in background thread)
+        # Show prompt if enabled
         if self.prompt_enabled:
-            self._show_prompt_async(state, transition_type)
-            self._last_prompt_time = current_time
+            self._try_show_popup(state, transition_type)
 
     def update_previous_state(self, state: dict):
         """
@@ -102,6 +119,37 @@ class TransitionHandler:
             state: Current window state dict
         """
         self.prev_window_state = state.copy()
+
+    def _try_show_popup(self, state: dict, transition_type: str):
+        """
+        Try to show a popup, handling idle state and existing popups.
+
+        If user is idle, defers the popup until they return.
+        If a popup is already showing, the request is ignored.
+
+        Args:
+            state: Current window state dict
+            transition_type: Type of transition detected
+        """
+        from syncopaid.prompt import is_popup_showing
+        from syncopaid.tracker_windows_idle import get_idle_seconds
+
+        # Check if popup is already showing
+        if is_popup_showing():
+            logging.debug("Popup already showing, skipping new popup")
+            return
+
+        # Check if user is currently idle
+        idle_seconds = get_idle_seconds()
+        if idle_seconds >= self.IDLE_THRESHOLD_SECONDS:
+            # User is idle, defer the popup
+            self._deferred_popup = (state.copy(), transition_type)
+            logging.info(f"User is idle ({idle_seconds:.0f}s), deferring popup until return")
+            return
+
+        # User is active and no popup showing - show the popup
+        self._show_prompt_async(state, transition_type)
+        self._last_prompt_time = time.time()
 
     def _show_prompt_async(self, state: dict, transition_type: str):
         """
@@ -116,6 +164,12 @@ class TransitionHandler:
                 from syncopaid.prompt import TransitionPrompt
                 prompt = TransitionPrompt()
                 response = prompt.show(transition_type)
+
+                # Handle auto-closed popups - re-queue for later
+                if response == "auto_closed":
+                    logging.info("Popup auto-closed due to inactivity, will show again on user return")
+                    self._deferred_popup = (state.copy(), transition_type)
+                    return
 
                 # Update transition record with user response
                 if response and self.transition_callback:
