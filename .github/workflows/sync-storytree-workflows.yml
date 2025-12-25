@@ -75,7 +75,7 @@ jobs:
         if: steps.changes.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.PAT_TOKEN }}
+          token: ${{ secrets.DEPENDENTS_PAT }}
           commit-message: "chore: sync workflows from StoryTree submodule"
           title: "Sync StoryTree workflows"
           body: |
