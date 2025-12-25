@@ -1,20 +1,26 @@
 """
 System tray UI module for SyncoPaid.
 
-Provides a minimal system tray interface with:
-- State-specific icons:
-  - stopwatch-pictogram-green = tracking active
-  - stopwatch-pictogram-orange = user manually paused (with ❚❚ overlay)
-  - stopwatch-pictogram-faded = no activity for 5min (with 💤 overlay)
-- Right-click menu with Start/Pause, Open SyncoPaid, Start with Windows, About
-- Notifications for key events
+The system tray is the primary entry point for all user interactions.
+
+Status Icons:
+- Green (stopwatch-pictogram-green) = Tracking Active
+- Orange (stopwatch-pictogram-orange + ❚❚) = Paused
+- Faded (stopwatch-pictogram-faded + 💤) = Idle (5+ min no activity)
+
+Interactions:
+- Left-click (double-click on Windows): Opens Main Window
+- Right-click menu:
+  - Start/Pause: Toggle tracking without opening window
+  - Open Window: Same as left-click
+  - Quit: Exit app completely
 """
 
 import logging
 from typing import Callable, Optional
 
 # Import helper modules
-from syncopaid.tray_startup import is_startup_enabled, sync_startup_registry
+from syncopaid.tray_startup import sync_startup_registry
 from syncopaid.tray_icons import create_icon_image
 from syncopaid.tray_menu_handlers import TrayMenuHandlers
 from syncopaid.tray_console_fallback import TrayConsoleFallback
@@ -35,19 +41,19 @@ except ImportError:
 
 class TrayIcon(TrayMenuHandlers, TrayConsoleFallback):
     """
-    System tray icon manager.
+    System tray icon manager - primary entry point for user interactions.
 
-    Provides a simple interface for controlling the tracker with three states:
-    - stopwatch-pictogram-green = tracking active
-    - stopwatch-pictogram-orange + ❚❚ overlay = user manually paused
-    - stopwatch-pictogram-faded + 💤 overlay = no activity for 5min
+    Status icons (three states):
+    - Green = Tracking Active
+    - Orange = Paused (user manually paused)
+    - Faded = Idle (no activity for 5+ minutes)
 
-    Menu options:
-    - Start/Pause Tracking
-    - Open SyncoPaid
-    - Start with Windows
-    - About
-    - Quit
+    Interactions:
+    - Left-click: Opens Main Window (Timeline view)
+    - Right-click menu:
+      - Start/Pause: Toggle tracking (no window)
+      - Open Window: Same as left-click
+      - Quit: Exit app completely
     """
 
     def __init__(
@@ -136,25 +142,29 @@ class TrayIcon(TrayMenuHandlers, TrayConsoleFallback):
                 self.icon.title = f"SyncoPaid v{__product_version__}"
 
     def _create_menu(self):
-        """Create the right-click menu."""
+        """
+        Create the right-click menu.
+
+        Menu structure:
+        - Start/Pause: Toggle tracking without opening window
+        - Open Window: Opens main window (same as left-click)
+        - Quit: Exit app completely
+        """
         if not TRAY_AVAILABLE:
             return None
 
         return pystray.Menu(
             pystray.MenuItem(
-                lambda text: "⏸ Pause Tracking" if self.is_tracking else "▶ Start Tracking",
-                self._toggle_tracking,
-                default=True
+                lambda text: "⏸ Pause" if self.is_tracking else "▶ Start",
+                self._toggle_tracking
             ),
-            pystray.MenuItem("📊 Open SyncoPaid", self._handle_open),
-            pystray.Menu.SEPARATOR,
             pystray.MenuItem(
-                "🚀 Start with Windows",
-                self._toggle_startup,
-                checked=lambda item: is_startup_enabled()
+                "📊 Open Window",
+                self._handle_open,
+                default=True  # Left-click (double-click on Windows) opens window
             ),
-            pystray.MenuItem("ℹ About", self._handle_about)
-            # Quit option removed - use command field with "quit" command
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("✕ Quit", self._handle_quit)
         )
 
     def run(self):
