@@ -53,13 +53,13 @@ STATUS_COLORS = {
     'released': '#6600CC',     # Violet
     # Hold reasons (gradient: reddish-orange to yellow for readability on gray)
     'broken': '#CC4400',       # RGB(204, 68, 0) - reddish orange (most urgent)
-    'conflict': '#D25B00',     # RGB(210, 91, 0) - dark orange
-    'blocked': '#DB7100',      # RGB(219, 113, 0) - orange
-    'pending': '#E28B00',      # RGB(226, 139, 0) - golden orange
+    'conflicted': '#D25B00',   # RGB(210, 91, 0) - dark orange (scope overlap, incompatible)
+    'blocked': '#DB7100',      # RGB(219, 113, 0) - orange (external dependency)
+    'escalated': '#E28B00',    # RGB(226, 139, 0) - golden orange (needs human review)
     'paused': '#E4A000',       # RGB(228, 160, 0) - gold
     'polish': '#E6B200',       # RGB(230, 178, 0) - dark gold
     'queued': '#E8C200',       # RGB(232, 194, 0) - dark yellow
-    'wishlist': '#EAD000',     # RGB(234, 208, 0) - yellow (least urgent)
+    'wishlisted': '#EAD000',   # RGB(234, 208, 0) - yellow (low priority, parked)
     'no hold': '#888888',      # Grey (no hold reason)
     # Live status (final stage in color wheel progression)
     'live': '#9900CC',         # Magenta - RGB(153, 0, 204) - 5.87:1 contrast
@@ -68,8 +68,8 @@ STATUS_COLORS = {
 # All possible statuses (22-status rainbow system - canonical order)
 ALL_STATUSES = [
     'infeasible', 'rejected', 'duplicative',
-    'concept', 'broken', 'conflict', 'blocked', 'polish', 'wishlist',
-    'pending', 'approved', 'planned', 'paused',
+    'concept', 'broken', 'conflicted', 'blocked', 'polish', 'wishlisted',
+    'escalated', 'approved', 'planned', 'paused',
     'active', 'reviewing',
     'implemented',
     'ready', 'released',
@@ -79,25 +79,25 @@ ALL_STATUSES = [
 # Three-field system: classify each status into its field type
 STAGE_VALUES = {'concept', 'approved', 'planned', 'active',
                 'reviewing', 'verifying', 'implemented', 'ready', 'released'}
-HOLD_REASON_VALUES = {'pending', 'paused', 'blocked', 'broken', 'polish', 'conflict', 'wishlist', 'queued'}
+HOLD_REASON_VALUES = {'escalated', 'paused', 'blocked', 'broken', 'polish', 'conflicted', 'wishlisted', 'queued'}
 DISPOSITION_VALUES = {'rejected', 'infeasible', 'duplicative', 'legacy', 'deprecated', 'archived'}
 
 # Ordered lists for UI display (urgency order for hold reasons)
 STAGE_ORDER = ['concept', 'approved', 'planned', 'active',
                'reviewing', 'verifying', 'implemented', 'ready', 'released']
-HOLD_REASON_ORDER = ['no hold', 'broken', 'conflict', 'blocked', 'pending', 'paused', 'polish', 'queued', 'wishlist']
+HOLD_REASON_ORDER = ['no hold', 'broken', 'conflicted', 'blocked', 'escalated', 'paused', 'polish', 'queued', 'wishlisted']
 DISPOSITION_ORDER = ['live', 'infeasible', 'rejected', 'duplicative', 'deprecated', 'legacy', 'archived']
 
 # Hold reason icons for visual indication in tree view
 HOLD_ICONS = {
     'queued': '📋',      # Queued - waiting in line
-    'pending': '⏳',     # Pending - waiting for something
+    'escalated': '⬆',    # Escalated - needs human review/approval
     'paused': '⏸',      # Paused - work temporarily stopped
-    'blocked': '🚧',     # Blocked - missing dependency
+    'blocked': '🚧',     # Blocked - external dependency
     'broken': '🔥',      # Broken - needs fix
     'polish': '💎',      # Polish - needs refinement
-    'conflict': '⚔',     # Conflict - inconsistent with another story
-    'wishlist': '💭',    # Wishlist - indefinite hold, maybe someday
+    'conflicted': '⚔',   # Conflicted - scope overlaps incompatibly
+    'wishlisted': '💭',  # Wishlisted - low priority, parked
 }
 
 # Disposition icons for visual indication in tree view (override hold icons)
@@ -297,23 +297,23 @@ class GradientTextDelegate(QStyledItemDelegate):
 
 # Designer mode transitions (approval, quality, priority, end-of-life decisions)
 DESIGNER_TRANSITIONS = {
-    'infeasible': ['concept', 'wishlist', 'archived'],
-    'rejected': ['concept', 'wishlist', 'archived'],
-    'wishlist': ['concept', 'rejected', 'archived'],
-    'concept': ['approved', 'pending', 'rejected', 'wishlist', 'polish'],
-    'polish': ['concept', 'ready', 'rejected', 'wishlist'],
-    'pending': ['approved', 'wishlist', 'rejected'],
-    'approved': ['pending', 'rejected'],
-    'blocked': ['pending'],
-    'planned': ['pending', 'approved'],
-    'paused': ['pending'],
+    'infeasible': ['concept', 'wishlisted', 'archived'],
+    'rejected': ['concept', 'wishlisted', 'archived'],
+    'wishlisted': ['concept', 'rejected', 'archived'],
+    'concept': ['approved', 'escalated', 'rejected', 'wishlisted', 'polish'],
+    'polish': ['concept', 'ready', 'rejected', 'wishlisted'],
+    'escalated': ['approved', 'wishlisted', 'rejected'],
+    'approved': ['escalated', 'rejected'],
+    'blocked': ['escalated'],
+    'planned': ['escalated', 'approved'],
+    'paused': ['escalated'],
     'reviewing': ['implemented'],
     'implemented': ['ready'],
     'ready': ['released', 'polish'],
     'released': ['polish', 'legacy'],
     'legacy': ['deprecated', 'released', 'archived'],
     'deprecated': ['archived', 'legacy'],
-    'archived': ['deprecated', 'wishlist'],
+    'archived': ['deprecated', 'wishlisted'],
 }
 
 # Engineer mode transitions (workflow, blockers, bugs, progress)
