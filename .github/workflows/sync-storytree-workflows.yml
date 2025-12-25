@@ -1,7 +1,12 @@
 # Sync StoryTree Workflows
 #
 # This workflow automatically syncs GitHub workflows from the .StoryTree submodule
-# to the project's .github/ directory when the submodule is updated.
+# to the project's .github/ directory.
+#
+# Triggers:
+# 1. repository_dispatch from StoryTree's notify-dependents workflow (recommended)
+# 2. Push to main that modifies the submodule (fallback)
+# 3. Manual workflow_dispatch
 #
 # GitHub doesn't follow symlinks for workflows, so they must be copied.
 # This automation ensures workflows stay in sync without manual intervention.
@@ -9,6 +14,8 @@
 name: Sync StoryTree Workflows
 
 on:
+  repository_dispatch:
+    types: [storytree-updated]
   push:
     paths:
       - '.gitmodules'
@@ -31,22 +38,34 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: Update submodule to latest
+        if: github.event_name == 'repository_dispatch'
+        run: |
+          echo "Triggered by StoryTree update: ${{ github.event.client_payload.ref }}"
+          cd .StoryTree
+          git fetch origin main
+          git checkout origin/main
+          cd ..
+          echo "Submodule updated to: $(cd .StoryTree && git rev-parse HEAD)"
+
       - name: Sync workflows from StoryTree
         run: |
           # Copy workflows and actions from submodule
           cp -r .StoryTree/github/workflows/* .github/workflows/
-          cp -r .StoryTree/github/actions/* .github/actions/
+          cp -r .StoryTree/github/actions/* .github/actions/ 2>/dev/null || true
 
       - name: Check for changes
         id: changes
         run: |
-          if git diff --quiet .github/; then
+          # Check both workflow files and submodule pointer
+          git add -A
+          if git diff --cached --quiet; then
             echo "changed=false" >> $GITHUB_OUTPUT
-            echo "No workflow changes detected"
+            echo "No changes detected"
           else
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "Workflow changes detected:"
-            git diff --name-only .github/
+            echo "Changes detected:"
+            git diff --cached --name-only
           fi
 
       - name: Create Pull Request
@@ -58,13 +77,10 @@ jobs:
           body: |
             This PR syncs GitHub workflows from the `.StoryTree` submodule.
 
+            **Trigger:** `${{ github.event_name }}`${{ github.event_name == 'repository_dispatch' && format(' (StoryTree commit: {0})', github.event.client_payload.ref) || '' }}
+
             GitHub requires workflow files to be actual files (not symlinks), so this
             automated sync ensures your workflows stay up-to-date with StoryTree.
-
-            **Changed files:**
-            ```
-            $(git diff --name-only .github/)
-            ```
 
             ---
             *This PR was automatically created by the `sync-storytree-workflows` action.*
