@@ -2,11 +2,12 @@
 System tray visual feedback for user actions.
 
 Handles left-click time marker recording with visual feedback
-(brief icon color change to orange).
+(brief icon color change to orange) and audio feedback (mechanical click sound).
 """
 
 import logging
 import threading
+from pathlib import Path
 from typing import Callable, Optional
 
 try:
@@ -16,6 +17,18 @@ try:
 except ImportError:
     TRAY_AVAILABLE = False
 
+# Sound file path
+_ASSETS_DIR = Path(__file__).parent / "assets"
+_CLICK_SOUND_PATH = _ASSETS_DIR / "mechanical-click-sound.mp3"
+
+# Try to import playsound for audio feedback
+try:
+    from playsound import playsound
+    SOUND_AVAILABLE = True
+except ImportError:
+    SOUND_AVAILABLE = False
+    logging.warning("playsound not available. Install with: pip install playsound")
+
 
 class TrayFeedbackHandler:
     """
@@ -23,6 +36,7 @@ class TrayFeedbackHandler:
 
     Provides:
     - Icon flash animation (brief color change to orange)
+    - Audio feedback (mechanical click sound)
     - Feedback state management (prevent overlapping animations)
     """
 
@@ -36,12 +50,35 @@ class TrayFeedbackHandler:
         """Override in parent class to get actual state."""
         return "on"
 
+    def _play_click_sound(self):
+        """
+        Play the mechanical click sound in a background thread.
+
+        Non-blocking to avoid delaying visual feedback.
+        """
+        if not SOUND_AVAILABLE:
+            return
+
+        if not _CLICK_SOUND_PATH.exists():
+            logging.warning(f"Click sound file not found: {_CLICK_SOUND_PATH}")
+            return
+
+        def play_sound():
+            try:
+                playsound(str(_CLICK_SOUND_PATH))
+            except Exception as e:
+                logging.debug(f"Error playing click sound: {e}")
+
+        sound_thread = threading.Thread(target=play_sound, daemon=True)
+        sound_thread.start()
+
     def record_time_marker(self, icon=None, item=None):
         """
-        Handle left-click: record a time marker with visual feedback.
+        Handle left-click: record a time marker with visual/audio feedback.
 
         This records a task transition/interruption timestamp and provides
-        brief visual feedback (icon briefly turns orange).
+        brief visual feedback (icon briefly turns orange) and audio feedback
+        (mechanical click sound).
         """
         if not TRAY_AVAILABLE:
             return
@@ -54,6 +91,9 @@ class TrayFeedbackHandler:
         logging.info("User recorded time marker via left-click")
 
         try:
+            # Play click sound (non-blocking)
+            self._play_click_sound()
+
             # Call the time marker callback to record in database
             if self.on_time_marker:
                 self.on_time_marker()
