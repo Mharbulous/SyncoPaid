@@ -11,10 +11,10 @@ The opposite of "The AI proposes, the user disposes" is "The user organizes, man
 ## Explicit Exclusions
 
 ### Practice Management Software
-*Reason: SyncoPaid is a time tracking app, not a client/matter management system. We import folder structures from the user's file system and use them as categories — we don't manage clients or matters.*
+*Reason: SyncoPaid is a time tracking app, not a client/matter management system. We import folder structures from the user's file system and use them as buckets — we don't manage clients or matters.*
 
 This means NO:
-- Creating, editing, or archiving clients/matters within the app
+- Creating, editing, or archiving buckets within the app
 - Contact information fields
 - Status management (Active, Closed, Archived)
 - Keywords or tags for auto-categorization
@@ -29,7 +29,7 @@ This means NO:
 - **Split Activity**: AI should detect activity boundaries
 - **Merge Activities**: AI should recognize related work
 - **Drag-and-drop reordering**: Activities are chronological facts
-- **Manual category assignment as primary workflow**: Accept/reject AI suggestions instead
+- **Manual bucket assignment as primary workflow**: Accept/reject AI suggestions instead
 
 ### List Management UI
 *Reason: The Activities View redesign revealed that filter/sort/organize interfaces encourage manual management. The correct model is a review queue where AI presents suggestions.*
@@ -61,7 +61,7 @@ The only valid use: When AI is uncertain, show screenshots to prompt "What were 
 ## Anti-Patterns to Avoid
 
 ### Management Over Review
-- **Wrong**: Filter → Select → Assign to Matter → Save
+- **Wrong**: Filter → Select → Assign to bucket → Save
 - **Right**: AI suggests → User accepts or rejects
 
 ### Manual Effort as Features
@@ -70,8 +70,7 @@ The only valid use: When AI is uncertain, show screenshots to prompt "What were 
 - Don't add "Organize" when AI should categorize
 
 ### Terminology That Implies Management
-- **Wrong**: "Matter" (implies practice management)
-- **Right**: "Category" or folder path (imports what exists)
+See [CLAUDE.md Terminology](../../../CLAUDE.md#terminology) for approved terms. Avoid using "Matter", "Project", or "Case" in code/docs — these terms cause AI assistants to drift toward building management features.
 
 ### Rebuilding Existing Tools
 Don't create features that lawyers already have elsewhere (reporting, visualization, complex analytics, practice management).
@@ -128,4 +127,5 @@ Column resizing, custom column ordering, saved views, export to CSV.
 - A power-user table manipulation tool
 
 ---
+*For terminology definitions, see [CLAUDE.md](../../../CLAUDE.md#terminology).*
 *Last updated: 2025-12-26*

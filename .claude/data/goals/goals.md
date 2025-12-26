@@ -1,7 +1,7 @@
 # Product Vision
 
 ## What We're Building
-SyncoPaid is a time-tracking application for lawyers that automatically captures work activities and uses AI to categorize time into billing categories with minimal manual effort.
+SyncoPaid is a time-tracking application for lawyers that automatically captures work activities and uses AI to categorize time into billing buckets with minimal manual effort.
 
 ## Core Philosophy
 
@@ -12,7 +12,7 @@ The AI does the heavy lifting. Users review and confirm — they don't organize,
 ## What This App Is
 - A **time tracking app** — not practice management software
 - A tool that **fits into the user's existing workflow** — not one that replaces it
-- An app that uses the **user's own folder structure** as categories
+- An app that uses the **user's own folder structure** as buckets (see [Terminology](../../../CLAUDE.md#terminology))
 - A **review workflow** — not a management workflow
 
 ## Target User
@@ -25,18 +25,18 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 - **Screenshot-Based History**: Automatic screenshot capture with intelligent deduplication and monthly archiving to preserve context while managing disk space
 
 ### Categorize (AI)
-- **AI-Powered Categorization**: Intelligent activity classification that matches activities to the user's imported folder categories
+- **AI-Powered Categorization**: Intelligent activity classification that matches activities to the user's imported buckets
 - **Confidence-Based Triage**: AI communicates its confidence level (high confidence, needs review, uncertain) so users focus attention where it's needed
-- **Continuous Learning**: AI improves accuracy by learning from user corrections and building category-specific patterns
+- **Continuous Learning**: AI improves accuracy by learning from user corrections and building bucket-specific patterns
 
 ### Review (User)
-- **Accept/Reject Workflow**: Users approve or reject AI suggestions with one click — not manually assign categories
+- **Accept/Reject Workflow**: Users approve or reject AI suggestions with one click — not manually assign buckets
 - **Screenshot-Assisted Clarification**: When AI is uncertain, show relevant screenshots to help users identify the work: "What were you working on here?"
 - **Batch Approval**: Accept all high-confidence suggestions at once to minimize clicks
 - **Billing Status Tracking**: Mark time as WIP, Billed, or Non-Billable
 
 ### Setup (One-Time)
-- **Import Folder Structure**: Import the user's existing folder structure from their file system. Folder names are used exactly as-is — no parsing or interpretation of naming conventions
+- **Import Folder Structure**: Import the user's existing folder structure from their file system. Folder names become buckets, used exactly as-is — no parsing or interpretation of naming conventions
 - **Smart Prompting**: Non-intrusive AI that detects natural work transitions and prompts at appropriate moments
 
 ## Guiding Principles
@@ -58,4 +58,5 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 8. **Lawyer-Specific Workflows**: Built for legal billing conventions (6-minute increments, matter/client structures, legal research sources like Westlaw/CanLII).
 
 ---
+*For terminology definitions, see [CLAUDE.md](../../../CLAUDE.md#terminology).*
 *Last updated: 2025-12-26*
