@@ -21,18 +21,40 @@ This means NO:
 - Parsing or interpreting folder/client/matter names
 - Moving matters between clients
 
-### Manual Activity Management
+### Manual Activity Management as Primary Workflow
 *Reason: Users should review AI suggestions, not manually organize activities. If users are doing the organizing, the AI isn't doing its job.*
 
+**The key distinction:**
+- **Primary workflow** (what we build for): AI proposes → user accepts/rejects
+- **Exception handling** (what we allow): User corrects when AI is wrong
+
+Corrections are valid. But if the UI makes corrections feel like the primary interaction, we've failed. The app should feel like reviewing a competent assistant's work, not doing the work yourself.
+
 This means NO:
-- **Edit Narrative**: AI generates narratives; users accept or correct
-- **Split Activity**: AI should detect activity boundaries
-- **Merge Activities**: AI should recognize related work
-- **Drag-and-drop reordering**: Activities are chronological facts
 - **Manual bucket assignment as primary workflow**: Accept/reject AI suggestions instead
+- **Drag-and-drop reordering**: Activities are chronological facts
+- **Organizing/filtering as primary interaction**: Review queue, not list management
+
+This means YES (as corrections):
+- **Correct Bucket**: When AI assigned the wrong one
+- **Adjust Boundaries**: When AI got start/end times wrong
+- **Merge Activities**: When AI split something that should be one
+- **Edit Narrative**: When AI-generated text needs adjustment
+
+These are corrections to AI proposals, not primary workflows. They should feel like "fixing the exception" not "doing the work."
 
 ### List Management UI
-*Reason: The Activities View redesign revealed that filter/sort/organize interfaces encourage manual management. The correct model is a review queue where AI presents suggestions.*
+*Reason: Filter/sort/organize interfaces encourage manual management. The Activities View exists for transparency — users verify their time is being captured accurately — not for list manipulation.*
+
+**Activities View purpose:**
+- Transparency: "Here's what the app captured"
+- Verification: "Is this accurate?"
+- Review: Accept/reject AI suggestions
+
+**Not the purpose:**
+- List management or "power user" table manipulation
+- Extensive sorting/filtering as primary interaction
+- Checkbox selection with bulk actions
 
 This means NO:
 - Extensive sorting options (by app, duration, etc.)
@@ -40,7 +62,7 @@ This means NO:
 - Checkbox selection with bulk actions as primary interaction
 - "Power user" table manipulation features
 
-Instead: Confidence-based filtering (show uncertain items), inline accept/reject.
+Instead: Confidence-based filtering (show items needing review), inline accept/reject, chronological record for transparency.
 
 ### Folder Name Parser
 *Reason: Lawyers have varying naming conventions for their folders. We don't try to extract or parse client names or matter names — we use folder names exactly as the user has them.*
@@ -83,13 +105,23 @@ This means NO:
 - **Wrong**: Filter → Select → Assign to bucket → Save
 - **Right**: AI suggests → User accepts or rejects
 
-### Manual Effort as Features
-- Don't add "Edit" buttons when AI should generate
-- Don't add "Split/Merge" when AI should detect boundaries
-- Don't add "Organize" when AI should categorize
+### Primary Workflows That Should Be Corrections
+- Don't make "Edit" the primary interaction — make it a correction to AI-generated content
+- Don't make "Split/Merge" prominent — they're exceptions when AI missed boundaries
+- Don't make "Assign Bucket" a dropdown selection — make it a correction to AI's suggestion
+- The UI should make the happy path (accept AI) easier than the exception path (correct AI)
 
 ### Terminology That Implies Management
 See [CLAUDE.md Terminology](../../../CLAUDE.md#terminology) for approved terms. Avoid using "Matter", "Project", or "Case" in code/docs — these terms cause AI assistants to drift toward building management features.
+
+### Terminology That Implies User Must Act
+Avoid terms that suggest the user is responsible for doing the work:
+- **Wrong**: "Uncategorized" (implies user must categorize)
+- **Right**: "Queued for AI" (implies AI will categorize)
+- **Wrong**: "Unassigned" (implies user must assign)
+- **Right**: "Pending AI" or "Awaiting AI" (implies AI will act)
+
+Language should always point to AI as the actor, not the user.
 
 ### Rebuilding Existing Tools
 Don't create features that lawyers already have elsewhere (reporting, visualization, complex analytics, practice management).
