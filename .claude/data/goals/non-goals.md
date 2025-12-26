@@ -25,6 +25,21 @@
 - **Quick Actions Popup with Hotkeys**
   - *Reason: This app is meant to run in the background and be un-intrusive. Global hotkeys could interfere with the user's actual workflow tools.*
 
+- **Web/SaaS UI Patterns**
+  - *Reason: This is a Windows desktop app, not a web app. Sidebars, tab bars, and navigation panels are web patterns where browsers already own the menu bar. Desktop apps use menu bars for navigation.*
+  - This means NO:
+    - Sidebar navigation panels
+    - Tab-based navigation
+    - "Dashboard" landing pages
+    - Card-based layouts mimicking web apps
+
+- **Dedicated Views for Actions**
+  - *Reason: Export, Import, and Settings are actions, not destinations. They belong in menus, not as views to navigate to.*
+  - This means NO:
+    - Export "page" or "view"
+    - Reports "page" or "view"
+    - Settings as a sidebar destination (use modal dialog from menu)
+
 ## Anti-Patterns to Avoid
 
 - **Rebuilding Existing Tools**: Don't create features that lawyers already have elsewhere (reporting, visualization, complex analytics, practice management)
@@ -33,6 +48,8 @@
 - **Intrusive UI Elements**: No popup overlays, global hotkeys, or interruptions during work
 - **Feature Bloat Based on Assumptions**: Don't build what "most app builders assume lawyers want" — focus on actual user needs
 - **Complex Configuration**: Avoid premature optimization settings that add complexity without clear value
+- **Web UI Patterns in Desktop Apps**: No sidebars, dashboards, or card layouts — use standard Windows menu bar navigation
+- **Views for Everything**: Not everything needs a dedicated view. Actions (Export, Import) belong in menus
 
 ## YAGNI Items
 
@@ -48,10 +65,12 @@
 
 **What This Product IS:**
 - A **time tracking app** — nothing more
+- A **Windows desktop app** — with standard Windows UI conventions
 - An un-intrusive background time tracker
 - An AI-powered billing assistant that saves lawyer time
 - A tool that fits into the user's existing workflow
 - Focused on capture and intelligent categorization
+- **Two views only**: Timeline and Activities
 
 **What This Product is NOT:**
 - Practice management software
@@ -60,9 +79,9 @@
 - A screenshot management system
 - An interactive overlay or hotkey-driven tool
 - A replacement for existing legal practice management software
+- A web app or SaaS-style interface
 
-**Core Principle**: Use AI to eliminate manual work, not to add more features that require manual interaction. Stay invisible, capture accurately, categorize intelligently. Use what the user already has (their folder structure) rather than making them recreate it.
+**Core Principle**: Use AI to eliminate manual work, not to add more features that require manual interaction. Stay invisible, capture accurately, categorize intelligently. Use what the user already has (their folder structure) rather than making them recreate it. Follow Windows conventions rather than inventing custom UI patterns.
 
 ---
-*Auto-generated from rejected story nodes in story-tree.db*
-*Last updated: 2025-12-17 00:00 UTC*
+*Last updated: 2025-12-26*

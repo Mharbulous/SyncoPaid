@@ -5,6 +5,7 @@ SyncoPaid is a time-tracking application for lawyers that automatically captures
 
 ## What This App Is
 - A **time tracking app** — not practice management software
+- A **Windows desktop app** — following standard Windows conventions, not web/SaaS patterns
 - A tool that **fits into the user's existing workflow** — not one that replaces it
 - An app that uses the **user's own folder structure** as client/matter categories
 
@@ -21,6 +22,13 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 - **Screenshot-Assisted Review**: Interactive review UI that shows relevant screenshots when clarification is needed for ambiguous activities
 - **Continuous Learning**: AI that improves categorization accuracy by learning from user corrections and building matter-specific patterns
 
+## UI Philosophy
+- **Standard Windows desktop layout**: Menu bar → Toolbar → Content → Status bar
+- **Menu bar for navigation**: Switch views via View menu, not sidebars or tabs
+- **Minimal views**: Timeline (visual time blocks) and Activities (table/list) — that's it
+- **Actions in menus**: Export, Import, Settings belong in menus as actions, not as "places" to navigate to
+- **Toolbar for frequent controls**: Tracking toggle, date picker — things you use constantly
+
 ## Guiding Principles
 - **Minimize Manual Effort**: Automate everything possible so lawyers can focus on legal work, not administrative tasks
 - **Non-Intrusive Intelligence**: Prompt at natural breaks, never interrupt focused work
@@ -29,6 +37,7 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 - **Preserve All History**: Archive rather than delete—screenshots and activity data are valuable evidence, never throw them away
 - **Learn and Improve**: Get smarter over time by learning from corrections and building matter-specific recognition patterns
 - **Lawyer-Specific Workflows**: Built for legal billing conventions (6-minute increments, matter/client structures, legal research sources like Westlaw/CanLII)
+- **Follow Platform Conventions**: Use standard Windows UI patterns that users already know
 
 ---
-*Auto-generated from approved story nodes. Last updated: 2025-12-16*
+*Last updated: 2025-12-26*
