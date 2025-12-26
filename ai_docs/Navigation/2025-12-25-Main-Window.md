@@ -36,7 +36,7 @@ The main window is the primary interface for SyncoPaid. It uses a traditional Wi
 │                                                                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  STATUS BAR                                                                 │
-│  Tracking: Active │ Uncategorized: 3 activities                             │
+│  Tracking: Active │ Queued for AI: 3 activities                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -55,7 +55,7 @@ Traditional menu bar providing access to all features and view switching. See [M
 | Menu | Purpose |
 |------|---------|
 | File | Import folders, export data, settings, exit |
-| Edit | Undo/redo, selection, activity editing |
+| Edit | Undo/redo, correct AI suggestions |
 | View | Switch views (Timeline, Activities), toggle toolbar/status bar |
 | Tools | Tracking control, AI categorization |
 | Help | Documentation, shortcuts, about |
@@ -76,7 +76,7 @@ Main workspace that displays the selected view. Switch views using the View menu
 | View | Purpose | Shortcut |
 |------|---------|----------|
 | Timeline | Visual time-block view of activities (default) | Ctrl+1 |
-| Activities | Table/list view of all activities | Ctrl+2 |
+| Activities | Chronological record of captured activities | Ctrl+2 |
 
 ### Status Bar
 
@@ -85,7 +85,7 @@ Information bar at bottom of window. Can be toggled via View → Status Bar.
 | Element | Description |
 |---------|-------------|
 | Tracking Status | Shows Active/Paused/Idle |
-| Uncategorized Count | Number of activities needing AI categorization |
+| Queued for AI | Number of activities awaiting AI categorization |
 
 ---
 
