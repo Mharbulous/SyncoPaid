@@ -26,8 +26,7 @@ from syncopaid.main_app_initialization import (
     initialize_archiver,
     initialize_transition_detector,
     initialize_activity_matcher,
-    initialize_tracker_loop,
-    initialize_click_recorder
+    initialize_tracker_loop
 )
 from syncopaid.main_app_tracking import start_tracking, pause_tracking
 from syncopaid.main_app_display import (
@@ -98,9 +97,6 @@ class SyncoPaidApp:
             self.database,
             self.resource_monitor
         )
-
-        # Initialize click recorder (records left clicks as events)
-        self.click_recorder = initialize_click_recorder(self.database)
 
         # Initialize night processor (if enabled)
         self.night_processor = None
@@ -206,10 +202,6 @@ class SyncoPaidApp:
         # Shutdown action screenshot worker
         if self.action_screenshot_worker:
             self.action_screenshot_worker.shutdown(wait=True, timeout=5.0)
-
-        # Stop click recorder
-        if self.click_recorder:
-            self.click_recorder.stop()
 
         # Log resource statistics
         if self.resource_monitor:
