@@ -56,6 +56,25 @@ The only valid use: When AI is uncertain, show screenshots to prompt "What were 
 ### Quick Actions Popup with Hotkeys
 *Reason: This app is meant to run in the background and be un-intrusive. Global hotkeys could interfere with the user's actual workflow tools.*
 
+### Web/SaaS UI Patterns
+*Reason: SyncoPaid is a Windows desktop app. Web patterns feel foreign and create cognitive friction.*
+
+This means NO:
+- Sidebars for navigation
+- Tab bars or pill navigation
+- Dashboard layouts with cards
+- Floating action buttons
+- Material Design or flat web aesthetics
+
+### Dedicated Views for Actions
+*Reason: Actions belong in menus, not as navigation destinations. Export is something you do, not somewhere you go.*
+
+This means NO:
+- Export View — use File → Export
+- Reports View — analytics is a non-goal anyway
+- Settings View — use File → Settings or Tools → Options
+- Import View — use File → Import Folders
+
 ---
 
 ## Anti-Patterns to Avoid
@@ -90,6 +109,12 @@ Don't build what "most app builders assume lawyers want" — focus on actual use
 ### Complex Configuration
 Avoid premature optimization settings that add complexity without clear value.
 
+### Web UI Patterns in Desktop Apps
+Don't use sidebars, tab bars, dashboards, or card layouts. SyncoPaid is a Windows desktop app — use menu bars, toolbars, and standard Windows controls.
+
+### Views for Everything
+Don't create views for actions. Export, Settings, and Import are menu actions, not navigation destinations. Two views is enough: Timeline and Activities.
+
 ---
 
 ## YAGNI Items
@@ -111,13 +136,16 @@ Column resizing, custom column ordering, saved views, export to CSV.
 ## Philosophical Boundaries
 
 **What This Product IS:**
+- A **Windows desktop app** — menu bars, toolbars, standard Windows conventions
 - A **review workflow** — AI proposes, user disposes
 - An un-intrusive background time tracker
 - An AI-powered billing assistant that saves lawyer time
 - A tool that fits into the user's existing workflow
 - Focused on capture and intelligent categorization
+- **Two views only**: Timeline and Activities
 
 **What This Product is NOT:**
+- A **web/SaaS app** — no sidebars, tab bars, dashboards, or card layouts
 - A **management workflow** — user organizes, filters, assigns
 - Practice management software
 - A client/matter management system
@@ -125,6 +153,7 @@ Column resizing, custom column ordering, saved views, export to CSV.
 - A screenshot browsing system
 - An interactive overlay or hotkey-driven tool
 - A power-user table manipulation tool
+- A multi-view navigation app — actions belong in menus, not as views
 
 ---
 *For terminology definitions, see [CLAUDE.md](../../../CLAUDE.md#terminology).*
