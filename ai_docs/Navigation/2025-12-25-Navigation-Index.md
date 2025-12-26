@@ -25,7 +25,9 @@ This folder contains the complete navigation documentation for SyncoPaid, a Wind
 | [Reports View](2025-12-25-Reports-View.md) | Time summaries and analytics |
 | [Export View](2025-12-25-Export-View.md) | Export data for billing systems |
 | [Settings Modal](2025-12-25-Settings-Modal.md) | Application settings and preferences |
-| [Shared Components](2025-12-25-Shared-Components.md) | Reusable UI components |
+| [AI Transparency Summary](2025-12-26-AI-Transparency-Summary.md) | Shows what AI did (no action buttons) |
+| [Activity Review Interface](2025-12-26-Activity-Review-Interface.md) | Review AI suggestions with full context |
+| [Shared Components](2025-12-26-Shared-Components.md) | Reusable UI components |
 | [User Journeys](2025-12-25-User-Journeys.md) | Common workflow patterns |
 
 ---
