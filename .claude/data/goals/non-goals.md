@@ -45,8 +45,24 @@ Instead: Confidence-based filtering (show uncertain items), inline accept/reject
 ### Folder Name Parser
 *Reason: Lawyers have varying naming conventions for their folders. We don't try to extract or parse client names or matter names — we use folder names exactly as the user has them.*
 
-### Analytics & Reporting Dashboards
-*Reason: Analytics dashboards are what most app builders assume lawyers want, but sophisticated tables and reporting rarely provide valuable insights for time-tracking. The vision is to use AI to save lawyers time, not rebuild what already exists elsewhere.*
+### Analytics & Productivity Dashboards
+*Reason: Analytics dashboards are what most app builders assume lawyers want, but sophisticated charts and productivity metrics rarely provide valuable insights for time-tracking.*
+
+This means NO:
+- Time-by-application charts
+- Productivity trend graphs
+- "Hours worked this week" summaries
+- Comparative analytics (this week vs last week)
+- Focus time / distraction metrics
+
+**Important distinction**: This exclusion covers *analytics* (understanding patterns) — NOT *billing triage* (identifying what to bill). See [Billing Review in goals.md](goals.md#bill-get-paid) for the in-scope billing workflow.
+
+| OUT OF SCOPE (Analytics) | IN SCOPE (Billing Triage) |
+|--------------------------|---------------------------|
+| "How productive was I?" | "What needs to be billed?" |
+| Time-by-application charts | WIP accumulation by matter |
+| Weekly productivity trends | Matters overdue for billing |
+| Focus time analysis | Matters approaching budget |
 
 ### Standalone Screenshot Gallery/Viewer
 *Reason: Screenshots serve AI clarification workflows, not standalone browsing.*
@@ -66,14 +82,20 @@ This means NO:
 - Floating action buttons
 - Material Design or flat web aesthetics
 
-### Dedicated Views for Actions
-*Reason: Actions belong in menus, not as navigation destinations. Export is something you do, not somewhere you go.*
+### Views for Actions
+*Reason: Actions belong in menus and open as dialogs, not as navigation destinations. Export is something you do, not somewhere you go.*
 
-This means NO:
-- Export View — use File → Export
-- Reports View — analytics is a non-goal anyway
-- Settings View — use File → Settings or Tools → Options
-- Import View — use File → Import Folders
+This means NO dedicated views for:
+- Export — use File → Export... (dialog)
+- Settings — use File → Settings or Tools → Options (dialog)
+- Import — use File → Import Folders... (dialog)
+- Billing Review — use File → Review Billing... (dialog)
+
+**The distinction**:
+- **View** = A navigation destination you switch to (like Timeline or Activities)
+- **Dialog** = An action that opens a modal window, then closes when done
+
+Two views is enough: Timeline and Activities. Everything else is a dialog.
 
 ---
 
@@ -92,7 +114,7 @@ This means NO:
 See [CLAUDE.md Terminology](../../../CLAUDE.md#terminology) for approved terms. Avoid using "Matter", "Project", or "Case" in code/docs — these terms cause AI assistants to drift toward building management features.
 
 ### Rebuilding Existing Tools
-Don't create features that lawyers already have elsewhere (reporting, visualization, complex analytics, practice management).
+Don't create features that lawyers already have elsewhere (productivity analytics, complex visualization, practice management).
 
 ### Replacing User Workflows
 Don't make users recreate their folder structure in the app — import what they already have.
@@ -112,8 +134,9 @@ Avoid premature optimization settings that add complexity without clear value.
 ### Web UI Patterns in Desktop Apps
 Don't use sidebars, tab bars, dashboards, or card layouts. SyncoPaid is a Windows desktop app — use menu bars, toolbars, and standard Windows controls.
 
-### Views for Everything
-Don't create views for actions. Export, Settings, and Import are menu actions, not navigation destinations. Two views is enough: Timeline and Activities.
+### Analytics Disguised as Billing Tools
+If a feature answers "how productive was I?" it's analytics (out of scope).
+If a feature answers "what should I bill?" it's billing triage (in scope).
 
 ---
 
@@ -138,22 +161,23 @@ Column resizing, custom column ordering, saved views, export to CSV.
 **What This Product IS:**
 - A **Windows desktop app** — menu bars, toolbars, standard Windows conventions
 - A **review workflow** — AI proposes, user disposes
+- A **billing assistant** — helps lawyers identify what to bill
 - An un-intrusive background time tracker
-- An AI-powered billing assistant that saves lawyer time
+- An AI-powered tool that saves lawyer time
 - A tool that fits into the user's existing workflow
-- Focused on capture and intelligent categorization
-- **Two views only**: Timeline and Activities
+- Focused on capture, categorization, review, and billing
+- **Two views only**: Timeline and Activities (everything else is a dialog)
 
 **What This Product is NOT:**
 - A **web/SaaS app** — no sidebars, tab bars, dashboards, or card layouts
 - A **management workflow** — user organizes, filters, assigns
+- A **productivity analytics platform** — no charts, trends, or metrics
 - Practice management software
 - A client/matter management system
-- A productivity analytics platform
 - A screenshot browsing system
 - An interactive overlay or hotkey-driven tool
 - A power-user table manipulation tool
-- A multi-view navigation app — actions belong in menus, not as views
+- A multi-view navigation app — actions open dialogs, not views
 
 ---
 *For terminology definitions, see [CLAUDE.md](../../../CLAUDE.md#terminology).*
