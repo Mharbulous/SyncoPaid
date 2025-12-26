@@ -19,15 +19,15 @@ except ImportError:
 
 # Sound file path
 _ASSETS_DIR = Path(__file__).parent / "assets"
-_CLICK_SOUND_PATH = _ASSETS_DIR / "mechanical-click-sound.mp3"
+_CLICK_SOUND_PATH = _ASSETS_DIR / "mechanical-click.wav"
 
-# Try to import playsound for audio feedback
+# Check for winsound (Windows built-in, no external dependencies)
 try:
-    from playsound import playsound
+    import winsound
     SOUND_AVAILABLE = True
 except ImportError:
     SOUND_AVAILABLE = False
-    logging.warning("playsound not available. Install with: pip install playsound")
+    logging.debug("winsound not available (not on Windows)")
 
 
 class TrayFeedbackHandler:
@@ -52,9 +52,9 @@ class TrayFeedbackHandler:
 
     def _play_click_sound(self):
         """
-        Play the mechanical click sound in a background thread.
+        Play the mechanical click sound asynchronously.
 
-        Non-blocking to avoid delaying visual feedback.
+        Uses winsound.SND_ASYNC for non-blocking playback.
         """
         if not SOUND_AVAILABLE:
             return
@@ -63,14 +63,15 @@ class TrayFeedbackHandler:
             logging.warning(f"Click sound file not found: {_CLICK_SOUND_PATH}")
             return
 
-        def play_sound():
-            try:
-                playsound(str(_CLICK_SOUND_PATH))
-            except Exception as e:
-                logging.debug(f"Error playing click sound: {e}")
-
-        sound_thread = threading.Thread(target=play_sound, daemon=True)
-        sound_thread.start()
+        try:
+            # SND_ASYNC plays sound asynchronously (non-blocking)
+            # SND_FILENAME specifies the parameter is a filename
+            winsound.PlaySound(
+                str(_CLICK_SOUND_PATH),
+                winsound.SND_FILENAME | winsound.SND_ASYNC
+            )
+        except Exception as e:
+            logging.debug(f"Error playing click sound: {e}")
 
     def record_time_marker(self, icon=None, item=None):
         """
