@@ -59,11 +59,11 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 
 ### Bill (Get Paid)
 - **Billing Review**: Surface matters with accumulated WIP that need to be billed
-- **Overdue Detection**: Identify matters that haven't been billed in a while
-- **Budget Awareness**: Warn when matters approach budget limits (if budgets are set)
+- **Budget Visibility**: Show matter budgets alongside WIP so users can see what's overbudget
+- **AI Processing Status**: Show the date through which AI categorization is complete
 - **Export for Billing**: Export time entries in formats compatible with billing systems
 
-*This is not analytics — it's actionable billing triage. The question isn't "how productive was I?" but "what should I bill?"*
+*This is not analytics — it's actionable billing triage. Present facts (WIP, Budget, Last Billed), not computed interpretations (Overdue, On Track). Let users draw conclusions from the data.*
 
 ### Setup (One-Time)
 - **Import Folder Structure**: Import the user's existing folder structure from their file system. Folder names become buckets, used exactly as-is — no parsing or interpretation of naming conventions
@@ -93,7 +93,9 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 
 11. **Self-Documenting Terminology**: Use terms that make clear who does the work. Prefer "Queued for AI" over "Uncategorized" — the former shows AI will act, the latter implies user must act. Language should reinforce the AI-driven philosophy throughout the UI.
 
-10. **Focus on Getting Paid**: Features should help lawyers convert tracked time into billed time. If a feature doesn't support capture, categorization, review, or billing — question whether it belongs.
+12. **Focus on Getting Paid**: Features should help lawyers convert tracked time into billed time. If a feature doesn't support capture, categorization, review, or billing — question whether it belongs.
+
+13. **Show Data, Not Computed Status**: Present facts (WIP amounts, budgets, dates) rather than derived interpretations (Overdue, On Track, Near Budget). Status calculations require complex logic, subjective thresholds, and edge case handling. Simple data lets users draw their own conclusions and avoids the app making judgment calls that may not match user expectations.
 
 ---
 *For terminology definitions, see [CLAUDE.md](../../../CLAUDE.md#terminology).*

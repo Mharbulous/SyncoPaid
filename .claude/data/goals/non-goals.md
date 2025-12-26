@@ -82,9 +82,21 @@ This means NO:
 | OUT OF SCOPE (Analytics) | IN SCOPE (Billing Triage) |
 |--------------------------|---------------------------|
 | "How productive was I?" | "What needs to be billed?" |
-| Time-by-application charts | WIP accumulation by matter |
-| Weekly productivity trends | Matters overdue for billing |
-| Focus time analysis | Matters approaching budget |
+| Time-by-application charts | WIP amounts by matter |
+| Weekly productivity trends | Matter budgets alongside WIP |
+| Focus time analysis | Matters where WIP exceeds budget |
+
+### Computed Status Indicators
+*Reason: Status calculations like "Overdue", "On Track", or "Near Budget" require complex logic, subjective thresholds, and edge case handling. They make judgment calls that may not match user expectations.*
+
+This means NO:
+- "Overdue" status (requires defining what overdue means — 30 days? 60 days? configurable?)
+- "On Track" / "At Risk" indicators (requires defining thresholds and rules)
+- "Near Budget" warnings (what's "near"? 80%? 90%? depends on matter size?)
+- Color-coded urgency indicators based on computed status
+- Status icons (⚠, ●, ▲) that require business logic to determine
+
+Instead: **Show the data, let users decide.** Display WIP, Budget, and Last Billed date. Users can see that WIP > Budget means overbudget. They can see that "45 days ago" is a long time. No need for the app to interpret this for them.
 
 ### Standalone Screenshot Gallery/Viewer
 *Reason: Screenshots serve AI clarification workflows, not standalone browsing.*
@@ -169,6 +181,12 @@ Don't use sidebars, tab bars, dashboards, or card layouts. SyncoPaid is a Window
 ### Analytics Disguised as Billing Tools
 If a feature answers "how productive was I?" it's analytics (out of scope).
 If a feature answers "what should I bill?" it's billing triage (in scope).
+
+### Computed Status Instead of Raw Data
+- **Wrong**: Show "Overdue" status with ⚠ icon (requires threshold logic)
+- **Right**: Show "Last Billed: 45 days ago" (user interprets)
+- **Wrong**: Show "Near Budget" warning at 80% (arbitrary threshold)
+- **Right**: Show "WIP: $8,200 | Budget: $8,000" (user sees WIP > Budget)
 
 ---
 
