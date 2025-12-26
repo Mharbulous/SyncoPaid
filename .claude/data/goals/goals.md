@@ -78,6 +78,8 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 
 1. **AI Proposes, User Disposes**: The AI does the work. Users confirm or correct. Every interaction should feel like reviewing, not doing.
 
+1. **Stricter Inclusion Filter**: When evaluating features, ask "Does this help achieve a goal?" — not "Is it compatible with goals?" The bar is active contribution, not mere compatibility. Features that don't actively support capture, categorization, review, or billing don't belong.
+
 2. **Transparency Builds Trust**: Users need to see that their time is being captured accurately. The UI should clearly show what the app is doing and what it has captured. This is especially important for first impressions — prospective users should immediately understand "this app works for me."
 
 3. **Transparency and Review Are Distinct**: Transparency shows what happened (no user action required). Review enables decisions (user action required). These serve different purposes and require different interfaces:
@@ -104,10 +106,15 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 
 12. **Self-Documenting Terminology**: Use terms that make clear who does the work. Prefer "Queued for AI" over "Uncategorized" — the former shows AI will act, the latter implies user must act. Language should reinforce the AI-driven philosophy throughout the UI.
 
-12. **Focus on Getting Paid**: Features should help lawyers convert tracked time into billed time. If a feature doesn't support capture, categorization, review, or billing — question whether it belongs.
-
-13. **Show Data, Not Computed Status**: Present facts (WIP amounts, budgets, dates) rather than derived interpretations (Overdue, On Track, Near Budget). Status calculations require complex logic, subjective thresholds, and edge case handling. Simple data lets users draw their own conclusions and avoids the app making judgment calls that may not match user expectations.
 13. **Focus on Getting Paid**: Features should help lawyers convert tracked time into billed time. If a feature doesn't support capture, categorization, review, or billing — question whether it belongs.
+
+14. **Show Data, Not Computed Status**: Present facts (WIP amounts, budgets, dates) rather than derived interpretations (Overdue, On Track, Near Budget). Status calculations require complex logic, subjective thresholds, and edge case handling. Simple data lets users draw their own conclusions and avoids the app making judgment calls that may not match user expectations.
+
+15. **Good Defaults Over Configuration**: Every setting is a decision forced on the user. If a sensible default exists, don't add the setting. Use system settings for theme, language, and date format. Avoid customization for the sake of customization.
+
+16. **Local-First AI**: Default to local AI processing (Moondream). Cloud options are opt-in and require explicit user consent with clear warnings about data transmission.
+
+17. **Data Gathering Over Premature Optimization**: Simple settings that enable future optimization decisions (quality %, thresholds) are acceptable. Complex optimization features that try to solve problems we haven't validated yet are not. Gather data first, optimize later.
 
 ---
 *For terminology definitions, see [CLAUDE.md](../../../CLAUDE.md#terminology).*

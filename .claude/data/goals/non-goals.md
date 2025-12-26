@@ -222,6 +222,12 @@ Don't build what "most app builders assume lawyers want" — focus on actual use
 ### Complex Configuration
 Avoid premature optimization settings that add complexity without clear value.
 
+### Features That Are Merely "Compatible" With Goals
+The test for inclusion is "Does this help achieve a goal?" — not "Is it compatible with goals?" Features must actively contribute to capture, categorization, review, or billing. Compatibility is not enough.
+
+### Cloud AI Without Explicit Consent
+Cloud-based AI models (like Gemini) must be opt-in, not default. When selected, display a clear warning about data transmission. Local processing is the default, cloud is the exception.
+
 ### Web UI Patterns in Desktop Apps
 Don't use sidebars, tab bars, dashboards, or card layouts. SyncoPaid is a Windows desktop app — use menu bars, toolbars, and standard Windows controls.
 
@@ -239,9 +245,23 @@ If a feature answers "what should I bill?" it's billing triage (in scope).
 
 ## YAGNI Items
 
+### Excessive Configuration Options
+Settings that exist "just in case" or for power users who might want them.
+*Why: Every setting is a decision forced on the user. If a sensible default exists, don't add the setting.*
+
+**Removed settings include:**
+- Theme/language/date format (use system settings)
+- Poll interval, idle threshold, merge threshold (technical internals)
+- Screenshot capture interval (use good default)
+- Performance tuning (CPU limits, memory caps)
+
+**Exception — Data Gathering Hooks:**
+Simple numeric settings like quality %, similarity threshold, and confidence threshold are acceptable because they enable future optimization decisions based on real usage data. The distinction: these are *simple values* for data collection, not *complex features* for optimization.
+
 ### Screenshot Quality Optimization
 Configurable JPEG quality levels, WebP formats, resolution scaling, per-monitor settings.
 *Why: Unnecessary complexity before we know storage is actually a problem.*
+*Note: A simple quality % slider is acceptable as a data gathering hook (see above).*
 
 ### Quick Actions System
 Keyboard-activated popups for common tasks.
