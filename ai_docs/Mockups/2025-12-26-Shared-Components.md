@@ -87,7 +87,7 @@ Panel showing full details of a selected activity. Used for viewing activity inf
 │  Time: 8:02 AM - 9:25 AM                                            │
 │                                                                     │
 │  Matter: Smith v. Jones                                             │
-│  Status: Queued for AI  |  Pending Review  |  Categorized           │
+│  Status: Queued for AI  |  Pending Review  |  Approved              │
 │                                                                     │
 │  [View Screenshots]                                                 │
 │                                                                     │
@@ -128,14 +128,14 @@ Used in toolbar for filtering by date.
 ┌─────────────────────────────────────┐
 │  ◀  December 2025  ▶               │
 ├─────────────────────────────────────┤
-│  Su  Mo  Tu  We  Th  Fr  Sa        │
-│   1   2   3   4   5   6   7        │
-│   8   9  10  11  12  13  14        │
-│  15  16  17  18  19  20  21        │
-│  22 [23] 24  25  26  27  28        │
-│  29  30  31                        │
+│  Su  Mo  Tu  We  Th  Fr  Sa         │
+│   1   2   3   4   5   6   7         │
+│   8   9  10  11  12  13  14         │
+│  15  16  17  18  19  20  21         │
+│  22 [23] 24  25  26  27  28         │
+│  29  30  31                         │
 ├─────────────────────────────────────┤
-│  [Today]  [This Week]  [Clear]     │
+│  [Today]  [This Week]  [Clear]      │
 └─────────────────────────────────────┘
 ```
 
