@@ -43,15 +43,42 @@ This means YES (as corrections):
 
 These are corrections to AI proposals, not primary workflows. They should feel like "fixing the exception" not "doing the work."
 
-### List Management UI
-*Reason: Filter/sort/organize interfaces encourage manual management. The Activities View exists for transparency — users verify their time is being captured accurately — not for list manipulation.*
+### Editing Actions in Raw Data Views
+*Reason: Raw data views exist for transparency — showing what was captured. Any editing action requires context (screenshots, AI reasoning) that raw data views don't provide.*
 
-**Activities View purpose:**
+**The four views have different purposes:**
+
+| View Type | Purpose | Has Actions? |
+|-----------|---------|--------------|
+| Raw Data - Staircase | Transparency: "when did I work?" | No - read-only |
+| Raw Data - Table | Transparency: "what was captured?" | No - read-only |
+| AI Review - Bucket | Review: "is this the right matter?" | Click → opens Review Interface |
+| AI Review - Narrative | Review: "is this billing text correct?" | Click → opens Review Interface |
+
+This means NO editing actions in raw data views:
+- No Split Activity button (requires screenshots to choose split point)
+- No Delete button (requires context to know if deletion is appropriate)
+- No Assign Matter dropdown (that's an AI proposal to accept/reject, not raw data)
+- No Edit Narrative field (narratives are AI-generated, not raw data)
+- No right-click context menus with actions
+- No inline accept/reject buttons
+
+**Raw data views are read-only.** If you need an action, you're in the wrong view — actions belong in AI Review views where clicking leads to the full-context Review Interface.
+
+### List Management UI
+*Reason: Filter/sort/organize interfaces encourage manual management. Raw data views exist for transparency — users verify their time is being captured accurately — not for list manipulation.*
+
+**Raw Data View purpose:**
 - Transparency: "Here's what the app captured"
 - Verification: "Is this accurate?"
-- Review: Accept/reject AI suggestions
+- Read-only display
 
-**Not the purpose:**
+**AI Review View purpose:**
+- Show AI proposals with confidence
+- Lead to full-context Review Interface for decisions
+- NOT inline editing
+
+**Not the purpose of any view:**
 - List management or "power user" table manipulation
 - Extensive sorting/filtering as primary interaction
 - Checkbox selection with bulk actions
@@ -62,7 +89,7 @@ This means NO:
 - Checkbox selection with bulk actions as primary interaction
 - "Power user" table manipulation features
 
-Instead: Confidence-based filtering (show items needing review), inline accept/reject, chronological record for transparency.
+Instead: Chronological display in raw data views. Confidence-based grouping in AI review views. Full context in Review Interface.
 
 ### Folder Name Parser
 *Reason: Lawyers have varying naming conventions for their folders. We don't try to extract or parse client names or matter names — we use folder names exactly as the user has them.*
@@ -126,17 +153,23 @@ This means NO dedicated views for:
 - Billing Review — use File → Review Billing... (dialog)
 
 **The distinction**:
-- **View** = A navigation destination you switch to (like Timeline or Activities)
+- **View** = A navigation destination you switch to
 - **Dialog** = An action that opens a modal window, then closes when done
 
-Two views is enough: Timeline and Activities. Everything else is a dialog.
+**Four views organized by data type:**
+- Raw Data - Staircase (visual timeline)
+- Raw Data - Table (chronological list)
+- AI Review - By Bucket (matter assignments)
+- AI Review - By Narrative (billing text)
+
+Everything else is a dialog, not a view.
 
 ---
 
 ## Anti-Patterns to Avoid
 
 ### Action Without Context
-*This is the most important anti-pattern to avoid.*
+*This is the most important anti-pattern to avoid — and it applies to entire views, not just individual buttons.*
 
 Never offer action buttons (accept, reject, correct, split, delete) without first showing users the information they need to make that decision.
 
@@ -145,10 +178,14 @@ Never offer action buttons (accept, reject, correct, split, delete) without firs
 
 **The test**: Before adding any action button, ask: "What information does the user need to perform this action correctly?" If that information isn't visible, the button shouldn't be there.
 
+**This applies to entire views:**
+The original Timeline View mockup was a whole view that violated this principle. It showed raw captured data but had editing actions (Split, Delete, Assign Matter) that required context not present in the view. The solution: raw data views are read-only; actions live in the Review Interface where full context is shown.
+
 **Common violations:**
 - Split Activity button without showing screenshots (how would user know where to split?)
 - Accept/Reject checkboxes in a summary list (user can't evaluate what they haven't seen)
 - Bulk action buttons on items the user hasn't individually reviewed
+- Editing actions in raw data views (raw data doesn't include AI proposals or screenshots for context)
 
 ### Assuming User Omniscience
 Building interfaces as if users already know what decision to make, without showing them what the decision depends on.
@@ -241,6 +278,14 @@ If a feature answers "what should I bill?" it's billing triage (in scope).
 - **Wrong**: Show "Near Budget" warning at 80% (arbitrary threshold)
 - **Right**: Show "WIP: $8,200 | Budget: $8,000" (user sees WIP > Budget)
 
+### Confidence Levels on Raw Data
+Confidence applies only to AI interpretations, never to raw captured data.
+
+- **Wrong**: Show confidence on a raw data view (confidence of what? the data is factual)
+- **Right**: Show confidence only on AI-proposed bucket assignments and narratives
+
+Raw data (timestamps, window titles, duration) is objective fact — what SyncoPaid observed. It has no confidence level because it's not a prediction. AI interpretations (bucket, narrative) are predictions that could be wrong — they have confidence levels.
+
 ---
 
 ## YAGNI Items
@@ -283,7 +328,10 @@ Column resizing, custom column ordering, saved views, export to CSV.
 - An AI-powered tool that saves lawyer time
 - A tool that fits into the user's existing workflow
 - Focused on capture, categorization, review, and billing
-- **Two views only**: Timeline and Activities (everything else is a dialog)
+- **Four views organized by data type**:
+  - Raw Data (transparency, read-only): Staircase + Table
+  - AI Review (decisions via Review Interface): By Bucket + By Narrative
+- Everything else is a dialog, not a view
 
 **What This Product is NOT:**
 - A **web/SaaS app** — no sidebars, tab bars, dashboards, or card layouts
@@ -295,6 +343,7 @@ Column resizing, custom column ordering, saved views, export to CSV.
 - An interactive overlay or hotkey-driven tool
 - A power-user table manipulation tool
 - A multi-view navigation app — actions open dialogs, not views
+- **Views with editing actions** — raw data views are read-only; editing happens in Review Interface with full context
 
 ---
 *For terminology definitions, see [CLAUDE.md](../../../CLAUDE.md#terminology).*
