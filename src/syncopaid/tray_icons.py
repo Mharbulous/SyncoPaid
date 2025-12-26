@@ -64,10 +64,13 @@ def create_icon_image(state: str = "on") -> Optional["Image.Image"]:
     # Active (on): green stopwatch
     # Paused: orange stopwatch (user clicked pause)
     # Inactive: faded stopwatch with sleep emoji overlay (5min idle)
+    # Feedback: orange stopwatch (brief flash for user feedback)
     if state == "inactive":
         ico_path = get_resource_path("assets/stopwatch-pictogram-faded.ico")
     elif state == "paused":
         ico_path = get_resource_path("assets/stopwatch-paused.ico")
+    elif state == "feedback":
+        ico_path = get_resource_path("assets/stopwatch-pictogram-orange.ico")
     else:  # "on" or default
         ico_path = get_resource_path("assets/stopwatch-pictogram-green.ico")
 
