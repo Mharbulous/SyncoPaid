@@ -8,7 +8,7 @@ a = Analysis(
     datas=[
         ('src/syncopaid/assets/SYNCOPaiD.ico', 'syncopaid/assets'),  # Main window icon
         ('src/syncopaid/assets/stopwatch-pictogram-faded.ico', 'syncopaid/assets'),
-        ('src/syncopaid/assets/stopwatch-pictogram-orange.ico', 'syncopaid/assets'),
+        ('src/syncopaid/assets/stopwatch-paused.ico', 'syncopaid/assets'),
         ('src/syncopaid/assets/stopwatch-pictogram-green.ico', 'syncopaid/assets'),
     ],
     hiddenimports=[

@@ -5,7 +5,7 @@ The system tray is the primary entry point for all user interactions.
 
 Status Icons:
 - Green (stopwatch-pictogram-green) = Tracking Active
-- Orange (stopwatch-pictogram-orange + ❚❚) = Paused
+- Orange (stopwatch-paused + ❚❚) = Paused
 - Faded (stopwatch-pictogram-faded + 💤) = Idle (5+ min no activity)
 
 Interactions:
