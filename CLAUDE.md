@@ -6,6 +6,24 @@
 - **ALWAYS**: Identify root causes before attempting to fix or avoid problems.
 - **NEVER** modify SQLite database directly
 
+## Terminology
+
+**Use these terms consistently to prevent feature creep:**
+
+| Internal (Code/Docs) | User-Facing (UI) | Definition |
+|----------------------|------------------|------------|
+| **Bucket** | **Matter** | A category for billable time, imported from the user's folder structure. We do NOT create, edit, or manage buckets — we import folder paths and use them as labels. |
+| **Activity** | **Activity** | A tracked window/application event with start time, duration, and context. |
+| **Review** | **Review** | The user workflow: accept or reject AI suggestions. NOT "manage" or "organize." |
+
+**Why this matters:** Using "Matter" internally may cause AI assistants to build practice management features (create matter, edit matter, archive matter). "Bucket" reminds us these are just imported folder paths used as labels — nothing to manage.
+
+**Avoid in code/docs:**
+- "Matter" (implies practice management)
+- "Project" (implies project management)
+- "Case" (implies case management)
+- "Assign to matter" (implies management — use "assign to bucket" or "categorize")
+
 ## Development Environments
 
 Development occurs in **two environments**:
