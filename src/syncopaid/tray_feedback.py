@@ -2,7 +2,7 @@
 System tray visual feedback for user actions.
 
 Handles left-click time marker recording with visual feedback
-(icon flash + toast notification).
+(brief icon color change to orange).
 """
 
 import logging
@@ -22,8 +22,7 @@ class TrayFeedbackHandler:
     Handles visual feedback for tray icon interactions.
 
     Provides:
-    - Icon flash animation (brief color change)
-    - Toast notifications
+    - Icon flash animation (brief color change to orange)
     - Feedback state management (prevent overlapping animations)
     """
 
@@ -42,7 +41,7 @@ class TrayFeedbackHandler:
         Handle left-click: record a time marker with visual feedback.
 
         This records a task transition/interruption timestamp and provides
-        brief visual feedback (orange icon + toast notification).
+        brief visual feedback (icon briefly turns orange).
         """
         if not TRAY_AVAILABLE:
             return
@@ -59,22 +58,13 @@ class TrayFeedbackHandler:
             if self.on_time_marker:
                 self.on_time_marker()
 
-            # Show visual feedback: flash orange icon
+            # Show visual feedback: briefly flash orange icon
             if self.icon:
                 # Save current state to restore later
                 original_state = self._get_current_state()
 
-                # Show orange (paused) icon as feedback
-                self.icon.icon = create_icon_image("paused")
-
-                # Show toast notification
-                try:
-                    self.icon.notify(
-                        "Transition recorded",
-                        "SyncoPaid"
-                    )
-                except Exception as e:
-                    logging.debug(f"Toast notification not available: {e}")
+                # Show orange icon as feedback (no notification)
+                self.icon.icon = create_icon_image("feedback")
 
                 # Schedule icon reset after 1 second
                 def reset_icon():
