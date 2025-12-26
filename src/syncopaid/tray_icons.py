@@ -64,14 +64,15 @@ def create_icon_image(state: str = "on") -> Optional["Image.Image"]:
     # Active (on): green stopwatch
     # Paused: orange stopwatch (user clicked pause)
     # Inactive: faded stopwatch with sleep emoji overlay (5min idle)
-    # Feedback: orange stopwatch (brief flash for task switching feedback)
+    # Feedback: orange stopwatch generated from green (brief flash for user feedback)
     # Quitting: faded stopwatch (no overlay, immediate quit feedback)
     if state == "inactive":
         ico_path = get_resource_path("assets/stopwatch-pictogram-faded.ico")
     elif state == "paused":
         ico_path = get_resource_path("assets/stopwatch-paused.ico")
     elif state == "feedback":
-        ico_path = get_resource_path("assets/stopwatch-switching-task.ico")
+        # Use green icon and recolor to orange (avoids Windows ICO rendering issues)
+        ico_path = get_resource_path("assets/stopwatch-pictogram-green.ico")
     elif state == "quitting":
         ico_path = get_resource_path("assets/stopwatch-pictogram-faded.ico")
     else:  # "on" or default
@@ -100,8 +101,65 @@ def create_icon_image(state: str = "on") -> Optional["Image.Image"]:
         image = add_sleep_overlay(image)
     elif state == "paused":
         image = add_pause_overlay(image)
+    elif state == "feedback":
+        image = recolor_green_to_orange(image)
 
     return image
+
+
+def recolor_green_to_orange(image: "Image.Image") -> "Image.Image":
+    """
+    Recolor green pixels to orange for feedback state.
+
+    Takes the green stopwatch icon and shifts the hue to orange.
+    This avoids Windows ICO rendering issues with the orange ICO file.
+
+    Args:
+        image: RGBA image with green-colored stopwatch
+
+    Returns:
+        Image with green replaced by orange
+    """
+    if not TRAY_AVAILABLE:
+        return image
+
+    # Work on a copy
+    result = image.copy()
+    pixels = result.load()
+
+    # Define the green color range to replace (based on the green stopwatch)
+    # The green icon uses #c3f3a5 (195, 243, 165) as the main color
+    # We'll replace any pixel that's predominantly green with orange
+
+    for y in range(result.size[1]):
+        for x in range(result.size[0]):
+            r, g, b, a = pixels[x, y]
+
+            # Skip transparent pixels
+            if a < 10:
+                continue
+
+            # Check if pixel is in the green range
+            # Green stopwatch face: high G, moderate R, lower B
+            if g > 100 and g > r and g > b:
+                # Calculate how "green" the pixel is (0-1 scale)
+                # More saturated green = more saturated orange
+                green_ratio = g / 255.0
+                red_ratio = r / 255.0
+
+                # Map green to orange
+                # Orange: high R (255), medium G (~136), low B (0)
+                # Preserve relative brightness
+                brightness = (r + g + b) / (3 * 255.0)
+
+                # Create orange with similar brightness
+                new_r = min(255, int(255 * brightness * 1.3))
+                new_g = min(255, int(136 * brightness * 1.2))
+                new_b = 0
+
+                pixels[x, y] = (new_r, new_g, new_b, a)
+
+    return result
 
 
 def add_sleep_overlay(image: "Image.Image") -> "Image.Image":
