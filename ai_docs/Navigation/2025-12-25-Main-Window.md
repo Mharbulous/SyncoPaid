@@ -1,13 +1,13 @@
 # Main Window Structure
 
-> **Last Updated:** 2025-12-25
+> **Last Updated:** 2025-12-26
 > **Parent:** [Navigation Index](2025-12-25-Navigation-Index.md)
 
 ---
 
 ## Overview
 
-The main window is the primary interface for SyncoPaid. It features a traditional menu bar, a header bar with quick controls, a sidebar for navigation, and a content area that changes based on the selected view.
+The main window is the primary interface for SyncoPaid. It uses a traditional Windows desktop layout: menu bar for navigation and commands, a toolbar for quick controls, and a content area that changes based on the selected view.
 
 ---
 
@@ -19,41 +19,24 @@ The main window is the primary interface for SyncoPaid. It features a traditiona
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  File    Edit    View    Tools    Help                                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │  TOOLBAR                                                              │  │
+│  │  ┌──────────────┐  ┌────────────────────────────┐                     │  │
+│  │  │ ▶ Tracking   │  │ Today ▼ (date picker)      │                     │  │
+│  │  │   [Pause]    │  │                            │                     │  │
+│  │  └──────────────┘  └────────────────────────────┘                     │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  HEADER BAR                                                         │    │
-│  │  ┌──────────────┐  ┌────────────────────────────┐                   │    │
-│  │  │ ▶ Tracking   │  │ Today ▼ (date picker)      │                   │    │
-│  │  │   [Pause]    │  │                            │                   │    │
-│  │  └──────────────┘  └────────────────────────────┘                   │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
 │                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  SIDEBAR                          MAIN CONTENT AREA                 │    │
-│  │  ┌───────────────┐   ┌─────────────────────────────────────────┐    │    │
-│  │  │               │   │                                         │    │    │
-│  │  │ 📅 Timeline   │◄──┼── DEFAULT VIEW                          │    │    │
-│  │  │               │   │                                         │    │    │
-│  │  │ 📋 Activities │   │  (Content changes based on              │    │    │
-│  │  │               │   │   sidebar selection)                    │    │    │
-│  │  │ 📁 Matters    │   │                                         │    │    │
-│  │  │               │   │                                         │    │    │
-│  │  │ 👥 Clients    │   │                                         │    │    │
-│  │  │               │   │                                         │    │    │
-│  │  │ ───────────── │   │                                         │    │    │
-│  │  │               │   │                                         │    │    │
-│  │  │ 📊 Reports    │   │                                         │    │    │
-│  │  │               │   │                                         │    │    │
-│  │  │ 📤 Export     │   │                                         │    │    │
-│  │  │               │   │                                         │    │    │
-│  │  └───────────────┘   └─────────────────────────────────────────┘    │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
+│                            CONTENT AREA                                     │
 │                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  STATUS BAR                                                         │    │
-│  │  Tracking: Active │ Today: 4.2 hrs │ Uncategorized: 3 activities    │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
+│                    (View switched via View menu)                            │
 │                                                                             │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  STATUS BAR                                                                 │
+│  Tracking: Active │ Uncategorized: 3 activities                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -67,41 +50,33 @@ Standard Windows title bar with application name and window controls.
 
 ### Menu Bar
 
-Traditional menu bar providing access to all features. See [Menu Bar](2025-12-25-Menu-Bar.md) for details.
+Traditional menu bar providing access to all features and view switching. See [Menu Bar](2025-12-25-Menu-Bar.md) for details.
 
 | Menu | Purpose |
 |------|---------|
-| File | New items, import/export, settings, exit |
+| File | Import folders, export data, settings, exit |
 | Edit | Undo/redo, selection, activity editing |
-| View | Switch views, toggle UI elements, zoom, filters |
-| Tools | Tracking control, AI features, database tools |
+| View | Switch views (Timeline, Activities), toggle toolbar/status bar |
+| Tools | Tracking control, AI categorization |
 | Help | Documentation, shortcuts, about |
 
-### Header Bar
+### Toolbar
 
-Quick-access controls that persist across all views.
+Quick-access controls that persist across all views. Can be toggled via View → Toolbar.
 
 | Component | Function |
 |-----------|----------|
 | Tracking Toggle | Start/Pause tracking with visual status indicator |
-| Date Picker | Filter all views by date or date range |
-
-### Sidebar
-
-Navigation panel for switching between views. Can be toggled with View → Sidebar (Ctrl+B).
-
-| Section | Purpose | Shortcut |
-|---------|---------|----------|
-| Timeline | Visual time-block view of activities (default) | F2 |
-| Activities | Table/list view of all activities | F3 |
-| Matters | Manage legal matters and keywords | F4 |
-| Clients | Manage clients and their matters | F5 |
-| Reports | Time summaries and analytics | F6 |
-| Export | Export data for billing systems | F7 |
+| Date Picker | Filter current view by date or date range |
 
 ### Content Area
 
-Main workspace that displays the selected view. Changes based on sidebar selection.
+Main workspace that displays the selected view. Switch views using the View menu:
+
+| View | Purpose | Shortcut |
+|------|---------|----------|
+| Timeline | Visual time-block view of activities (default) | Ctrl+1 |
+| Activities | Table/list view of all activities | Ctrl+2 |
 
 ### Status Bar
 
@@ -110,8 +85,7 @@ Information bar at bottom of window. Can be toggled via View → Status Bar.
 | Element | Description |
 |---------|-------------|
 | Tracking Status | Shows Active/Paused/Idle |
-| Today's Hours | Total tracked time for today |
-| Uncategorized Count | Number of activities needing attention |
+| Uncategorized Count | Number of activities needing AI categorization |
 
 ---
 
@@ -119,7 +93,7 @@ Information bar at bottom of window. Can be toggled via View → Status Bar.
 
 ### Default State
 - Opens to Timeline view
-- Sidebar visible
+- Toolbar visible
 - Status bar visible
 - Date picker set to "Today"
 
