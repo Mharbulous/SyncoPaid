@@ -200,7 +200,7 @@ Avoid terms that suggest the user is responsible for doing the work:
 - **Wrong**: "Uncategorized" (implies user must categorize)
 - **Right**: "Queued for AI" (implies AI will categorize)
 - **Wrong**: "Unassigned" (implies user must assign)
-- **Right**: "Pending AI" or "Awaiting AI" (implies AI will act)
+- **Right**: "Queued for AI" (implies AI will act)
 
 Language should always point to AI as the actor, not the user.
 
