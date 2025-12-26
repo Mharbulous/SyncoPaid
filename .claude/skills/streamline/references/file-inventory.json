@@ -1,5 +1,5 @@
 {
-  "lastScanned": "2025-12-25",
+  "lastScanned": "2025-12-26",
   "sourceRoot": "src/syncopaid",
   "fileExtensions": [
     ".py"
@@ -57,7 +57,7 @@
       "lines": 45
     },
     "src/syncopaid/tray.py": {
-      "lines": 234
+      "lines": 323
     },
     "src/syncopaid/tray_icons.py": {
       "lines": 193
@@ -162,7 +162,7 @@
       "lines": 181
     },
     "src/syncopaid/main_app_class.py": {
-      "lines": 239
+      "lines": 257
     },
     "src/syncopaid/tracker_loop_interaction.py": {
       "lines": 85
