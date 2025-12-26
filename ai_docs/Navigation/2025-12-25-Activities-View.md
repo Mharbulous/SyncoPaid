@@ -1,19 +1,21 @@
-# Activities View
+# Review Activities View
 
-> **Last Updated:** 2025-12-25
+> **Last Updated:** 2025-12-26
 > **Parent:** [Navigation Index](2025-12-25-Navigation-Index.md)
 
 ---
 
 ## Overview
 
-The Activities View displays all tracked activities in a table/list format, enabling detailed filtering, sorting, and bulk operations.
+The Review Activities View is an **AI-first workflow** where users review and approve AI-proposed categorizations. The AI does the heavy lifting; users just confirm or correct.
+
+**Philosophy**: Minimize manual effort. The AI proposes, the user disposes.
 
 ---
 
 ## Menu Access
 
-- **View → Activities** (F3)
+- **View → Review Activities** (F3)
 
 ---
 
@@ -21,89 +23,116 @@ The Activities View displays all tracked activities in a table/list format, enab
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  ┌─ Filters ─────────────────────────────────────────────────────────────┐  │
-│  │ Status: [All ▼]  App: [All ▼]  Matter: [All ▼]  [🔍 Search...]       │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
+│  ┌─ Review Queue ───────────────────────────────────────────────────────┐   │
+│  │  🤖 AI has categorized 47 activities          [Review All]           │   │
+│  │     23 high confidence  •  18 needs review  •  6 uncertain           │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
-│  ┌─ Bulk Actions (when items selected) ──────────────────────────────────┐  │
-│  │ ☑ 12 selected   [Assign Matter]  [🤖 Categorize]  [Delete]            │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
+│  ┌─ Filter ─────────────────────────────────────────────────────────────┐   │
+│  │  Show: [Needs Review ▼]     Billing: [All ▼]                         │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
-│  ┌───┬──────────┬─────────────────────────────────┬──────────┬───────────┐  │
-│  │ ☐ │ TIME     │ APPLICATION / TITLE             │ DURATION │ MATTER    │  │
-│  ├───┼──────────┼─────────────────────────────────┼──────────┼───────────┤  │
-│  │ ☐ │ 8:02 AM  │ 📝 Word - Contract_v3.docx      │ 1h 23m   │ Smith...  │  │
-│  │ ☐ │ 9:25 AM  │ 💤 Idle                         │ 15m      │ —         │  │
-│  │ ☐ │ 9:40 AM  │ 📧 Outlook - RE: Settlement     │ 45m      │ ⚠ None    │  │
-│  │ ☐ │ 10:25 AM │ 🌐 Chrome - Legal Research      │ 2h 10m   │ Acme...   │  │
-│  └───┴──────────┴─────────────────────────────────┴──────────┴───────────┘  │
+│  ┌──────────┬───────────────────────────────┬──────────┬────────────────┐   │
+│  │ TIME     │ ACTIVITY                      │ DURATION │ AI SUGGESTION  │   │
+│  ├──────────┼───────────────────────────────┼──────────┼────────────────┤   │
+│  │ 8:02 AM  │ 📝 Word - Contract_v3.docx    │ 1h 23m   │ Smith/Estate   │   │
+│  │          │                               │          │ ✓ Accept  ✗    │   │
+│  ├──────────┼───────────────────────────────┼──────────┼────────────────┤   │
+│  │ 9:40 AM  │ 📧 Outlook - RE: Settlement   │ 45m      │ ⚠ Uncertain    │   │
+│  │          │                               │          │ [Assign...]    │   │
+│  ├──────────┼───────────────────────────────┼──────────┼────────────────┤   │
+│  │ 10:25 AM │ 🌐 Chrome - CanLII Research   │ 2h 10m   │ Acme/Litigation│   │
+│  │          │                               │          │ ✓ Accept  ✗    │   │
+│  └──────────┴───────────────────────────────┴──────────┴────────────────┘   │
 │                                                                             │
-│  Click row → Same ACTIVITY DETAIL panel as Timeline view                    │
+│  ┌─ Batch Actions ──────────────────────────────────────────────────────┐   │
+│  │  [✓ Accept All High Confidence]    [Mark as Non-Billable]            │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Filter Bar
+## Review Queue Summary
 
-### Filter Dropdowns
+Shows AI categorization status at a glance:
+
+| Badge | Meaning |
+|-------|---------|
+| **High confidence** | AI is confident; one-click accept |
+| **Needs review** | AI has a suggestion but wants confirmation |
+| **Uncertain** | AI needs user input (may show screenshots) |
+
+**[Review All]** button starts guided review flow.
+
+---
+
+## Filter Options
 
 | Filter | Options |
 |--------|---------|
-| Status | All, Categorized, Uncategorized, Idle |
-| App | All, or specific applications |
-| Matter | All, Unassigned, or specific matter |
+| Show | All, Needs Review, Uncertain Only, Accepted, Rejected |
+| Billing | All, WIP, Billed, Non-Billable |
 
-### Search
-
-- Searches across application name, window title, and narrative
-- Real-time filtering as you type
-
-### Menu Access
-
-Filters can also be set via **View → Filter** submenu.
+Filters help focus on what needs attention. Default: **Needs Review**.
 
 ---
 
 ## Table Columns
 
-| Column | Description | Sortable |
-|--------|-------------|----------|
-| ☐ | Selection checkbox | No |
-| TIME | Start time of activity | Yes |
-| APPLICATION / TITLE | App icon, name, and window title | Yes |
-| DURATION | Length of activity | Yes |
-| MATTER | Assigned matter or status | Yes |
-
-### Column Sorting
-
-- Click column header to sort ascending
-- Click again to sort descending
-- Click third time to remove sort
+| Column | Description |
+|--------|-------------|
+| TIME | Start time of activity |
+| ACTIVITY | App icon, name, and window title |
+| DURATION | Length of activity |
+| AI SUGGESTION | Proposed category + accept/reject actions |
 
 ---
 
-## Bulk Actions Bar
+## AI Suggestion Column
 
-Appears when one or more activities are selected.
+Each row shows the AI's proposed categorization with inline actions:
 
-| Button | Action | Menu Equivalent |
-|--------|--------|-----------------|
-| Assign Matter | Opens Matter Picker for batch assign | Edit → Assign to Matter (Ctrl+M) |
-| Categorize | Run AI on selected activities | Tools → Auto-Categorize (Ctrl+G) |
-| Delete | Delete selected activities | Edit → Delete (Del) |
+### High/Medium Confidence
+```
+┌────────────────┐
+│ Smith/Estate   │  ◄── AI's suggested category (folder path)
+│ ✓ Accept  ✗    │  ◄── One-click accept or reject
+└────────────────┘
+```
+
+### Uncertain (needs user help)
+```
+┌────────────────┐
+│ ⚠ Uncertain    │  ◄── AI couldn't determine
+│ [Assign...]    │  ◄── Opens category picker
+│ [📷 Context]   │  ◄── Show screenshots for clarification
+└────────────────┘
+```
 
 ---
 
-## Visual Indicators
+## Billing Status
 
-| Indicator | Meaning |
-|-----------|---------|
-| ⚠ None | Uncategorized activity (needs attention) |
-| 💤 Idle | Idle period (no user activity) |
-| — | Not applicable (e.g., idle periods) |
-| ... | Text truncated (hover for full text) |
+After accepting a categorization, user sets billing status:
+
+| Status | Meaning |
+|--------|---------|
+| **WIP** | Work in progress (default for accepted items) |
+| **Billed** | Already invoiced to client |
+| **Non-Billable** | Not billable (admin, personal, etc.) |
+
+Billing status can be set individually or in batch via **[Mark as Non-Billable]**.
+
+---
+
+## Batch Actions
+
+| Button | Action |
+|--------|--------|
+| **Accept All High Confidence** | Approve all high-confidence suggestions at once |
+| **Mark as Non-Billable** | Set selected activities as non-billable |
 
 ---
 
@@ -111,34 +140,31 @@ Appears when one or more activities are selected.
 
 | Action | Result |
 |--------|--------|
-| Click row | Opens Activity Detail panel |
-| Click checkbox | Toggles selection |
-| Shift+Click | Select range |
-| Ctrl+Click | Add to selection |
-| Right-click | Context menu |
-| Double-click | Opens Activity Detail in edit mode |
+| **✓ Accept** | Approve AI suggestion, mark as WIP |
+| **✗ Reject** | Dismiss suggestion, opens category picker |
+| **[Assign...]** | Open category picker for uncertain items |
+| **[📷 Context]** | Show screenshots to help identify the work |
+| Click row | Expand to show activity details |
 
 ---
 
-## Context Menu
+## Screenshot-Assisted Review
 
-Right-click on row(s):
+When AI is uncertain, clicking **[📷 Context]** shows relevant screenshots:
 
 ```
-┌─────────────────────────┐
-│  Assign to Matter...    │  ◄── Ctrl+M
-│  Edit Narrative...      │  ◄── Ctrl+E
-│  ─────────────────────  │
-│  Split Activity...      │
-│  Merge Selected...      │
-│  ─────────────────────  │
-│  View Screenshots       │
-│  ─────────────────────  │
-│  Copy Details           │  ◄── Ctrl+C
-│  ─────────────────────  │
-│  Delete                 │  ◄── Del
-└─────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  📷 What were you working on?                                   │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
+│  │ [9:40 AM]   │  │ [9:52 AM]   │  │ [10:15 AM]  │              │
+│  │ screenshot  │  │ screenshot  │  │ screenshot  │              │
+│  └─────────────┘  └─────────────┘  └─────────────┘              │
+│                                                                 │
+│  Assign to: [Select category...  ▼]                             │
+└─────────────────────────────────────────────────────────────────┘
 ```
+
+This helps users identify ambiguous activities without leaving the review flow.
 
 ---
 
@@ -146,17 +172,23 @@ Right-click on row(s):
 
 | Key | Action |
 |-----|--------|
-| ↑ ↓ | Move row selection |
-| Space | Toggle checkbox on selected row |
-| Ctrl+A | Select all visible rows |
-| Enter | Open Activity Detail for selected |
-| Ctrl+M | Assign matter to selected |
-| Del | Delete selected activities |
-| Ctrl+F | Focus search field |
+| ↑ ↓ | Move between activities |
+| Enter | Accept AI suggestion |
+| Backspace | Reject suggestion |
+| A | Accept all high confidence |
+| N | Mark selected as non-billable |
+
+---
+
+## Idle Periods
+
+Idle periods (💤) are shown but **not categorized by AI**. They appear grayed out with option to:
+- Dismiss (ignore)
+- Assign to a category (if the idle was actually thinking time)
 
 ---
 
 ## Related
 
-- [Timeline View](2025-12-25-Timeline-View.md) - Visual view of same data
-- [Shared Components](2025-12-25-Shared-Components.md) - Matter Picker, Activity Detail
+- [Timeline View](2025-12-25-Timeline-View.md) - Visual chronological view
+- [Shared Components](2025-12-25-Shared-Components.md) - Category Picker, Activity Detail
