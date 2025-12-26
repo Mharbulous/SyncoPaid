@@ -104,7 +104,7 @@ Expected: `FAILED` (module not found)
 Implements the VisionEngine interface using Moondream 2, a 3.85GB
 vision language model that runs on CPU with float32 precision.
 
-Model: vikhyatk/moondream2 (Apache 2.0 license)
+Model: Mharbulous/moondream2-syncopaid (frozen from vikhyatk/moondream2, Apache 2.0 license)
 Requirements: 8GB RAM minimum, ~25 second inference on CPU
 """
 from typing import Optional
@@ -151,7 +151,7 @@ pytest tests/test_moondream_engine.py -v
 - Modify: `tests/test_moondream_engine.py`
 - Modify: `src/syncopaid/moondream_engine.py`
 
-**Context:** The model must use float32 on CPU (float16 causes LayerNormKernelImpl errors). Model revision pinned to "2025-06-21" for reproducibility. Loading uses trust_remote_code=True required by Moondream.
+**Context:** The model must use float32 on CPU (float16 causes LayerNormKernelImpl errors). Using frozen copy at Mharbulous/moondream2-syncopaid for reproducibility. Loading uses trust_remote_code=True required by Moondream.
 
 **Step 1 - RED:** Add failing tests
 
@@ -174,7 +174,7 @@ def test_moondream_engine_load_model_cpu(mock_model_class, mock_torch):
     call_kwargs = mock_model_class.from_pretrained.call_args[1]
     assert call_kwargs['torch_dtype'] == 'float32'
     assert call_kwargs['trust_remote_code'] is True
-    assert call_kwargs['revision'] == "2025-06-21"
+    # No revision needed - using frozen repo Mharbulous/moondream2-syncopaid
     assert engine._loaded is True
 
 
@@ -209,7 +209,7 @@ pytest tests/test_moondream_engine.py::test_moondream_engine_load_model_cpu -v
 Implements the VisionEngine interface using Moondream 2, a 3.85GB
 vision language model that runs on CPU with float32 precision.
 
-Model: vikhyatk/moondream2 (Apache 2.0 license)
+Model: Mharbulous/moondream2-syncopaid (frozen from vikhyatk/moondream2, Apache 2.0 license)
 Requirements: 8GB RAM minimum, ~25 second inference on CPU
 """
 import logging
@@ -228,8 +228,8 @@ except ImportError:
 from syncopaid.vision_engine import VisionEngine, AnalysisResult
 
 
-MODEL_ID = "vikhyatk/moondream2"
-MODEL_REVISION = "2025-06-21"
+# Frozen copy of vikhyatk/moondream2 tag 2025-06-21
+MODEL_ID = "Mharbulous/moondream2-syncopaid"
 
 
 class MoondreamEngine(VisionEngine):
@@ -731,7 +731,7 @@ def test_config_moondream_defaults():
     """Config has Moondream-specific settings with defaults."""
     config = Config()
 
-    assert config.moondream_model_revision == "2025-06-21"
+    assert config.moondream_repo_id == "Mharbulous/moondream2-syncopaid"
     assert config.moondream_inference_timeout_seconds == 30
     assert config.moondream_enabled is True
 ```
@@ -749,7 +749,7 @@ pytest tests/test_config.py::test_config_moondream_defaults -v
 # After existing fields, add:
 # Moondream (local vision AI) settings
 moondream_enabled: bool = True
-moondream_model_revision: str = "2025-06-21"
+moondream_repo_id: str = "Mharbulous/moondream2-syncopaid"
 moondream_inference_timeout_seconds: int = 30
 ```
 

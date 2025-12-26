@@ -92,3 +92,6 @@ logs/
 
 # Generated priority lists (output of prioritize_stories.py)
 .claude/data/priority-lists/
+
+# Moondream model files (downloaded separately, ~7.6GB)
+moondream2-frozen/

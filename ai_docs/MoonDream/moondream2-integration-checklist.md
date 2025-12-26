@@ -26,14 +26,14 @@ This checklist covers integrating Moondream 2 as the local AI engine for screens
   python -c "import torch; print(torch.cuda.is_available())"
   ```
 
-- [ ] **1.4** Download model with pinned revision and run test inference:
+- [ ] **1.4** Download model from frozen copy and run test inference:
   ```python
   from transformers import AutoModelForCausalLM
   from PIL import Image
 
+  # Using Mharbulous frozen copy (originally vikhyatk/moondream2 tag 2025-06-21)
   model = AutoModelForCausalLM.from_pretrained(
-      "vikhyatk/moondream2",
-      revision="2025-06-21",
+      "Mharbulous/moondream2-syncopaid",
       trust_remote_code=True
   )
   ```
@@ -69,10 +69,10 @@ This checklist covers integrating Moondream 2 as the local AI engine for screens
   ```python
   device = "cuda" if torch.cuda.is_available() else "cpu"
   dtype = torch.float16 if device == "cuda" else torch.float32  # float32 required for CPU
-  
+
+  # Using Mharbulous frozen copy (originally vikhyatk/moondream2 tag 2025-06-21)
   model = AutoModelForCausalLM.from_pretrained(
-      "vikhyatk/moondream2",
-      revision="2025-06-21",
+      "Mharbulous/moondream2-syncopaid",
       trust_remote_code=True,
       torch_dtype=dtype,
       device_map={"": device} if device == "cuda" else None
@@ -173,7 +173,8 @@ This checklist covers integrating Moondream 2 as the local AI engine for screens
 
 ## Resources
 
+- [SyncoPaid Frozen Copy](https://huggingface.co/Mharbulous/moondream2-syncopaid) ← Use this for SyncoPaid
 - [Moondream Documentation](https://docs.moondream.ai/)
-- [Moondream 2 on HuggingFace](https://huggingface.co/vikhyatk/moondream2)
+- [Moondream 2 Original (vikhyatk)](https://huggingface.co/vikhyatk/moondream2)
 - [GitHub Repository](https://github.com/vikhyat/moondream)
 - [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0)
