@@ -122,6 +122,7 @@ class SyncoPaidApp:
             on_pause=self.pause_tracking,
             on_open=self.show_main_window,
             on_quit=self.quit_app,
+            on_time_marker=self.record_time_marker,
             config_manager=self.config_manager
         )
 
@@ -148,6 +149,23 @@ class SyncoPaidApp:
     def pause_tracking(self):
         """Pause the tracking loop."""
         pause_tracking(self)
+
+    def record_time_marker(self):
+        """
+        Record a time marker (task transition/interruption).
+
+        Called when user left-clicks the system tray icon.
+        Stores the marker in the transitions table for AI analysis.
+        """
+        from datetime import datetime, timezone
+        timestamp = datetime.now(timezone.utc).isoformat()
+        self.database.insert_transition(
+            timestamp=timestamp,
+            transition_type="user_marker",
+            context={"source": "tray_left_click"},
+            user_response=None
+        )
+        logging.info(f"Time marker recorded at {timestamp}")
 
     def show_export_dialog(self):
         """Show dialog for exporting data."""
