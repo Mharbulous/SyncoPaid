@@ -101,6 +101,8 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 
 15. **Features Must Earn Inclusion**: Don't ask "Is this compatible with our goals?" — ask "Does this help achieve a goal?" If a feature doesn't actively advance capture, categorization, review, or billing, it doesn't belong. Being harmless isn't enough.
 
+16. **Data Gathering Over Premature Optimization**: Don't build complex optimization features before knowing if they're needed. But DO include simple settings (quality, thresholds) that help gather data for future optimization decisions. The difference: premature optimization builds the solution; data gathering hooks help us discover what the solution should be.
+
 ---
 *For terminology definitions, see [CLAUDE.md](../../../CLAUDE.md#terminology).*
 *Last updated: 2025-12-26*

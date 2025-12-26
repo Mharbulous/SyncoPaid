@@ -171,9 +171,11 @@ Every setting is a decision forced on the user. Don't add options just because y
 
 Examples of settings that don't earn inclusion:
 - Poll interval, idle threshold, merge threshold (technical internals)
-- Screenshot quality, capture interval (optimization details)
+- Screenshot capture interval, WebP format options (optimization details)
 - Theme, language, date format (use system settings)
 - CPU limits, memory limits, process priority (app should just work)
+
+**Exception — Data Gathering Hooks:** Some settings exist not to optimize now, but to gather data for future optimization. Quality, similarity threshold, and confidence threshold fall into this category — they help us learn what values work best over time.
 
 ### Cloud-First AI
 User data should never leave the machine by default. Local LLMs (Moondream) are the default; cloud processing (Gemini) requires explicit opt-in with a clear warning about data transmission.
