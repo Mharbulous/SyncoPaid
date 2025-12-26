@@ -7,7 +7,7 @@
 
 ## Overview
 
-The Export View allows exporting tracked activity data for LLM processing or import into billing software.
+The Export View allows exporting tracked activity data for import into billing software or spreadsheets.
 
 ---
 
@@ -41,8 +41,8 @@ The Export View allows exporting tracked activity data for LLM processing or imp
 │  └───────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
 │  ┌─ Format ──────────────────────────────────────────────────────────────┐  │
-│  │ ● JSON (for LLM processing)                                           │  │
-│  │ ○ CSV (spreadsheet import)                                            │  │
+│  │ ● CSV (comma-separated)                                               │  │
+│  │ ○ XLS (Excel spreadsheet)                                             │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
 │  ┌─ Preview ─────────────────────────────────────────────────────────────┐  │
@@ -97,8 +97,8 @@ All statuses are checked by default.
 
 | Format | Description | Use Case |
 |--------|-------------|----------|
-| JSON | Structured data format | LLM processing, AI categorization |
-| CSV | Comma-separated values | Spreadsheet import, billing software |
+| CSV | Comma-separated values | Billing software import, universal compatibility |
+| XLS | Excel spreadsheet | Direct Excel editing, formatting preserved |
 
 ---
 
@@ -128,8 +128,8 @@ Available via File menu without opening Export View:
 
 | Menu Item | Action |
 |-----------|--------|
-| File → Export → Quick Export (JSON) | Export current view to JSON |
 | File → Export → Quick Export (CSV) | Export current view to CSV |
+| File → Export → Quick Export (XLS) | Export current view to Excel |
 
 Quick exports use:
 - Current date filter from header
@@ -140,44 +140,19 @@ Quick exports use:
 
 ## Export Formats Detail
 
-### JSON Format
-
-```json
-{
-  "export_date": "2024-12-22T10:30:00",
-  "date_range": {
-    "from": "2024-12-01",
-    "to": "2024-12-22"
-  },
-  "summary": {
-    "total_activities": 147,
-    "wip_hours": 20.5,
-    "billed_hours": 12.0,
-    "non_billable_hours": 8.0,
-    "matters_count": 3
-  },
-  "activities": [
-    {
-      "id": "abc123",
-      "start_time": "2024-12-01T08:02:00",
-      "end_time": "2024-12-01T09:25:00",
-      "duration_minutes": 83,
-      "application": "Microsoft Word",
-      "title": "Contract_Draft_v3.docx",
-      "matter": "Smith v. Jones",
-      "client": "Johnson & Associates",
-      "status": "wip"
-    }
-  ]
-}
-```
-
 ### CSV Format
 
 ```csv
 Date,Start Time,End Time,Duration,Application,Title,Matter,Client,Status
-2024-12-01,08:02,09:25,1:23,Microsoft Word,Contract_Draft_v3.docx,Smith v. Jones,Johnson & Associates,wip
+2024-12-01,08:02,09:25,1:23,Microsoft Word,Contract_Draft_v3.docx,Smith v. Jones,Johnson & Associates,WIP
 ```
+
+### XLS Format
+
+Excel spreadsheet with:
+- Same columns as CSV
+- Proper column formatting (dates, times, durations)
+- Ready for direct editing or import into billing software
 
 ---
 
