@@ -11,7 +11,6 @@ Status Icons:
 Interactions:
 - Left-click: Records a time marker (task transition/interruption)
   - Brief visual feedback: icon flashes orange for 1 second
-  - Toast notification: "Transition recorded"
 - Right-click menu:
   - Start/Pause: Toggle tracking without opening window
   - Open SyncoPaid: Opens Main Window
@@ -53,7 +52,7 @@ class TrayIcon(TrayMenuHandlers, TrayConsoleFallback):
 
     Interactions:
     - Left-click: Records a time marker (task transition/interruption)
-      with visual feedback (icon flashes orange, toast notification)
+      with visual feedback (icon flashes orange for 1 second)
     - Right-click menu:
       - Start/Pause: Toggle tracking (no window)
       - Open SyncoPaid: Opens Main Window
@@ -154,7 +153,7 @@ class TrayIcon(TrayMenuHandlers, TrayConsoleFallback):
         Handle left-click: record a time marker with visual feedback.
 
         This records a task transition/interruption timestamp and provides
-        brief visual feedback (orange icon + toast notification).
+        brief visual feedback (icon flashes orange for 1 second).
         """
         # Prevent overlapping feedback animations
         if self._feedback_in_progress:
@@ -167,22 +166,13 @@ class TrayIcon(TrayMenuHandlers, TrayConsoleFallback):
             # Call the time marker callback to record in database
             self.on_time_marker()
 
-            # Show visual feedback: flash orange icon
+            # Show visual feedback: flash orange icon for 1 second
             if self.icon:
                 # Save current state to restore later
                 original_state = self._get_current_state()
 
-                # Show orange (paused) icon as feedback
-                self.icon.icon = create_icon_image("paused")
-
-                # Show toast notification
-                try:
-                    self.icon.notify(
-                        "Transition recorded",
-                        "SyncoPaid"
-                    )
-                except Exception as e:
-                    logging.debug(f"Toast notification not available: {e}")
+                # Show plain orange icon as feedback
+                self.icon.icon = create_icon_image("marker_feedback")
 
                 # Schedule icon reset after 1 second
                 def reset_icon():

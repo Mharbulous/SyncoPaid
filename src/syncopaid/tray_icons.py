@@ -50,7 +50,8 @@ def create_icon_image(state: str = "on") -> Optional["Image.Image"]:
     Create system tray icon using state-specific icon files.
 
     Args:
-        state: One of "on" (tracking), "paused" (user paused), "inactive" (no activity)
+        state: One of "on" (tracking), "paused" (user paused), "inactive" (no activity),
+               "marker_feedback" (brief flash when recording time marker)
 
     Returns:
         PIL Image object for the icon, or None if PIL not available
@@ -62,12 +63,15 @@ def create_icon_image(state: str = "on") -> Optional["Image.Image"]:
 
     # Select icon file based on state
     # Active (on): green stopwatch
-    # Paused: orange stopwatch (user clicked pause)
+    # Paused: orange stopwatch with pause overlay (user clicked pause)
     # Inactive: faded stopwatch with sleep emoji overlay (5min idle)
+    # Marker feedback: plain orange stopwatch (brief flash for time marker)
     if state == "inactive":
         ico_path = get_resource_path("assets/stopwatch-pictogram-faded.ico")
     elif state == "paused":
         ico_path = get_resource_path("assets/stopwatch-paused.ico")
+    elif state == "marker_feedback":
+        ico_path = get_resource_path("assets/stopwatch-pictogram-orange.ico")
     else:  # "on" or default
         ico_path = get_resource_path("assets/stopwatch-pictogram-green.ico")
 
