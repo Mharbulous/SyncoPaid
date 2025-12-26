@@ -1,13 +1,13 @@
 # Export View
 
-> **Last Updated:** 2025-12-25
+> **Last Updated:** 2025-12-26
 > **Parent:** [Navigation Index](2025-12-25-Navigation-Index.md)
 
 ---
 
 ## Overview
 
-The Export View allows exporting tracked activity data in various formats for billing systems and other tools.
+The Export View allows exporting tracked activity data for LLM processing or import into billing software.
 
 ---
 
@@ -30,23 +30,23 @@ The Export View allows exporting tracked activity data in various formats for bi
 │  │ From: [Dec 1, 2024  📅]     To: [Dec 22, 2024  📅]                    │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
-│  ┌─ Filters ─────────────────────────────────────────────────────────────┐  │
-│  │ Client: [All ▼]    Matter: [All ▼]    Status: [All ▼]                 │  │
+│  ┌─ Filter ──────────────────────────────────────────────────────────────┐  │
+│  │ ● All matters                                                         │  │
+│  │ ○ By Client: [Select client ▼]                                        │  │
+│  │ ○ By Matter: [Select matter ▼]                                        │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                             │
+│  ┌─ Status ──────────────────────────────────────────────────────────────┐  │
+│  │ ☑ Uncategorized    ☑ WIP    ☑ Billed    ☑ Non-Billable               │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
 │  ┌─ Format ──────────────────────────────────────────────────────────────┐  │
 │  │ ● JSON (for LLM processing)                                           │  │
-│  │ ○ CSV (spreadsheet)                                                   │  │
-│  │ ○ PDF (billing report)                                                │  │
-│  └───────────────────────────────────────────────────────────────────────┘  │
-│                                                                             │
-│  ┌─ Include ─────────────────────────────────────────────────────────────┐  │
-│  │ ☑ Activity details      ☑ Billing narratives                          │  │
-│  │ ☑ Time summaries        ☐ Screenshots (paths only)                    │  │
+│  │ ○ CSV (spreadsheet import)                                            │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
 │  ┌─ Preview ─────────────────────────────────────────────────────────────┐  │
-│  │ 147 activities • 32.5 billable hours • 3 matters                      │  │
+│  │ 147 activities • WIP: 20.5h • Billed: 12.0h • Non-Billable: 8.0h      │  │
 │  └───────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
 │                                              [Cancel]  [📤 Export...]       │
@@ -66,13 +66,30 @@ The Export View allows exporting tracked activity data in various formats for bi
 
 ---
 
-## Filters Section
+## Filter Section
 
-| Filter | Options |
-|--------|---------|
-| Client | All clients, or select specific client |
-| Matter | All matters, or select specific matter |
-| Status | All, Categorized only, Uncategorized only |
+| Option | Description |
+|--------|-------------|
+| All matters | Export all tracked activities |
+| By Client | Filter to activities for a specific client |
+| By Matter | Filter to activities for a specific matter |
+
+When "By Client" is selected, the dropdown shows clients imported from the user's folder structure. When "By Matter" is selected, the dropdown shows all matters (optionally filtered by client first).
+
+---
+
+## Status Section
+
+Checkboxes to include/exclude activities by billing status:
+
+| Status | Description |
+|--------|-------------|
+| Uncategorized | Activities not yet categorized by AI |
+| WIP | Work in progress (categorized, not yet billed) |
+| Billed | Already invoiced to client |
+| Non-Billable | Administrative, personal, or non-billable work |
+
+All statuses are checked by default.
 
 ---
 
@@ -80,20 +97,8 @@ The Export View allows exporting tracked activity data in various formats for bi
 
 | Format | Description | Use Case |
 |--------|-------------|----------|
-| JSON | Structured data format | LLM processing, API integration |
-| CSV | Comma-separated values | Spreadsheets, billing software |
-| PDF | Formatted document | Client invoices, records |
-
----
-
-## Include Section
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| Activity details | Full activity information | ☑ |
-| Billing narratives | User-entered descriptions | ☑ |
-| Time summaries | Aggregated totals | ☑ |
-| Screenshots (paths only) | Screenshot file paths | ☐ |
+| JSON | Structured data format | LLM processing, AI categorization |
+| CSV | Comma-separated values | Spreadsheet import, billing software |
 
 ---
 
@@ -102,8 +107,7 @@ The Export View allows exporting tracked activity data in various formats for bi
 Shows summary of what will be exported:
 
 - Number of activities
-- Total billable hours
-- Number of matters included
+- Hours breakdown by status (WIP / Billed / Non-Billable)
 
 Preview updates automatically when filters change.
 
@@ -130,7 +134,7 @@ Available via File menu without opening Export View:
 Quick exports use:
 - Current date filter from header
 - All items in current view
-- Default include options
+- All statuses included
 
 ---
 
@@ -147,7 +151,9 @@ Quick exports use:
   },
   "summary": {
     "total_activities": 147,
-    "billable_hours": 32.5,
+    "wip_hours": 20.5,
+    "billed_hours": 12.0,
+    "non_billable_hours": 8.0,
     "matters_count": 3
   },
   "activities": [
@@ -160,7 +166,7 @@ Quick exports use:
       "title": "Contract_Draft_v3.docx",
       "matter": "Smith v. Jones",
       "client": "Johnson & Associates",
-      "narrative": "Drafted contract provisions..."
+      "status": "wip"
     }
   ]
 }
@@ -169,22 +175,12 @@ Quick exports use:
 ### CSV Format
 
 ```csv
-Date,Start Time,End Time,Duration,Application,Title,Matter,Client,Narrative
-2024-12-01,08:02,09:25,1:23,Microsoft Word,Contract_Draft_v3.docx,Smith v. Jones,Johnson & Associates,"Drafted contract provisions..."
+Date,Start Time,End Time,Duration,Application,Title,Matter,Client,Status
+2024-12-01,08:02,09:25,1:23,Microsoft Word,Contract_Draft_v3.docx,Smith v. Jones,Johnson & Associates,wip
 ```
-
-### PDF Format
-
-Formatted report with:
-- Header with date range and filters
-- Summary statistics
-- Activity table
-- Per-matter breakdowns
-- Totals
 
 ---
 
 ## Related
 
-- [Reports View](2025-12-25-Reports-View.md) - View before exporting
 - [Activities View](2025-12-25-Activities-View.md) - Review activities before export
