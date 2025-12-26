@@ -10,6 +10,7 @@ a = Analysis(
         ('src/syncopaid/assets/stopwatch-pictogram-faded.ico', 'syncopaid/assets'),
         ('src/syncopaid/assets/stopwatch-paused.ico', 'syncopaid/assets'),
         ('src/syncopaid/assets/stopwatch-pictogram-green.ico', 'syncopaid/assets'),
+        ('src/syncopaid/assets/stopwatch-feedback.png', 'syncopaid/assets'),  # Feedback flash
     ],
     hiddenimports=[
         'win32timezone',  # pywin32 hidden dependency

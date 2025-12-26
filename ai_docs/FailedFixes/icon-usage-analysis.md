@@ -1,18 +1,17 @@
 # Icon Usage Analysis
 
 **Date**: 2025-12-26
-**Purpose**: Document how ICO files are used in the codebase to understand the feedback icon issue.
+**Status**: RESOLVED - Using pre-generated PNG for feedback state
 
 ## Icon Inventory
 
 | Icon File | Used? | Purpose |
 |-----------|-------|---------|
-| `stopwatch-pictogram-green.ico` | ✓ | Active tracking state + feedback recolor source |
-| `stopwatch-pictogram-faded.ico` | ✓ | Inactive/quitting states |
-| `stopwatch-paused.ico` | ✓ | Paused state |
-| `SYNCOPaiD.ico` | ✓ | Main window icon + exe icon |
-| `stopwatch-pictogram-orange.ico` | ✗ | **UNUSED** - renders invisible |
-| `stopwatch-pictogram-orange2.ico` | ✗ | **UNUSED** - regeneration attempt, also invisible |
+| `stopwatch-pictogram-green.ico` | Yes | Active tracking state |
+| `stopwatch-pictogram-faded.ico` | Yes | Inactive/quitting states |
+| `stopwatch-paused.ico` | Yes | Paused state |
+| `stopwatch-feedback.png` | Yes | Feedback flash (pre-generated 64x64 PNG) |
+| `SYNCOPaiD.ico` | Yes | Main window icon + exe icon |
 
 ## System Tray Icon Flow
 
@@ -26,19 +25,16 @@ flowchart TD
         QUITTING["state = 'quitting'"]
     end
 
-    subgraph Icons["ICO Files"]
+    subgraph Icons["Icon Files"]
         GREEN["stopwatch-pictogram-green.ico"]
         FADED["stopwatch-pictogram-faded.ico"]
         PAUSE_ICO["stopwatch-paused.ico"]
-        ORANGE["stopwatch-pictogram-orange.ico"]
+        FEEDBACK_PNG["stopwatch-feedback.png"]
     end
 
     subgraph Processing["Image Processing"]
-        LOAD["PIL Image.open()"]
-        CONVERT["convert('RGBA')"]
-        RESIZE["resize(64x64)"]
-        CLEAR["info.clear()"]
-        RECOLOR["recolor_green_to_orange()"]
+        LOAD_ICO["PIL Image.open()\nconvert('RGBA')\nresize(64x64)\ninfo.clear()"]
+        LOAD_PNG["PIL Image.open()\nconvert('RGBA')"]
         SLEEP_OVL["add_sleep_overlay()"]
         PAUSE_OVL["add_pause_overlay()"]
     end
@@ -47,28 +43,11 @@ flowchart TD
         PYSTRAY["pystray Icon"]
     end
 
-    ON --> GREEN
-    FEEDBACK --> GREEN
-    PAUSED --> PAUSE_ICO
-    INACTIVE --> FADED
+    ON --> GREEN --> LOAD_ICO --> PYSTRAY
+    FEEDBACK --> FEEDBACK_PNG --> LOAD_PNG --> PYSTRAY
+    PAUSED --> PAUSE_ICO --> LOAD_ICO --> PAUSE_OVL --> PYSTRAY
+    INACTIVE --> FADED --> LOAD_ICO --> SLEEP_OVL --> PYSTRAY
     QUITTING --> FADED
-
-    GREEN --> LOAD
-    FADED --> LOAD
-    PAUSE_ICO --> LOAD
-
-    ORANGE -.->|"BROKEN: renders invisible"| LOAD
-
-    LOAD --> CONVERT --> RESIZE --> CLEAR
-
-    CLEAR --> RECOLOR
-    CLEAR --> SLEEP_OVL
-    CLEAR --> PAUSE_OVL
-    CLEAR --> PYSTRAY
-
-    RECOLOR -->|"feedback state only"| PYSTRAY
-    SLEEP_OVL -->|"inactive state only"| PYSTRAY
-    PAUSE_OVL -->|"paused state only"| PYSTRAY
 ```
 
 ## Main Window Icon Flow
@@ -97,66 +76,35 @@ flowchart TD
         B2["stopwatch-pictogram-faded.ico"]
         B3["stopwatch-paused.ico"]
         B4["stopwatch-pictogram-green.ico"]
+        B5["stopwatch-feedback.png"]
     end
 
-    subgraph NotBundled["NOT Bundled (orphaned files)"]
-        N1["stopwatch-pictogram-orange.ico"]
-        N2["stopwatch-pictogram-orange2.ico"]
-    end
-
-    style N1 fill:#ffcccc
-    style N2 fill:#ffcccc
+    style B5 fill:#ccffcc
 ```
 
-## The Feedback Icon Problem
+## Resolution
 
-```mermaid
-flowchart TD
-    subgraph Problem["Why Orange ICO Files Fail"]
-        CLICK["User left-clicks tray"]
-        WANT["Want: orange flash for 1 second"]
+The orange ICO invisibility issue was resolved by using a **pre-generated PNG** instead of:
+- Loading orange ICO files directly (all failed)
+- Runtime recoloring of green ICO (worked but was "ad hoc")
 
-        subgraph Attempted["Approaches Tried"]
-            A1["Use stopwatch-pictogram-orange.ico"]
-            A2["Regenerate from SVG → orange2.ico"]
-            A3["PIL-generate new ICO file"]
-        end
+### Why PNG Works
 
-        subgraph Results["Results"]
-            R1["INVISIBLE"]
-            R2["INVISIBLE"]
-            R3["INVISIBLE"]
-        end
+1. PNG format is simpler and doesn't have ICO's multi-size complexity
+2. The PNG is pre-generated at 64x64 (exact size needed for system tray)
+3. No ICO metadata that could conflict with pystray's serialization
 
-        A1 --> R1
-        A2 --> R2
-        A3 --> R3
-    end
+### Files Removed
 
-    subgraph Workaround["Current Workaround"]
-        W1["Load green ICO"]
-        W2["Recolor pixels in memory"]
-        W3["Pass to pystray"]
-        WORKS["WORKS ✓"]
+The following orphaned files were deleted:
+- `stopwatch-pictogram-orange.ico` - rendered invisible on Windows
+- `stopwatch-pictogram-orange2.ico` - regeneration attempt, also invisible
 
-        W1 --> W2 --> W3 --> WORKS
-    end
+### Root Cause (Unconfirmed)
 
-    style R1 fill:#ffcccc
-    style R2 fill:#ffcccc
-    style R3 fill:#ffcccc
-    style WORKS fill:#ccffcc
-```
+The exact root cause of why orange ICO files rendered invisible was never identified. Likely hypotheses:
+- PIL-saved ICOs differ from Inkscape-created ICOs in ways Windows rejects
+- Color-specific rendering issues in Windows icon handling
+- ICO metadata conflicts with pystray's serialization
 
-## Key Insight
-
-The issue is NOT with:
-- The orange color values
-- The ICO file structure
-- The PIL processing pipeline
-
-The issue IS with:
-- Any orange ICO **file** loaded from disk → invisible
-- But modifying pixels **in memory** after loading green ICO → works
-
-This suggests something about how these specific orange ICO files were created/saved that Windows/pystray doesn't like, but we haven't identified the root cause.
+The PNG solution bypasses all these potential issues.
