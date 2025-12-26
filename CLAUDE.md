@@ -16,6 +16,16 @@
 | **Activity** | **Activity** | A tracked window/application event with start time, duration, and context. |
 | **Review** | **Review** | The user workflow: accept or reject AI suggestions. NOT "manage" or "organize." |
 
+**When to use which term:**
+
+| Context | Use | Example |
+|---------|-----|---------|
+| Source code (variables, classes, comments) | Bucket | `bucket_id`, `assign_to_bucket()` |
+| Technical documentation | Bucket | "Activities are categorized into buckets" |
+| UI mockups and wireframes | Matter | Dialog showing "Matter: Smith v. Jones" |
+| User-facing labels in the app | Matter | Menu item "Filter by Matter" |
+| Error messages shown to users | Matter | "No matter selected" |
+
 **Why this matters:** Using "Matter" internally may cause AI assistants to build practice management features (create matter, edit matter, archive matter). "Bucket" reminds us these are just imported folder paths used as labels — nothing to manage.
 
 **Avoid in code/docs:**
