@@ -29,36 +29,26 @@ This is a **dialog** (action), not a view. It opens on top of the current view a
 │  Matters needing attention:                                              │
 │                                                                          │
 │  ┌────────────────────────────────────────────────────────────────────┐  │
-│  │  MATTER                    WIP         LAST BILLED    STATUS       │  │
+│  │  MATTER                    WIP         LAST BILLED    BUDGET       │  │
 │  │  ══════════════════════════════════════════════════════════════    │  │
-│  │  ⚠ Smith v. Jones          $4,250      45 days ago    Overdue      │  │
-│  │  ⚠ Williams Estate         $2,800      38 days ago    Overdue      │  │
-│  │  ● Acme Corp Merger        $1,950      12 days ago    On track     │  │
-│  │  ▲ Henderson Contract      $8,200      5 days ago     Near budget  │  │
-│  │  ● Davis Litigation        $650        3 days ago     On track     │  │
+│  │  Smith v. Jones            $4,250      45 days ago    $5,000       │  │
+│  │  Williams Estate           $2,800      38 days ago    $10,000      │  │
+│  │  Acme Corp Merger          $1,950      12 days ago    $15,000      │  │
+│  │  Henderson Contract        $8,200      5 days ago     $8,000       │  │
+│  │  Davis Litigation          $650        3 days ago     —            │  │
 │  │                                                                    │  │
 │  └────────────────────────────────────────────────────────────────────┘  │
 │                                                                          │
 │  ┌─ Summary ──────────────────────────────────────────────────────────┐  │
-│  │  Total unbilled WIP:  $17,850                                      │  │
-│  │  Matters overdue:     2                                            │  │
-│  │  Matters near budget: 1                                            │  │
+│  │  Total unbilled WIP:      $17,850                                  │  │
+│  │  Time queued for AI:      4.5 hrs                                  │  │
+│  │  Matters overbudget:      1                                        │  │
 │  └────────────────────────────────────────────────────────────────────┘  │
 │                                                                          │
 │                               [View Activities]  [Export for Billing]    │
 │                                                                          │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
-
----
-
-## Status Indicators
-
-| Icon | Status | Meaning |
-|------|--------|---------|
-| ⚠ | Overdue | No billing in 30+ days with accumulated WIP |
-| ▲ | Near budget | WIP approaching matter budget (if set) |
-| ● | On track | Recently billed or low WIP accumulation |
 
 ---
 
@@ -69,13 +59,13 @@ This is a **dialog** (action), not a view. It opens on top of the current view a
 | Matter | The matter name (from imported folder structure) |
 | WIP | Unbilled work-in-progress dollar value |
 | Last Billed | Days since time was last marked as "Billed" |
-| Status | Billing urgency indicator |
+| Budget | The matter's budget amount (— if no budget set) |
 
 ---
 
 ## Sorting
 
-Default sort: Most urgent first (Overdue → Near budget → On track), then by WIP amount descending.
+Default sort: WIP amount descending (highest unbilled work first).
 
 Users can click column headers to re-sort.
 
@@ -101,15 +91,9 @@ Users can click column headers to re-sort.
 
 ## Configuration
 
-### Overdue Threshold
-
-Default: 30 days since last billed activity.
-
-Configurable via **File → Settings → Billing → Overdue threshold**
-
 ### Budget Tracking
 
-Budgets are optional. If a matter has a budget set (via folder metadata or manual entry), the "Near budget" warning appears at 80% utilization.
+Budgets are optional. If a matter has a budget set (via folder metadata or manual entry), the Budget column displays the amount. Matters without budgets show "—".
 
 ---
 
@@ -126,8 +110,8 @@ Budgets are optional. If a matter has a budget set (via folder metadata or manua
 This dialog exists because **getting paid is a goal**. Lawyers need to know:
 
 1. **What has accumulated WIP?** — Time tracked but not yet billed
-2. **What's overdue?** — Matters that haven't been billed in a while
-3. **What's near budget?** — Matters approaching limits
+2. **What's waiting for AI categorization?** — Time queued for AI review
+3. **What's overbudget?** — Matters where WIP exceeds budget
 
 This is not "analytics" — it's **actionable billing triage**.
 
