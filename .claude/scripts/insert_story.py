@@ -1,1 +1,0 @@
-../../StoryTree/claude/scripts/insert_story.py

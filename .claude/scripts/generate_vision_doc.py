@@ -1,1 +1,0 @@
-../../StoryTree/claude/scripts/generate_vision_doc.py
