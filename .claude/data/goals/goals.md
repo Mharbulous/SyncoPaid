@@ -11,9 +11,20 @@ The AI does the heavy lifting. Users review and confirm — they don't organize,
 
 ## What This App Is
 - A **time tracking app** — not practice management software
+- A **Windows desktop app** — following standard Windows conventions, not web/SaaS patterns
 - A tool that **fits into the user's existing workflow** — not one that replaces it
 - An app that uses the **user's own folder structure** as buckets (see [Terminology](../../../CLAUDE.md#terminology))
 - A **review workflow** — not a management workflow
+
+## UI Philosophy
+
+SyncoPaid follows standard Windows desktop conventions:
+
+- **Standard Windows desktop layout**: Menu bar → Toolbar → Content → Status bar
+- **Menu bar for navigation**: Switch views via View menu, not sidebars or tabs
+- **Minimal views**: Timeline and Activities only — two views is enough
+- **Actions in menus**: Export, Import, Settings are actions, not destinations
+- **Toolbar for frequent controls**: Tracking toggle, date picker
 
 ## Target User
 Lawyers who need to track billable hours across multiple matters and clients, particularly those frustrated with manual time entry and seeking to reduce administrative overhead while maintaining accurate billing records.
@@ -56,6 +67,8 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 7. **Preserve All History**: Archive rather than delete — screenshots and activity data are valuable evidence, never throw them away.
 
 8. **Lawyer-Specific Workflows**: Built for legal billing conventions (6-minute increments, matter/client structures, legal research sources like Westlaw/CanLII).
+
+9. **Follow Platform Conventions**: Use standard Windows UI patterns. No sidebars, tab bars, or web/SaaS patterns in a desktop app.
 
 ---
 *For terminology definitions, see [CLAUDE.md](../../../CLAUDE.md#terminology).*
