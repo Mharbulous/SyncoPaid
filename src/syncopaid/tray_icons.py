@@ -85,6 +85,9 @@ def create_icon_image(state: str = "on") -> Optional["Image.Image"]:
             # ICO files contain multiple sizes; resize to target
             image = ico.convert('RGBA')
             image = image.resize((size, size), Image.Resampling.LANCZOS)
+            # Clear ICO metadata so pystray serializes a clean icon
+            # (prevents Windows LoadImage issues with stale size info)
+            image.info.clear()
         except Exception as e:
             logging.warning(f"Could not load ICO icon: {e}")
 
