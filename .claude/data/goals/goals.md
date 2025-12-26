@@ -45,6 +45,7 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 - **Screenshot-Assisted Clarification**: When AI is uncertain, show relevant screenshots to help users identify the work: "What were you working on here?"
 - **Batch Approval**: Accept all high-confidence suggestions at once to minimize clicks
 - **Billing Status Tracking**: Mark time as WIP, Billed, or Non-Billable
+- **Billing Queue**: Simple view showing which buckets have accumulated WIP that needs billing — helps users identify what to invoice next
 
 ### Setup (One-Time)
 - **Import Folder Structure**: Import the user's existing folder structure from their file system. Folder names become buckets, used exactly as-is — no parsing or interpretation of naming conventions
@@ -69,6 +70,8 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 8. **Lawyer-Specific Workflows**: Built for legal billing conventions (6-minute increments, matter/client structures, legal research sources like Westlaw/CanLII).
 
 9. **Follow Platform Conventions**: Use standard Windows UI patterns. No sidebars, tab bars, or web/SaaS patterns in a desktop app.
+
+10. **Leverage Existing Tools**: Don't rebuild what Windows already provides. Open screenshots in File Explorer (real deletion, familiar interface, user trust). Use standard dialogs. Let users work with tools they already know.
 
 ---
 *For terminology definitions, see [CLAUDE.md](../../../CLAUDE.md#terminology).*
