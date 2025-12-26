@@ -71,7 +71,7 @@ def create_icon_image(state: str = "on") -> Optional["Image.Image"]:
     elif state == "paused":
         ico_path = get_resource_path("assets/stopwatch-paused.ico")
     elif state == "feedback":
-        ico_path = get_resource_path("assets/stopwatch-paused.ico")
+        ico_path = get_resource_path("assets/stopwatch-pictogram-orange.ico")
     elif state == "quitting":
         ico_path = get_resource_path("assets/stopwatch-pictogram-faded.ico")
     else:  # "on" or default
