@@ -36,9 +36,9 @@ The Client Matter Details view shows information about a selected client or matt
 │  │                                                                       │  │
 │  │  Time Tracked                                                         │  │
 │  │  ─────────────────────────────────────────────────────────────────    │  │
-│  │  Today:         1.5 hrs                                               │  │
-│  │  This Week:     4.2 hrs                                               │  │
-│  │  This Month:   18.5 hrs                                               │  │
+│  │  WIP:          18.5 hrs                                               │  │
+│  │  Billed:       20.6 hrs                                               │  │
+│  │  Non-Billable:  3.2 hrs                                               │  │
 │  │  Total:        42.3 hrs                                               │  │
 │  │                                                                       │  │
 │  │  Recent Activities                                                    │  │
@@ -82,9 +82,9 @@ Displays the client/matter name as it appears in the folder structure.
 
 | Metric | Description |
 |--------|-------------|
-| Today | Hours tracked today |
-| This Week | Hours tracked this week |
-| This Month | Hours tracked this month |
+| WIP | Work in progress - tracked but not yet billed |
+| Billed | Hours that have been billed |
+| Non-Billable | Hours marked as non-billable |
 | Total | All-time hours for this client/matter |
 
 ### Recent Activities
