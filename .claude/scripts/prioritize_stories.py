@@ -1,1 +1,0 @@
-../../StoryTree/claude/scripts/prioritize_stories.py

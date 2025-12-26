@@ -1,1 +1,0 @@
-../../StoryTree/claude/scripts/story_workflow.py
