@@ -168,6 +168,26 @@ Everything else is a dialog, not a view.
 
 ## Anti-Patterns to Avoid
 
+### Over-Engineering Simple Features
+*This is what happens when developers reach for abstractions before exhausting simple solutions.*
+
+Before creating any new module, class, or abstraction, ask:
+- Can this be done by modifying an existing function? (Usually yes)
+- Does this new infrastructure justify its existence? (Usually no)
+- Am I solving a real problem or an imagined future problem? (Usually imagined)
+
+**Real example from this codebase:**
+- **Wrong approach**: Create a new `click_recorder.py` module with a pynput listener to record all mouse clicks as events
+- **Right approach**: Modify the existing `record_time_marker()` method (13 lines changed) that's already wired to the tray icon left-click
+
+The wrong approach added 150+ lines across 4 files. The right approach changed 13 lines in 1 file. Same result.
+
+**Signs you're over-engineering:**
+- Creating a new file when a function edit would suffice
+- Adding a dependency (pynput) when existing code (pystray callback) already does the job
+- Building infrastructure for a feature that has one use case
+- Writing "future-proof" code for futures that may never arrive
+
 ### Action Without Context
 *This is the most important anti-pattern to avoid — and it applies to entire views, not just individual buttons.*
 
