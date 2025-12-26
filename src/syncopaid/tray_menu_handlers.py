@@ -6,6 +6,7 @@ Separated from main TrayIcon class to reduce file size.
 
 import logging
 from syncopaid.tray_startup import is_startup_enabled, enable_startup, disable_startup
+from syncopaid.tray_icons import create_icon_image
 
 # Version info
 try:
@@ -91,7 +92,10 @@ class TrayMenuHandlers:
     def _handle_quit(self, icon, item):
         """Handle Quit menu item."""
         logging.info("User quit from tray menu")
-        # Stop the tray icon first to release the event loop
+        # Show faded icon immediately to give user feedback that quit is in progress
+        if self.icon:
+            self.icon.icon = create_icon_image("quitting")
+        # Stop the tray icon to release the event loop
         if self.icon:
             self.icon.stop()
         # Then run cleanup callback (which may call sys.exit)
