@@ -57,7 +57,13 @@
       "lines": 45
     },
     "src/syncopaid/tray.py": {
-      "lines": 323
+      "lines": 215
+    },
+    "src/syncopaid/tray_state.py": {
+      "lines": 96
+    },
+    "src/syncopaid/tray_feedback.py": {
+      "lines": 97
     },
     "src/syncopaid/tray_icons.py": {
       "lines": 193

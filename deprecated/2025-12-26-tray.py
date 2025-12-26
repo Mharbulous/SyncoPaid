@@ -19,6 +19,7 @@ Interactions:
 """
 
 import logging
+import threading
 from typing import Callable, Optional
 
 # Import helper modules
@@ -26,8 +27,6 @@ from syncopaid.tray_startup import sync_startup_registry
 from syncopaid.tray_icons import create_icon_image
 from syncopaid.tray_menu_handlers import TrayMenuHandlers
 from syncopaid.tray_console_fallback import TrayConsoleFallback
-from syncopaid.tray_state import TrayStateManager
-from syncopaid.tray_feedback import TrayFeedbackHandler
 
 # Version info
 try:
@@ -43,7 +42,7 @@ except ImportError:
     logging.warning("pystray not available. Install with: pip install pystray Pillow")
 
 
-class TrayIcon(TrayStateManager, TrayFeedbackHandler, TrayMenuHandlers, TrayConsoleFallback):
+class TrayIcon(TrayMenuHandlers, TrayConsoleFallback):
     """
     System tray icon manager - primary entry point for user interactions.
 
@@ -81,11 +80,6 @@ class TrayIcon(TrayStateManager, TrayFeedbackHandler, TrayMenuHandlers, TrayCons
             on_time_marker: Callback for left-click time marker recording
             config_manager: ConfigManager instance for persisting settings
         """
-        # Initialize parent classes
-        TrayStateManager.__init__(self)
-        TrayFeedbackHandler.__init__(self)
-
-        # Store callbacks
         self.on_start = on_start or (lambda: None)
         self.on_pause = on_pause or (lambda: None)
         self.on_open = on_open or (lambda: None)
@@ -93,8 +87,122 @@ class TrayIcon(TrayStateManager, TrayFeedbackHandler, TrayMenuHandlers, TrayCons
         self.on_time_marker = on_time_marker or (lambda: None)
         self.config_manager = config_manager
 
+        self.icon: Optional[pystray.Icon] = None
+        self.is_tracking = True
+        self.is_inactive = False  # True when no activity for 5 minutes
+        self._feedback_in_progress = False  # Prevent overlapping feedback
+
         if not TRAY_AVAILABLE:
             logging.error("System tray not available - pystray not installed")
+
+    def _get_current_state(self) -> str:
+        """Get the current icon state based on tracking and inactive flags."""
+        if not self.is_tracking:
+            return "paused"
+        elif self.is_inactive:
+            return "inactive"
+        else:
+            return "on"
+
+    def update_icon_status(self, is_tracking: bool):
+        """
+        Update icon based on tracking status (user pause/unpause).
+
+        Args:
+            is_tracking: True if tracking, False if user paused
+        """
+        self.is_tracking = is_tracking
+        if is_tracking:
+            self.is_inactive = False  # Clear inactive when user resumes
+
+        self._refresh_icon()
+
+    def set_inactive(self, inactive: bool):
+        """
+        Set inactive state (no activity detected for 5 minutes).
+
+        This shows the faded icon with sleep emoji. Only applies when
+        is_tracking is True (user hasn't manually paused).
+
+        Args:
+            inactive: True if no activity detected, False when activity resumes
+        """
+        if self.is_inactive != inactive:
+            self.is_inactive = inactive
+            if self.is_tracking:  # Only update if not manually paused
+                self._refresh_icon()
+                if inactive:
+                    logging.info("User inactive - showing sleep icon")
+                else:
+                    logging.info("User active - showing normal icon")
+
+    def _refresh_icon(self):
+        """Refresh the icon based on current state."""
+        if self.icon:
+            state = self._get_current_state()
+            self.icon.icon = create_icon_image(state)
+            # Update tooltip to reflect state
+            if state == "paused":
+                self.icon.title = f"SyncoPaid v{__product_version__} - Paused"
+            elif state == "inactive":
+                self.icon.title = f"SyncoPaid v{__product_version__} - Inactive"
+            else:
+                self.icon.title = f"SyncoPaid v{__product_version__}"
+
+    def _record_time_marker(self, icon=None, item=None):
+        """
+        Handle left-click: record a time marker with visual feedback.
+
+        This records a task transition/interruption timestamp and provides
+        brief visual feedback (orange icon + toast notification).
+        """
+        # Prevent overlapping feedback animations
+        if self._feedback_in_progress:
+            return
+
+        self._feedback_in_progress = True
+        logging.info("User recorded time marker via left-click")
+
+        try:
+            # Call the time marker callback to record in database
+            self.on_time_marker()
+
+            # Show visual feedback: flash orange icon
+            if self.icon:
+                # Save current state to restore later
+                original_state = self._get_current_state()
+
+                # Show orange (paused) icon as feedback
+                self.icon.icon = create_icon_image("paused")
+
+                # Show toast notification
+                try:
+                    self.icon.notify(
+                        "Transition recorded",
+                        "SyncoPaid"
+                    )
+                except Exception as e:
+                    logging.debug(f"Toast notification not available: {e}")
+
+                # Schedule icon reset after 1 second
+                def reset_icon():
+                    try:
+                        if self.icon:
+                            self.icon.icon = create_icon_image(original_state)
+                    except Exception as e:
+                        logging.debug(f"Error resetting icon: {e}")
+                    finally:
+                        self._feedback_in_progress = False
+
+                timer = threading.Timer(1.0, reset_icon)
+                timer.daemon = True
+                timer.start()
+            else:
+                self._feedback_in_progress = False
+
+        except Exception as e:
+            logging.error(f"Error recording time marker: {e}", exc_info=True)
+            self._feedback_in_progress = False
 
     def _create_menu(self):
         """
@@ -115,7 +223,7 @@ class TrayIcon(TrayStateManager, TrayFeedbackHandler, TrayMenuHandlers, TrayCons
             # Hidden default item for left-click - records time marker
             pystray.MenuItem(
                 "Record Time Marker",
-                self.record_time_marker,
+                self._record_time_marker,
                 default=True,
                 visible=False
             ),
