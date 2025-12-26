@@ -1,10 +1,14 @@
 # What This Product is NOT
 
-## Core Anti-Principle
+## Core Anti-Principles
 
 > **If it requires manual effort, question whether the AI should handle it instead.**
 
 The opposite of "The AI proposes, the user disposes" is "The user organizes, manages, and manually categorizes." We reject that model entirely.
+
+> **If a feature doesn't help achieve a goal, it doesn't belong.**
+
+Don't ask "Is this compatible with our goals?" — that's too permissive. Ask "Does this help achieve a goal?" If the answer isn't clearly yes, the feature doesn't earn inclusion. Being harmless isn't enough.
 
 ---
 
@@ -160,8 +164,19 @@ No popup overlays, global hotkeys, or interruptions during work.
 ### Feature Bloat Based on Assumptions
 Don't build what "most app builders assume lawyers want" — focus on actual user needs.
 
-### Complex Configuration
-Avoid premature optimization settings that add complexity without clear value.
+### Customization for Customization's Sake
+Every setting is a decision forced on the user. Don't add options just because you can — add them only when users genuinely need choice.
+
+**The test:** If a sensible default exists, use it instead of adding a setting.
+
+Examples of settings that don't earn inclusion:
+- Poll interval, idle threshold, merge threshold (technical internals)
+- Screenshot quality, capture interval (optimization details)
+- Theme, language, date format (use system settings)
+- CPU limits, memory limits, process priority (app should just work)
+
+### Cloud-First AI
+User data should never leave the machine by default. Local LLMs (Moondream) are the default; cloud processing (Gemini) requires explicit opt-in with a clear warning about data transmission.
 
 ### Web UI Patterns in Desktop Apps
 Don't use sidebars, tab bars, dashboards, or card layouts. SyncoPaid is a Windows desktop app — use menu bars, toolbars, and standard Windows controls.
@@ -174,9 +189,27 @@ If a feature answers "what should I bill?" it's billing triage (in scope).
 
 ## YAGNI Items
 
-### Screenshot Quality Optimization
-Configurable JPEG quality levels, WebP formats, resolution scaling, per-monitor settings.
-*Why: Unnecessary complexity before we know storage is actually a problem.*
+These are features that might seem reasonable but don't help achieve goals:
+
+### Screenshot Optimization Settings
+Configurable JPEG quality levels, WebP formats, resolution scaling, similarity thresholds, per-monitor settings.
+*Why: Unnecessary complexity. Use sensible defaults; the app should just work.*
+
+### Capture Tuning Settings
+Poll interval, idle threshold, merge threshold, capture interval.
+*Why: Technical internals users shouldn't need to understand. Pick good defaults.*
+
+### Performance Tuning Settings
+CPU limits, memory limits, process priority, database vacuum scheduling.
+*Why: Premature optimization. The app should be efficient by design, not by user configuration.*
+
+### Appearance Customization
+Theme selection, language selection, date/time format preferences.
+*Why: Use system settings. Don't duplicate what the OS already provides.*
+
+### AI Confidence Thresholds
+Auto-categorize threshold, review threshold, confidence sliders.
+*Why: The AI should handle this. Users shouldn't tune machine learning parameters.*
 
 ### Quick Actions System
 Keyboard-activated popups for common tasks.
@@ -185,6 +218,10 @@ Keyboard-activated popups for common tasks.
 ### Advanced Table Features
 Column resizing, custom column ordering, saved views, export to CSV.
 *Why: This is list management, not review workflow.*
+
+### API Key Management
+Direct API key entry for cloud LLM providers.
+*Why: Local LLMs don't need keys; cloud should use OAuth or simpler auth flows.*
 
 ---
 
@@ -199,11 +236,15 @@ Column resizing, custom column ordering, saved views, export to CSV.
 - A tool that fits into the user's existing workflow
 - Focused on capture, categorization, review, and billing
 - **Two views only**: Timeline and Activities (everything else is a dialog)
+- **Local-first AI** — data stays on the machine by default
+- **Good defaults** — works out of the box without configuration
 
 **What This Product is NOT:**
 - A **web/SaaS app** — no sidebars, tab bars, dashboards, or card layouts
 - A **management workflow** — user organizes, filters, assigns
 - A **productivity analytics platform** — no charts, trends, or metrics
+- A **highly configurable power-user tool** — settings are minimal, defaults are good
+- A **cloud-first app** — local processing by default, cloud is opt-in
 - Practice management software
 - A client/matter management system
 - A screenshot browsing system

@@ -93,7 +93,13 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 
 11. **Self-Documenting Terminology**: Use terms that make clear who does the work. Prefer "Queued for AI" over "Uncategorized" — the former shows AI will act, the latter implies user must act. Language should reinforce the AI-driven philosophy throughout the UI.
 
-10. **Focus on Getting Paid**: Features should help lawyers convert tracked time into billed time. If a feature doesn't support capture, categorization, review, or billing — question whether it belongs.
+12. **Focus on Getting Paid**: Features should help lawyers convert tracked time into billed time. If a feature doesn't support capture, categorization, review, or billing — question whether it belongs.
+
+13. **Good Defaults Over Configuration**: The app should "just work" without requiring configuration. Every setting is a decision forced on the user. Prefer sensible defaults; only add settings when users genuinely need choice.
+
+14. **Local-First AI**: Process data locally by default using local LLMs (Moondream). Cloud processing is opt-in with explicit consent. User data never leaves the machine unless the user explicitly chooses otherwise.
+
+15. **Features Must Earn Inclusion**: Don't ask "Is this compatible with our goals?" — ask "Does this help achieve a goal?" If a feature doesn't actively advance capture, categorization, review, or billing, it doesn't belong. Being harmless isn't enough.
 
 ---
 *For terminology definitions, see [CLAUDE.md](../../../CLAUDE.md#terminology).*
