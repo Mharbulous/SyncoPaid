@@ -61,7 +61,7 @@ Time markers are timestamps that indicate when the user switched tasks or was in
 │      │               │                                                      │
 │      │          ┌────┴────────────┐                                         │
 │      │          │ ▶ Start/Pause   │ ◄── Toggle tracking (no window)         │
-│      │          │ 📊 Open Window  │ ◄── Opens Main Window                   │
+│      │          │ Open SyncoPaid  │ ◄── Opens Main Window                   │
 │      │          │ ✕ Quit          │ ◄── Exit app completely                 │
 │      │          └─────────────────┘                                         │
 │      │                                                                      │
