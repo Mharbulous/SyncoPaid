@@ -1,13 +1,13 @@
 # Settings Modal
 
-> **Last Updated:** 2025-12-25
+> **Last Updated:** 2025-12-26
 > **Parent:** [Navigation Index](2025-12-25-Navigation-Index.md)
 
 ---
 
 ## Overview
 
-The Settings Modal provides access to all application configuration options, organized by category.
+The Settings Modal provides access to essential application configuration. Settings are minimal — if a sensible default exists, we use it instead of adding a setting.
 
 ---
 
@@ -26,16 +26,14 @@ The Settings Modal provides access to all application configuration options, org
 │                                                                             │
 │  ┌─ SIDEBAR ───────┐  ┌─ CONTENT ─────────────────────────────────────┐     │
 │  │                 │  │                                               │     │
-│  │  General        │  │  TRACKING                                     │     │
-│  │  Tracking  ◄────┼──┤  ─────────────────────────────────────────    │     │
-│  │  Screenshots    │  │                                               │     │
-│  │  AI / LLM       │  │  Poll interval:     [1 second ▼]              │     │
-│  │  Privacy        │  │  Idle threshold:    [3 minutes ▼]             │     │
-│  │  Performance    │  │  Merge threshold:   [2 seconds ▼]             │     │
-│  │                 │  │                                               │     │
-│  │                 │  │  ☑ Start tracking on app launch               │     │
+│  │  Startup   ◄────┼──┤  STARTUP                                      │     │
+│  │  Screenshots    │  │  ─────────────────────────────────────────    │     │
+│  │  AI             │  │                                               │     │
+│  │  Privacy        │  │  ☑ Start tracking on app launch               │     │
 │  │                 │  │  ☑ Start app on Windows login                 │     │
-│  │                 │  │  ☐ Show notification on pause                 │     │
+│  │                 │  │  ☐ Start minimized to tray                    │     │
+│  │                 │  │                                               │     │
+│  │                 │  │                                               │     │
 │  │                 │  │                                               │     │
 │  └─────────────────┘  └───────────────────────────────────────────────┘     │
 │                                                                             │
@@ -47,47 +45,32 @@ The Settings Modal provides access to all application configuration options, org
 
 ## Settings Categories
 
-### General
+### Startup
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| Language | Application language | English |
-| Theme | Light / Dark / System | System |
-| Window behavior | Remember position, Start minimized | Remember |
-| Date format | Date display format | System default |
-| Time format | 12-hour / 24-hour | System default |
-
-### Tracking
-
-| Setting | Description | Default |
-|---------|-------------|---------|
-| Poll interval | How often to check active window | 1 second |
-| Idle threshold | Time before marking as idle | 3 minutes |
-| Merge threshold | Combine activities shorter than | 2 seconds |
-| Start tracking on app launch | Auto-start tracking | ☑ |
-| Start app on Windows login | Launch at startup | ☑ |
-| Show notification on pause | System notification | ☐ |
+| Start tracking on app launch | Begin tracking automatically | ☑ |
+| Start app on Windows login | Launch at system startup | ☑ |
+| Start minimized to tray | Hide window on launch | ☐ |
 
 ### Screenshots
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| Enable screenshots | Capture screenshots | ☑ |
-| Capture interval | Time between captures | 10 seconds |
-| Quality | JPEG quality (1-100) | 80 |
+| Enable screenshots | Capture screenshots for AI context | ☑ |
 | Retention | Days to keep screenshots | 30 days |
-| Skip duplicates | Use dHash deduplication | ☑ |
-| Excluded apps | Apps to never screenshot | (list) |
 
-### AI / LLM
+### AI
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| Enable AI categorization | Allow AI features | ☑ |
-| API provider | OpenAI / Claude / Local | OpenAI |
-| API key | API key for provider | (encrypted) |
-| Auto-categorize threshold | Confidence level for auto-apply | 90% |
-| Review low-confidence | Prompt review for uncertain | ☑ |
+| Enable AI categorization | Allow AI to categorize activities | ☑ |
+| AI Model | Local or cloud-based AI model | Moondream 2 |
+
+**AI Model options:**
+- **Moondream 2** — Local processing, no data leaves your computer
+- **Moondream 3** — Local processing, no data leaves your computer
+- **Gemini 2.0 Flash** — Cloud processing ⚠️
 
 ### Privacy
 
@@ -99,37 +82,20 @@ The Settings Modal provides access to all application configuration options, org
 | Clear all data | Delete all tracked data | (button) |
 | Export all data | GDPR data export | (button) |
 
-### Performance
-
-| Setting | Description | Default |
-|---------|-------------|---------|
-| Max CPU usage | Throttle when above | 10% |
-| Memory limit | Maximum RAM usage | 200 MB |
-| Background priority | Process priority when hidden | Low |
-| Database vacuum | Auto-optimize database | Weekly |
-
 ---
 
 ## Category Details
 
-### General Settings Page
+### Startup Settings Page
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  GENERAL                                                                │
+│  STARTUP                                                                │
 │  ─────────────────────────────────────────────────────────────────      │
 │                                                                         │
-│  Language:              [English ▼]                                     │
-│                                                                         │
-│  Theme:                 ● Light   ○ Dark   ○ System                     │
-│                                                                         │
-│  Window:                                                                │
-│  ☑ Remember window position and size                                    │
+│  ☑ Start tracking on app launch                                         │
+│  ☑ Start app on Windows login                                           │
 │  ☐ Start minimized to tray                                              │
-│                                                                         │
-│  Date & Time:                                                           │
-│  Date format:           [MM/DD/YYYY ▼]                                  │
-│  Time format:           ● 12-hour (AM/PM)   ○ 24-hour                   │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -143,26 +109,40 @@ The Settings Modal provides access to all application configuration options, org
 │                                                                         │
 │  ☑ Enable screenshot capture                                            │
 │                                                                         │
-│  Capture interval:      [10 seconds ▼]                                  │
-│  Image quality:         [80 ▼] %                                        │
-│                                                                         │
-│  Storage:                                                               │
 │  Retention period:      [30 days ▼]                                     │
 │  Current usage:         1.2 GB (847 screenshots)                        │
 │                         [Clean Up Now...]                               │
 │                                                                         │
-│  Optimization:                                                          │
-│  ☑ Skip duplicate screenshots (dHash)                                   │
-│  Similarity threshold:  [95 ▼] %                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### AI Settings Page
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  AI                                                                     │
+│  ─────────────────────────────────────────────────────────────────      │
 │                                                                         │
-│  Excluded Applications:                                                 │
-│  ┌─────────────────────────────────────────────────────────────┐        │
-│  │ password manager, banking app, ...                          │        │
-│  └─────────────────────────────────────────────────────────────┘        │
-│  [+ Add Application]                                                    │
+│  ☑ Enable AI categorization                                             │
+│                                                                         │
+│  AI Model:              [Moondream 2 ▼]                                  │
+│                                                                         │
+│  ┌───────────────────────────────────────────────────────────────┐      │
+│  │  ○ Moondream 2      Local processing                          │      │
+│  │  ○ Moondream 3      Local processing                          │      │
+│  │  ○ Gemini 2.0 Flash Cloud processing                          │      │
+│  └───────────────────────────────────────────────────────────────┘      │
+│                                                                         │
+│  ┌─ ⚠ Warning ───────────────────────────────────────────────────┐      │
+│  │  Gemini 2.0 Flash is not a local LLM. Only select this        │      │
+│  │  option if you intend to transmit your data to be processed   │      │
+│  │  online by the Gemini LLM.                                    │      │
+│  └───────────────────────────────────────────────────────────────┘      │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
+
+*Note: Warning only appears when Gemini 2.0 Flash is selected.*
 
 ### Privacy Settings Page
 
@@ -173,7 +153,6 @@ The Settings Modal provides access to all application configuration options, org
 │                                                                         │
 │  Data Retention:                                                        │
 │  Keep activity data for:    [365 days ▼]                                │
-│  Keep screenshots for:      [30 days ▼]                                 │
 │                                                                         │
 │  Excluded Applications (never track):                                   │
 │  ┌─────────────────────────────────────────────────────────────┐        │
@@ -205,6 +184,24 @@ The Settings Modal provides access to all application configuration options, org
 | [✕] | Close without saving (prompts if changes) |
 | Cancel | Discard changes and close |
 | Save | Apply changes and close |
+
+---
+
+## What Was Removed
+
+The following settings were intentionally excluded — sensible defaults are used instead:
+
+| Removed | Rationale |
+|---------|-----------|
+| Language, Date/Time format | Use system settings |
+| Theme (Light/Dark) | Use system theme |
+| Poll interval, Idle threshold, Merge threshold | Technical details; use good defaults |
+| Screenshot quality, Similarity threshold | YAGNI — premature optimization |
+| Screenshot capture interval | Use good default (10s) |
+| Screenshot excluded apps | Consolidated into Privacy exclusions |
+| Performance settings (CPU, Memory, etc.) | Premature optimization; app should just work |
+| AI confidence thresholds | Use good defaults; AI handles this |
+| API keys | Local models don't need keys; Gemini uses OAuth |
 
 ---
 
