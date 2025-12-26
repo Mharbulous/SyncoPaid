@@ -152,20 +152,31 @@ class SyncoPaidApp:
 
     def record_time_marker(self):
         """
-        Record a time marker (task transition/interruption).
+        Record a time marker (stopwatch reset) as an event.
 
         Called when user left-clicks the system tray icon.
-        Stores the marker in the transitions table for AI analysis.
+        Creates a 1-second event in the events table that appears
+        in the main window as a visible marker.
         """
-        from datetime import datetime, timezone
-        timestamp = datetime.now(timezone.utc).isoformat()
-        self.database.insert_transition(
+        from datetime import datetime, timezone, timedelta
+        from syncopaid.tracker_state import ActivityEvent
+
+        now = datetime.now(timezone.utc)
+        timestamp = now.isoformat()
+        end_time = (now + timedelta(seconds=1)).isoformat()
+
+        event = ActivityEvent(
             timestamp=timestamp,
-            transition_type="user_marker",
-            context={"source": "tray_left_click"},
-            user_response=None
+            duration_seconds=1.0,
+            end_time=end_time,
+            app="SyncoPaid.exe",
+            title="SyncoPaid Stopwatch reset",
+            is_idle=False,
+            state="Active"
         )
-        logging.info(f"Time marker recorded at {timestamp}")
+
+        self.database.insert_event(event)
+        logging.info(f"Stopwatch reset recorded at {timestamp}")
 
     def show_export_dialog(self):
         """Show dialog for exporting data."""
