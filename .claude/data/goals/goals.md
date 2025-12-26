@@ -32,15 +32,51 @@ The app doesn't just track time — it helps lawyers turn tracked time into bill
 - An app that uses the **user's own folder structure** as buckets (see [Terminology](../../../CLAUDE.md#terminology))
 - A **review workflow** — not a management workflow
 
+## Two Types of Data
+
+The app handles two fundamentally different types of information:
+
+### Raw Captured Data (What Happened)
+- Window titles and application names
+- Timestamps (start/end times)
+- Duration
+- Idle periods
+- Task-switch markers
+- Screenshots
+
+This is **objective fact** — what SyncoPaid observed. It has no confidence level because it's not a prediction; it's a record.
+
+### AI Interpretations (What AI Proposes)
+- **Bucket assignment**: Which matter/folder does this activity belong to?
+- **Narrative description**: What billing text describes this work?
+- **Confidence levels**: How certain is AI about each proposal?
+
+This is **AI proposal** — what the AI thinks the raw data means. Each interpretation has a confidence level because it's a prediction that could be wrong.
+
+**Why this distinction matters:**
+- Raw data views are for **transparency** (read-only, no editing)
+- AI interpretation views are for **review** (lead to accept/reject decisions)
+- Confidence applies only to AI interpretations, never to raw data
+- Users can verify raw data is accurate (transparency) without making decisions
+- Users make decisions only when reviewing AI proposals (with full context)
+
 ## UI Philosophy
 
 SyncoPaid follows standard Windows desktop conventions:
 
 - **Standard Windows desktop layout**: Menu bar → Toolbar → Content → Status bar
 - **Menu bar for navigation**: Switch views via View menu, not sidebars or tabs
-- **Minimal views**: Timeline and Activities only — two views is enough
+- **Four views organized by data type**:
+  - **Raw Data Views** (transparency, read-only):
+    - *Staircase*: Visual time blocks showing when activities happened
+    - *Table*: Chronological list for verifying what was captured
+  - **AI Review Views** (decisions, lead to full-context review):
+    - *By Bucket*: AI-proposed matter assignments with confidence
+    - *By Narrative*: AI-generated billing text with confidence
 - **Actions as dialogs**: Export, Import, Settings, Billing Review are actions (dialogs), not destinations (views)
 - **Toolbar for frequent controls**: Tracking toggle, date picker
+- **Raw data views are read-only**: No editing actions — transparency means showing what happened, not changing it
+- **AI review views lead to decisions**: Clicking an item opens the full-context Review Interface where accept/reject/correct happens
 
 ## Target User
 Lawyers who need to track billable hours across multiple matters and clients, particularly those frustrated with manual time entry and seeking to reduce administrative overhead while maintaining accurate billing records.
@@ -53,6 +89,8 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 
 ### Categorize (AI)
 - **AI-Powered Categorization**: Intelligent activity classification that matches activities to the user's imported buckets
+- **AI-Generated Narratives**: Billing-ready text descriptions of what work was performed, derived from window titles, screenshots, and context
+- **Dual Confidence Levels**: AI reports separate confidence for bucket assignment and narrative quality — an activity might have high bucket confidence but low narrative confidence (or vice versa)
 - **Confidence-Based Triage**: AI communicates its confidence level (high confidence, needs review, uncertain) so users focus attention where it's needed
 - **Continuous Learning**: AI improves accuracy by learning from user corrections and building bucket-specific patterns
 
@@ -88,33 +126,40 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 
    Never conflate these. A summary of what AI did is not a review interface — it's transparency. Review requires showing the full context of what's being reviewed.
 
-4. **Minimize Manual Effort**: Automate everything possible so lawyers can focus on legal work, not administrative tasks. If a feature requires manual effort, question whether the AI should handle it instead.
+4. **Raw Data Views Are Read-Only**: Views that display raw captured data exist for transparency — users verify their time is being captured accurately. These views have no editing actions because:
+   - Transparency means showing what happened, not changing it
+   - Any editing action (split, delete, assign) requires context not present in raw data views
+   - Decisions belong in the Review Interface where full context (screenshots, AI reasoning) is visible
 
-5. **Non-Intrusive Intelligence**: Run silently in the background. Prompt at natural breaks, never interrupt focused work.
+   If a view shows raw data, it should have no action buttons. If a view needs action buttons, it should show AI proposals with full context.
 
-6. **Use What Already Exists**: Import the user's existing folder structure rather than making them recreate it. Use their naming conventions as-is.
+5. **Minimize Manual Effort**: Automate everything possible so lawyers can focus on legal work, not administrative tasks. If a feature requires manual effort, question whether the AI should handle it instead.
 
-7. **Confidence-Based Attention**: Users shouldn't review everything equally. Surface what needs attention (uncertain items), let AI handle the rest.
+6. **Non-Intrusive Intelligence**: Run silently in the background. Prompt at natural breaks, never interrupt focused work.
 
-8. **Context-Aware Categorization**: Capture rich contextual data (URLs, email subjects, folder paths) to enable accurate AI matching.
+7. **Use What Already Exists**: Import the user's existing folder structure rather than making them recreate it. Use their naming conventions as-is.
 
-9. **Preserve All History**: Archive rather than delete — screenshots and activity data are valuable evidence, never throw them away.
+8. **Confidence-Based Attention**: Users shouldn't review everything equally. Surface what needs attention (uncertain items), let AI handle the rest.
 
-10. **Lawyer-Specific Workflows**: Built for legal billing conventions (6-minute increments, matter/client structures, legal research sources like Westlaw/CanLII).
+9. **Context-Aware Categorization**: Capture rich contextual data (URLs, email subjects, folder paths) to enable accurate AI matching.
 
-11. **Follow Platform Conventions**: Use standard Windows UI patterns. No sidebars, tab bars, or web/SaaS patterns in a desktop app.
+10. **Preserve All History**: Archive rather than delete — screenshots and activity data are valuable evidence, never throw them away.
 
-12. **Self-Documenting Terminology**: Use terms that make clear who does the work. Prefer "Queued for AI" over "Uncategorized" — the former shows AI will act, the latter implies user must act. Language should reinforce the AI-driven philosophy throughout the UI.
+11. **Lawyer-Specific Workflows**: Built for legal billing conventions (6-minute increments, matter/client structures, legal research sources like Westlaw/CanLII).
 
-13. **Focus on Getting Paid**: Features should help lawyers convert tracked time into billed time. If a feature doesn't support capture, categorization, review, or billing — question whether it belongs.
+12. **Follow Platform Conventions**: Use standard Windows UI patterns. No sidebars, tab bars, or web/SaaS patterns in a desktop app.
 
-14. **Show Data, Not Computed Status**: Present facts (WIP amounts, budgets, dates) rather than derived interpretations (Overdue, On Track, Near Budget). Status calculations require complex logic, subjective thresholds, and edge case handling. Simple data lets users draw their own conclusions and avoids the app making judgment calls that may not match user expectations.
+13. **Self-Documenting Terminology**: Use terms that make clear who does the work. Prefer "Queued for AI" over "Uncategorized" — the former shows AI will act, the latter implies user must act. Language should reinforce the AI-driven philosophy throughout the UI.
 
-15. **Good Defaults Over Configuration**: Every setting is a decision forced on the user. If a sensible default exists, don't add the setting. Use system settings for theme, language, and date format. Avoid customization for the sake of customization.
+14. **Focus on Getting Paid**: Features should help lawyers convert tracked time into billed time. If a feature doesn't support capture, categorization, review, or billing — question whether it belongs.
 
-16. **Local-First AI**: Default to local AI processing (Moondream). Cloud options are opt-in and require explicit user consent with clear warnings about data transmission.
+15. **Show Data, Not Computed Status**: Present facts (WIP amounts, budgets, dates) rather than derived interpretations (Overdue, On Track, Near Budget). Status calculations require complex logic, subjective thresholds, and edge case handling. Simple data lets users draw their own conclusions and avoids the app making judgment calls that may not match user expectations.
 
-17. **Data Gathering Over Premature Optimization**: Simple settings that enable future optimization decisions (quality %, thresholds) are acceptable. Complex optimization features that try to solve problems we haven't validated yet are not. Gather data first, optimize later.
+16. **Good Defaults Over Configuration**: Every setting is a decision forced on the user. If a sensible default exists, don't add the setting. Use system settings for theme, language, and date format. Avoid customization for the sake of customization.
+
+17. **Local-First AI**: Default to local AI processing (Moondream). Cloud options are opt-in and require explicit user consent with clear warnings about data transmission.
+
+18. **Data Gathering Over Premature Optimization**: Simple settings that enable future optimization decisions (quality %, thresholds) are acceptable. Complex optimization features that try to solve problems we haven't validated yet are not. Gather data first, optimize later.
 
 ---
 *For terminology definitions, see [CLAUDE.md](../../../CLAUDE.md#terminology).*
