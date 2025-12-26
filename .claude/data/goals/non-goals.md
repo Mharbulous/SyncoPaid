@@ -123,6 +123,42 @@ Two views is enough: Timeline and Activities. Everything else is a dialog.
 
 ## Anti-Patterns to Avoid
 
+### Action Without Context
+*This is the most important anti-pattern to avoid.*
+
+Never offer action buttons (accept, reject, correct, split, delete) without first showing users the information they need to make that decision.
+
+- **Wrong**: Show "Activity: Word - Contract.docx → Smith v. Jones ☑" with a checkbox to accept
+- **Right**: Show the activity, its screenshots, AI's reasoning — then offer accept/reject
+
+**The test**: Before adding any action button, ask: "What information does the user need to perform this action correctly?" If that information isn't visible, the button shouldn't be there.
+
+**Common violations:**
+- Split Activity button without showing screenshots (how would user know where to split?)
+- Accept/Reject checkboxes in a summary list (user can't evaluate what they haven't seen)
+- Bulk action buttons on items the user hasn't individually reviewed
+
+### Assuming User Omniscience
+Building interfaces as if users already know what decision to make, without showing them what the decision depends on.
+
+- **Wrong**: "18 activities categorized. ☑ Accept all"
+- **Right**: Review each activity with context → batch-accept only what was reviewed
+
+Users are not omniscient. They cannot accept what AI did without seeing what AI did. They cannot split an activity without seeing where the work changed. Every decision interface must show the basis for that decision.
+
+### Conflating Transparency and Review
+Transparency and review serve different purposes and require different interfaces.
+
+| Transparency | Review |
+|--------------|--------|
+| "Here's what AI did" | "Is this right?" |
+| Informational | Decisional |
+| No action buttons | Action buttons with full context |
+| Summary is fine | Detail is required |
+
+- **Wrong**: A summary panel with checkboxes (conflates transparency with review)
+- **Right**: Transparency summary (no actions) → leads to → Review interface (full context + actions)
+
 ### Management Over Review
 - **Wrong**: Filter → Select → Assign to bucket → Save
 - **Right**: AI suggests → User accepts or rejects
@@ -132,6 +168,17 @@ Two views is enough: Timeline and Activities. Everything else is a dialog.
 - Don't make "Split/Merge" prominent — they're exceptions when AI missed boundaries
 - Don't make "Assign Bucket" a dropdown selection — make it a correction to AI's suggestion
 - The UI should make the happy path (accept AI) easier than the exception path (correct AI)
+
+### Context-Dependent Actions in Wrong Places
+Some actions only make sense where their required context is visible:
+
+| Action | Required Context | Valid Location |
+|--------|------------------|----------------|
+| Split Activity | Screenshot timeline showing transition | Review interface with screenshots |
+| Accept/Reject | Activity details, screenshots, AI reasoning | Review interface, not summary |
+| Correct Bucket | What activity was, why AI chose wrong | Review interface with context |
+
+If an action requires context X, don't offer it in an interface that doesn't show X.
 
 ### Terminology That Implies Management
 See [CLAUDE.md Terminology](../../../CLAUDE.md#terminology) for approved terms. Avoid using "Matter", "Project", or "Case" in code/docs — these terms cause AI assistants to drift toward building management features.
