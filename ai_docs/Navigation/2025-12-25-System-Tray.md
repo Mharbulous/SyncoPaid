@@ -94,22 +94,22 @@ When a time marker is recorded, the user receives brief visual confirmation:
 │  After left-click:                  │
 │                                     │
 │  ┌─────────┐                        │
-│  │    ◉    │  ← Icon briefly        │
-│  └─────────┘    pulses/flashes      │
+│  │    ◉    │  ← Icon switches to    │
+│  └─────────┘    ORANGE for 1 second │
 │       │                             │
 │       ▼                             │
 │  ┌─────────────────────┐            │
-│  │ ✓ Marker recorded   │ ← Tooltip  │
-│  │   9:23 AM           │   (fades)  │
-│  └─────────────────────┘            │
+│  │ Transition recorded │ ← Toast    │
+│  └─────────────────────┘   popup    │
 │                                     │
 └─────────────────────────────────────┘
 ```
 
 The feedback is:
+- **Icon color change:** Icon briefly switches to orange for 1 second, signaling that the activity switch was registered and recorded
+- **Toast notification:** If possible, a toast popup appears above the system tray icon saying "Transition recorded"
 - **Non-intrusive:** No window opens, no dialog to dismiss
-- **Quick:** Appears for ~1.5 seconds then fades
-- **Informative:** Shows timestamp so user knows it worked
+- **Quick:** Orange icon and toast appear for ~1 second then return to normal
 
 ---
 
