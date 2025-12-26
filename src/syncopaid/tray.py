@@ -9,14 +9,17 @@ Status Icons:
 - Faded (stopwatch-pictogram-faded + 💤) = Idle (5+ min no activity)
 
 Interactions:
-- Left-click (double-click on Windows): Opens Main Window
+- Left-click: Records a time marker (task transition/interruption)
+  - Brief visual feedback: icon flashes orange for 1 second
+  - Toast notification: "Transition recorded"
 - Right-click menu:
   - Start/Pause: Toggle tracking without opening window
-  - Open Window: Same as left-click
+  - Open SyncoPaid: Opens Main Window
   - Quit: Exit app completely
 """
 
 import logging
+import threading
 from typing import Callable, Optional
 
 # Import helper modules
@@ -49,10 +52,11 @@ class TrayIcon(TrayMenuHandlers, TrayConsoleFallback):
     - Faded = Idle (no activity for 5+ minutes)
 
     Interactions:
-    - Left-click: Opens Main Window (Timeline view)
+    - Left-click: Records a time marker (task transition/interruption)
+      with visual feedback (icon flashes orange, toast notification)
     - Right-click menu:
       - Start/Pause: Toggle tracking (no window)
-      - Open Window: Same as left-click
+      - Open SyncoPaid: Opens Main Window
       - Quit: Exit app completely
     """
 
@@ -62,6 +66,7 @@ class TrayIcon(TrayMenuHandlers, TrayConsoleFallback):
         on_pause: Optional[Callable] = None,
         on_open: Optional[Callable] = None,
         on_quit: Optional[Callable] = None,
+        on_time_marker: Optional[Callable] = None,
         config_manager=None
     ):
         """
@@ -72,17 +77,20 @@ class TrayIcon(TrayMenuHandlers, TrayConsoleFallback):
             on_pause: Callback for "Pause Tracking" menu item
             on_open: Callback for "Open SyncoPaid" menu item
             on_quit: Callback for "Quit" menu item
+            on_time_marker: Callback for left-click time marker recording
             config_manager: ConfigManager instance for persisting settings
         """
         self.on_start = on_start or (lambda: None)
         self.on_pause = on_pause or (lambda: None)
         self.on_open = on_open or (lambda: None)
         self.on_quit = on_quit or (lambda: None)
+        self.on_time_marker = on_time_marker or (lambda: None)
         self.config_manager = config_manager
 
         self.icon: Optional[pystray.Icon] = None
         self.is_tracking = True
         self.is_inactive = False  # True when no activity for 5 minutes
+        self._feedback_in_progress = False  # Prevent overlapping feedback
 
         if not TRAY_AVAILABLE:
             logging.error("System tray not available - pystray not installed")
@@ -141,27 +149,91 @@ class TrayIcon(TrayMenuHandlers, TrayConsoleFallback):
             else:
                 self.icon.title = f"SyncoPaid v{__product_version__}"
 
+    def _record_time_marker(self, icon=None, item=None):
+        """
+        Handle left-click: record a time marker with visual feedback.
+
+        This records a task transition/interruption timestamp and provides
+        brief visual feedback (orange icon + toast notification).
+        """
+        # Prevent overlapping feedback animations
+        if self._feedback_in_progress:
+            return
+
+        self._feedback_in_progress = True
+        logging.info("User recorded time marker via left-click")
+
+        try:
+            # Call the time marker callback to record in database
+            self.on_time_marker()
+
+            # Show visual feedback: flash orange icon
+            if self.icon:
+                # Save current state to restore later
+                original_state = self._get_current_state()
+
+                # Show orange (paused) icon as feedback
+                self.icon.icon = create_icon_image("paused")
+
+                # Show toast notification
+                try:
+                    self.icon.notify(
+                        "Transition recorded",
+                        "SyncoPaid"
+                    )
+                except Exception as e:
+                    logging.debug(f"Toast notification not available: {e}")
+
+                # Schedule icon reset after 1 second
+                def reset_icon():
+                    try:
+                        if self.icon:
+                            self.icon.icon = create_icon_image(original_state)
+                    except Exception as e:
+                        logging.debug(f"Error resetting icon: {e}")
+                    finally:
+                        self._feedback_in_progress = False
+
+                timer = threading.Timer(1.0, reset_icon)
+                timer.daemon = True
+                timer.start()
+            else:
+                self._feedback_in_progress = False
+
+        except Exception as e:
+            logging.error(f"Error recording time marker: {e}", exc_info=True)
+            self._feedback_in_progress = False
+
     def _create_menu(self):
         """
         Create the right-click menu.
 
         Menu structure:
         - Start/Pause: Toggle tracking without opening window
-        - Open Window: Opens main window (same as left-click)
+        - Open SyncoPaid: Opens main window
         - Quit: Exit app completely
+
+        Note: Left-click records a time marker (handled via default=True
+        on a hidden menu item).
         """
         if not TRAY_AVAILABLE:
             return None
 
         return pystray.Menu(
+            # Hidden default item for left-click - records time marker
+            pystray.MenuItem(
+                "Record Time Marker",
+                self._record_time_marker,
+                default=True,
+                visible=False
+            ),
             pystray.MenuItem(
                 lambda text: "⏸ Pause" if self.is_tracking else "▶ Start",
                 self._toggle_tracking
             ),
             pystray.MenuItem(
-                "📊 Open Window",
-                self._handle_open,
-                default=True  # Left-click (double-click on Windows) opens window
+                "📊 Open SyncoPaid",
+                self._handle_open
             ),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("✕ Quit", self._handle_quit)
@@ -226,17 +298,24 @@ if __name__ == "__main__":
         print("✓ Quit callback triggered")
         print("  (In real app: would clean up and exit)")
 
+    def on_time_marker():
+        from datetime import datetime
+        print(f"✓ Time marker recorded at {datetime.now().strftime('%H:%M:%S')}")
+        print("  (In real app: would save to database)")
+
     # Create tray icon
     tray = TrayIcon(
         on_start=on_start,
         on_pause=on_pause,
         on_open=on_open,
-        on_quit=on_quit
+        on_quit=on_quit,
+        on_time_marker=on_time_marker
     )
 
     if TRAY_AVAILABLE:
         print("Starting system tray icon...")
-        print("Right-click the icon in your system tray to test the menu.")
+        print("Left-click the icon to record a time marker.")
+        print("Right-click the icon to see the menu.")
         print("Select 'Quit' to exit.\n")
         tray.run()
     else:
