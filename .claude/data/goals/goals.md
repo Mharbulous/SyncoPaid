@@ -15,6 +15,11 @@ The AI does the heavy lifting. Users review and confirm — they don't organize,
 - **Correct** what AI got wrong (the exception, not the rule)
 
 Corrections are valid user actions — but they're exception handling, not the primary workflow. If users are constantly correcting, the AI isn't doing its job.
+
+> **"Context before action."**
+
+Users cannot "dispose" of something they haven't seen. Every accept/reject/correct interface must first show users the information they need to make that decision: the activity details, screenshots, AI reasoning. Never offer action buttons without the context those actions depend on.
+
 > **"Track time. Get paid."**
 
 The app doesn't just track time — it helps lawyers turn tracked time into billed time. The "Paid" in SyncoPaid is intentional: the goal is revenue, not just records.
@@ -75,25 +80,31 @@ Lawyers who need to track billable hours across multiple matters and clients, pa
 
 2. **Transparency Builds Trust**: Users need to see that their time is being captured accurately. The UI should clearly show what the app is doing and what it has captured. This is especially important for first impressions — prospective users should immediately understand "this app works for me."
 
-3. **Minimize Manual Effort**: Automate everything possible so lawyers can focus on legal work, not administrative tasks. If a feature requires manual effort, question whether the AI should handle it instead.
+3. **Transparency and Review Are Distinct**: Transparency shows what happened (no user action required). Review enables decisions (user action required). These serve different purposes and require different interfaces:
+   - **Transparency interface**: "AI categorized 18 activities" — informational, no buttons
+   - **Review interface**: Shows activity + screenshots + AI reasoning → then accept/reject buttons
 
-4. **Non-Intrusive Intelligence**: Run silently in the background. Prompt at natural breaks, never interrupt focused work.
+   Never conflate these. A summary of what AI did is not a review interface — it's transparency. Review requires showing the full context of what's being reviewed.
 
-5. **Use What Already Exists**: Import the user's existing folder structure rather than making them recreate it. Use their naming conventions as-is.
+4. **Minimize Manual Effort**: Automate everything possible so lawyers can focus on legal work, not administrative tasks. If a feature requires manual effort, question whether the AI should handle it instead.
 
-6. **Confidence-Based Attention**: Users shouldn't review everything equally. Surface what needs attention (uncertain items), let AI handle the rest.
+5. **Non-Intrusive Intelligence**: Run silently in the background. Prompt at natural breaks, never interrupt focused work.
 
-7. **Context-Aware Categorization**: Capture rich contextual data (URLs, email subjects, folder paths) to enable accurate AI matching.
+6. **Use What Already Exists**: Import the user's existing folder structure rather than making them recreate it. Use their naming conventions as-is.
 
-8. **Preserve All History**: Archive rather than delete — screenshots and activity data are valuable evidence, never throw them away.
+7. **Confidence-Based Attention**: Users shouldn't review everything equally. Surface what needs attention (uncertain items), let AI handle the rest.
 
-9. **Lawyer-Specific Workflows**: Built for legal billing conventions (6-minute increments, matter/client structures, legal research sources like Westlaw/CanLII).
+8. **Context-Aware Categorization**: Capture rich contextual data (URLs, email subjects, folder paths) to enable accurate AI matching.
 
-10. **Follow Platform Conventions**: Use standard Windows UI patterns. No sidebars, tab bars, or web/SaaS patterns in a desktop app.
+9. **Preserve All History**: Archive rather than delete — screenshots and activity data are valuable evidence, never throw them away.
 
-11. **Self-Documenting Terminology**: Use terms that make clear who does the work. Prefer "Queued for AI" over "Uncategorized" — the former shows AI will act, the latter implies user must act. Language should reinforce the AI-driven philosophy throughout the UI.
+10. **Lawyer-Specific Workflows**: Built for legal billing conventions (6-minute increments, matter/client structures, legal research sources like Westlaw/CanLII).
 
-10. **Focus on Getting Paid**: Features should help lawyers convert tracked time into billed time. If a feature doesn't support capture, categorization, review, or billing — question whether it belongs.
+11. **Follow Platform Conventions**: Use standard Windows UI patterns. No sidebars, tab bars, or web/SaaS patterns in a desktop app.
+
+12. **Self-Documenting Terminology**: Use terms that make clear who does the work. Prefer "Queued for AI" over "Uncategorized" — the former shows AI will act, the latter implies user must act. Language should reinforce the AI-driven philosophy throughout the UI.
+
+13. **Focus on Getting Paid**: Features should help lawyers convert tracked time into billed time. If a feature doesn't support capture, categorization, review, or billing — question whether it belongs.
 
 ---
 *For terminology definitions, see [CLAUDE.md](../../../CLAUDE.md#terminology).*
