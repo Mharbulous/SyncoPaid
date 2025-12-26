@@ -192,8 +192,10 @@ If a feature answers "what should I bill?" it's billing triage (in scope).
 These are features that might seem reasonable but don't help achieve goals:
 
 ### Screenshot Optimization Settings
-Configurable JPEG quality levels, WebP formats, resolution scaling, similarity thresholds, per-monitor settings.
+WebP formats, resolution scaling, per-monitor settings.
 *Why: Unnecessary complexity. Use sensible defaults; the app should just work.*
+
+*Note: Quality and similarity threshold settings ARE included — they help gather optimization data when needed.*
 
 ### Capture Tuning Settings
 Poll interval, idle threshold, merge threshold, capture interval.
@@ -207,9 +209,11 @@ CPU limits, memory limits, process priority, database vacuum scheduling.
 Theme selection, language selection, date/time format preferences.
 *Why: Use system settings. Don't duplicate what the OS already provides.*
 
-### AI Confidence Thresholds
-Auto-categorize threshold, review threshold, confidence sliders.
-*Why: The AI should handle this. Users shouldn't tune machine learning parameters.*
+### Multiple AI Confidence Thresholds
+Separate thresholds for auto-categorize, review, and other stages.
+*Why: One confidence threshold is sufficient. Multiple thresholds add complexity without value.*
+
+*Note: A single confidence threshold IS included — it helps gather data for AI tuning.*
 
 ### Quick Actions System
 Keyboard-activated popups for common tasks.

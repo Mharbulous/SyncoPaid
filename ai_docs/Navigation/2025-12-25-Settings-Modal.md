@@ -59,6 +59,8 @@ The Settings Modal provides access to essential application configuration. Setti
 |---------|-------------|---------|
 | Enable screenshots | Capture screenshots for AI context | ☑ |
 | Retention | Days to keep screenshots | 30 days |
+| Quality | JPEG quality (1-100) | 80 |
+| Similarity threshold | dHash threshold for deduplication | 95% |
 
 ### AI
 
@@ -66,11 +68,12 @@ The Settings Modal provides access to essential application configuration. Setti
 |---------|-------------|---------|
 | Enable AI categorization | Allow AI to categorize activities | ☑ |
 | AI Model | Local or cloud-based AI model | Moondream 2 |
+| Confidence threshold | Minimum confidence for auto-apply | 90% |
 
 **AI Model options:**
 - **Moondream 2** — Local processing, no data leaves your computer
 - **Moondream 3** — Local processing, no data leaves your computer
-- **Gemini 2.0 Flash** — Cloud processing ⚠️
+- **Gemini 2.0 Flash** — Cloud (OAuth) ⚠️
 
 ### Privacy
 
@@ -109,6 +112,9 @@ The Settings Modal provides access to essential application configuration. Setti
 │                                                                         │
 │  ☑ Enable screenshot capture                                            │
 │                                                                         │
+│  Quality:               [80 ▼] %                                        │
+│  Similarity threshold:  [95 ▼] %                                        │
+│                                                                         │
 │  Retention period:      [30 days ▼]                                     │
 │  Current usage:         1.2 GB (847 screenshots)                        │
 │                         [Clean Up Now...]                               │
@@ -130,7 +136,7 @@ The Settings Modal provides access to essential application configuration. Setti
 │  ┌───────────────────────────────────────────────────────────────┐      │
 │  │  ○ Moondream 2      Local processing                          │      │
 │  │  ○ Moondream 3      Local processing                          │      │
-│  │  ○ Gemini 2.0 Flash Cloud processing                          │      │
+│  │  ○ Gemini 2.0 Flash Cloud (OAuth)                             │      │
 │  └───────────────────────────────────────────────────────────────┘      │
 │                                                                         │
 │  ┌─ ⚠ Warning ───────────────────────────────────────────────────┐      │
@@ -138,6 +144,8 @@ The Settings Modal provides access to essential application configuration. Setti
 │  │  option if you intend to transmit your data to be processed   │      │
 │  │  online by the Gemini LLM.                                    │      │
 │  └───────────────────────────────────────────────────────────────┘      │
+│                                                                         │
+│  Confidence threshold:  [90 ▼] %                                        │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -196,12 +204,9 @@ The following settings were intentionally excluded — sensible defaults are use
 | Language, Date/Time format | Use system settings |
 | Theme (Light/Dark) | Use system theme |
 | Poll interval, Idle threshold, Merge threshold | Technical details; use good defaults |
-| Screenshot quality, Similarity threshold | YAGNI — premature optimization |
 | Screenshot capture interval | Use good default (10s) |
 | Screenshot excluded apps | Consolidated into Privacy exclusions |
 | Performance settings (CPU, Memory, etc.) | Premature optimization; app should just work |
-| AI confidence thresholds | Use good defaults; AI handles this |
-| API keys | Local models don't need keys; Gemini uses OAuth |
 
 ---
 
