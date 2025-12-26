@@ -30,6 +30,10 @@ def start_tracking(app):
     if app.action_screenshot_worker:
         app.action_screenshot_worker.start()
 
+    # Start click recorder
+    if app.click_recorder:
+        app.click_recorder.start()
+
     logging.info("Tracking started")
     print("[OK] Tracking started")
 
@@ -51,6 +55,10 @@ def pause_tracking(app):
     # Stop action screenshot worker
     if app.action_screenshot_worker:
         app.action_screenshot_worker.stop()
+
+    # Stop click recorder
+    if app.click_recorder:
+        app.click_recorder.stop()
 
     logging.info("Tracking paused")
     print("[PAUSED] Tracking paused")

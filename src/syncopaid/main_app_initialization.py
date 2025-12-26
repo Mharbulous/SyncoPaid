@@ -14,6 +14,7 @@ from syncopaid.action_screenshot import ActionScreenshotWorker, get_action_scree
 from syncopaid.archiver import ArchiveWorker
 from syncopaid.categorizer import ActivityMatcher
 from syncopaid.tracker import TrackerLoop
+from syncopaid.click_recorder import ClickRecorder
 
 
 def initialize_screenshot_worker(config, database, resource_monitor=None):
@@ -155,3 +156,26 @@ def initialize_tracker_loop(config, screenshot_worker, transition_detector, data
         resource_monitor=resource_monitor
     )
     return tracker
+
+
+def initialize_click_recorder(database):
+    """
+    Initialize the click recorder.
+
+    Args:
+        database: Database instance for storing click events
+
+    Returns:
+        ClickRecorder instance
+    """
+    def on_click_event(event):
+        """Callback to store click events in the database."""
+        database.insert_event(event)
+        logging.debug(f"Click event stored: {event.timestamp}")
+
+    recorder = ClickRecorder(
+        event_callback=on_click_event,
+        enabled=True
+    )
+    logging.info("Click recorder initialized")
+    return recorder
