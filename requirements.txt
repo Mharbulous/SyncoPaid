@@ -24,8 +24,7 @@ pynput>=1.7.6
 # UI automation for extracting context from Windows applications
 pywinauto>=0.6.8
 
-# Audio playback for tray icon feedback sounds
-playsound>=1.3.0
+# Note: winsound (built-in on Windows) is used for audio feedback sounds
 
 # Note: tkinter comes with Python standard library on Windows
 # If missing, install separately via python.org installer
