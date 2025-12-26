@@ -40,7 +40,9 @@ This means NO:
 - Checkbox selection with bulk actions as primary interaction
 - "Power user" table manipulation features
 
-Instead: Confidence-based filtering (show uncertain items), inline accept/reject.
+**Simple filters ARE okay**: By Bucket Group (Client), by Bucket (Matter), by date range. These help users focus on specific work. What's NOT okay is power-user table manipulation with complex filter chaining.
+
+**Primary interaction**: Confidence-based filtering (show uncertain items), inline accept/reject.
 
 ### Folder Name Parser
 *Reason: Lawyers have varying naming conventions for their folders. We don't try to extract or parse client names or matter names — we use folder names exactly as the user has them.*
@@ -48,10 +50,29 @@ Instead: Confidence-based filtering (show uncertain items), inline accept/reject
 ### Analytics & Reporting Dashboards
 *Reason: Analytics dashboards are what most app builders assume lawyers want, but sophisticated tables and reporting rarely provide valuable insights for time-tracking. The vision is to use AI to save lawyers time, not rebuild what already exists elsewhere.*
 
+This means NO:
+- Productivity analytics (hours per day charts, efficiency metrics)
+- Complex pivot tables or data visualization
+- Trend analysis or forecasting
+- Customizable report builders
+
+**Exception — Billing workflow reports ARE okay**: A simple "Billing Queue" showing which buckets have WIP that needs invoicing is aligned with the core workflow. This helps users identify what to bill, not analyze productivity. The distinction: analytics visualizes data for insight; billing queue drives action (send invoices).
+
 ### Standalone Screenshot Gallery/Viewer
 *Reason: Screenshots serve AI clarification workflows, not standalone browsing.*
 
-The only valid use: When AI is uncertain, show screenshots to prompt "What were you working on here?" Users don't browse screenshots; they answer specific questions.
+This means NO:
+- Built-in screenshot browser or gallery
+- Custom screenshot deletion UI
+- Image viewer with zoom/pan controls
+
+**The right approach**: Open the screenshots folder in Windows File Explorer. This provides:
+- Real file deletion (users trust it actually deletes)
+- Familiar Windows interface (no learning curve)
+- Full control and transparency
+- Less code to build and maintain
+
+**In-app screenshot use**: When AI is uncertain, show relevant screenshots inline to prompt "What were you working on here?" Users don't browse screenshots; they answer specific questions.
 
 ### Quick Actions Popup with Hotkeys
 *Reason: This app is meant to run in the background and be un-intrusive. Global hotkeys could interfere with the user's actual workflow tools.*
@@ -71,9 +92,11 @@ This means NO:
 
 This means NO:
 - Export View — use File → Export
-- Reports View — analytics is a non-goal anyway
+- Analytics View — productivity dashboards are a non-goal
 - Settings View — use File → Settings or Tools → Options
 - Import View — use File → Import Folders
+
+**Note**: A Billing Queue (showing WIP by bucket) is different from an "Analytics View" — it drives billing action, not data analysis. Whether it's a view or a menu action is a UI decision, not a philosophical one.
 
 ---
 
@@ -93,6 +116,9 @@ See [CLAUDE.md Terminology](../../../CLAUDE.md#terminology) for approved terms. 
 
 ### Rebuilding Existing Tools
 Don't create features that lawyers already have elsewhere (reporting, visualization, complex analytics, practice management).
+
+### Rebuilding Windows Functionality
+Don't build custom viewers, file browsers, or deletion UIs when Windows already provides them. File Explorer is trusted, familiar, and actually deletes files. Standard Windows dialogs (file picker, date picker) are better than custom controls.
 
 ### Replacing User Workflows
 Don't make users recreate their folder structure in the app — import what they already have.
@@ -141,8 +167,9 @@ Column resizing, custom column ordering, saved views, export to CSV.
 - An un-intrusive background time tracker
 - An AI-powered billing assistant that saves lawyer time
 - A tool that fits into the user's existing workflow
-- Focused on capture and intelligent categorization
-- **Two views only**: Timeline and Activities
+- A tool that leverages Windows (File Explorer, standard dialogs) rather than rebuilding
+- Focused on capture, intelligent categorization, and billing workflow
+- **Minimal views**: Timeline and Activities as core views; Billing Queue to drive invoicing action
 
 **What This Product is NOT:**
 - A **web/SaaS app** — no sidebars, tab bars, dashboards, or card layouts
@@ -150,7 +177,7 @@ Column resizing, custom column ordering, saved views, export to CSV.
 - Practice management software
 - A client/matter management system
 - A productivity analytics platform
-- A screenshot browsing system
+- A custom screenshot browser (use File Explorer instead)
 - An interactive overlay or hotkey-driven tool
 - A power-user table manipulation tool
 - A multi-view navigation app — actions belong in menus, not as views

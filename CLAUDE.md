@@ -12,10 +12,23 @@
 
 | Internal (Code/Docs) | User-Facing (UI) | Definition |
 |----------------------|------------------|------------|
-| **Bucket** | **Matter** | A category for billable time, imported from the user's folder structure. We do NOT create, edit, or manage buckets — we import folder paths and use them as labels. |
+| **Bucket** | **Matter** | The complete category label for billable time, e.g., "Acme Corp/Contract Review". Imported from folder structure — we do NOT create, edit, or manage buckets. |
+| **Bucket Group** | **Client** | The first path segment (top-level grouping), e.g., "Acme Corp". Derived from parent folder. |
+| **Bucket Name** | **Matter Name** | The second path segment (specific work category), e.g., "Contract Review". |
+| **Import Path** | **Folder** | The file system location where buckets are imported from. |
 | **Activity** | **Activity** | A tracked window/application event with start time, duration, and context. |
 | **Review** | **Review** | The user workflow: accept or reject AI suggestions. NOT "manage" or "organize." |
 
+**Example:**
+```
+Import Path: C:\Legal\Clients\
+  └── Acme Corp\              ← Bucket Group (shows as "Client")
+      └── Contract Review\    ← Bucket Name (shows as "Matter Name")
+
+Bucket = "Acme Corp/Contract Review"  (shows as "Matter")
+```
+
+**Why this matters:** Using "Matter" or "Client" internally may cause AI assistants to build practice management features (create matter, edit matter, archive matter). "Bucket" reminds us these are just imported folder paths used as labels — nothing to manage.
 **When to use which term:**
 
 | Context | Use | Example |
@@ -29,7 +42,8 @@
 **Why this matters:** Using "Matter" internally may cause AI assistants to build practice management features (create matter, edit matter, archive matter). "Bucket" reminds us these are just imported folder paths used as labels — nothing to manage.
 
 **Avoid in code/docs:**
-- "Matter" (implies practice management)
+- "Matter" (implies practice management — use "Bucket")
+- "Client" (implies practice management — use "Bucket Group")
 - "Project" (implies project management)
 - "Case" (implies case management)
 - "Assign to matter" (implies management — use "assign to bucket" or "categorize")
