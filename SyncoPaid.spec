@@ -11,6 +11,7 @@ a = Analysis(
         ('src/syncopaid/assets/stopwatch-paused.ico', 'syncopaid/assets'),
         ('src/syncopaid/assets/stopwatch-pictogram-green.ico', 'syncopaid/assets'),
         ('src/syncopaid/assets/stopwatch-feedback.png', 'syncopaid/assets'),  # Feedback flash
+        ('src/syncopaid/assets/mechanical-click.wav', 'syncopaid/assets'),  # Click sound
     ],
     hiddenimports=[
         'win32timezone',  # pywin32 hidden dependency

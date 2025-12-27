@@ -12,14 +12,11 @@ from typing import Callable, Optional
 
 try:
     import pystray
-    from syncopaid.tray_icons import create_icon_image
+    from syncopaid.tray_icons import create_icon_image, get_resource_path
     TRAY_AVAILABLE = True
 except ImportError:
     TRAY_AVAILABLE = False
-
-# Sound file path
-_ASSETS_DIR = Path(__file__).parent / "assets"
-_CLICK_SOUND_PATH = _ASSETS_DIR / "mechanical-click.wav"
+    get_resource_path = None
 
 # Check for winsound (Windows built-in, no external dependencies)
 try:
@@ -59,15 +56,19 @@ class TrayFeedbackHandler:
         if not SOUND_AVAILABLE:
             return
 
-        if not _CLICK_SOUND_PATH.exists():
-            logging.warning(f"Click sound file not found: {_CLICK_SOUND_PATH}")
+        if not get_resource_path:
+            return
+
+        click_sound_path = get_resource_path("assets/mechanical-click.wav")
+        if not click_sound_path.exists():
+            logging.warning(f"Click sound file not found: {click_sound_path}")
             return
 
         try:
             # SND_ASYNC plays sound asynchronously (non-blocking)
             # SND_FILENAME specifies the parameter is a filename
             winsound.PlaySound(
-                str(_CLICK_SOUND_PATH),
+                str(click_sound_path),
                 winsound.SND_FILENAME | winsound.SND_ASYNC
             )
         except Exception as e:
