@@ -11,7 +11,8 @@
 Created a frozen copy of Moondream 2 on HuggingFace to prevent upstream changes from breaking SyncoPaid.
 
 **Frozen copy:** https://huggingface.co/Mharbulous/moondream2-syncopaid
-**Source:** `vikhyatk/moondream2` tag `2025-06-21` (7.6GB)
+**Source:** `vikhyatk/moondream2` tag `2025-06-21`
+**Size:** ~7.6GB total repository (~3.85GB model weights)
 
 ---
 
@@ -87,8 +88,9 @@ Moondream runs as a **background worker process**, not embedded in main app:
 
 ```
 SyncoPaid.exe (lightweight, ~50MB)
-    └── spawns moondream_worker.py when needed
-            └── loads 3.85GB model into RAM
+    └── spawns moondream_worker.py when analysis needed
+            └── loads ~3.85GB model weights into RAM
+            └── processes analysis requests via JSON IPC
             └── can be killed to reclaim memory
 ```
 
