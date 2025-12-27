@@ -11,9 +11,18 @@
 
 **Goal:** Implement Moondream 2 as the local vision LLM engine for screenshot analysis on CPU-only systems (8GB RAM minimum).
 
-**Approach:** Create a `MoondreamEngine` class implementing the `VisionEngine` interface from story 14.1. Use HuggingFace transformers with float32 precision for CPU compatibility. Implement image encoding cache for multiple queries per screenshot. Add graceful OOM handling.
+**Approach:** Use a **subprocess worker architecture** where Moondream runs in a separate process (`moondream_worker.py`) that can be spawned on demand and killed to reclaim memory. The `MoondreamEngine` class implements the `VisionEngine` interface and communicates with the worker via JSON over stdin/stdout. This keeps the main SyncoPaid app lightweight (~50MB) while allowing the 4GB+ model to be loaded only when needed and freed by terminating the worker.
 
-**Tech Stack:** transformers, torch (CPU), einops, Pillow, existing VisionEngine interface (from 14.1), HardwareInfo (from 14.2)
+**Architecture:**
+```
+SyncoPaid.exe (lightweight, ~50MB)
+    └── spawns moondream_worker.py when analysis needed
+            └── loads 3.85GB model into RAM
+            └── processes analysis requests via JSON IPC
+            └── can be killed to reclaim memory
+```
+
+**Tech Stack:** transformers, torch (CPU), einops, Pillow, subprocess, json, existing VisionEngine interface (from 14.1), HardwareInfo (from 14.2)
 
 ---
 
@@ -25,13 +34,16 @@
 > As a user without a dedicated GPU, I want screenshot analysis powered by Moondream 2, so that I get local AI categorization on standard hardware (8GB RAM minimum).
 
 **Acceptance Criteria:**
-- [ ] Moondream 2 model loads successfully on CPU
+- [ ] Moondream 2 model loads successfully on CPU via worker subprocess
 - [ ] float32 precision used for CPU compatibility
 - [ ] Image encoding cache for multiple queries per screenshot
 - [ ] Inference completes within 25 seconds on minimum spec
 - [ ] Graceful fallback on out-of-memory conditions
 - [ ] Apache 2.0 license attribution included
 - [ ] No network calls during inference (privacy compliance)
+- [ ] Worker process can be spawned on demand
+- [ ] Worker process can be killed to reclaim 4GB+ RAM
+- [ ] Main app remains responsive while worker processes
 
 ## Prerequisites
 
@@ -45,7 +57,9 @@
 | File | Change Type | Purpose |
 |------|-------------|---------|
 | `tests/test_moondream_engine.py` | Create | Unit tests for Moondream integration |
-| `src/syncopaid/moondream_engine.py` | Create | Moondream 2 engine implementation |
+| `tests/test_moondream_worker.py` | Create | Unit tests for worker subprocess |
+| `src/syncopaid/moondream_engine.py` | Create | Engine class (spawns/manages worker) |
+| `src/syncopaid/moondream_worker.py` | Create | Subprocess that loads model and processes requests |
 | `src/syncopaid/vision_engine.py` | Modify | Register Moondream engine |
 | `src/syncopaid/config_defaults.py` | Modify | Add Moondream-specific config |
 | `src/syncopaid/config_dataclass.py` | Modify | Add Moondream config fields |
@@ -58,7 +72,7 @@
 - Create: `tests/test_moondream_engine.py`
 - Create: `src/syncopaid/moondream_engine.py`
 
-**Context:** Moondream 2 is a 3.85GB vision model that runs on CPU with float32 precision. This task creates the engine class that implements VisionEngine interface. The model is loaded lazily on first use.
+**Context:** MoondreamEngine uses a subprocess architecture - it spawns `moondream_worker.py` on demand rather than loading the 3.85GB model in the main process. This keeps the main app lightweight and allows killing the worker to reclaim memory.
 
 **Step 1 - RED:** Write failing test
 
@@ -76,11 +90,11 @@ def test_moondream_engine_is_vision_engine():
     assert issubclass(MoondreamEngine, VisionEngine)
 
 
-def test_moondream_engine_init_does_not_load_model():
-    """MoondreamEngine does not load model during __init__."""
+def test_moondream_engine_init_does_not_spawn_worker():
+    """MoondreamEngine does not spawn worker during __init__."""
     engine = MoondreamEngine()
-    assert engine._model is None
-    assert engine._loaded is False
+    assert engine._worker_process is None
+    assert engine._worker_running is False
 
 
 def test_moondream_engine_name():
@@ -99,14 +113,17 @@ Expected: `FAILED` (module not found)
 
 ```python
 # src/syncopaid/moondream_engine.py
-"""Moondream 2 vision engine for CPU-friendly screenshot analysis.
+"""Moondream 2 vision engine using subprocess worker architecture.
 
-Implements the VisionEngine interface using Moondream 2, a 3.85GB
-vision language model that runs on CPU with float32 precision.
+Uses a separate worker process (moondream_worker.py) that loads the 3.85GB
+model. This keeps the main SyncoPaid app lightweight and allows killing
+the worker to reclaim 4GB+ RAM when not needed.
 
 Model: Mharbulous/moondream2-syncopaid (frozen from vikhyatk/moondream2, Apache 2.0 license)
 Requirements: 8GB RAM minimum, ~25 second inference on CPU
 """
+import subprocess
+import json
 from typing import Optional
 from pathlib import Path
 
@@ -114,27 +131,45 @@ from syncopaid.vision_engine import VisionEngine, AnalysisResult
 
 
 class MoondreamEngine(VisionEngine):
-    """Moondream 2 vision engine for CPU screenshot analysis.
+    """Moondream 2 vision engine using subprocess worker.
+
+    Spawns moondream_worker.py on demand for analysis, communicating
+    via JSON over stdin/stdout. Worker can be killed to reclaim memory.
 
     Attributes:
         name: Engine identifier ("moondream2")
-        _model: Lazy-loaded HuggingFace model
-        _loaded: Whether model is currently loaded
+        _worker_process: The spawned worker subprocess (or None)
+        _worker_running: Whether worker is currently running
     """
 
     name = "moondream2"
 
     def __init__(self):
-        """Initialize engine without loading model."""
-        self._model = None
-        self._loaded = False
+        """Initialize engine without spawning worker."""
+        self._worker_process: Optional[subprocess.Popen] = None
+        self._worker_running = False
 
     def analyze(self, image_path: Path) -> AnalysisResult:
-        """Analyze screenshot and return structured result."""
-        raise NotImplementedError("Model loading not yet implemented")
+        """Analyze screenshot via worker subprocess."""
+        raise NotImplementedError("Worker communication not yet implemented")
 
     def is_available(self) -> bool:
-        """Check if engine dependencies are available."""
+        """Check if worker script exists."""
+        worker_path = Path(__file__).parent / "moondream_worker.py"
+        return worker_path.exists()
+
+    def kill_worker(self) -> bool:
+        """Kill worker process to reclaim memory.
+
+        Returns:
+            True if worker was killed, False if not running
+        """
+        if self._worker_process and self._worker_running:
+            self._worker_process.terminate()
+            self._worker_process.wait()
+            self._worker_process = None
+            self._worker_running = False
+            return True
         return False
 ```
 
@@ -145,121 +180,128 @@ pytest tests/test_moondream_engine.py -v
 
 ---
 
-### Task 2: Implement Model Loading with CPU/GPU Detection (~5 min)
+### Task 2: Create Worker Subprocess (~5 min)
 
 **Files:**
-- Modify: `tests/test_moondream_engine.py`
-- Modify: `src/syncopaid/moondream_engine.py`
+- Create: `tests/test_moondream_worker.py`
+- Create: `src/syncopaid/moondream_worker.py`
 
-**Context:** The model must use float32 on CPU (float16 causes LayerNormKernelImpl errors). Using frozen copy at Mharbulous/moondream2-syncopaid for reproducibility. Loading uses trust_remote_code=True required by Moondream.
+**Context:** The worker is a standalone Python script that loads the Moondream model and processes requests via JSON over stdin/stdout. It runs in a separate process so the main app stays lightweight. The model uses float32 on CPU (float16 causes LayerNormKernelImpl errors).
 
 **Step 1 - RED:** Add failing tests
 
 ```python
-# tests/test_moondream_engine.py (add to existing file)
-
-@patch('syncopaid.moondream_engine.torch')
-@patch('syncopaid.moondream_engine.AutoModelForCausalLM')
-def test_moondream_engine_load_model_cpu(mock_model_class, mock_torch):
-    """MoondreamEngine loads model with float32 on CPU."""
-    mock_torch.cuda.is_available.return_value = False
-    mock_torch.float32 = 'float32'
-    mock_model = MagicMock()
-    mock_model_class.from_pretrained.return_value = mock_model
-
-    engine = MoondreamEngine()
-    engine._load_model()
-
-    mock_model_class.from_pretrained.assert_called_once()
-    call_kwargs = mock_model_class.from_pretrained.call_args[1]
-    assert call_kwargs['torch_dtype'] == 'float32'
-    assert call_kwargs['trust_remote_code'] is True
-    # No revision needed - using frozen repo Mharbulous/moondream2-syncopaid
-    assert engine._loaded is True
+# tests/test_moondream_worker.py
+"""Tests for Moondream worker subprocess."""
+import pytest
+import json
+from unittest.mock import MagicMock, patch
 
 
-@patch('syncopaid.moondream_engine.torch')
-@patch('syncopaid.moondream_engine.AutoModelForCausalLM')
-def test_moondream_engine_load_model_gpu(mock_model_class, mock_torch):
-    """MoondreamEngine loads model with float16 on GPU."""
-    mock_torch.cuda.is_available.return_value = True
-    mock_torch.float16 = 'float16'
-    mock_model = MagicMock()
-    mock_model_class.from_pretrained.return_value = mock_model
+def test_worker_protocol_request_format():
+    """Worker accepts JSON request with image_path."""
+    from syncopaid.moondream_worker import parse_request
 
-    engine = MoondreamEngine()
-    engine._load_model()
+    request = {"action": "analyze", "image_path": "/path/to/image.png"}
+    result = parse_request(json.dumps(request))
 
-    call_kwargs = mock_model_class.from_pretrained.call_args[1]
-    assert call_kwargs['torch_dtype'] == 'float16'
-    assert call_kwargs['device_map'] == {"": "cuda"}
+    assert result["action"] == "analyze"
+    assert result["image_path"] == "/path/to/image.png"
+
+
+def test_worker_protocol_response_format():
+    """Worker returns JSON response with analysis result."""
+    from syncopaid.moondream_worker import format_response
+
+    result = {
+        "description": "User editing document",
+        "activity_type": "document_editing",
+        "confidence": 0.85,
+        "raw_output": "User is editing..."
+    }
+
+    response = format_response(result)
+    parsed = json.loads(response)
+
+    assert parsed["status"] == "success"
+    assert parsed["result"]["description"] == "User editing document"
 ```
 
 **Step 2 - Verify RED:**
 ```bash
-pytest tests/test_moondream_engine.py::test_moondream_engine_load_model_cpu -v
+pytest tests/test_moondream_worker.py -v
 ```
+Expected: `FAILED` (module not found)
 
-**Step 3 - GREEN:** Implement model loading
+**Step 3 - GREEN:** Create worker subprocess
 
 ```python
-# src/syncopaid/moondream_engine.py (replace class)
-"""Moondream 2 vision engine for CPU-friendly screenshot analysis.
+# src/syncopaid/moondream_worker.py
+"""Moondream 2 worker subprocess for screenshot analysis.
 
-Implements the VisionEngine interface using Moondream 2, a 3.85GB
-vision language model that runs on CPU with float32 precision.
+This script runs as a separate process, loading the 3.85GB model into RAM.
+It communicates with the main SyncoPaid app via JSON over stdin/stdout.
 
-Model: Mharbulous/moondream2-syncopaid (frozen from vikhyatk/moondream2, Apache 2.0 license)
-Requirements: 8GB RAM minimum, ~25 second inference on CPU
+Usage: python -m syncopaid.moondream_worker
+Protocol:
+  Request:  {"action": "analyze", "image_path": "/path/to/image.png"}
+  Response: {"status": "success", "result": {...}} or {"status": "error", "message": "..."}
 """
+import sys
+import json
 import logging
-from typing import Optional
 from pathlib import Path
+from typing import Optional, Dict, Any
 
 try:
     import torch
     from transformers import AutoModelForCausalLM
-    TRANSFORMERS_AVAILABLE = True
+    from PIL import Image
+    DEPENDENCIES_AVAILABLE = True
 except ImportError:
-    TRANSFORMERS_AVAILABLE = False
-    torch = None
-    AutoModelForCausalLM = None
-
-from syncopaid.vision_engine import VisionEngine, AnalysisResult
-
+    DEPENDENCIES_AVAILABLE = False
 
 # Frozen copy of vikhyatk/moondream2 tag 2025-06-21
 MODEL_ID = "Mharbulous/moondream2-syncopaid"
+MODEL_REVISION = "2025-06-21"
 
 
-class MoondreamEngine(VisionEngine):
-    """Moondream 2 vision engine for CPU screenshot analysis."""
+def parse_request(line: str) -> Dict[str, Any]:
+    """Parse JSON request from stdin."""
+    return json.loads(line.strip())
 
-    name = "moondream2"
+
+def format_response(result: Dict[str, Any], error: Optional[str] = None) -> str:
+    """Format response as JSON for stdout."""
+    if error:
+        return json.dumps({"status": "error", "message": error})
+    return json.dumps({"status": "success", "result": result})
+
+
+class MoondreamWorker:
+    """Worker that loads model and processes analysis requests."""
 
     def __init__(self):
-        """Initialize engine without loading model."""
         self._model = None
-        self._loaded = False
         self._device = None
         self._dtype = None
+        self._loaded = False
 
-    def _load_model(self) -> None:
-        """Load Moondream 2 model with appropriate settings for CPU/GPU."""
+    def load_model(self) -> None:
+        """Load Moondream 2 model with CPU/GPU detection."""
         if self._loaded:
             return
 
-        if not TRANSFORMERS_AVAILABLE:
-            raise RuntimeError("transformers library not installed")
+        if not DEPENDENCIES_AVAILABLE:
+            raise RuntimeError("Required dependencies not installed")
 
-        # Detect hardware and set appropriate dtype
+        # Detect hardware
         use_cuda = torch.cuda.is_available()
         self._device = "cuda" if use_cuda else "cpu"
         self._dtype = torch.float16 if use_cuda else torch.float32
 
-        logging.info(f"Loading Moondream 2 on {self._device} with {self._dtype}")
+        logging.info(f"Loading Moondream 2 on {self._device}")
 
-        # Load model with pinned revision
         load_kwargs = {
             "revision": MODEL_REVISION,
             "trust_remote_code": True,
@@ -278,117 +320,218 @@ class MoondreamEngine(VisionEngine):
             self._model = self._model.to(self._device)
 
         self._loaded = True
-        logging.info("Moondream 2 model loaded successfully")
+        logging.info("Model loaded successfully")
 
-    def analyze(self, image_path: Path) -> AnalysisResult:
+    def analyze(self, image_path: str) -> Dict[str, Any]:
         """Analyze screenshot and return structured result."""
-        raise NotImplementedError("Analyze not yet implemented")
+        if not self._loaded:
+            self.load_model()
 
-    def is_available(self) -> bool:
-        """Check if engine dependencies are available."""
-        return TRANSFORMERS_AVAILABLE
+        image = Image.open(image_path)
+        encoded = self._model.encode_image(image)
+
+        prompt = (
+            "Describe what the user is doing on this screen. "
+            "Focus on: application, activity type, visible document names."
+        )
+        response = self._model.query(encoded, prompt)
+        raw_output = response.get("answer", "")
+
+        return {
+            "description": raw_output[:200],
+            "activity_type": self._classify_activity(raw_output),
+            "confidence": min(0.9, 0.5 + len(raw_output) / 200),
+            "raw_output": raw_output
+        }
+
+    def _classify_activity(self, text: str) -> str:
+        """Classify activity type from model output."""
+        text_lower = text.lower()
+        if any(w in text_lower for w in ["email", "outlook", "mail"]):
+            return "email"
+        if any(w in text_lower for w in ["document", "word", "editing"]):
+            return "document_editing"
+        if any(w in text_lower for w in ["browser", "chrome", "web"]):
+            return "web_browsing"
+        if any(w in text_lower for w in ["research", "westlaw", "canlii"]):
+            return "legal_research"
+        return "general"
+
+
+def main():
+    """Main loop: read requests from stdin, write responses to stdout."""
+    logging.basicConfig(level=logging.INFO, stream=sys.stderr)
+    worker = MoondreamWorker()
+
+    # Signal ready
+    print(json.dumps({"status": "ready"}), flush=True)
+
+    for line in sys.stdin:
+        try:
+            request = parse_request(line)
+            action = request.get("action")
+
+            if action == "analyze":
+                result = worker.analyze(request["image_path"])
+                print(format_response(result), flush=True)
+            elif action == "quit":
+                break
+            else:
+                print(format_response(None, f"Unknown action: {action}"), flush=True)
+
+        except Exception as e:
+            print(format_response(None, str(e)), flush=True)
+
+
+if __name__ == "__main__":
+    main()
 ```
 
 **Step 4 - Verify GREEN:**
 ```bash
-pytest tests/test_moondream_engine.py -v
+pytest tests/test_moondream_worker.py -v
 ```
 
 ---
 
-### Task 3: Implement Image Encoding Cache (~4 min)
+### Task 3: Implement Worker Spawning and Communication (~5 min)
 
 **Files:**
 - Modify: `tests/test_moondream_engine.py`
 - Modify: `src/syncopaid/moondream_engine.py`
 
-**Context:** Moondream's encode_image() is expensive. Caching encoded images allows multiple queries per screenshot without re-encoding. Cache keyed by image path, cleared on analyze() completion.
+**Context:** MoondreamEngine spawns the worker subprocess on first analysis request. It communicates via JSON over stdin/stdout pipes. The worker stays alive for subsequent requests until explicitly killed.
 
 **Step 1 - RED:** Add failing tests
 
 ```python
 # tests/test_moondream_engine.py (add to existing file)
 
-def test_moondream_engine_image_cache_init():
-    """MoondreamEngine initializes with empty image cache."""
-    engine = MoondreamEngine()
-    assert engine._image_cache == {}
-
-
-@patch('syncopaid.moondream_engine.Image')
-@patch('syncopaid.moondream_engine.torch')
-@patch('syncopaid.moondream_engine.AutoModelForCausalLM')
-def test_moondream_engine_encode_image_cached(mock_model_class, mock_torch, mock_pil):
-    """MoondreamEngine caches encoded images."""
-    mock_torch.cuda.is_available.return_value = False
-    mock_torch.float32 = 'float32'
-    mock_model = MagicMock()
-    mock_model.encode_image.return_value = "encoded_tensor"
-    mock_model_class.from_pretrained.return_value = mock_model
-    mock_image = MagicMock()
-    mock_pil.open.return_value = mock_image
+@patch('syncopaid.moondream_engine.subprocess.Popen')
+def test_moondream_engine_spawns_worker(mock_popen):
+    """MoondreamEngine spawns worker subprocess on first analyze call."""
+    mock_process = MagicMock()
+    mock_process.stdout.readline.return_value = '{"status": "ready"}\n'
+    mock_popen.return_value = mock_process
 
     engine = MoondreamEngine()
-    engine._load_model()
+    engine._ensure_worker_running()
 
-    # First call should encode
-    result1 = engine._get_encoded_image(Path("/test/image.png"))
-    assert mock_model.encode_image.call_count == 1
+    mock_popen.assert_called_once()
+    assert engine._worker_running is True
 
-    # Second call should use cache
-    result2 = engine._get_encoded_image(Path("/test/image.png"))
-    assert mock_model.encode_image.call_count == 1  # No additional call
-    assert result1 == result2
+
+@patch('syncopaid.moondream_engine.subprocess.Popen')
+def test_moondream_engine_reuses_worker(mock_popen):
+    """MoondreamEngine reuses existing worker for subsequent calls."""
+    mock_process = MagicMock()
+    mock_process.stdout.readline.return_value = '{"status": "ready"}\n'
+    mock_popen.return_value = mock_process
+
+    engine = MoondreamEngine()
+    engine._ensure_worker_running()
+    engine._ensure_worker_running()
+
+    # Should only spawn once
+    assert mock_popen.call_count == 1
+
+
+def test_moondream_engine_kill_worker():
+    """MoondreamEngine can kill worker to reclaim memory."""
+    engine = MoondreamEngine()
+    engine._worker_process = MagicMock()
+    engine._worker_running = True
+
+    result = engine.kill_worker()
+
+    assert result is True
+    assert engine._worker_running is False
+    engine._worker_process.terminate.assert_called_once()
 ```
 
 **Step 2 - Verify RED:**
 ```bash
-pytest tests/test_moondream_engine.py::test_moondream_engine_encode_image_cached -v
+pytest tests/test_moondream_engine.py::test_moondream_engine_spawns_worker -v
 ```
 
-**Step 3 - GREEN:** Implement image cache
+**Step 3 - GREEN:** Implement worker spawning
 
 ```python
-# src/syncopaid/moondream_engine.py (add imports and update class)
+# src/syncopaid/moondream_engine.py (update class with worker management)
 
-# Add to imports:
-from PIL import Image
+import sys
+import subprocess
+import json
+import logging
+from typing import Optional
+from pathlib import Path
 
-# Update __init__:
-def __init__(self):
-    """Initialize engine without loading model."""
-    self._model = None
-    self._loaded = False
-    self._device = None
-    self._dtype = None
-    self._image_cache = {}
+from syncopaid.vision_engine import VisionEngine, AnalysisResult
 
-# Add method:
-def _get_encoded_image(self, image_path: Path):
-    """Get encoded image, using cache if available.
 
-    Args:
-        image_path: Path to image file
+class MoondreamEngine(VisionEngine):
+    """Moondream 2 vision engine using subprocess worker."""
 
-    Returns:
-        Encoded image tensor for queries
-    """
-    cache_key = str(image_path)
+    name = "moondream2"
 
-    if cache_key in self._image_cache:
-        return self._image_cache[cache_key]
+    def __init__(self):
+        """Initialize engine without spawning worker."""
+        self._worker_process: Optional[subprocess.Popen] = None
+        self._worker_running = False
 
-    # Load and encode image
-    image = Image.open(image_path)
-    encoded = self._model.encode_image(image)
+    def _ensure_worker_running(self) -> None:
+        """Spawn worker subprocess if not already running."""
+        if self._worker_running:
+            return
 
-    # Cache for reuse
-    self._image_cache[cache_key] = encoded
-    return encoded
+        worker_script = Path(__file__).parent / "moondream_worker.py"
 
-def _clear_cache(self) -> None:
-    """Clear the image encoding cache."""
-    self._image_cache.clear()
+        self._worker_process = subprocess.Popen(
+            [sys.executable, str(worker_script)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1
+        )
+
+        # Wait for ready signal
+        ready_line = self._worker_process.stdout.readline()
+        ready = json.loads(ready_line)
+
+        if ready.get("status") != "ready":
+            raise RuntimeError(f"Worker failed to start: {ready}")
+
+        self._worker_running = True
+        logging.info("Moondream worker subprocess started")
+
+    def _send_request(self, request: dict) -> dict:
+        """Send request to worker and get response."""
+        self._ensure_worker_running()
+
+        # Send request
+        self._worker_process.stdin.write(json.dumps(request) + "\n")
+        self._worker_process.stdin.flush()
+
+        # Read response
+        response_line = self._worker_process.stdout.readline()
+        return json.loads(response_line)
+
+    def kill_worker(self) -> bool:
+        """Kill worker process to reclaim memory."""
+        if self._worker_process and self._worker_running:
+            self._worker_process.terminate()
+            self._worker_process.wait()
+            self._worker_process = None
+            self._worker_running = False
+            logging.info("Moondream worker killed, memory reclaimed")
+            return True
+        return False
+
+    def is_available(self) -> bool:
+        """Check if worker script exists."""
+        worker_path = Path(__file__).parent / "moondream_worker.py"
+        return worker_path.exists()
 ```
 
 **Step 4 - Verify GREEN:**
@@ -398,13 +541,13 @@ pytest tests/test_moondream_engine.py -v
 
 ---
 
-### Task 4: Implement analyze() Method (~5 min)
+### Task 4: Implement analyze() via Worker Communication (~4 min)
 
 **Files:**
 - Modify: `tests/test_moondream_engine.py`
 - Modify: `src/syncopaid/moondream_engine.py`
 
-**Context:** The analyze() method loads the image, encodes it, runs the query, and parses the response into AnalysisResult. It must handle the legal context prompt to extract activity type, description, and confidence.
+**Context:** The analyze() method sends an analysis request to the worker subprocess and converts the JSON response to an AnalysisResult. Error handling ensures graceful degradation.
 
 **Step 1 - RED:** Add failing tests
 
@@ -413,44 +556,41 @@ pytest tests/test_moondream_engine.py -v
 from syncopaid.vision_engine import AnalysisResult
 from pathlib import Path
 
-@patch('syncopaid.moondream_engine.Image')
-@patch('syncopaid.moondream_engine.torch')
-@patch('syncopaid.moondream_engine.AutoModelForCausalLM')
-def test_moondream_engine_analyze_returns_result(mock_model_class, mock_torch, mock_pil):
-    """MoondreamEngine.analyze() returns AnalysisResult."""
-    mock_torch.cuda.is_available.return_value = False
-    mock_torch.float32 = 'float32'
-    mock_model = MagicMock()
-    mock_model.encode_image.return_value = "encoded"
-    mock_model.query.return_value = {"answer": "User is editing a legal document in Microsoft Word"}
-    mock_model_class.from_pretrained.return_value = mock_model
-    mock_pil.open.return_value = MagicMock()
+@patch('syncopaid.moondream_engine.subprocess.Popen')
+def test_moondream_engine_analyze_returns_result(mock_popen):
+    """MoondreamEngine.analyze() returns AnalysisResult from worker."""
+    mock_process = MagicMock()
+    mock_process.stdout.readline.side_effect = [
+        '{"status": "ready"}\n',
+        '{"status": "success", "result": {"description": "User editing Word", "activity_type": "document_editing", "confidence": 0.85, "raw_output": "User editing Word doc"}}\n'
+    ]
+    mock_popen.return_value = mock_process
 
     engine = MoondreamEngine()
     result = engine.analyze(Path("/test/screenshot.png"))
 
     assert isinstance(result, AnalysisResult)
-    assert result.raw_output == "User is editing a legal document in Microsoft Word"
-    assert result.confidence > 0
+    assert result.description == "User editing Word"
+    assert result.activity_type == "document_editing"
+    assert result.confidence == 0.85
 
 
-@patch('syncopaid.moondream_engine.Image')
-@patch('syncopaid.moondream_engine.torch')
-@patch('syncopaid.moondream_engine.AutoModelForCausalLM')
-def test_moondream_engine_analyze_clears_cache(mock_model_class, mock_torch, mock_pil):
-    """MoondreamEngine.analyze() clears cache after completion."""
-    mock_torch.cuda.is_available.return_value = False
-    mock_torch.float32 = 'float32'
-    mock_model = MagicMock()
-    mock_model.encode_image.return_value = "encoded"
-    mock_model.query.return_value = {"answer": "Test output"}
-    mock_model_class.from_pretrained.return_value = mock_model
-    mock_pil.open.return_value = MagicMock()
+@patch('syncopaid.moondream_engine.subprocess.Popen')
+def test_moondream_engine_analyze_handles_worker_error(mock_popen):
+    """MoondreamEngine.analyze() handles worker errors gracefully."""
+    mock_process = MagicMock()
+    mock_process.stdout.readline.side_effect = [
+        '{"status": "ready"}\n',
+        '{"status": "error", "message": "Model failed to load"}\n'
+    ]
+    mock_popen.return_value = mock_process
 
     engine = MoondreamEngine()
-    engine.analyze(Path("/test/image.png"))
+    result = engine.analyze(Path("/test/screenshot.png"))
 
-    assert engine._image_cache == {}
+    assert isinstance(result, AnalysisResult)
+    assert result.confidence == 0.0
+    assert "error" in result.description.lower() or "failed" in result.raw_output.lower()
 ```
 
 **Step 2 - Verify RED:**
@@ -461,16 +601,10 @@ pytest tests/test_moondream_engine.py::test_moondream_engine_analyze_returns_res
 **Step 3 - GREEN:** Implement analyze()
 
 ```python
-# src/syncopaid/moondream_engine.py (replace analyze method)
-
-ANALYSIS_PROMPT = """Describe what the user is doing on this computer screen.
-Focus on: the application being used, the type of work activity (e.g., document editing,
-email, web browsing, legal research), and any visible document or file names.
-Keep the description concise, under 50 words."""
-
+# src/syncopaid/moondream_engine.py (add analyze method to class)
 
 def analyze(self, image_path: Path) -> AnalysisResult:
-    """Analyze screenshot and return structured result.
+    """Analyze screenshot via worker subprocess.
 
     Args:
         image_path: Path to screenshot image file
@@ -479,20 +613,29 @@ def analyze(self, image_path: Path) -> AnalysisResult:
         AnalysisResult with description, activity type, and confidence
     """
     try:
-        # Ensure model is loaded
-        self._load_model()
+        response = self._send_request({
+            "action": "analyze",
+            "image_path": str(image_path)
+        })
 
-        # Get encoded image (cached)
-        encoded = self._get_encoded_image(image_path)
-
-        # Query the model
-        response = self._model.query(encoded, ANALYSIS_PROMPT)
-        raw_output = response.get("answer", "")
-
-        # Parse response into structured result
-        result = self._parse_response(raw_output)
-
-        return result
+        if response.get("status") == "success":
+            result = response["result"]
+            return AnalysisResult(
+                description=result["description"],
+                activity_type=result["activity_type"],
+                confidence=result["confidence"],
+                raw_output=result["raw_output"]
+            )
+        else:
+            # Worker returned an error
+            error_msg = response.get("message", "Unknown error")
+            logging.error(f"Worker analysis failed: {error_msg}")
+            return AnalysisResult(
+                description="Analysis failed",
+                activity_type="unknown",
+                confidence=0.0,
+                raw_output=error_msg
+            )
 
     except Exception as e:
         logging.error(f"Moondream analysis failed: {e}")
@@ -502,43 +645,6 @@ def analyze(self, image_path: Path) -> AnalysisResult:
             confidence=0.0,
             raw_output=str(e)
         )
-    finally:
-        # Clear cache after analysis completes
-        self._clear_cache()
-
-def _parse_response(self, raw_output: str) -> AnalysisResult:
-    """Parse model output into structured AnalysisResult.
-
-    Args:
-        raw_output: Raw text from model
-
-    Returns:
-        Structured AnalysisResult
-    """
-    # Extract activity type from common keywords
-    activity_type = "general"
-    raw_lower = raw_output.lower()
-
-    if any(word in raw_lower for word in ["email", "outlook", "mail"]):
-        activity_type = "email"
-    elif any(word in raw_lower for word in ["document", "word", "editing", "writing"]):
-        activity_type = "document_editing"
-    elif any(word in raw_lower for word in ["browser", "chrome", "firefox", "web"]):
-        activity_type = "web_browsing"
-    elif any(word in raw_lower for word in ["research", "westlaw", "canlii", "legal"]):
-        activity_type = "legal_research"
-    elif any(word in raw_lower for word in ["excel", "spreadsheet"]):
-        activity_type = "spreadsheet"
-
-    # Confidence based on response length and specificity
-    confidence = min(0.9, 0.5 + len(raw_output) / 200)
-
-    return AnalysisResult(
-        description=raw_output[:200],  # Truncate long descriptions
-        activity_type=activity_type,
-        confidence=confidence,
-        raw_output=raw_output
-    )
 ```
 
 **Step 4 - Verify GREEN:**
@@ -548,113 +654,88 @@ pytest tests/test_moondream_engine.py -v
 
 ---
 
-### Task 5: Implement OOM Error Handling (~3 min)
+### Task 5: Handle Worker OOM and Restart (~3 min)
 
 **Files:**
 - Modify: `tests/test_moondream_engine.py`
 - Modify: `src/syncopaid/moondream_engine.py`
 
-**Context:** On systems with low RAM, model loading or inference may trigger OOM. Graceful fallback returns a failed AnalysisResult with helpful error message instead of crashing.
+**Context:** The worker may crash due to OOM when loading the model. The engine should detect this, report a graceful error, and allow restarting the worker.
 
 **Step 1 - RED:** Add failing tests
 
 ```python
 # tests/test_moondream_engine.py (add to existing file)
 
-@patch('syncopaid.moondream_engine.torch')
-@patch('syncopaid.moondream_engine.AutoModelForCausalLM')
-def test_moondream_engine_handles_oom_on_load(mock_model_class, mock_torch):
-    """MoondreamEngine handles OOM during model loading."""
-    mock_torch.cuda.is_available.return_value = False
-    mock_torch.float32 = 'float32'
-    mock_model_class.from_pretrained.side_effect = RuntimeError("CUDA out of memory")
+@patch('syncopaid.moondream_engine.subprocess.Popen')
+def test_moondream_engine_handles_worker_crash(mock_popen):
+    """MoondreamEngine handles worker crash gracefully."""
+    mock_process = MagicMock()
+    mock_process.stdout.readline.side_effect = [
+        '{"status": "ready"}\n',
+        ''  # Empty line indicates process died
+    ]
+    mock_process.poll.return_value = 1  # Non-zero exit code
+    mock_popen.return_value = mock_process
 
     engine = MoondreamEngine()
+    result = engine.analyze(Path("/test/screenshot.png"))
 
-    with pytest.raises(MemoryError) as exc_info:
-        engine._load_model()
-
-    assert "insufficient memory" in str(exc_info.value).lower()
-
-
-@patch('syncopaid.moondream_engine.Image')
-@patch('syncopaid.moondream_engine.torch')
-@patch('syncopaid.moondream_engine.AutoModelForCausalLM')
-def test_moondream_engine_analyze_handles_oom(mock_model_class, mock_torch, mock_pil):
-    """MoondreamEngine.analyze() returns graceful result on OOM."""
-    mock_torch.cuda.is_available.return_value = False
-    mock_torch.float32 = 'float32'
-    mock_model = MagicMock()
-    mock_model.encode_image.side_effect = RuntimeError("out of memory")
-    mock_model_class.from_pretrained.return_value = mock_model
-    mock_pil.open.return_value = MagicMock()
-
-    engine = MoondreamEngine()
-    result = engine.analyze(Path("/test/image.png"))
-
+    assert isinstance(result, AnalysisResult)
     assert result.confidence == 0.0
-    assert "memory" in result.raw_output.lower() or "failed" in result.description.lower()
+    assert engine._worker_running is False  # Worker marked as not running
+
+
+@patch('syncopaid.moondream_engine.subprocess.Popen')
+def test_moondream_engine_restarts_after_crash(mock_popen):
+    """MoondreamEngine can restart worker after crash."""
+    mock_process = MagicMock()
+    mock_process.stdout.readline.return_value = '{"status": "ready"}\n'
+    mock_popen.return_value = mock_process
+
+    engine = MoondreamEngine()
+    engine._worker_running = False  # Simulate previous crash
+
+    engine._ensure_worker_running()
+
+    assert mock_popen.called
+    assert engine._worker_running is True
 ```
 
 **Step 2 - Verify RED:**
 ```bash
-pytest tests/test_moondream_engine.py::test_moondream_engine_handles_oom_on_load -v
+pytest tests/test_moondream_engine.py::test_moondream_engine_handles_worker_crash -v
 ```
 
-**Step 3 - GREEN:** Add OOM handling
+**Step 3 - GREEN:** Add crash detection and restart logic
 
 ```python
-# src/syncopaid/moondream_engine.py (update _load_model)
+# src/syncopaid/moondream_engine.py (update _send_request method)
 
-def _load_model(self) -> None:
-    """Load Moondream 2 model with appropriate settings for CPU/GPU.
-
-    Raises:
-        MemoryError: If system has insufficient memory to load model
-        RuntimeError: If transformers library not available
-    """
-    if self._loaded:
-        return
-
-    if not TRANSFORMERS_AVAILABLE:
-        raise RuntimeError("transformers library not installed")
-
-    # Detect hardware and set appropriate dtype
-    use_cuda = torch.cuda.is_available()
-    self._device = "cuda" if use_cuda else "cpu"
-    self._dtype = torch.float16 if use_cuda else torch.float32
-
-    logging.info(f"Loading Moondream 2 on {self._device} with {self._dtype}")
+def _send_request(self, request: dict) -> dict:
+    """Send request to worker and get response."""
+    self._ensure_worker_running()
 
     try:
-        # Load model with pinned revision
-        load_kwargs = {
-            "revision": MODEL_REVISION,
-            "trust_remote_code": True,
-            "torch_dtype": self._dtype,
-        }
+        # Send request
+        self._worker_process.stdin.write(json.dumps(request) + "\n")
+        self._worker_process.stdin.flush()
 
-        if use_cuda:
-            load_kwargs["device_map"] = {"": "cuda"}
+        # Read response
+        response_line = self._worker_process.stdout.readline()
 
-        self._model = AutoModelForCausalLM.from_pretrained(
-            MODEL_ID,
-            **load_kwargs
-        )
+        if not response_line:
+            # Worker died unexpectedly
+            self._worker_running = False
+            exit_code = self._worker_process.poll()
+            raise RuntimeError(f"Worker crashed (exit code: {exit_code})")
 
-        if not use_cuda:
-            self._model = self._model.to(self._device)
+        return json.loads(response_line)
 
-        self._loaded = True
-        logging.info("Moondream 2 model loaded successfully")
-
-    except RuntimeError as e:
-        if "out of memory" in str(e).lower() or "cuda" in str(e).lower():
-            raise MemoryError(
-                f"Insufficient memory to load Moondream 2. "
-                f"Requires 8GB RAM minimum. Error: {e}"
-            ) from e
-        raise
+    except (BrokenPipeError, OSError) as e:
+        # Worker process died
+        self._worker_running = False
+        raise RuntimeError(f"Worker communication failed: {e}") from e
 ```
 
 **Step 4 - Verify GREEN:**
@@ -833,9 +914,11 @@ python -m pytest tests/test_moondream_engine.py -v
 ## Acceptance Criteria Checklist
 
 - [ ] `pytest tests/test_moondream_engine.py -v` passes
-- [ ] Model loads on CPU with float32
-- [ ] Model loads on GPU with float16 (if available)
-- [ ] Image encoding is cached for multiple queries
+- [ ] `pytest tests/test_moondream_worker.py -v` passes
+- [ ] Worker subprocess spawns on demand
+- [ ] Worker loads model with float32 on CPU, float16 on GPU
+- [ ] Worker can be killed to reclaim 4GB+ RAM
+- [ ] Engine handles worker crashes gracefully
 - [ ] OOM errors produce graceful AnalysisResult
 - [ ] Engine is registered in vision_engine registry
 - [ ] License attribution method exists
@@ -845,16 +928,18 @@ python -m pytest tests/test_moondream_engine.py -v
 
 ## Notes for Implementer
 
-1. **Model Download**: First run will download ~3.85GB model from HuggingFace. Consider implementing progress indicator.
+1. **Subprocess Architecture**: MoondreamEngine spawns a separate worker process to load the model. This keeps the main app lightweight (~50MB) and allows killing the worker to reclaim 4GB+ RAM when not needed.
 
-2. **Cache Location**: Model caches to `~/.cache/huggingface/` by default. Story 14.5 will handle custom cache paths.
+2. **Model Download**: First run will download ~7.6GB from HuggingFace (full repository; ~3.85GB model weights loaded into RAM). Story 14.5 handles progress indicator and custom cache paths.
 
-3. **Dependencies**: Ensure these are in requirements.txt:
+3. **Worker Communication**: Uses JSON over stdin/stdout. The worker signals "ready" when model is loaded, then processes analyze requests.
+
+4. **Dependencies**: Ensure these are in requirements.txt:
    - transformers>=4.41.0
    - torch>=2.0.0
    - einops
    - pillow
 
-4. **Testing Without GPU**: All tests mock CUDA detection. Real GPU testing optional.
+5. **Testing Without GPU**: All tests mock CUDA detection and subprocess.Popen. Real GPU testing optional.
 
-5. **Privacy**: No network calls occur during inference - model runs entirely offline after initial download.
+6. **Privacy**: No network calls occur during inference - model runs entirely offline after initial download.

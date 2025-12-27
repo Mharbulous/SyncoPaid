@@ -5,7 +5,8 @@
 This checklist covers integrating Moondream 2 as the local AI engine for screenshot analysis in SyncoPaid. The model runs entirely on-device, ensuring attorney-client privilege compliance.
 
 **Key specs:**
-- Model size: 3.85GB
+- Model weights: ~3.85GB (loaded into RAM)
+- Full repository: ~7.6GB (download size including code, tokenizer, configs)
 - Inference speed: 7-25 seconds (CPU) / sub-second (GPU)
 - Minimum RAM: 8GB
 - License: Apache 2.0 (commercial use permitted)

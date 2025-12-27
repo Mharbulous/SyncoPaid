@@ -26,7 +26,7 @@
 
 **Acceptance Criteria:**
 - [ ] Model downloads to app data directory (not HuggingFace default cache)
-- [ ] Progress indicator during ~4GB download
+- [ ] Progress indicator during ~7.6GB download (full repository)
 - [ ] Pinned model revision for reproducibility
 - [ ] Cache clearing utility for troubleshooting
 - [ ] Offline detection with clear error message
@@ -317,12 +317,12 @@ def test_model_info_dataclass():
     from syncopaid.model_downloader import ModelInfo
 
     info = ModelInfo(
-        model_id="vikhyatk/moondream2",
+        model_id="Mharbulous/moondream2-syncopaid",
         revision="2025-06-21",
         size_bytes=3_850_000_000,
         is_downloaded=False
     )
-    assert info.model_id == "vikhyatk/moondream2"
+    assert info.model_id == "Mharbulous/moondream2-syncopaid"
     assert info.size_bytes == 3_850_000_000
     assert info.size_gb == pytest.approx(3.58, rel=0.1)
 
@@ -331,20 +331,20 @@ def test_is_model_downloaded_false_when_not_exists(tmp_path):
     """is_model_downloaded returns False when model not in cache."""
     downloader = ModelDownloader(cache_dir=tmp_path)
 
-    result = downloader.is_model_downloaded("vikhyatk/moondream2")
+    result = downloader.is_model_downloaded("Mharbulous/moondream2-syncopaid")
     assert result is False
 
 
 def test_is_model_downloaded_true_when_exists(tmp_path):
     """is_model_downloaded returns True when model in cache."""
     # Create marker file that huggingface_hub uses
-    model_dir = tmp_path / "models--vikhyatk--moondream2"
+    model_dir = tmp_path / "models--Mharbulous--moondream2-syncopaid"
     model_dir.mkdir(parents=True)
     (model_dir / "refs" / "main").parent.mkdir(parents=True)
     (model_dir / "refs" / "main").write_text("abc123")
 
     downloader = ModelDownloader(cache_dir=tmp_path)
-    result = downloader.is_model_downloaded("vikhyatk/moondream2")
+    result = downloader.is_model_downloaded("Mharbulous/moondream2-syncopaid")
     assert result is True
 ```
 
@@ -364,7 +364,7 @@ class ModelInfo:
     """Metadata about a downloadable model.
 
     Attributes:
-        model_id: HuggingFace model ID (e.g., "vikhyatk/moondream2")
+        model_id: HuggingFace model ID (e.g., "Mharbulous/moondream2-syncopaid")
         revision: Git revision/tag for pinned version
         size_bytes: Approximate download size in bytes
         is_downloaded: Whether model is already in cache
@@ -431,13 +431,13 @@ def test_download_model_calls_snapshot_download(mock_download, tmp_path):
 
     downloader = ModelDownloader(cache_dir=tmp_path)
     result = downloader.download_model(
-        model_id="vikhyatk/moondream2",
+        model_id="Mharbulous/moondream2-syncopaid",
         revision="2025-06-21"
     )
 
     mock_download.assert_called_once()
     call_kwargs = mock_download.call_args[1]
-    assert call_kwargs["repo_id"] == "vikhyatk/moondream2"
+    assert call_kwargs["repo_id"] == "Mharbulous/moondream2-syncopaid"
     assert call_kwargs["revision"] == "2025-06-21"
     assert call_kwargs["cache_dir"] == tmp_path
 
@@ -453,7 +453,7 @@ def test_download_model_raises_on_offline(mock_download, tmp_path):
 
     with patch.object(downloader, 'is_online', return_value=False):
         with pytest.raises(OfflineError) as exc_info:
-            downloader.download_model("vikhyatk/moondream2", "2025-06-21")
+            downloader.download_model("Mharbulous/moondream2-syncopaid", "2025-06-21")
 
         assert "offline" in str(exc_info.value).lower()
 
@@ -474,7 +474,7 @@ def test_download_model_invokes_progress_callback(mock_download, tmp_path):
 
     # Note: Real progress comes from huggingface_hub internals
     # This test just verifies callback is wired up
-    downloader.download_model("vikhyatk/moondream2", "2025-06-21")
+    downloader.download_model("Mharbulous/moondream2-syncopaid", "2025-06-21")
 
     mock_download.assert_called_once()
 ```
@@ -767,13 +767,13 @@ git add tests/test_config.py src/syncopaid/config_dataclass.py && git commit -m 
 def test_ensure_model_skips_download_if_exists(mock_download, tmp_path):
     """ensure_model doesn't download if model already cached."""
     # Create marker for existing model
-    model_dir = tmp_path / "models--vikhyatk--moondream2"
+    model_dir = tmp_path / "models--Mharbulous--moondream2-syncopaid"
     model_dir.mkdir(parents=True)
     (model_dir / "refs" / "main").parent.mkdir(parents=True)
     (model_dir / "refs" / "main").write_text("abc123")
 
     downloader = ModelDownloader(cache_dir=tmp_path)
-    result = downloader.ensure_model("vikhyatk/moondream2", "2025-06-21")
+    result = downloader.ensure_model("Mharbulous/moondream2-syncopaid", "2025-06-21")
 
     mock_download.assert_not_called()
     assert result is not None
@@ -785,7 +785,7 @@ def test_ensure_model_downloads_if_missing(mock_download, tmp_path):
     mock_download.return_value = str(tmp_path / "downloaded_model")
 
     downloader = ModelDownloader(cache_dir=tmp_path)
-    result = downloader.ensure_model("vikhyatk/moondream2", "2025-06-21")
+    result = downloader.ensure_model("Mharbulous/moondream2-syncopaid", "2025-06-21")
 
     mock_download.assert_called_once()
 ```
@@ -873,7 +873,7 @@ print(f'Cache size: {dl.get_cache_size_gb():.2f} GB')
 
 ## Notes for Implementer
 
-1. **First Download**: First use downloads ~4GB from HuggingFace. User should see progress.
+1. **First Download**: First use downloads ~7.6GB from HuggingFace (full repository; ~3.85GB model weights). User should see progress.
 
 2. **Progress Integration**: The progress_callback wiring to huggingface_hub's internal progress is complex. Consider using tqdm wrapper if detailed progress needed.
 
