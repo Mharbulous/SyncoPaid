@@ -10,7 +10,8 @@ from syncopaid.config import ConfigManager
 from syncopaid.database import Database
 from syncopaid.exporter import Exporter
 from syncopaid.screenshot import ScreenshotWorker, get_screenshot_directory
-from syncopaid.action_screenshot import ActionScreenshotWorker, get_action_screenshot_directory
+from syncopaid.action_screenshot_worker import ActionScreenshotWorker
+from syncopaid.action_screenshot_capture import get_action_screenshot_directory
 from syncopaid.archiver import ArchiveWorker
 from syncopaid.categorizer import ActivityMatcher
 from syncopaid.tracker import TrackerLoop

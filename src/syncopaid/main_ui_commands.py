@@ -10,7 +10,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 from syncopaid.screenshot import get_screenshot_directory
-from syncopaid.action_screenshot import get_action_screenshot_directory
+from syncopaid.action_screenshot_capture import get_action_screenshot_directory
 from syncopaid.main_ui_utilities import parse_duration_to_seconds
 from syncopaid.database import format_duration
 
