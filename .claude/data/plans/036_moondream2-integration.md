@@ -49,6 +49,7 @@ SyncoPaid.exe (lightweight, ~50MB)
 
 - [ ] Story 14.1 (Local LLM Engine Architecture) must be implemented - provides VisionEngine base class
 - [ ] Story 14.2 (Hardware Detection & Model Selection) must be implemented - provides hardware info
+- [ ] Story 14.5 (Model Download & Cache) must be implemented - see `037_first-run-model-download-cache.md`
 - [ ] venv activated: `venv\Scripts\activate`
 - [ ] Baseline tests pass: `python -m pytest -v`
 
@@ -745,13 +746,116 @@ pytest tests/test_moondream_engine.py -v
 
 ---
 
-### Task 6: Register Engine with Registry (~2 min)
+### Task 6: Integrate Worker with ModelDownloader (~4 min)
+
+**Files:**
+- Modify: `tests/test_moondream_worker.py`
+- Modify: `src/syncopaid/moondream_worker.py`
+
+**Context:** The worker must ensure the model is downloaded before loading. Use ModelDownloader from story 14.5 to check cache and download if needed. This provides proper progress indication and offline detection.
+
+**Step 1 - RED:** Add failing test
+
+```python
+# tests/test_moondream_worker.py (add to existing file)
+
+@patch('syncopaid.moondream_worker.ModelDownloader')
+def test_worker_ensures_model_downloaded(mock_downloader_class):
+    """Worker uses ModelDownloader to ensure model is available."""
+    mock_downloader = MagicMock()
+    mock_downloader.ensure_model.return_value = Path("/cache/model")
+    mock_downloader_class.return_value = mock_downloader
+
+    worker = MoondreamWorker()
+    worker._ensure_model_available()
+
+    mock_downloader.ensure_model.assert_called_once_with(
+        "Mharbulous/moondream2-syncopaid",
+        "2025-06-21"
+    )
+
+
+@patch('syncopaid.moondream_worker.ModelDownloader')
+def test_worker_handles_offline_gracefully(mock_downloader_class):
+    """Worker raises clear error when offline and model not cached."""
+    from syncopaid.model_downloader import OfflineError
+
+    mock_downloader = MagicMock()
+    mock_downloader.ensure_model.side_effect = OfflineError("Network offline")
+    mock_downloader_class.return_value = mock_downloader
+
+    worker = MoondreamWorker()
+
+    with pytest.raises(RuntimeError) as exc_info:
+        worker._ensure_model_available()
+
+    assert "offline" in str(exc_info.value).lower()
+```
+
+**Step 2 - Verify RED:**
+```bash
+pytest tests/test_moondream_worker.py::test_worker_ensures_model_downloaded -v
+```
+
+**Step 3 - GREEN:** Integrate ModelDownloader
+
+```python
+# src/syncopaid/moondream_worker.py (update imports and add method)
+
+from syncopaid.model_downloader import ModelDownloader, OfflineError
+
+# In MoondreamWorker class, add method:
+    def _ensure_model_available(self) -> Path:
+        """Ensure model is downloaded and return cache path.
+
+        Uses ModelDownloader to check cache and download if needed.
+        Provides proper offline detection and progress indication.
+
+        Returns:
+            Path to model in cache
+
+        Raises:
+            RuntimeError: If offline and model not cached
+        """
+        downloader = ModelDownloader()
+
+        try:
+            return downloader.ensure_model(MODEL_ID, MODEL_REVISION)
+        except OfflineError as e:
+            raise RuntimeError(
+                f"Cannot load Moondream 2: {e}. "
+                "Please connect to the internet for first-time model download."
+            ) from e
+
+# Update load_model to call _ensure_model_available:
+    def load_model(self) -> None:
+        """Load Moondream 2 model with CPU/GPU detection."""
+        if self._loaded:
+            return
+
+        if not DEPENDENCIES_AVAILABLE:
+            raise RuntimeError("Required dependencies not installed")
+
+        # Ensure model is downloaded first
+        self._ensure_model_available()
+
+        # ... rest of existing load_model code ...
+```
+
+**Step 4 - Verify GREEN:**
+```bash
+pytest tests/test_moondream_worker.py -v
+```
+
+---
+
+### Task 7: Register Engine with Registry (~2 min)
 
 **Files:**
 - Modify: `tests/test_moondream_engine.py`
 - Modify: `src/syncopaid/vision_engine.py`
 
-**Context:** The VisionEngine registry (from story 14.1) needs to know about MoondreamEngine. Registration happens via decorator or explicit registration.
+**Context:** The VisionEngine registry (from Story 14.1) needs to know about MoondreamEngine. Registration happens via decorator or explicit registration.
 
 **Step 1 - RED:** Add failing test
 
@@ -794,7 +898,7 @@ pytest tests/test_moondream_engine.py -v
 
 ---
 
-### Task 7: Add Config Settings for Moondream (~3 min)
+### Task 8: Add Config Settings for Moondream (~3 min)
 
 **Files:**
 - Modify: `tests/test_config.py`
@@ -841,7 +945,7 @@ pytest tests/test_config.py -v
 
 ---
 
-### Task 8: Add Apache 2.0 License Attribution (~2 min)
+### Task 9: Add Apache 2.0 License Attribution (~2 min)
 
 **Files:**
 - Modify: `src/syncopaid/moondream_engine.py`

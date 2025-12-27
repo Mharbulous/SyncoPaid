@@ -15,6 +15,9 @@
 
 **Tech Stack:** huggingface_hub, tqdm (progress), pathlib, existing config system, config_paths.py for app data location
 
+**Related Plans:**
+- `036_moondream2-integration.md` - Uses ModelDownloader in Task 6 to ensure model is downloaded before worker loads it
+
 ---
 
 ## Story Context
@@ -883,4 +886,4 @@ print(f'Cache size: {dl.get_cache_size_gb():.2f} GB')
 
 5. **Dependencies**: Ensure huggingface_hub is in requirements.txt.
 
-6. **MoondreamEngine Integration**: After this story, update MoondreamEngine._load_model() to use ensure_model() instead of direct HF loading.
+6. **MoondreamEngine Integration**: After this story, the moondream_worker.py subprocess (from `036_moondream2-integration.md`) will use `ModelDownloader.ensure_model()` to download the model on first use. See Task 6 in plan 036.
