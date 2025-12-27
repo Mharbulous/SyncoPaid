@@ -1,1 +1,1 @@
-../../StoryTree/claude/commands/ci-identify-plan.md
+C:/Users/Brahm/Git/StoryTree/claude/commands/ci-identify-plan.md

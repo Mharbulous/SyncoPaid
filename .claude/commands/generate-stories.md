@@ -1,1 +1,1 @@
-../../StoryTree/claude/commands/generate-stories.md
+C:/Users/Brahm/Git/StoryTree/claude/commands/generate-stories.md

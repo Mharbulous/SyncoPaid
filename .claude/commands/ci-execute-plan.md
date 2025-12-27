@@ -1,1 +1,1 @@
-../../StoryTree/claude/commands/ci-execute-plan.md
+C:/Users/Brahm/Git/StoryTree/claude/commands/ci-execute-plan.md

@@ -1,1 +1,1 @@
-../../StoryTree/claude/commands/vet-stories.md
+C:/Users/Brahm/Git/StoryTree/claude/commands/vet-stories.md

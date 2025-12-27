@@ -1,1 +1,1 @@
-../../StoryTree/claude/data/verify_root.py
+C:/Users/Brahm/Git/StoryTree/claude/data/verify_root.py

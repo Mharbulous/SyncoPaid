@@ -1,1 +1,1 @@
-../../StoryTree/claude/commands/synthesize-goals.md
+C:/Users/Brahm/Git/StoryTree/claude/commands/synthesize-goals.md

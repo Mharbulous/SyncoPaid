@@ -1,1 +1,1 @@
-../../StoryTree/claude/commands/plan-story.md
+C:/Users/Brahm/Git/StoryTree/claude/commands/plan-story.md

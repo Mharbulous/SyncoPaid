@@ -115,7 +115,7 @@ jobs:
             |--------|--------|
             | All criteria PASS/SKIP | → `implemented` |
             | Any criterion FAIL | → `verifying` with `hold_reason='broken'` |
-            | All PASS but UNTESTABLE | → `verifying` with `hold_reason='pending'` |
+            | All PASS but UNTESTABLE | → `verifying` with `hold_reason='escalated'` |
 
             ## Step 3: Manual Verification (Fallback)
 

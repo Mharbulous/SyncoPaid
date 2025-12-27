@@ -297,10 +297,10 @@ jobs:
             vet_output_tokens=$(echo "$vet_output" | jq -r '.usage.output_tokens // 0' 2>/dev/null || echo "0")
             vet_cost_usd=$(echo "$vet_output" | jq -r '.total_cost_usd // 0' 2>/dev/null || echo "0")
 
-            # Extract pending count for logging (concepts deferred for human review)
-            pending_count=$(echo "$vet_output" | grep -oP 'pending: \K\d+' || echo "0")
-            if [ "$pending_count" -gt 0 ]; then
-              echo "::warning::$pending_count conflicts need human review (set to pending)"
+            # Extract escalated count for logging (concepts deferred for human review)
+            escalated_count=$(echo "$vet_output" | grep -oP 'escalated: \K\d+' || echo "0")
+            if [ "$escalated_count" -gt 0 ]; then
+              echo "::warning::$escalated_count conflicts need human review (set to escalated)"
             fi
 
             # Get files changed
