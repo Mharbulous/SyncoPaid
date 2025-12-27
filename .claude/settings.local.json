@@ -43,7 +43,8 @@
       "WebSearch",
       "Bash(findstr:*)",
       "Skill(superpowers:writing-skills)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(readlink:*)"
     ]
   }
 }
